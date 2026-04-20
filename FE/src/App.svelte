@@ -1,6 +1,6 @@
 <script>
   import { Route, Router } from '@maks11060/svelte5-router'
-  import { routes } from './lib'
+  import { routes } from './config/routes'
 
   let url = ''
 </script>
