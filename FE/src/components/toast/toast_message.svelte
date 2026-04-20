@@ -14,7 +14,10 @@
 </script>
 
 {#if message}
-  <div class="rounded-lg border px-4 py-3 text-left text-sm font-semibold shadow-sm {tone[type]}" role="status">
+  <div
+    class="rounded-lg border px-4 py-3 text-left text-sm font-semibold shadow-sm {tone[type]}"
+    role="status"
+  >
     {message}
   </div>
 {/if}

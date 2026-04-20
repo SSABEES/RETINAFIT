@@ -1,5 +1,22 @@
 @import 'tailwindcss';
 
+:root {
+  --retinal-primary-900: #26002d;
+  --retinal-primary-800: #3d0048;
+  --retinal-primary-700: #4b0055;
+  --retinal-primary-600: #5b006b;
+  --retinal-primary-500: #65006f;
+  --retinal-accent: #9a1bff;
+  --retinal-surface: #ffffff;
+  --retinal-page: #f7f8fa;
+  --retinal-soft-purple: #f5eaf7;
+  --retinal-text: #111827;
+  --retinal-text-secondary: #667085;
+  --retinal-border: #e5e7eb;
+  --app-frame-width: 1366px;
+  --app-frame-height: 1024px;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -12,7 +29,7 @@ html {
     'Segoe UI',
     sans-serif;
   color: #18181b;
-  background: #ffffff;
+  background: #0b0d1a;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -23,6 +40,11 @@ body {
   min-width: 320px;
   min-height: 100svh;
   margin: 0;
+  background: #0b0d1a;
+}
+
+#app {
+  min-height: 100svh;
 }
 
 button,
@@ -35,4 +57,39 @@ select {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+.app-frame-shell {
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  overflow: auto;
+  background: radial-gradient(circle at 50% 0%, rgba(154, 27, 255, 0.18), transparent 34%), #0b0d1a;
+}
+
+.app-frame {
+  position: relative;
+  width: var(--app-frame-width);
+  height: var(--app-frame-height);
+  flex: none;
+  overflow: hidden;
+  background: var(--retinal-page);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
+}
+
+.app-frame-content {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.app-frame-page {
+  width: 100%;
+  min-height: 100%;
+  height: 100%;
+}
+
+.app-page-scroll {
+  height: 100%;
+  overflow-y: auto;
 }
