@@ -7,5 +7,5 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=TokenResponse)
-def login_staff(payload: LoginRequest) -> TokenResponse:
+def login_store(payload: LoginRequest) -> TokenResponse:
     return login(payload)

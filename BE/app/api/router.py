@@ -7,11 +7,11 @@ from app.modules.fitting.router import router as fitting_router
 from app.modules.glasses.router import router as glasses_router
 from app.modules.recommendations.router import router as recommendations_router
 from app.modules.reports.router import router as reports_router
-from app.modules.staff.router import router as staff_router
+from app.modules.stores.router import router as stores_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
-api_router.include_router(staff_router, prefix="/staff", tags=["staff"])
+api_router.include_router(stores_router, prefix="/stores", tags=["stores"])
 api_router.include_router(customers_router, prefix="/customers", tags=["customers"])
 api_router.include_router(glasses_router, prefix="/glasses", tags=["glasses"])
 api_router.include_router(analysis_router, prefix="/analysis", tags=["analysis"])
