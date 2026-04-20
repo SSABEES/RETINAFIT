@@ -6,12 +6,7 @@
    *   onclick?: ((event: MouseEvent) => void) | undefined,
    * }}
    */
-  let {
-    label = 'Button',
-    icon = '+',
-    disabled = false,
-    onclick = undefined,
-  } = $props()
+  let { label = 'Button', icon = '+', disabled = false, onclick = undefined } = $props()
 </script>
 
 <button
