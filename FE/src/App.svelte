@@ -1,8 +1,8 @@
 <script>
   import { Route, Router } from '@maks11060/svelte5-router'
-  import { routes } from './lib/routes'
+  import { routes } from './config/routes'
 
-  let url = $state('')
+  let url = ''
 </script>
 
 <Router {url}>
