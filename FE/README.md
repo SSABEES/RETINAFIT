@@ -163,7 +163,6 @@ export const ROUTE_PATH = {
 - 반복되는 UI 패턴은 공용 컴포넌트로 분리합니다.
 - 버튼, 입력창, 모달처럼 상태가 있는 컴포넌트는 `disabled`, `loading`, `error`, `open` 등 필요한 상태 표현을 함께 고려합니다.
 
-
 ### Import 규칙
 
 - 같은 기능 안의 짧은 상대 경로는 상대 import를 사용해도 됩니다.

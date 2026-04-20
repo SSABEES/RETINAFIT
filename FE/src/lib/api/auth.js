@@ -9,4 +9,3 @@ export const login = async ({ email, password }) => {
     body: { email, password },
   })
 }
-  

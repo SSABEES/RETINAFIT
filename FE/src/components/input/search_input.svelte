@@ -5,11 +5,7 @@
    *   oninput?: ((event: Event) => void) | undefined,
    * }}
    */
-  let {
-    value = '',
-    placeholder = 'Search',
-    oninput = undefined,
-  } = $props()
+  let { value = '', placeholder = 'Search', oninput = undefined } = $props()
 </script>
 
 <label class="relative block text-left">

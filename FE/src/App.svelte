@@ -5,8 +5,14 @@
   let url = ''
 </script>
 
-<Router {url}>
-  {#each routes as route (route.path)}
-    <Route path={route.path} component={route.component} />
-  {/each}
-</Router>
+<div class="app-frame-shell">
+  <div class="app-frame">
+    <div class="app-frame-content">
+      <Router {url}>
+        {#each routes as route (route.path)}
+          <Route path={route.path} component={route.component} />
+        {/each}
+      </Router>
+    </div>
+  </div>
+</div>
