@@ -3,20 +3,41 @@
   import AuthInput from '../../components/input/auth_input.svelte'
   import PasswordInput from '../../components/input/password_input.svelte'
 
-  let storeId = $state('')
-  let staffId = $state('')
-  let password = $state('')
-  let errorMessage = $state('')
+  let ref_store_id = $state('')
+  let ref_staff_id = $state('')
+  let ref_password = $state('')
+  let g_error_message = $state('')
 
-  const handleLogin = (event) => {
-    event.preventDefault()
+  /** @param {Event} local_event */
+  const get_input_value = (local_event) => {
+    return /** @type {HTMLInputElement} */ (local_event.currentTarget).value
+  }
 
-    if (!storeId.trim() || !staffId.trim() || !password.trim()) {
-      errorMessage = '매장 ID, 직원 ID, 비밀번호를 모두 입력해주세요.'
+  /** @param {Event} local_event */
+  const on_input_store_id = (local_event) => {
+    ref_store_id = get_input_value(local_event)
+  }
+
+  /** @param {Event} local_event */
+  const on_input_staff_id = (local_event) => {
+    ref_staff_id = get_input_value(local_event)
+  }
+
+  /** @param {Event} local_event */
+  const on_input_password = (local_event) => {
+    ref_password = get_input_value(local_event)
+  }
+
+  /** @param {SubmitEvent} local_event */
+  const on_submit_login = (local_event) => {
+    local_event.preventDefault()
+
+    if (!ref_store_id.trim() || !ref_staff_id.trim() || !ref_password.trim()) {
+      g_error_message = '매장 ID, 직원 ID, 비밀번호를 모두 입력해주세요.'
       return
     }
 
-    errorMessage = ''
+    g_error_message = ''
   }
 </script>
 
@@ -40,45 +61,45 @@
 
       <form
         class="w-full rounded-3xl border border-white/10 bg-white/12 p-8 shadow-2xl shadow-black/25 backdrop-blur-md"
-        onsubmit={handleLogin}
+        onsubmit={on_submit_login}
       >
         <div class="grid gap-5">
           <AuthInput
             id="store-id"
             label="매장 ID"
-            value={storeId}
+            value={ref_store_id}
             placeholder="매장 코드를 입력하세요"
             variant="dark"
             required
-            oninput={(event) => (storeId = event.currentTarget.value)}
+            oninput={on_input_store_id}
           />
 
           <AuthInput
             id="staff-id"
             label="직원 ID"
-            value={staffId}
+            value={ref_staff_id}
             placeholder="직원 ID를 입력하세요"
             variant="dark"
             required
-            oninput={(event) => (staffId = event.currentTarget.value)}
+            oninput={on_input_staff_id}
           />
 
           <PasswordInput
             id="password"
             label="비밀번호"
-            value={password}
+            value={ref_password}
             placeholder="비밀번호를 입력하세요"
             variant="dark"
-            oninput={(event) => (password = event.currentTarget.value)}
+            oninput={on_input_password}
           />
         </div>
 
-        {#if errorMessage}
+        {#if g_error_message}
           <p
             class="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
             role="alert"
           >
-            {errorMessage}
+            {g_error_message}
           </p>
         {/if}
 
