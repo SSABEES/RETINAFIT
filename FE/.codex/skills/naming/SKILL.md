@@ -88,13 +88,13 @@ let ref_this_diopter_obj = {
 - 예: `on_click_push_here`, `on_submit_login`, `on_input_store_id`
 
 ```svelte
-<button onclick={on_click_push_here}>여기를 눌러주세요!</button>
-
 <script>
   function on_click_push_here() {
     alert('잘 하셨습니다.')
   }
 </script>
+
+<button onclick={on_click_push_here}>여기를 눌러주세요!</button>
 ```
 
 ## 함수 내부 변수

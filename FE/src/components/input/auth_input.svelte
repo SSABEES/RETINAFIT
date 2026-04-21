@@ -25,12 +25,12 @@
 </script>
 
 <label
-  class={`grid gap-2 text-left text-sm font-semibold ${variant === 'dark' ? 'text-white' : 'text-zinc-800'}`}
+  class={`grid gap-3 text-left text-base font-bold ${variant === 'dark' ? 'text-white/82' : 'text-zinc-800'}`}
   for={id}
 >
   {label}
   <input
-    class="min-h-12 rounded-lg border border-zinc-200 bg-white px-4 text-base text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-violet-500 focus:ring-3 focus:ring-violet-600/15 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500"
+    class={`min-h-14 rounded-xl px-5 text-lg outline-none transition disabled:cursor-not-allowed ${variant === 'dark' ? 'border border-white/12 bg-white/12 text-white placeholder:text-white/36 focus:border-white/30 focus:ring-3 focus:ring-white/10 disabled:bg-white/8 disabled:text-white/36' : 'border border-zinc-200 bg-white text-zinc-900 placeholder:text-zinc-400 focus:border-violet-500 focus:ring-3 focus:ring-violet-600/15 disabled:bg-zinc-100 disabled:text-zinc-500'}`}
     {id}
     {type}
     {value}
