@@ -18,8 +18,6 @@
 <br />
 <Link href={PATH.analysisArFitting}>AR 피팅 페이지로 이동</Link>
 <br />
-<Link href={PATH.dashboard}>대시보드 페이지로 이동</Link>
-<br />
 <Link href={PATH.users}>유저 페이지로 이동</Link>
 <br />
 <Link href={PATH.userDetail(1)}>유저 1 상세 페이지로 이동</Link>
