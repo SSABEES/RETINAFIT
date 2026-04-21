@@ -1,7 +1,9 @@
 <script>
+  import { Link } from '@maks11060/svelte5-router'
   import LoginButton from '../../components/button/login_button.svelte'
   import AuthInput from '../../components/input/auth_input.svelte'
   import PasswordInput from '../../components/input/password_input.svelte'
+  import { PATH } from '../../config/path'
 
   let ref_store_id = $state('')
   let ref_password = $state('')
@@ -42,7 +44,7 @@
     aria-labelledby="login-title"
   >
     <div class="relative z-10 flex w-full max-w-[440px] flex-col items-center">
-      <!-- 로그인 상단 브랜드 로고 영역 -->
+      <!-- 로그인 상단 브랜드 로고와 헤드 영역 -->
       <div class="mb-10 flex flex-col items-center text-center">
         <img
           class="mb-5 h-auto w-[148px] rounded-xl shadow-2xl shadow-black/20"
@@ -51,7 +53,8 @@
           width="900"
           height="900"
         />
-        <h1 id="login-title" class="sr-only">Retin AI 로그인</h1>
+        <h1 id="login-title" class="text-3xl font-extrabold tracking-normal text-white">로그인</h1>
+        <p class="mt-2 text-base font-medium text-white/58">매장 계정으로 접속해주세요</p>
       </div>
 
       <!-- 실제 로그인 입력 카드 -->
@@ -93,12 +96,12 @@
           <LoginButton type="submit" label="로그인" />
         </div>
 
-        <button
-          class="mx-auto mt-7 block w-fit cursor-pointer border-0 bg-transparent p-0 text-base font-bold text-white/72 transition hover:text-white focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/60"
-          type="button"
-        >
-          비밀번호를 잊으셨나요?
-        </button>
+        <p class="mt-7 text-center text-base font-semibold text-white/72">
+          아직 계정이 없으신가요?
+          <span class="auth-action-link">
+            <Link href={PATH.signup}>회원가입</Link>
+          </span>
+        </p>
       </form>
 
       <p class="mt-9 text-base font-medium text-white/42">© 2026 RETINA. All rights reserved.</p>

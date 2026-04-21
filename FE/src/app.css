@@ -59,6 +59,31 @@ a {
   text-decoration: none;
 }
 
+.auth-action-link,
+.auth-action-link a {
+  color: #c77dff !important;
+  font-weight: 800;
+  text-decoration-line: underline !important;
+  text-decoration-color: #c77dff !important;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  transition:
+    color 150ms ease,
+    text-decoration-color 150ms ease;
+}
+
+.auth-action-link:hover,
+.auth-action-link:hover a {
+  color: #ffffff !important;
+  text-decoration-color: #ffffff !important;
+}
+
+.auth-action-link:focus-within {
+  border-radius: 4px;
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 4px;
+}
+
 .app-frame-shell {
   display: grid;
   min-height: 100svh;
