@@ -1,30 +1,71 @@
 <script>
   import { ChevronDown, UserRound } from 'lucide-svelte'
+  import { admin_arr, selected_admin_obj } from '../../lib/stores/admin'
 
-  const admin_arr = [
-    { id: 1, name: '박점장', position: '지점장' },
-    { id: 2, name: '김매니저', position: '매니저' },
-    { id: 3, name: '이관리자', position: '관리자' },
-  ]
-
-  let ref_selected_admin_obj = $state(admin_arr[0])
   let ref_admin_dropdown_open = $state(false)
+  let ref_admin_confirm_modal_open = $state(false)
+  let ref_admin_password = $state('')
+  let ref_admin_password_error = $state('')
+  let ref_pending_admin_obj = $state(null)
 
   function on_click_toggle_admin_dropdown() {
     ref_admin_dropdown_open = !ref_admin_dropdown_open
   }
 
   function on_click_select_admin(admin_obj) {
-    ref_selected_admin_obj = admin_obj
+    ref_admin_dropdown_open = false
+
+    if ($selected_admin_obj.id === admin_obj.id) {
+      return
+    }
+
+    ref_pending_admin_obj = admin_obj
+    ref_admin_password = ''
+    ref_admin_password_error = ''
+    ref_admin_confirm_modal_open = true
+  }
+
+  function on_click_close_admin_dropdown() {
     ref_admin_dropdown_open = false
   }
 
-  function on_blur_admin_dropdown() {
-    ref_admin_dropdown_open = false
+  function on_click_close_admin_confirm_modal() {
+    ref_admin_confirm_modal_open = false
+    ref_pending_admin_obj = null
+    ref_admin_password = ''
+    ref_admin_password_error = ''
+  }
+
+  /** @param {SubmitEvent} local_event */
+  function on_submit_admin_confirm(local_event) {
+    local_event.preventDefault()
+
+    if (!ref_pending_admin_obj) {
+      return
+    }
+
+    if (ref_admin_password.length !== 4) {
+      ref_admin_password_error = '비밀번호 4자리를 입력해주세요.'
+      return
+    }
+
+    if (ref_admin_password !== ref_pending_admin_obj.password) {
+      ref_admin_password_error = '비밀번호가 일치하지 않습니다.'
+      return
+    }
+
+    selected_admin_obj.set(ref_pending_admin_obj)
+    on_click_close_admin_confirm_modal()
   }
 </script>
 
-<div class="relative w-[190px]" onfocusout={on_blur_admin_dropdown}>
+<svelte:window onclick={on_click_close_admin_dropdown} />
+
+<div
+  class="relative w-[190px]"
+  role="presentation"
+  onclick={(local_event) => local_event.stopPropagation()}
+>
   <button
     class="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 text-left transition hover:border-[#4B0055]/30 hover:bg-[#F8F1F8] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/25"
     type="button"
@@ -40,10 +81,10 @@
       </span>
       <span class="min-w-0">
         <span class="block truncate text-sm font-extrabold text-zinc-950">
-          {ref_selected_admin_obj.name}
+          {$selected_admin_obj.name}
         </span>
         <span class="block truncate text-xs font-bold text-slate-500">
-          {ref_selected_admin_obj.position}
+          {$selected_admin_obj.position}
         </span>
       </span>
     </span>
@@ -61,16 +102,16 @@
       role="listbox"
       aria-label="관리자 선택"
     >
-      {#each admin_arr as admin_obj (admin_obj.id)}
+      {#each $admin_arr as admin_obj (admin_obj.id)}
         <button
           class={`flex min-h-12 w-full cursor-pointer items-center gap-3 border-0 px-4 text-left transition ${
-            ref_selected_admin_obj.id === admin_obj.id
+            $selected_admin_obj.id === admin_obj.id
               ? 'bg-[#F8F1F8] text-[#4B0055]'
               : 'bg-white text-zinc-950 hover:bg-slate-50'
           }`}
           type="button"
           role="option"
-          aria-selected={ref_selected_admin_obj.id === admin_obj.id}
+          aria-selected={$selected_admin_obj.id === admin_obj.id}
           onclick={() => on_click_select_admin(admin_obj)}
         >
           <span
@@ -89,3 +130,69 @@
     </div>
   {/if}
 </div>
+
+{#if ref_admin_confirm_modal_open && ref_pending_admin_obj}
+  <div
+    class="fixed inset-0 z-50 grid place-items-center bg-black/45 px-5"
+    role="presentation"
+    onclick={on_click_close_admin_confirm_modal}
+  >
+    <div
+      class="w-full max-w-[420px] overflow-hidden rounded-2xl bg-white text-left shadow-2xl shadow-black/25"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="admin-confirm-title"
+      tabindex="-1"
+      onclick={(local_event) => local_event.stopPropagation()}
+      onkeydown={(local_event) => local_event.stopPropagation()}
+    >
+      <header class="bg-[#4B0055] px-7 py-5 text-white">
+        <p class="m-0 text-sm font-bold text-white/70">담당자 변경</p>
+        <h2 id="admin-confirm-title" class="m-0 mt-1 text-2xl font-extrabold">
+          {ref_pending_admin_obj.name}님이십니까?
+        </h2>
+      </header>
+
+      <form class="grid gap-5 px-7 py-6" onsubmit={on_submit_admin_confirm}>
+        <label class="grid gap-2 text-base font-extrabold text-slate-700" for="admin-password">
+          <span>비밀번호 4자리 <span class="text-[#D92D20]">*</span></span>
+          <input
+            id="admin-password"
+            class="min-h-13 rounded-lg border border-slate-200 px-4 text-lg font-semibold text-zinc-900 outline-none transition placeholder:text-slate-400 focus:border-[#9A1BFF] focus:ring-3 focus:ring-[#9A1BFF]/15"
+            type="password"
+            inputmode="numeric"
+            pattern="[0-9]{4}"
+            maxlength="4"
+            bind:value={ref_admin_password}
+            placeholder="비밀번호를 입력하세요"
+            aria-invalid={ref_admin_password_error ? 'true' : 'false'}
+            aria-describedby={ref_admin_password_error ? 'admin-password-error' : undefined}
+            required
+          />
+        </label>
+
+        {#if ref_admin_password_error}
+          <p id="admin-password-error" class="m-0 text-sm font-bold text-[#D92D20]">
+            {ref_admin_password_error}
+          </p>
+        {/if}
+
+        <div class="grid grid-cols-2 gap-3">
+          <button
+            class="min-h-13 cursor-pointer rounded-lg border border-slate-200 bg-white text-lg font-extrabold text-zinc-900 transition hover:bg-slate-50 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
+            type="button"
+            onclick={on_click_close_admin_confirm_modal}
+          >
+            취소
+          </button>
+          <button
+            class="min-h-13 cursor-pointer rounded-lg border-0 bg-[#4B0055] text-lg font-extrabold text-white transition hover:bg-[#65006F] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/30"
+            type="submit"
+          >
+            확인
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}

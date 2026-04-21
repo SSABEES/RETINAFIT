@@ -1,7 +1,16 @@
 <script>
   import { Link } from '@maks11060/svelte5-router'
-  import { BarChart3, Building2, CircleHelp, FileText, ScanFace, Users } from 'lucide-svelte'
+  import {
+    BarChart3,
+    Building2,
+    CircleHelp,
+    FileText,
+    ScanFace,
+    ShieldCheck,
+    Users,
+  } from 'lucide-svelte'
   import { PATH } from '../../config/path'
+  import { selected_admin_obj } from '../../lib/stores/admin'
 
   /** @type {{ active_key?: string }} */
   let { active_key = '' } = $props()
@@ -29,7 +38,7 @@
     />
     <div class="text-left">
       <p class="m-0 text-3xl font-extrabold leading-6">RetinAI</p>
-     </div>
+    </div>
   </div>
 
   <nav class="grid content-start gap-2 px-4 py-4" aria-label="관리 메뉴">
@@ -48,7 +57,21 @@
     {/each}
   </nav>
 
-  <div class="border-t border-white/10 px-4 py-5">
+  <div class="grid gap-2 border-t border-white/10 px-4 py-5">
+    {#if $selected_admin_obj.id === 1}
+      <Link
+        class={`flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-base font-bold transition ${
+          active_key === 'admin'
+            ? 'bg-white/18 text-white shadow-sm shadow-black/10'
+            : 'text-white/78 hover:bg-white/10 hover:text-white'
+        }`}
+        href={PATH.admin}
+      >
+        <ShieldCheck size={20} strokeWidth={2.2} aria-hidden="true" />
+        <span class="whitespace-nowrap">관리자 페이지</span>
+      </Link>
+    {/if}
+
     <button
       class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-2.5 text-base font-bold text-white/78 transition hover:bg-white/10 hover:text-white"
       type="button"
