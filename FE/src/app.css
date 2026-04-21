@@ -95,7 +95,7 @@ a {
 .app-frame {
   position: relative;
   width: min(100vw, var(--app-frame-width));
-  height: var(--app-frame-height);
+  height: min(100svh, var(--app-frame-height));
   flex: none;
   overflow: hidden;
   background: var(--retinal-page);

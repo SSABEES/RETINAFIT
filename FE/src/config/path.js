@@ -3,16 +3,18 @@ export const PATH = {
   login: '/auth/login',
   signup: '/auth/signup',
   analysis: '/analysis',
-  analysisResult: '/analysis/result',
-  analysisReport: '/analysis/report',
-  analysisGlasses: '/analysis/glasses',
-  analysisArFitting: '/analysis/arfitting',
-  dashboard: '/dashboard',
-  users: '/users',
+  analysisResult: '/dashboard/analysis/result',
+  analysisReport: '/dashboard/analysis/report',
+  analysisGlasses: '/dashboard/analysis/glasses',
+  analysisArFitting: '/dashboard/analysis/arfitting',
+  users: '/dashboard/users',
+  records: '/dashboard/records',
+  sales: '/dashboard/sales',
+  branches: '/dashboard/branches',
   /** @param {string | number} id */
-  userDetail: (id) => `/users/${String(id)}`,
+  userDetail: (id) => `/dashboard/users/${String(id)}`,
 }
 
 export const ROUTE_PATH = {
-  userDetail: '/users/:id',
+  userDetail: '/dashboard/users/:id',
 }

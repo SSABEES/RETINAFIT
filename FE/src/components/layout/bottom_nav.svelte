@@ -1,11 +1,13 @@
 <script>
+  import { PATH } from '../../config/path'
+
   /** @type {{ active?: string }} */
   let { active = 'home' } = $props()
 
   const items = [
-    { key: 'home', label: 'Home', href: '/' },
-    { key: 'analysis', label: 'Analysis', href: '/analysis' },
-    { key: 'users', label: 'Users', href: '/users' },
+    { key: 'home', label: 'Home', href: PATH.home },
+    { key: 'analysis', label: 'Analysis', href: PATH.analysis },
+    { key: 'users', label: 'Users', href: PATH.users },
   ]
 </script>
 
