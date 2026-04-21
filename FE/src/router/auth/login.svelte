@@ -7,6 +7,7 @@
   let ref_password = $state('')
   let g_error_message = $state('')
 
+  // 공용 입력 컴포넌트에서 전달된 이벤트의 실제 input 값을 꺼낸다.
   /** @param {Event} local_event */
   const get_input_value = (local_event) => {
     return /** @type {HTMLInputElement} */ (local_event.currentTarget).value
@@ -41,6 +42,7 @@
     aria-labelledby="login-title"
   >
     <div class="relative z-10 flex w-full max-w-[440px] flex-col items-center">
+      <!-- 로그인 상단 브랜드 로고 영역 -->
       <div class="mb-10 flex flex-col items-center text-center">
         <img
           class="mb-5 h-auto w-[148px] rounded-xl shadow-2xl shadow-black/20"
@@ -49,8 +51,10 @@
           width="900"
           height="900"
         />
+        <h1 id="login-title" class="sr-only">Retin AI 로그인</h1>
       </div>
 
+      <!-- 실제 로그인 입력 카드 -->
       <form
         class="w-full rounded-[26px] border border-white/8 bg-white/12 px-10 py-10 shadow-2xl shadow-black/22 backdrop-blur-md"
         onsubmit={on_submit_login}
