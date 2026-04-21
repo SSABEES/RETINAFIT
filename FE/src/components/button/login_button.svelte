@@ -18,6 +18,7 @@
   {onclick}
 >
   <span class="inline-flex items-center justify-center gap-2">
+    <!-- 장식용 로그인 아이콘이므로 스크린 리더에는 텍스트 라벨만 전달한다. -->
     <LogIn size={22} strokeWidth={2.4} aria-hidden="true" />
     <span>{label}</span>
   </span>
