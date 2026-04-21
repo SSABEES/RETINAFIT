@@ -6,9 +6,11 @@ import AnalysisResultPage from '../router/analysis/result.svelte'
 import AnalysisReportPage from '../router/analysis/report.svelte'
 import AnalysisGlassesPage from '../router/analysis/glasses.svelte'
 import AnalysisArFittingPage from '../router/analysis/arfitting.svelte'
-import DashboardPage from '../router/dashboard/index.svelte'
-import UsersPage from '../router/users/index.svelte'
-import UserDetailPage from '../router/users/[id].svelte'
+import UsersPage from '../router/dashboard/users.svelte'
+import UserDetailPage from '../router/dashboard/users/[id].svelte'
+import RecordsPage from '../router/dashboard/records.svelte'
+import SalesPage from '../router/dashboard/sales.svelte'
+import BranchesPage from '../router/dashboard/branches.svelte'
 import { PATH, ROUTE_PATH } from './path'
 
 export const routes = [
@@ -20,7 +22,9 @@ export const routes = [
   { path: PATH.analysisReport, component: AnalysisReportPage },
   { path: PATH.analysisGlasses, component: AnalysisGlassesPage },
   { path: PATH.analysisArFitting, component: AnalysisArFittingPage },
-  { path: PATH.dashboard, component: DashboardPage },
   { path: PATH.users, component: UsersPage },
+  { path: PATH.records, component: RecordsPage },
+  { path: PATH.sales, component: SalesPage },
+  { path: PATH.branches, component: BranchesPage },
   { path: ROUTE_PATH.userDetail, component: UserDetailPage },
 ]
