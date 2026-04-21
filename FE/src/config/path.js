@@ -11,6 +11,7 @@ export const PATH = {
   records: '/dashboard/records',
   sales: '/dashboard/sales',
   branches: '/dashboard/branches',
+  admin: '/dashboard/admin',
   /** @param {string | number} id */
   userDetail: (id) => `/dashboard/users/${String(id)}`,
 }

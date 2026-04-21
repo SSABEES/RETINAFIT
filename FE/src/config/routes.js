@@ -11,6 +11,7 @@ import UserDetailPage from '../router/dashboard/users/[id].svelte'
 import RecordsPage from '../router/dashboard/records.svelte'
 import SalesPage from '../router/dashboard/sales.svelte'
 import BranchesPage from '../router/dashboard/branches.svelte'
+import AdminPage from '../router/dashboard/admin.svelte'
 import { PATH, ROUTE_PATH } from './path'
 
 export const routes = [
@@ -26,5 +27,6 @@ export const routes = [
   { path: PATH.records, component: RecordsPage },
   { path: PATH.sales, component: SalesPage },
   { path: PATH.branches, component: BranchesPage },
+  { path: PATH.admin, component: AdminPage },
   { path: ROUTE_PATH.userDetail, component: UserDetailPage },
 ]
