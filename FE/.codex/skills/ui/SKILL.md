@@ -5,6 +5,10 @@ description: RETINAL Svelte 프로젝트에서 시각 스타일, Tailwind 사용
 
 # RETINAL UI
 
+## Naming
+
+- 코드 작성 및 수정 시 `.codex/skills/naming/SKILL.md`의 RETINAL 네이밍 규칙을 먼저 따른다.
+
 RETINAL의 화면 스타일과 시각 일관성을 맞출 때 이 스킬을 사용한다.
 
 ## 먼저 확인할 파일

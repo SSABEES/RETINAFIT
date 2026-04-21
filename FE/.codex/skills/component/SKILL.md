@@ -5,6 +5,10 @@ description: RETINAL Svelte 프로젝트에서 공용 컴포넌트와 페이지 
 
 # RETINAL Component
 
+## Naming
+
+- 코드 작성 및 수정 시 `.codex/skills/naming/SKILL.md`의 RETINAL 네이밍 규칙을 먼저 따른다.
+
 RETINAL 화면을 구성하는 재사용 UI 단위를 만들 때 이 스킬을 사용한다.
 
 ## 먼저 확인할 파일

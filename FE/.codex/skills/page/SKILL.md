@@ -5,6 +5,10 @@ description: RETINAL Svelte 프로젝트에서 페이지와 라우트를 추가�
 
 # RETINAL Page
 
+## Naming
+
+- 코드 작성 및 수정 시 `.codex/skills/naming/SKILL.md`의 RETINAL 네이밍 규칙을 먼저 따른다.
+
 RETINAL의 실제 화면 단위와 라우팅을 작업할 때 이 스킬을 사용한다.
 
 ## 먼저 확인할 파일
