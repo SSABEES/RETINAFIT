@@ -1,7 +1,9 @@
 <script>
+  import { link } from '@maks11060/svelte5-router'
   import { CalendarDays, Phone, Search, UserPlus } from 'lucide-svelte'
   import DashboardShell from '../../components/layout/dashboard_shell.svelte'
   import CustomerCreateModal from '../../components/modal/customer_create_modal.svelte'
+  import { PATH } from '../../config/path'
 
   // API 연동 전까지 화면 구조를 검증하기 위한 고객 목록 임시 데이터입니다.
   let ref_customer_arr = $state([
@@ -23,7 +25,7 @@
     },
     {
       id: 3,
-      name: '박지우',
+      name: '박지훈',
       phone: '010-3456-7890',
       last_visit_dt: '2026-03-28',
       visit_count: 2,
@@ -47,9 +49,9 @@
     },
   ])
 
-  const get_initial = (name) => name.slice(0, 1)
-
   let ref_customer_create_modal_open = $state(false)
+
+  const get_initial = (name) => name.slice(0, 1)
 
   function on_click_open_customer_create_modal() {
     ref_customer_create_modal_open = true
@@ -109,48 +111,55 @@
 
       <div class="grid gap-5">
         {#each ref_customer_arr as customer_obj (customer_obj.id)}
-          <article
-            class="grid min-h-[126px] grid-cols-[1fr_auto] items-center rounded-2xl border border-[#ECE6EF] bg-white px-7 py-6 text-left shadow-sm shadow-slate-200/50"
+          <a
+            use:link
+            class="block rounded-2xl outline-none transition hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-[#9A1BFF]/20"
+            href={PATH.userDetail(customer_obj.id)}
+            aria-label={`${customer_obj.name} 고객 상세로 이동`}
           >
-            <div class="flex min-w-0 items-center gap-6">
-              <div
-                class="grid h-16 w-16 flex-none place-items-center rounded-full bg-[#F5EAF7] text-2xl font-extrabold text-[#4B0055]"
-              >
-                {get_initial(customer_obj.name)}
-              </div>
-
-              <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-3">
-                  <h2 class="m-0 text-2xl font-extrabold text-zinc-950">{customer_obj.name}</h2>
-                  {#if customer_obj.status}
-                    <span
-                      class="rounded-full bg-[#4B0055] px-3.5 py-1.5 text-sm font-extrabold text-white"
-                    >
-                      {customer_obj.status}
-                    </span>
-                  {/if}
-                </div>
-
+            <article
+              class="grid min-h-[126px] grid-cols-[1fr_auto] items-center rounded-2xl border border-[#ECE6EF] bg-white px-7 py-6 text-left shadow-sm shadow-slate-200/50 transition hover:border-[#DCC9E2] hover:shadow-md hover:shadow-slate-200/70"
+            >
+              <div class="flex min-w-0 items-center gap-6">
                 <div
-                  class="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-lg font-semibold text-slate-500"
+                  class="grid h-16 w-16 flex-none place-items-center rounded-full bg-[#F5EAF7] text-2xl font-extrabold text-[#4B0055]"
                 >
-                  <span class="inline-flex items-center gap-1">
-                    <Phone size={18} strokeWidth={2.2} aria-hidden="true" />
-                    {customer_obj.phone}
-                  </span>
-                  <span class="inline-flex items-center gap-1">
-                    <CalendarDays size={18} strokeWidth={2.2} aria-hidden="true" />
-                    최근 방문: {customer_obj.last_visit_dt}
-                  </span>
+                  {get_initial(customer_obj.name)}
+                </div>
+
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-3">
+                    <h2 class="m-0 text-2xl font-extrabold text-zinc-950">{customer_obj.name}</h2>
+                    {#if customer_obj.status}
+                      <span
+                        class="rounded-full bg-[#4B0055] px-3.5 py-1.5 text-sm font-extrabold text-white"
+                      >
+                        {customer_obj.status}
+                      </span>
+                    {/if}
+                  </div>
+
+                  <div
+                    class="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-lg font-semibold text-slate-500"
+                  >
+                    <span class="inline-flex items-center gap-1">
+                      <Phone size={18} strokeWidth={2.2} aria-hidden="true" />
+                      {customer_obj.phone}
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                      <CalendarDays size={18} strokeWidth={2.2} aria-hidden="true" />
+                      최근 방문: {customer_obj.last_visit_dt}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div class="grid min-h-[74px] min-w-24 place-items-center rounded-lg bg-[#F6F7FA] px-5">
-              <p class="m-0 text-base font-bold text-slate-500">총 방문</p>
-              <p class="m-0 text-3xl font-extrabold text-zinc-950">{customer_obj.visit_count}회</p>
-            </div>
-          </article>
+              <div class="grid min-h-[74px] min-w-24 place-items-center rounded-lg bg-[#F6F7FA] px-5">
+                <p class="m-0 text-base font-bold text-slate-500">총 방문</p>
+                <p class="m-0 text-3xl font-extrabold text-zinc-950">{customer_obj.visit_count}회</p>
+              </div>
+            </article>
+          </a>
         {/each}
       </div>
     </div>
