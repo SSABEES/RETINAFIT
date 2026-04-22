@@ -1,9 +1,10 @@
 <script>
   import { navigate } from '@maks11060/svelte5-router'
   import { UserRound } from 'lucide-svelte'
-  import { PATH } from '../../config/path'
-  import { admin_arr, selected_admin_obj } from '../../lib/stores/admin'
+  import { PATH } from '@/config/path'
+  import { admin_arr, selected_admin_obj } from '@/lib/stores/admin'
 
+  // 선택한 안경사를 전역 상태에 저장하고 고객 관리 화면으로 이동한다.
   function on_click_select_optician(optician_obj) {
     selected_admin_obj.set(optician_obj)
     navigate(PATH.users)

@@ -1,9 +1,9 @@
 <script>
   import { link } from '@maks11060/svelte5-router'
   import { CalendarDays, Phone, Search, UserPlus } from 'lucide-svelte'
-  import DashboardShell from '../../components/layout/dashboard_shell.svelte'
-  import CustomerCreateModal from '../../components/modal/customer_create_modal.svelte'
-  import { PATH } from '../../config/path'
+  import DashboardShell from '@/components/layout/dashboard_shell.svelte'
+  import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
+  import { PATH } from '@/config/path'
 
   // API 연동 전까지 화면 구조를 검증하기 위한 고객 목록 임시 데이터입니다.
   let ref_customer_arr = $state([
@@ -51,16 +51,20 @@
 
   let ref_customer_create_modal_open = $state(false)
 
+  // 고객 이름에서 목록 아바타에 사용할 첫 글자를 추출한다.
   const get_initial = (name) => name.slice(0, 1)
 
+  // 신규 고객 등록 모달을 연다.
   function on_click_open_customer_create_modal() {
     ref_customer_create_modal_open = true
   }
 
+  // 신규 고객 등록 모달을 닫는다.
   function on_click_close_customer_create_modal() {
     ref_customer_create_modal_open = false
   }
 
+  // 등록 폼에서 전달된 고객 정보를 목록 맨 앞에 추가한다.
   function on_create_customer(customer_obj) {
     const local_registered_dt = new Date().toISOString().slice(0, 10)
     const local_new_customer_obj = {

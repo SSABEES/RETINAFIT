@@ -20,6 +20,7 @@
     },
   ]
 
+  // 이전 화면으로 돌아가 고객 상세 흐름을 유지한다.
   function on_click_go_back() {
     window.history.back()
   }

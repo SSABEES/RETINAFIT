@@ -109,3 +109,28 @@ function sum_calc(input_number) {
   return input_number + local_number
 }
 ```
+
+## 함수 주석
+
+- 모든 함수 선언과 주요 화살표 함수 위에는 해당 함수가 무슨 용도로 쓰이는지 한글 주석을 작성한다.
+- 이벤트 핸들러 함수는 어떤 사용자 동작을 처리하고 어떤 상태 변경이나 화면 이동을 수행하는지 적는다.
+- 폼 제출 함수는 어떤 검증, 저장, 등록, 이동을 수행하는지 적는다.
+- API 함수는 어떤 요청을 보내고 어떤 응답 처리를 표준화하는지 적는다.
+- 타입 JSDoc이 이미 있는 함수는 JSDoc 안 첫 줄에 한글 용도 설명을 넣고, 별도의 중복 `//` 주석은 만들지 않는다.
+- 단순한 내부 콜백이나 라이브러리 옵션 콜백은 독립 함수로 분리되지 않는 한 주석을 생략할 수 있다.
+
+```js
+// 선택한 안경사를 전역 상태에 저장하고 고객 관리 화면으로 이동한다.
+function on_click_select_optician(optician_obj) {
+  selected_admin_obj.set(optician_obj)
+  navigate(PATH.users)
+}
+
+/**
+ * 로그인 폼 제출 시 필수값을 확인하고 안경사 선택 화면으로 이동한다.
+ * @param {SubmitEvent} local_event
+ */
+const on_submit_login = (local_event) => {
+  local_event.preventDefault()
+}
+```

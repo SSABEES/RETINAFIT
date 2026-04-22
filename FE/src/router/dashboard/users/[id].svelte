@@ -11,9 +11,9 @@
     Sparkles,
     UserRound,
   } from 'lucide-svelte'
-  import DashboardShell from '../../../components/layout/dashboard_shell.svelte'
-  import { PATH } from '../../../config/path'
-  import { get_customer_by_id } from './user_data'
+  import DashboardShell from '@/components/layout/dashboard_shell.svelte'
+  import { PATH } from '@/config/path'
+  import { get_customer_by_id } from '@/router/dashboard/users/user_data'
 
   /** @type {{ id?: string }} */
   let { id = '1' }  = $props()

@@ -1,6 +1,6 @@
 <script>
   import { Link } from '@maks11060/svelte5-router'
-  import { PATH } from '../config/path'
+  import { PATH } from '@/config/path'
 </script>
 
 <h1>home</h1>

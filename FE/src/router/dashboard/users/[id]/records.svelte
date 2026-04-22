@@ -1,9 +1,9 @@
 <script>
   import { Link } from '@maks11060/svelte5-router'
   import { ArrowLeft, CalendarDays, ChevronRight, Download, FileText } from 'lucide-svelte'
-  import DashboardShell from '../../../../components/layout/dashboard_shell.svelte'
-  import { PATH } from '../../../../config/path'
-  import { fitting_report_arr, get_customer_by_id } from '../user_data'
+  import DashboardShell from '@/components/layout/dashboard_shell.svelte'
+  import { PATH } from '@/config/path'
+  import { fitting_report_arr, get_customer_by_id } from '@/router/dashboard/users/user_data'
 
   /** @type {{ id?: string }} */
   let { id = '1' } = $props()

@@ -1,5 +1,5 @@
 <script>
-  import BaseModal from './base_modal.svelte'
+  import BaseModal from '@/components/modal/base_modal.svelte'
 
   /** @type {{
    *   open?: boolean,

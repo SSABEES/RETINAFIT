@@ -1,6 +1,6 @@
 <script>
   import { Mail, MapPin, Phone } from 'lucide-svelte'
-  import DashboardShell from '../../components/layout/dashboard_shell.svelte'
+  import DashboardShell from '@/components/layout/dashboard_shell.svelte'
 
   const branch_arr = [
     {
