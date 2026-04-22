@@ -4,7 +4,6 @@
     BarChart3,
     Building2,
     CircleHelp,
-    FileText,
     ScanFace,
     ShieldCheck,
     Users,
@@ -19,7 +18,6 @@
   const menu_arr = [
     { key: 'analysis', label: '얼굴 분석', href: PATH.analysis, icon: ScanFace },
     { key: 'users', label: '고객 관리', href: PATH.users, icon: Users },
-    { key: 'records', label: '기록 관리', href: PATH.records, icon: FileText },
     { key: 'sales', label: '판매 통계', href: PATH.sales, icon: BarChart3 },
     { key: 'branches', label: '지점 관리', href: PATH.branches, icon: Building2 },
   ]

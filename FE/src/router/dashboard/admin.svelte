@@ -165,9 +165,6 @@
       <div class="flex items-start justify-between gap-6">
         <div class="text-left">
           <h1 class="m-0 text-3xl font-extrabold text-zinc-950">관리자 페이지</h1>
-          <p class="m-0 mt-2 text-base font-semibold text-slate-500">
-            얼굴형 기준과 직원 계정을 관리합니다.
-          </p>
         </div>
       </div>
 
@@ -198,9 +195,6 @@
           <div class="flex items-center justify-between gap-6">
             <div>
               <h2 class="m-0 text-2xl font-extrabold text-zinc-950">직원 관리</h2>
-              <p class="m-0 mt-2 text-base font-semibold text-slate-500">
-                직원 추가 시 우측 상단 관리자 선택 목록에도 바로 반영됩니다.
-              </p>
             </div>
 
             <button
@@ -242,9 +236,6 @@
           <div class="flex items-start justify-between gap-6">
             <div class="text-left">
               <h2 class="m-0 text-2xl font-extrabold text-zinc-950">얼굴형 기준 설정</h2>
-              <p class="m-0 mt-2 text-base font-semibold text-slate-500">
-                face.md 기준을 바탕으로 얼굴형 판별 임계값을 직접 설정합니다.
-              </p>
             </div>
 
             <button
@@ -277,9 +268,6 @@
                       {face_obj.english_nm}
                     </span>
                   </div>
-                  <p class="m-0 mt-2 text-base font-semibold text-slate-500">
-                    {face_obj.description}
-                  </p>
                 </div>
 
                 <div class="mt-7 grid grid-cols-3 gap-5">

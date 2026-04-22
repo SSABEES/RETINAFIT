@@ -2,8 +2,8 @@
   import AdminSelector from './admin_selector.svelte'
   import DashboardSidebar from './dashboard_sidebar.svelte'
 
-  /** @type {{ active_key?: string, title?: string, children?: import('svelte').Snippet, header_action?: import('svelte').Snippet }} */
-  let { active_key = '', title = '', children, header_action } = $props()
+  /** @type {{ active_key?: string, title?: string, children?: import('svelte').Snippet, header_left?: import('svelte').Snippet, header_action?: import('svelte').Snippet }} */
+  let { active_key = '', title = '', children, header_left, header_action } = $props()
 </script>
 
 <main
@@ -15,7 +15,9 @@
     <header
       class="grid h-[92px] grid-cols-[1fr_auto_1fr] items-center border-b border-[var(--retinal-border)] bg-white px-8"
     >
-      <div></div>
+      <div class="flex items-center justify-start gap-3">
+        {@render header_left?.()}
+      </div>
 
       <h1 class="m-0 text-2xl font-extrabold tracking-normal text-zinc-950">{title}</h1>
 

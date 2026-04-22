@@ -5,6 +5,11 @@ description: RETINAL Svelte 프로젝트에서 시각 스타일, Tailwind 사용
 
 # RETINAL UI
 
+## 추가 UI 작성 규칙
+
+- 페이지와 섹션 제목 아래 부제목/설명 문단은 기본적으로 작성하지 않는다.
+- 사용자가 명시적으로 요청하거나 업무 진행에 꼭 필요한 안내 문구만 예외로 둔다.
+
 ## Naming
 
 - 코드 작성 및 수정 시 `.codex/skills/naming/SKILL.md`의 RETINAL 네이밍 규칙을 먼저 따른다.
