@@ -1,17 +1,16 @@
 export const PATH = {
   home: '/',
   login: '/auth/login',
-  signup: '/auth/signup',
+  opticianSelect: '/auth/optician-select',
   analysis: '/analysis',
   analysisResult: '/dashboard/analysis/result',
   analysisReport: '/dashboard/analysis/report',
   analysisGlasses: '/dashboard/analysis/glasses',
   analysisArFitting: '/dashboard/analysis/arfitting',
   users: '/dashboard/users',
-  records: '/dashboard/records',
   sales: '/dashboard/sales',
   branches: '/dashboard/branches',
-  admin: '/dashboard/admin',
+  admin: '/admin',
   /** @param {string | number} id */
   userDetail: (id) => `/dashboard/users/${String(id)}`,
   /** @param {string | number} id */

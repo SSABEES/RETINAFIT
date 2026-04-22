@@ -11,9 +11,9 @@
     Sparkles,
     UserRound,
   } from 'lucide-svelte'
-  import DashboardShell from '../../../components/layout/dashboard_shell.svelte'
-  import { PATH } from '../../../config/path'
-  import { get_customer_by_id } from './user_data'
+  import DashboardShell from '@/components/layout/dashboard_shell.svelte'
+  import { PATH } from '@/config/path'
+  import { get_customer_by_id } from '@/router/dashboard/users/user_data'
 
   /** @type {{ id?: string }} */
   let { id = '1' }  = $props()
@@ -29,7 +29,7 @@
     {
       title: '얼굴 분석',
       description: '얼굴형 및 피부톤 분석',
-      href: PATH.userDetail(id),
+      href: PATH.analysis,
       icon: ScanFace,
       color_class: 'bg-[#4B0055] text-white',
       status: '완료',

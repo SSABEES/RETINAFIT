@@ -1,6 +1,6 @@
 <script>
-  import AdminSelector from './admin_selector.svelte'
-  import DashboardSidebar from './dashboard_sidebar.svelte'
+  import AdminSelector from '@/components/layout/admin_selector.svelte'
+  import DashboardSidebar from '@/components/layout/dashboard_sidebar.svelte'
 
   /** @type {{ active_key?: string, title?: string, children?: import('svelte').Snippet, header_left?: import('svelte').Snippet, header_action?: import('svelte').Snippet }} */
   let { active_key = '', title = '', children, header_left, header_action } = $props()

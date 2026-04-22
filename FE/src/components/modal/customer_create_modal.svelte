@@ -14,6 +14,7 @@
   let ref_birth_dt = $state('')
   let ref_phone = $state('')
 
+  // 신규 고객 등록 폼의 입력값을 초기화한다.
   function reset_form() {
     ref_name = ''
     ref_gender = '남성'
@@ -21,12 +22,16 @@
     ref_phone = ''
   }
 
+  // 모달을 닫기 전에 폼 입력값을 초기화한다.
   function on_click_close() {
     reset_form()
     onclose?.()
   }
 
-  /** @param {SubmitEvent} event */
+  /**
+   * 신규 고객 등록 폼 제출 시 고객 객체를 만들어 상위 컴포넌트로 전달한다.
+   * @param {SubmitEvent} event
+   */
   function on_submit_customer_create(event) {
     event.preventDefault()
 

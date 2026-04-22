@@ -1,6 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 /**
+ * API 요청을 공통 형식으로 보내고 JSON 응답과 오류 처리를 표준화한다.
  * @param {string} path
  * @param {RequestInit & { body?: BodyInit | object | null }} [options]
  */

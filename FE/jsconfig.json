@@ -17,6 +17,11 @@
      */
     "sourceMap": true,
     "esModuleInterop": true,
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "types": ["vite/client"],
     "skipLibCheck": true,
     /**

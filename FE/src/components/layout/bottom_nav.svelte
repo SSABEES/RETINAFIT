@@ -1,5 +1,5 @@
 <script>
-  import { PATH } from '../../config/path'
+  import { PATH } from '@/config/path'
 
   /** @type {{ active?: string }} */
   let { active = 'home' } = $props()
