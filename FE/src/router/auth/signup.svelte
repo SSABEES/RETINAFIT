@@ -11,6 +11,7 @@
   let ref_password_confirm = $state('')
   let ref_admin_name = $state('')
   let ref_admin_position = $state('')
+  let ref_admin_password = $state('')
   let g_signup_step = $state('store')
   let g_error_message = $state('')
 
@@ -50,6 +51,15 @@
     ref_admin_position = get_input_value(local_event)
   }
 
+  /** @param {Event} local_event */
+  const on_input_admin_password = (local_event) => {
+    const local_input = /** @type {HTMLInputElement} */ (local_event.currentTarget)
+    const local_password = local_input.value.replace(/\D/g, '').slice(0, 4)
+
+    local_input.value = local_password
+    ref_admin_password = local_password
+  }
+
   /** @param {SubmitEvent} local_event */
   const on_submit_store_signup = (local_event) => {
     local_event.preventDefault()
@@ -77,8 +87,13 @@
   const on_submit_admin_signup = (local_event) => {
     local_event.preventDefault()
 
-    if (!ref_admin_name.trim() || !ref_admin_position.trim()) {
+    if (!ref_admin_name.trim() || !ref_admin_position.trim() || !ref_admin_password.trim()) {
       g_error_message = '관리자 이름과 직급을 모두 입력해주세요.'
+      return
+    }
+
+    if (!/^\d{4}$/.test(ref_admin_password)) {
+      g_error_message = '관리자 비밀번호는 숫자 4자리로 입력해주세요.'
       return
     }
 
@@ -107,13 +122,8 @@
           height="900"
         />
         <h1 id="signup-title" class="text-3xl font-extrabold tracking-normal text-white">
-          {g_signup_step === 'store' ? '회원가입' : '관리자 등록'}
+          {g_signup_step === 'store' ? '매장 가입' : '관리자 등록'}
         </h1>
-        <p class="mt-2 text-base font-medium text-white/58">
-          {g_signup_step === 'store'
-            ? '매장 계정을 등록해주세요'
-            : '매장을 관리할 관리자 정보를 입력해주세요'}
-        </p>
       </div>
 
       {#if g_signup_step === 'store'}
@@ -215,6 +225,17 @@
               variant="dark"
               required
               oninput={on_input_admin_position}
+            />
+
+            <AuthInput
+              id="admin-password"
+              label="관리자 비밀번호"
+              type="password"
+              value={ref_admin_password}
+              placeholder="숫자 4자리"
+              variant="dark"
+              required
+              oninput={on_input_admin_password}
             />
           </div>
 
