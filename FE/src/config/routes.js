@@ -1,6 +1,6 @@
 import HomePage from '../router/HomePage.svelte'
 import LoginPage from '../router/auth/login.svelte'
-import SignupPage from '../router/auth/signup.svelte'
+import OpticianSelectPage from '../router/auth/optician_select.svelte'
 import AnalysisPage from '../router/analysis/index.svelte'
 import AnalysisResultPage from '../router/analysis/result.svelte'
 import AnalysisReportPage from '../router/analysis/report.svelte'
@@ -14,13 +14,13 @@ import UserRecordsPage from '../router/dashboard/users/[id]/records.svelte'
 import RecordsPage from '../router/dashboard/records.svelte'
 import SalesPage from '../router/dashboard/sales.svelte'
 import BranchesPage from '../router/dashboard/branches.svelte'
-import AdminPage from '../router/dashboard/admin.svelte'
+import AdminPage from '../router/auth/admin.svelte'
 import { PATH, ROUTE_PATH } from './path'
 
 export const routes = [
   { path: PATH.home, component: HomePage },
   { path: PATH.login, component: LoginPage },
-  { path: PATH.signup, component: SignupPage },
+  { path: PATH.opticianSelect, component: OpticianSelectPage },
   { path: PATH.analysis, component: AnalysisPage },
   { path: PATH.analysisResult, component: AnalysisResultPage },
   { path: PATH.analysisReport, component: AnalysisReportPage },

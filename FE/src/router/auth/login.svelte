@@ -1,5 +1,5 @@
 <script>
-  import { Link } from '@maks11060/svelte5-router'
+  import { navigate } from '@maks11060/svelte5-router'
   import LoginButton from '../../components/button/login_button.svelte'
   import AuthInput from '../../components/input/auth_input.svelte'
   import PasswordInput from '../../components/input/password_input.svelte'
@@ -35,6 +35,7 @@
     }
 
     g_error_message = ''
+    navigate(PATH.opticianSelect)
   }
 </script>
 
@@ -54,8 +55,7 @@
           height="900"
         />
         <h1 id="login-title" class="text-3xl font-extrabold tracking-normal text-white">로그인</h1>
-        <p class="mt-2 text-base font-medium text-white/58">매장 계정으로 접속해주세요</p>
-      </div>
+    </div>
 
       <!-- 실제 로그인 입력 카드 -->
       <form
@@ -96,12 +96,6 @@
           <LoginButton type="submit" label="로그인" />
         </div>
 
-        <p class="mt-7 text-center text-base font-semibold text-white/72">
-          아직 계정이 없으신가요?
-          <span class="auth-action-link">
-            <Link href={PATH.signup}>회원가입</Link>
-          </span>
-        </p>
       </form>
 
       <p class="mt-9 text-base font-medium text-white/42">© 2026 RETINA. All rights reserved.</p>

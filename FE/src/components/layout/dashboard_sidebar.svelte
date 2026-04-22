@@ -4,19 +4,15 @@
     BarChart3,
     Building2,
     CircleHelp,
-    ScanFace,
-    ShieldCheck,
     Users,
   } from 'lucide-svelte'
   import { PATH } from '../../config/path'
-  import { selected_admin_obj } from '../../lib/stores/admin'
 
   /** @type {{ active_key?: string }} */
   let { active_key = '' } = $props()
 
   // 사이드바 항목은 여기에서만 관리해 신규 페이지 추가 시 확장하기 쉽게 유지합니다.
   const menu_arr = [
-    { key: 'analysis', label: '얼굴 분석', href: PATH.analysis, icon: ScanFace },
     { key: 'users', label: '고객 관리', href: PATH.users, icon: Users },
     { key: 'sales', label: '판매 통계', href: PATH.sales, icon: BarChart3 },
     { key: 'branches', label: '지점 관리', href: PATH.branches, icon: Building2 },
@@ -56,20 +52,6 @@
   </nav>
 
   <div class="grid gap-2 border-t border-white/10 px-4 py-5">
-    {#if $selected_admin_obj.id === 1}
-      <Link
-        class={`flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-base font-bold transition ${
-          active_key === 'admin'
-            ? 'bg-white/18 text-white shadow-sm shadow-black/10'
-            : 'text-white/78 hover:bg-white/10 hover:text-white'
-        }`}
-        href={PATH.admin}
-      >
-        <ShieldCheck size={20} strokeWidth={2.2} aria-hidden="true" />
-        <span class="whitespace-nowrap">관리자 페이지</span>
-      </Link>
-    {/if}
-
     <button
       class="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-2.5 text-base font-bold text-white/78 transition hover:bg-white/10 hover:text-white"
       type="button"

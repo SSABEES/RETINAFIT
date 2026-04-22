@@ -1,6 +1,5 @@
 <script>
   import { Plus, UserRound, X } from 'lucide-svelte'
-  import DashboardShell from '../../components/layout/dashboard_shell.svelte'
   import { admin_arr } from '../../lib/stores/admin'
 
   const metric_arr = [
@@ -159,8 +158,8 @@
   }
 </script>
 
-<DashboardShell active_key="admin" title="관리자 페이지">
-  <section class="px-8 py-10">
+<main class="app-frame-page overflow-hidden bg-[#F7F8FA] text-[var(--retinal-text)]">
+  <section class="h-full overflow-y-auto px-8 py-10">
     <div class="mx-auto max-w-[980px] pb-8">
       <div class="flex items-start justify-between gap-6">
         <div class="text-left">
@@ -405,4 +404,4 @@
       </div>
     </div>
   {/if}
-</DashboardShell>
+</main>
