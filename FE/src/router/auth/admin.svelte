@@ -1,6 +1,6 @@
 <script>
   import { Plus, UserRound, X } from 'lucide-svelte'
-  import { admin_arr } from '../../lib/stores/admin'
+  import { admin_arr } from '@/lib/stores/admin'
 
   const metric_arr = [
     { label: '얼굴 너비', min_key: 'face_width_min', max_key: 'face_width_max', unit: 'mm' },
@@ -116,32 +116,42 @@
   let ref_employee_password = $state('')
   let ref_active_admin_tab = $state('face')
 
+  // 직원 추가 모달의 입력값을 초기 상태로 되돌린다.
   function reset_employee_form() {
     ref_employee_name = ''
     ref_employee_position = ''
     ref_employee_password = ''
   }
 
+  // 직원 추가 모달을 연다.
   function on_click_open_employee_modal() {
     ref_employee_modal_open = true
   }
 
+  // 직원 추가 모달을 닫고 입력값을 초기화한다.
   function on_click_close_employee_modal() {
     ref_employee_modal_open = false
     reset_employee_form()
   }
 
+  // 선택한 관리자 탭을 활성화한다.
   function on_click_select_admin_tab(tab_key) {
     ref_active_admin_tab = tab_key
   }
 
-  /** @param {SubmitEvent} local_event */
+  /**
+   * 얼굴형 기준 설정 폼 제출 시 저장 완료 메시지를 표시한다.
+   * @param {SubmitEvent} local_event
+   */
   function on_submit_face_criteria(local_event) {
     local_event.preventDefault()
     ref_saved_message = '얼굴형 기준 설정이 임시 저장되었습니다.'
   }
 
-  /** @param {SubmitEvent} local_event */
+  /**
+   * 직원 추가 폼 제출 시 새 직원을 목록에 등록한다.
+   * @param {SubmitEvent} local_event
+   */
   function on_submit_employee_create(local_event) {
     local_event.preventDefault()
 

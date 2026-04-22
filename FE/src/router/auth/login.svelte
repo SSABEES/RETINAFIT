@@ -1,31 +1,42 @@
 <script>
   import { navigate } from '@maks11060/svelte5-router'
-  import LoginButton from '../../components/button/login_button.svelte'
-  import AuthInput from '../../components/input/auth_input.svelte'
-  import PasswordInput from '../../components/input/password_input.svelte'
-  import { PATH } from '../../config/path'
+  import LoginButton from '@/components/button/login_button.svelte'
+  import AuthInput from '@/components/input/auth_input.svelte'
+  import PasswordInput from '@/components/input/password_input.svelte'
+  import { PATH } from '@/config/path'
 
   let ref_store_id = $state('')
   let ref_password = $state('')
   let g_error_message = $state('')
 
-  // 공용 입력 컴포넌트에서 전달된 이벤트의 실제 input 값을 꺼낸다.
-  /** @param {Event} local_event */
+  /**
+   * 공용 입력 컴포넌트에서 전달된 이벤트의 실제 input 값을 꺼낸다.
+   * @param {Event} local_event
+   */
   const get_input_value = (local_event) => {
     return /** @type {HTMLInputElement} */ (local_event.currentTarget).value
   }
 
-  /** @param {Event} local_event */
+  /**
+   * 매장 ID 입력값을 로그인 상태에 반영한다.
+   * @param {Event} local_event
+   */
   const on_input_store_id = (local_event) => {
     ref_store_id = get_input_value(local_event)
   }
 
-  /** @param {Event} local_event */
+  /**
+   * 비밀번호 입력값을 로그인 상태에 반영한다.
+   * @param {Event} local_event
+   */
   const on_input_password = (local_event) => {
     ref_password = get_input_value(local_event)
   }
 
-  /** @param {SubmitEvent} local_event */
+  /**
+   * 로그인 폼 제출 시 필수값을 확인하고 안경사 선택 화면으로 이동한다.
+   * @param {SubmitEvent} local_event
+   */
   const on_submit_login = (local_event) => {
     local_event.preventDefault()
 

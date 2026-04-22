@@ -6,7 +6,7 @@
     CircleHelp,
     Users,
   } from 'lucide-svelte'
-  import { PATH } from '../../config/path'
+  import { PATH } from '@/config/path'
 
   /** @type {{ active_key?: string }} */
   let { active_key = '' } = $props()

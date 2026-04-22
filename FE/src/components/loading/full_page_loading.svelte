@@ -1,5 +1,5 @@
 <script>
-  import LoadingSpinner from './loading_spinner.svelte'
+  import LoadingSpinner from '@/components/loading/loading_spinner.svelte'
 
   /** @type {{ label?: string }} */
   let { label = 'Loading' } = $props()

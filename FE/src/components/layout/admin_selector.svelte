@@ -1,6 +1,6 @@
 <script>
   import { ChevronDown, UserRound } from 'lucide-svelte'
-  import { admin_arr, selected_admin_obj } from '../../lib/stores/admin'
+  import { admin_arr, selected_admin_obj } from '@/lib/stores/admin'
 
   let ref_admin_dropdown_open = $state(false)
   let ref_admin_confirm_modal_open = $state(false)
@@ -8,10 +8,12 @@
   let ref_admin_password_error = $state('')
   let ref_pending_admin_obj = $state(null)
 
+  // 안경사 선택 드롭다운의 열림 상태를 전환한다.
   function on_click_toggle_admin_dropdown() {
     ref_admin_dropdown_open = !ref_admin_dropdown_open
   }
 
+  // 변경할 안경사를 선택하고 비밀번호 확인 모달을 준비한다.
   function on_click_select_admin(admin_obj) {
     ref_admin_dropdown_open = false
 
@@ -25,10 +27,12 @@
     ref_admin_confirm_modal_open = true
   }
 
+  // 안경사 선택 드롭다운을 닫는다.
   function on_click_close_admin_dropdown() {
     ref_admin_dropdown_open = false
   }
 
+  // 안경사 변경 확인 모달을 닫고 입력 상태를 초기화한다.
   function on_click_close_admin_confirm_modal() {
     ref_admin_confirm_modal_open = false
     ref_pending_admin_obj = null
@@ -36,7 +40,10 @@
     ref_admin_password_error = ''
   }
 
-  /** @param {SubmitEvent} local_event */
+  /**
+   * 안경사 변경 확인 폼 제출 시 비밀번호를 검증하고 선택 안경사를 변경한다.
+   * @param {SubmitEvent} local_event
+   */
   function on_submit_admin_confirm(local_event) {
     local_event.preventDefault()
 

@@ -117,6 +117,7 @@ export const face_analysis_history_arr = [
   },
 ]
 
+// 고객 ID로 상세 화면에 표시할 고객 정보를 조회한다.
 export function get_customer_by_id(id) {
   return customer_arr.find((customer_obj) => customer_obj.id === Number(id)) ?? customer_arr[0]
 }

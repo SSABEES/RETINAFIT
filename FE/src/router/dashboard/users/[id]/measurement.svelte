@@ -1,9 +1,9 @@
 <script>
   import { Link, navigate } from '@maks11060/svelte5-router'
   import { ArrowLeft, Eye, Save } from 'lucide-svelte'
-  import DashboardShell from '../../../../components/layout/dashboard_shell.svelte'
-  import { PATH } from '../../../../config/path'
-  import { get_customer_by_id } from '../user_data'
+  import DashboardShell from '@/components/layout/dashboard_shell.svelte'
+  import { PATH } from '@/config/path'
+  import { get_customer_by_id } from '@/router/dashboard/users/user_data'
 
   /** @type {{ id?: string }} */
   let { id = '1' } = $props()
@@ -25,7 +25,10 @@
 
   let g_customer_obj = $derived(get_customer_by_id(id))
 
-  /** @param {SubmitEvent} local_event */
+  /**
+   * 측정값 입력 폼 제출 시 기본 제출을 막고 고객 상세 화면으로 돌아간다.
+   * @param {SubmitEvent} local_event
+   */
   function on_submit_measurement(local_event) {
     local_event.preventDefault()
     navigate(PATH.userDetail(id))
