@@ -4,15 +4,21 @@
   const g_session = $derived(get_session())
 </script>
 
-<div
-  class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-200/40"
->
-  <div class="text-sm font-extrabold text-zinc-950">촬영 기록</div>
-  <div class="grid grid-cols-3 gap-2">
+<section class="flex flex-col gap-3">
+  <div
+    class="text-[11px] tracking-[0.22em] uppercase italic"
+    style="font-family: var(--font-serif); color: var(--cp-graphite);"
+  >
+    Record
+  </div>
+
+  <div class="grid grid-cols-2 gap-2.5">
     {#each g_session.steps_arr as step, i (step.step_id)}
       {@const capture = g_session.captures_obj[step.step_id]}
-      <div
-        class="relative aspect-[3/4] overflow-hidden rounded-md border border-slate-200 bg-slate-50"
+      {@const num = String(i + 1).padStart(2, '0')}
+      <figure
+        class="relative aspect-[3/4] overflow-hidden border bg-white"
+        style="border-color: var(--cp-rule);"
         aria-label="Step {i + 1} {capture ? '촬영 완료' : '미촬영'}"
       >
         {#if capture}
@@ -21,21 +27,16 @@
             alt={step.label}
             class="h-full w-full object-cover"
           />
-          <span
-            class="absolute left-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-[#2E7D32] text-[9px] font-extrabold text-white"
-            aria-hidden="true"
-          >
-            ✓
-          </span>
-        {:else}
-          <div
-            class="grid h-full w-full place-items-center text-xs font-extrabold text-slate-400"
-            aria-hidden="true"
-          >
-            {i + 1}
-          </div>
         {/if}
-      </div>
+
+        <figcaption
+          class="absolute left-1.5 top-1 text-[10px] leading-none tracking-wider"
+          style="font-family: var(--font-mono); color: {capture ? '#ffffff' : 'var(--cp-graphite)'}; text-shadow: {capture ? '0 1px 2px rgba(0,0,0,0.6)' : 'none'};"
+          aria-hidden="true"
+        >
+          {num}
+        </figcaption>
+      </figure>
     {/each}
   </div>
-</div>
+</section>
