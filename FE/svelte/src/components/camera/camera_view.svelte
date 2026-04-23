@@ -347,17 +347,27 @@
    * 외부에서 (수동 캡쳐용으로) 호출하는 촬영 트리거.
    * capture_mode='manual' 에서만 쓰는 것이 정상 — auto 모드에서는 이미 안정화 후 자동 발사되므로
    * 호출할 필요 없음(중복 호출은 g_already_dispatched 로 무시됨).
-   * 얼굴이 검출되지 않은 상태에서는 false 를 반환하여 소비자(shell)가 사용자 피드백을 표시할 수 있게 한다.
-   * @returns {Promise<boolean>} true = 촬영 트리거됨, false = 얼굴 미검출로 취소됨
+   *
+   * 얼굴 검출 가드는 **정면 포즈에서만** 적용한다. 프로필 포즈(left/right)에서는 MediaPipe 가
+   * 강한 측면 각도에서 검출에 실패해 g_face_detected=false 가 지속될 수 있기 때문에, 이 상태에서도
+   * 비디오 프레임 자체는 유효하므로 촬영은 계속 가능해야 한다.
+   * 비디오 프레임이 아직 준비되지 않은 경우(videoWidth=0)만 false 로 취소한다.
+   *
+   * @returns {Promise<boolean>} true = 촬영 트리거됨, false = 비디오 미준비 또는 정면에서 얼굴 미검출로 취소됨
    */
   export async function trigger_capture() {
     if (capture_mode === 'auto') {
       // eslint-disable-next-line no-console
       console.warn('[camera_view] trigger_capture: auto 모드에서는 외부 호출이 불필요합니다')
     }
-    if (!g_face_detected) {
+    if (!ref_this_video_el || ref_this_video_el.videoWidth === 0) {
       // eslint-disable-next-line no-console
-      console.warn('[camera_view] trigger_capture: 얼굴이 감지되지 않음')
+      console.warn('[camera_view] trigger_capture: 비디오 프레임이 준비되지 않음')
+      return false
+    }
+    if (pose_target === 'front' && !g_face_detected) {
+      // eslint-disable-next-line no-console
+      console.warn('[camera_view] trigger_capture: 정면 포즈에서 얼굴이 감지되지 않음')
       return false
     }
     await trigger_capture_internal(g_measurements_obj)
