@@ -66,7 +66,7 @@
 
   <section class="h-[calc(100%-72px)] overflow-y-auto px-8 py-4">
     <div class="mx-auto max-w-[1216px]">
-      <section class="mx-auto max-w-[804px]" aria-label="실시간 얼굴 분석">
+      <section class="mx-auto max-w-[540px]" aria-label="실시간 얼굴 분석">
         <CameraView active={true} onmeasure={on_measure} />
       </section>
 

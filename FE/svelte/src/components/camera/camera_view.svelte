@@ -136,9 +136,11 @@
       if (my_generation !== g_start_generation) return
       g_landmarker = landmarker
 
-      // 640x480: 페이스 메시 정확도와 추론 비용의 타협점.
+      // 480x640 (3:4 세로 비율): 얼굴 분석 UX 에 맞춰 인물 비율로 요청.
+      // 페이스 메시 정확도와 추론 비용의 타협점은 장변 640 기준에서 동일.
+      // 가로 전용 장치인 경우 가장 가까운 해상도로 대체 반환 → object-cover 로 자동 크롭.
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+        video: { width: { ideal: 480 }, height: { ideal: 640 }, facingMode: 'user' },
         audio: false,
       })
       if (my_generation !== g_start_generation) {
@@ -357,7 +359,7 @@
     </div>
   {/if}
 
-  <div class="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-black">
+  <div class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black">
     <!-- svelte-ignore a11y_media_has_caption -->
     <video
       bind:this={ref_this_video_el}
