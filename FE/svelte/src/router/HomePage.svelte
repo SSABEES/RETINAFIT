@@ -12,7 +12,7 @@
 <br />
 <Link href={PATH.analysisReport}>분석 리포트 페이지로 이동</Link>
 <br />
-<Link href={PATH.analysisGlasses}>안경 추천 페이지로 이동</Link>
+<Link href={PATH.analysisLensConsult}>렌즈 조건 선택 페이지로 이동</Link>
 <br />
 <Link href={PATH.analysisArFitting}>AR 피팅 페이지로 이동</Link>
 <br />
