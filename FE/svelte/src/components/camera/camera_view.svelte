@@ -37,6 +37,10 @@
   /** @type {HTMLCanvasElement | null} */
   let ref_this_canvas_el = $state(null)
 
+  // 비동기 카메라 시작 도중 cleanup 이 끼어들 때 stale rAF/이벤트 핸들러 등록을 막기 위한 세대 토큰.
+  // on_stop_camera 가 증가시키고, on_start_camera 는 각 await 뒤에 자신의 세대가 아직 유효한지 확인한다.
+  let g_start_generation = 0
+
   /** @type {MediaStream | null} */
   let g_stream = null
   /** @type {import("@mediapipe/tasks-vision").FaceLandmarker | null} */
@@ -58,7 +62,7 @@
   /** @type {CompletenessCheck} */
   let g_complete_obj = $state({ is_complete: true, reason: null })
   /** @type {FaceMeasurements[]} */
-  let g_buffer_arr = $state([])
+  let g_buffer_arr = []
   let g_stable_count = $state(0)
 
   const g_is_stable = $derived(g_stable_count >= STABILITY_FRAMES)
@@ -116,7 +120,9 @@
   })
 
   // 사용자 카메라 권한을 요청하고 MediaPipe 모델을 로드해 rAF 루프를 시작한다.
+  // 각 await 지점 뒤에 세대 토큰을 검사해, 중간에 on_stop_camera 가 끼어들면 조용히 빠져나간다.
   async function on_start_camera() {
+    const my_generation = ++g_start_generation
     try {
       g_init_error = null
       g_permission_denied = false
@@ -126,19 +132,29 @@
       g_face_detected = false
       g_measurements_obj = null
 
-      g_landmarker = await get_video_landmarker()
+      const landmarker = await get_video_landmarker()
+      if (my_generation !== g_start_generation) return
+      g_landmarker = landmarker
 
       // 640x480: 페이스 메시 정확도와 추론 비용의 타협점.
-      g_stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
         audio: false,
       })
+      if (my_generation !== g_start_generation) {
+        stream.getTracks().forEach((t) => t.stop())
+        return
+      }
+      g_stream = stream
 
       // active 전환 직후 <video> 가 아직 마운트되지 않았을 수 있어 한 틱 대기.
       await new Promise((r) => setTimeout(r, 0))
+      if (my_generation !== g_start_generation) return
       if (!ref_this_video_el) throw new Error('video element missing')
       ref_this_video_el.srcObject = g_stream
       ref_this_video_el.onloadedmetadata = () => {
+        // metadata 콜백이 불릴 시점에 이미 정지되었으면 재생하지 않는다.
+        if (my_generation !== g_start_generation || !ref_this_video_el || !g_stream) return
         void ref_this_video_el.play()
         on_loop_frame()
       }
@@ -156,8 +172,10 @@
     }
   }
 
-  // rAF 루프를 중지하고 스트림을 해제한다.
+  // rAF 루프를 중지하고 스트림을 해제한다. 진행 중인 on_start_camera 의 async tail 이 남은 작업을
+  // 이어가지 못하도록 세대 토큰을 증가시킨다.
   function on_stop_camera() {
+    g_start_generation++
     if (g_raf_id !== null) {
       cancelAnimationFrame(g_raf_id)
       g_raf_id = null
@@ -166,7 +184,10 @@
       g_stream.getTracks().forEach((t) => t.stop())
       g_stream = null
     }
-    if (ref_this_video_el) ref_this_video_el.srcObject = null
+    if (ref_this_video_el) {
+      ref_this_video_el.onloadedmetadata = null
+      ref_this_video_el.srcObject = null
+    }
     clear_video_cache()
   }
 
