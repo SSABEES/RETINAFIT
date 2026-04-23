@@ -19,16 +19,21 @@
    * @typedef {import('@/lib/stores/capture_session.svelte.js').Capture} Capture
    */
 
+  // 수동 촬영 버튼 잠금 해제 지연: trigger_capture 가 no-op 으로 즉시 반환한 경우를 대비한 fallback.
+  const CAPTURE_BUTTON_RESET_DELAY_MS = 100
+  // 얼굴 미검출 토스트 노출 시간.
+  const TOAST_VISIBLE_MS = 2000
+
   const g_session = $derived(get_session())
   const g_current_step = $derived(get_current_step())
 
-  /** @type {{ trigger_capture: () => Promise<void>, reset: () => void } | null} */
+  /** @type {{ trigger_capture: () => Promise<boolean>, reset: () => void } | null} */
   let ref_this_camera = $state(null)
   let g_is_capturing = $state(false)
+  let g_toast_message = $state(/** @type {string | null} */ (null))
 
   // 세션에서 current_step 이 바뀌면 camera_view 를 재장전해 다음 스텝을 받아들이게 한다.
   $effect(() => {
-    // g_current_step.step_id 가 바뀌는 순간을 트리거로 사용.
     const _step_id = g_current_step?.step_id
     if (_step_id && ref_this_camera) {
       ref_this_camera.reset()
@@ -63,25 +68,30 @@
     add_capture(capture)
   }
 
-  // 수동 촬영 버튼 클릭 — camera_view 의 trigger_capture 호출.
+  // 수동 촬영 버튼 클릭 — camera_view 의 trigger_capture 호출 후 결과에 따라 토스트 표시.
   async function on_manual_capture_click() {
     if (g_is_capturing || !ref_this_camera) return
     g_is_capturing = true
     try {
-      await ref_this_camera.trigger_capture()
+      const ok = await ref_this_camera.trigger_capture()
+      if (!ok) show_toast('얼굴이 감지되지 않아요')
     } finally {
-      // trigger_capture 성공 시 on_capture 가 g_is_capturing 을 내리지만,
-      // trigger_capture 가 얼굴 미검출로 no-op 반환한 경우 여기서 내린다.
+      // 성공 시 on_capture 가 이미 false 로 내렸지만, no-op 반환 경로를 위한 fallback.
       setTimeout(() => {
         g_is_capturing = false
-      }, 100)
+      }, CAPTURE_BUTTON_RESET_DELAY_MS)
     }
   }
 
-  // 리뷰 화면에서 "처음부터" 버튼 클릭 — 세션이 이미 reset 됐으므로 추가 액션 없음.
-  function on_restart_review() {
-    // reset_session 은 이미 capture_review 내부에서 호출됨.
-    // phase='select_glasses' 로 복귀하므로 모달이 자동 재표시된다.
+  /**
+   * 지정된 메시지로 토스트를 일정 시간 노출하고 자동 숨긴다.
+   * @param {string} message
+   */
+  function show_toast(message) {
+    g_toast_message = message
+    setTimeout(() => {
+      if (g_toast_message === message) g_toast_message = null
+    }, TOAST_VISIBLE_MS)
   }
 
   // 페이지 이탈 시 ObjectURL 전부 정리.
@@ -117,7 +127,17 @@
 
   {#if g_session.phase === 'review'}
     <section class="mx-auto w-full max-w-[720px]">
-      <CaptureReview onrestart={on_restart_review} />
+      <CaptureReview />
     </section>
+  {/if}
+
+  {#if g_toast_message}
+    <div
+      class="fixed bottom-8 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-red-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg"
+      role="status"
+      aria-live="polite"
+    >
+      {g_toast_message}
+    </div>
   {/if}
 </div>

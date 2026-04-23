@@ -344,8 +344,8 @@
    * 외부에서 (수동 캡쳐용으로) 호출하는 촬영 트리거.
    * capture_mode='manual' 에서만 쓰는 것이 정상 — auto 모드에서는 이미 안정화 후 자동 발사되므로
    * 호출할 필요 없음(중복 호출은 g_already_dispatched 로 무시됨).
-   * 얼굴이 검출되지 않은 상태에서는 no-op 하고 경고 로그만 남긴다.
-   * @returns {Promise<void>}
+   * 얼굴이 검출되지 않은 상태에서는 false 를 반환하여 소비자(shell)가 사용자 피드백을 표시할 수 있게 한다.
+   * @returns {Promise<boolean>} true = 촬영 트리거됨, false = 얼굴 미검출로 취소됨
    */
   export async function trigger_capture() {
     if (capture_mode === 'auto') {
@@ -355,9 +355,10 @@
     if (!g_face_detected) {
       // eslint-disable-next-line no-console
       console.warn('[camera_view] trigger_capture: 얼굴이 감지되지 않음')
-      return
+      return false
     }
     await trigger_capture_internal(g_measurements_obj)
+    return true
   }
 
   // canvas 내부 해상도를 비디오 해상도에 맞춘다.
