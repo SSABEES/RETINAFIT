@@ -16,7 +16,7 @@
   import { get_customer_by_id } from '@/router/dashboard/users/user_data'
 
   /** @type {{ id?: string }} */
-  let { id = '1' }  = $props()
+  let { id = '1' } = $props()
 
   let action_card_arr = $derived([
     {
@@ -113,10 +113,14 @@
           <div>
             <h2 class="m-0 text-xl font-extrabold text-[#4B0055]">얼굴형 분석 완료</h2>
             <div class="mt-2 flex flex-wrap gap-2">
-              <span class="rounded-full bg-white/70 px-3 py-1 text-sm font-extrabold text-[#6D1B7B]">
+              <span
+                class="rounded-full bg-white/70 px-3 py-1 text-sm font-extrabold text-[#6D1B7B]"
+              >
                 {g_customer_obj.face_shape || '미분석'}
               </span>
-              <span class="rounded-full bg-[#FFE7D4] px-3 py-1 text-sm font-extrabold text-[#C2410C]">
+              <span
+                class="rounded-full bg-[#FFE7D4] px-3 py-1 text-sm font-extrabold text-[#C2410C]"
+              >
                 {g_customer_obj.skin_tone || '미분석'}
               </span>
             </div>
@@ -146,9 +150,7 @@
               </span>
             {/if}
 
-            <div
-              class={`grid h-16 w-16 place-items-center rounded-xl ${action_obj.color_class}`}
-            >
+            <div class={`grid h-16 w-16 place-items-center rounded-xl ${action_obj.color_class}`}>
               <action_obj.icon size={31} strokeWidth={2.2} aria-hidden="true" />
             </div>
 

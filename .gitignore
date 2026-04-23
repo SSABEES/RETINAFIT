@@ -38,11 +38,11 @@ env/
 ################################
 # Node / FE
 ################################
-FE/node_modules/
-FE/dist/
-FE/dist-ssr/
-FE/.vite/
-FE/*.local
+FE/svelte/node_modules/
+FE/svelte/dist/
+FE/svelte/dist-ssr/
+FE/svelte/.vite/
+FE/svelte/*.local
 
 ################################
 # AI data

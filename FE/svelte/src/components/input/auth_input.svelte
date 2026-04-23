@@ -5,6 +5,7 @@
    *   type?: string,
    *   value?: string,
    *   placeholder?: string,
+   *   maxlength?: number,
    *   disabled?: boolean,
    *   required?: boolean,
    *   variant?: 'light' | 'dark',
@@ -17,6 +18,7 @@
     type = 'text',
     value = '',
     placeholder = '',
+    maxlength = undefined,
     disabled = false,
     required = false,
     variant = 'light',
@@ -36,6 +38,7 @@
     {type}
     {value}
     {placeholder}
+    {maxlength}
     {disabled}
     {required}
     {oninput}
