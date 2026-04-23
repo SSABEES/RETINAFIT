@@ -44,9 +44,14 @@ let g_video_promise = null
 let g_cached_result = null
 let g_cached_timestamp = -1
 
-// MediaPipe Vision Fileset 을 로드한다.
-async function load_fileset() {
-  return FilesetResolver.forVisionTasks(WASM_BASE)
+/** @type {ReturnType<typeof FilesetResolver.forVisionTasks> | null} */
+let g_fileset_promise = null
+
+// MediaPipe Vision Fileset 을 로드한다. WASM 번들 네트워크 페치 비용이 크므로 모듈 레벨에서 메모이즈.
+// image/video 랜드마커 모두 활성화될 때 같은 Fileset 프로미스를 공유해 중복 페치를 막는다.
+function load_fileset() {
+  if (!g_fileset_promise) g_fileset_promise = FilesetResolver.forVisionTasks(WASM_BASE)
+  return g_fileset_promise
 }
 
 // IMAGE 러닝 모드의 FaceLandmarker 를 생성한다.
@@ -232,6 +237,12 @@ export function draw_face_mesh(canvas, result) {
 
 /**
  * 로드된 FaceLandmarker 인스턴스를 정리하고 캐시를 비운다.
+ *
+ * NOTE: 이 함수는 `camera_view.svelte` 의 `on_stop_camera` 에서 호출하지 않는다.
+ * 카메라를 껐다 켤 때마다 MediaPipe 모델(~9MB)을 다시 로드하면 UX/네트워크 비용이 크므로,
+ * 모듈 레벨 lazy 싱글톤을 유지하는 편이 일반적으로 이득. 앱 전체를 떠나거나 GPU 컨텍스트가
+ * 손실되는 등 전역 정리가 필요한 경우에만 수동으로 호출한다.
+ *
  * @returns {Promise<void>}
  */
 export async function dispose_landmarker() {
@@ -245,5 +256,6 @@ export async function dispose_landmarker() {
     l.close()
     g_video_promise = null
   }
+  g_fileset_promise = null
   clear_video_cache()
 }
