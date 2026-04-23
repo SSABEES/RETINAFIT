@@ -11,19 +11,35 @@
     ROLL_THR,
   } from '@/lib/mediapipe/face_landmarker.js'
   import { compute_measurements } from '@/lib/mediapipe/measurements.js'
+  import { video_to_blob } from '@/lib/capture/capture_utils.js'
 
   /**
    * @typedef {import("@/lib/mediapipe/face_types.js").FaceMeasurements} FaceMeasurements
    * @typedef {import("@/lib/mediapipe/face_types.js").FrontalCheck} FrontalCheck
    * @typedef {import("@/lib/mediapipe/face_types.js").CompletenessCheck} CompletenessCheck
+   *
+   * @typedef {object} CaptureResult
+   * @property {Blob} blob
+   * @property {string} object_url
+   * @property {number} captured_at
+   * @property {number} width
+   * @property {number} height
+   * @property {FaceMeasurements | null} measurements_obj
    */
 
   /** @type {{
    *   active?: boolean,
-   *   onmeasure?: ((m: FaceMeasurements) => void) | undefined,
+   *   pose_target?: 'front' | 'left_profile' | 'right_profile',
+   *   capture_mode?: 'auto' | 'manual',
+   *   oncapture?: ((c: CaptureResult) => void) | undefined,
    * }}
    */
-  let { active = false, onmeasure = undefined } = $props()
+  let {
+    active = false,
+    pose_target = 'front',
+    capture_mode = 'auto',
+    oncapture = undefined,
+  } = $props()
 
   // FRAME_SKIP: 60fps / 5 = 12Hz 추론 (성능과 반응성의 타협점)
   // STABILITY_FRAMES: 12Hz × 30 ≈ 2.5초 유지되어야 최종 확정
@@ -70,19 +86,28 @@
     Math.min(100, Math.round((g_stable_count / STABILITY_FRAMES) * 100)),
   )
 
-  // 가이드 타원 색상을 상태에 따라 결정한다.
+  // 정면 포즈 + 자동 모드일 때만 안정화 기반 자동 캡쳐를 작동시킨다.
+  const g_is_auto_capture = $derived(pose_target === 'front' && capture_mode === 'auto')
+  // 정면 포즈일 때만 check_frontal 결과를 UI/판정에 반영한다.
+  const g_should_check_frontal = $derived(pose_target === 'front')
+
+  // 가이드 타원 색상을 pose_target 과 상태에 따라 결정한다.
   const g_guide_color = $derived.by(() => {
     if (!g_face_detected) return 'rgba(200,200,200,0.5)'
     if (!g_complete_obj.is_complete) return 'rgba(244,67,54,0.85)'
+    if (pose_target !== 'front') return 'rgba(255,255,255,0.7)' // 프로필 포즈: 정면 판정 미적용
     if (!g_frontal_obj?.is_frontal) return 'rgba(255,193,7,0.85)'
     if (g_is_stable) return 'rgba(0,230,118,0.9)'
     return 'rgba(255,193,7,0.85)'
   })
 
-  // 사용자에게 보여줄 힌트 문자열을 상태에 따라 결정한다.
+  // 사용자에게 보여줄 힌트 문자열을 pose_target 과 상태에 따라 결정한다.
   const g_hint_text = $derived.by(() => {
     if (!g_face_detected) return '얼굴을 가이드 안에 맞춰주세요'
     if (!g_complete_obj.is_complete) return '얼굴 전체가 화면에 나오도록 해주세요'
+    if (pose_target === 'left_profile') return '고개를 왼쪽으로 돌려주세요'
+    if (pose_target === 'right_profile') return '고개를 오른쪽으로 돌려주세요'
+    // 정면 포즈 기존 로직
     if (!g_frontal_obj) return '정면을 바라봐 주세요'
     if (g_frontal_obj.is_frontal) {
       return g_is_stable ? '✓ 측정 중...' : `안정화 중 ${g_stability_progress}%`
@@ -102,7 +127,7 @@
   // 상태별 힌트 배지 색상 (inline style 로 적용할 문자열).
   const g_badge_style = $derived.by(() => {
     const base = 'background: rgba(0,0,0,0.55);'
-    if (g_is_stable) {
+    if (pose_target === 'front' && g_is_stable) {
       return base + ' border-color: rgba(0,230,118,0.7); color: #69f0ae;'
     }
     if (g_face_detected) {
@@ -255,7 +280,8 @@
           ref_this_video_el.videoHeight,
         )
         if (m) g_measurements_obj = m
-        if (m && g_complete_obj.is_complete && g_frontal_obj?.is_frontal) {
+        // 정면 포즈에서만 안정화 진행. 프로필 포즈에서는 버퍼 유지할 필요가 없음.
+        if (g_should_check_frontal && m && g_complete_obj.is_complete && g_frontal_obj?.is_frontal) {
           update_stability(m)
         } else {
           g_buffer_arr = []
@@ -277,15 +303,55 @@
       draw_guide_ellipse()
     }
 
-    if (g_is_stable && !g_already_dispatched) {
+    if (g_is_auto_capture && g_is_stable && !g_already_dispatched) {
+      // 정면 + 자동 모드일 때만 안정화 후 자동 캡쳐. measurement 는 평균값을 사용.
       const avg = get_average()
-      if (avg) {
-        g_already_dispatched = true
-        onmeasure?.(avg)
-      }
+      void trigger_capture_internal(avg)
     }
 
     g_raf_id = requestAnimationFrame(on_loop_frame)
+  }
+
+  /**
+   * 현재 비디오 프레임을 Blob 으로 캡쳐하고 oncapture 콜백으로 전달한다.
+   * g_already_dispatched 로 동일 세션에 중복 호출이 되지 않도록 가드.
+   * @param {FaceMeasurements | null} measurements_obj
+   */
+  async function trigger_capture_internal(measurements_obj) {
+    if (g_already_dispatched) return
+    if (!ref_this_video_el || !g_stream) return
+    g_already_dispatched = true
+    try {
+      const { blob, width, height } = await video_to_blob(ref_this_video_el)
+      const object_url = URL.createObjectURL(blob)
+      oncapture?.({
+        blob,
+        object_url,
+        width,
+        height,
+        captured_at: Date.now(),
+        measurements_obj: measurements_obj ?? null,
+      })
+    } catch (err) {
+      // 촬영 실패 시 재시도 가능하도록 dispatched 플래그 해제.
+      g_already_dispatched = false
+      // eslint-disable-next-line no-console
+      console.error('[camera_view] capture failed:', err)
+    }
+  }
+
+  /**
+   * 외부에서 (수동 캡쳐용으로) 호출하는 촬영 트리거.
+   * 얼굴이 검출되지 않은 상태에서는 no-op 하고 경고 로그만 남긴다.
+   * @returns {Promise<void>}
+   */
+  export async function trigger_capture() {
+    if (!g_face_detected) {
+      // eslint-disable-next-line no-console
+      console.warn('[camera_view] trigger_capture: 얼굴이 감지되지 않음')
+      return
+    }
+    await trigger_capture_internal(g_measurements_obj)
   }
 
   // canvas 내부 해상도를 비디오 해상도에 맞춘다.
@@ -389,7 +455,7 @@
       </div>
     {/if}
 
-    {#if active && g_face_detected && g_frontal_obj && !g_frontal_obj.is_frontal}
+    {#if active && pose_target === 'front' && g_face_detected && g_frontal_obj && !g_frontal_obj.is_frontal}
       <div
         class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse text-[7rem] leading-none text-orange-400 drop-shadow-[0_2px_16px_rgba(0,0,0,0.65)]"
         aria-hidden="true"
