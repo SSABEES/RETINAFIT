@@ -1,6 +1,6 @@
 <script>
   import { navigate } from '@maks11060/svelte5-router'
-  import { ArrowLeft, Camera, Sparkles } from 'lucide-svelte'
+  import { ArrowLeft } from 'lucide-svelte'
   import { PATH } from '@/config/path'
   import CameraView from '@/components/camera/camera_view.svelte'
 
@@ -81,26 +81,10 @@
               <p class="m-0 mt-2 min-h-5 truncate text-sm font-semibold text-slate-500">
                 {shot_step_obj.description}
               </p>
-              <button
-                class="mt-3 inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[#AA83B4] px-4 text-sm font-extrabold text-white transition hover:bg-[#9A6CA8] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#AA83B4]/30"
-                type="button"
-              >
-                <Camera size={16} strokeWidth={2.5} aria-hidden="true" />
-                <span>촬영하기</span>
-              </button>
             </article>
           {/each}
         </div>
       </section>
-
-      <button
-        class="mt-3 inline-flex min-h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border-0 bg-[#AA83B4] px-6 text-lg font-extrabold text-white transition hover:bg-[#9A6CA8] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#AA83B4]/30"
-        type="button"
-        onclick={on_click_start_analysis}
-      >
-        <Sparkles size={22} strokeWidth={2.5} aria-hidden="true" />
-        <span>얼굴 분석 시작</span>
-      </button>
     </div>
   </section>
 </main>
