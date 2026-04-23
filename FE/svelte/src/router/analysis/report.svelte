@@ -236,7 +236,9 @@
   ]
 
   function normalize_face_shape_key(face_shape_value) {
-    const local_value = String(face_shape_value ?? '').trim().toLowerCase()
+    const local_value = String(face_shape_value ?? '')
+      .trim()
+      .toLowerCase()
 
     for (const [face_shape_key, face_shape_meta_obj] of Object.entries(g_face_shape_meta_obj)) {
       if (
@@ -250,7 +252,9 @@
   }
 
   function normalize_gender_key(gender_value) {
-    const local_value = String(gender_value ?? '').trim().toLowerCase()
+    const local_value = String(gender_value ?? '')
+      .trim()
+      .toLowerCase()
 
     if (['0', 'm', 'male', 'man', '남', '남자'].includes(local_value)) {
       return 'man'
@@ -281,7 +285,9 @@
   }
 
   function get_skin_tone_meta(skin_tone_value) {
-    const local_value = String(skin_tone_value ?? '').trim().toUpperCase()
+    const local_value = String(skin_tone_value ?? '')
+      .trim()
+      .toUpperCase()
 
     if (local_value === 'COOL' || local_value.includes('쿨')) {
       return {
@@ -296,7 +302,11 @@
       }
     }
 
-    if (local_value === 'NEUTRAL' || local_value.includes('뉴트럴') || local_value.includes('중성')) {
+    if (
+      local_value === 'NEUTRAL' ||
+      local_value.includes('뉴트럴') ||
+      local_value.includes('중성')
+    ) {
       return {
         label: 'NEUTRAL',
         detail: '중성 톤',
@@ -403,7 +413,9 @@
   }
 </script>
 
-<main class="app-frame-page flex h-full flex-col overflow-hidden bg-[#F7F8FA] text-[var(--retinal-text)]">
+<main
+  class="app-frame-page flex h-full flex-col overflow-hidden bg-[#F7F8FA] text-[var(--retinal-text)]"
+>
   <header
     class="grid h-[72px] shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-white px-8"
   >
@@ -509,8 +521,7 @@
                     >
                       <section class="border-b border-slate-100 pb-5">
                         <div class="mb-3 flex items-center gap-2">
-                          <span
-                            class="h-2.5 w-2.5 rounded-full bg-[var(--retinal-primary-600)]"
+                          <span class="h-2.5 w-2.5 rounded-full bg-[var(--retinal-primary-600)]"
                           ></span>
                           <h4 class="m-0 text-base font-extrabold text-zinc-950">피부톤 결과</h4>
                         </div>
@@ -523,10 +534,11 @@
 
                       <section>
                         <div class="mb-3 flex items-center gap-2">
-                          <span
-                            class="h-2.5 w-2.5 rounded-full bg-[var(--retinal-primary-600)]"
+                          <span class="h-2.5 w-2.5 rounded-full bg-[var(--retinal-primary-600)]"
                           ></span>
-                          <h4 class="m-0 text-base font-extrabold text-zinc-950">안경테 컬러 추천</h4>
+                          <h4 class="m-0 text-base font-extrabold text-zinc-950">
+                            안경테 컬러 추천
+                          </h4>
                         </div>
                         <div class="flex flex-wrap gap-2">
                           {#each get_skin_tone_meta(summary_obj.value).chips as chip_obj, chip_index (`${chip_obj.label}-${chip_index}`)}
