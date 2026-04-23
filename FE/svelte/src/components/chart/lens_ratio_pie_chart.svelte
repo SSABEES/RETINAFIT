@@ -81,7 +81,9 @@
   <div class="mt-7 grid grid-cols-3 gap-5 text-center">
     {#each data_arr as lens_obj (lens_obj.label)}
       <div>
-        <div class="mx-auto h-4 w-4 rounded-full" style={`background-color: ${lens_obj.color}`}
+        <div
+          class="mx-auto h-4 w-4 rounded-full"
+          style={`background-color: ${lens_obj.color}`}
         ></div>
         <p class="mb-1 mt-3 text-base font-extrabold text-zinc-950">{lens_obj.label}</p>
         <p class="m-0 text-sm font-semibold text-slate-500">{lens_obj.value}%</p>

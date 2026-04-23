@@ -1,6 +1,7 @@
 export const PATH = {
   home: '/',
   login: '/auth/login',
+  storeSelect: '/auth/store-select',
   opticianSelect: '/auth/optician-select',
   analysis: '/analysis',
   analysisResult: '/dashboard/analysis/result',
