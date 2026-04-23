@@ -1,2 +1,2 @@
-def recommend_glasses() -> list[dict]:
+def recommend_options() -> list[dict]:
     return []

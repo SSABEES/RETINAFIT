@@ -6,8 +6,9 @@ class Base(DeclarativeBase):
     pass
 
 
-class FittingResult(Base):
-    __tablename__ = "fitting_results"
+class FittingCriteria(Base):
+    __tablename__ = "fitting_criteria"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    image_url: Mapped[str] = mapped_column(String(500))
+    name: Mapped[str] = mapped_column(String(100), index=True)
+    description: Mapped[str | None] = mapped_column(String(500), nullable=True)
