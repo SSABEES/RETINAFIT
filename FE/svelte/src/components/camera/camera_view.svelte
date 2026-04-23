@@ -342,10 +342,16 @@
 
   /**
    * 외부에서 (수동 캡쳐용으로) 호출하는 촬영 트리거.
+   * capture_mode='manual' 에서만 쓰는 것이 정상 — auto 모드에서는 이미 안정화 후 자동 발사되므로
+   * 호출할 필요 없음(중복 호출은 g_already_dispatched 로 무시됨).
    * 얼굴이 검출되지 않은 상태에서는 no-op 하고 경고 로그만 남긴다.
    * @returns {Promise<void>}
    */
   export async function trigger_capture() {
+    if (capture_mode === 'auto') {
+      // eslint-disable-next-line no-console
+      console.warn('[camera_view] trigger_capture: auto 모드에서는 외부 호출이 불필요합니다')
+    }
     if (!g_face_detected) {
       // eslint-disable-next-line no-console
       console.warn('[camera_view] trigger_capture: 얼굴이 감지되지 않음')
@@ -386,7 +392,8 @@
 
   /**
    * 재측정을 위해 안정화 상태를 초기화한다.
-   * 외부에서 `bind:this` 로 참조해 호출하면 `onmeasure` 가 다시 한 번 발사될 수 있게 준비한다.
+   * 외부에서 `bind:this` 로 참조해 호출하면 자동 스텝에서 `oncapture` 가 다시 발사되거나,
+   * 수동 스텝에서 `trigger_capture()` 호출이 다시 수락되도록 재장전된다.
    */
   export function reset() {
     g_already_dispatched = false
@@ -470,7 +477,7 @@
       </div>
     {/if}
 
-    {#if active && g_face_detected && g_frontal_obj}
+    {#if active && pose_target === 'front' && g_face_detected && g_frontal_obj}
       <div
         class="pointer-events-none absolute right-2.5 top-2.5 z-10 flex w-44 flex-col gap-1.5 rounded-lg border border-white/20 bg-black/55 px-3 py-2 text-[11px] backdrop-blur-sm"
         aria-live="polite"
