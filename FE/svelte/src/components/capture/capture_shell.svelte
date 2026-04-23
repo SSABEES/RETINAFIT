@@ -114,26 +114,34 @@
   <GlassesModeModal open={g_session.phase === 'select_glasses'} onselect={on_select_glasses} />
 
   {#if g_session.phase === 'capturing' && g_current_step}
-    <StepIndicator current_index={g_session.current_step_index} total={g_session.steps_arr.length} />
+    <div class="grid grid-cols-[220px_1fr] gap-6">
+      <aside class="self-start">
+        <StepIndicator
+          steps_arr={g_session.steps_arr}
+          current_index={g_session.current_step_index}
+        />
+      </aside>
+      <div class="flex flex-col gap-4">
+        <section class="mx-auto w-full max-w-[540px]" aria-label="실시간 얼굴 분석">
+          <CameraView
+            bind:this={ref_this_camera}
+            active={true}
+            pose_target={g_current_step.pose_type}
+            capture_mode={g_current_step.capture_mode}
+            oncapture={on_capture}
+            oncapture_error={on_capture_error}
+          />
+        </section>
 
-    <section class="mx-auto w-full max-w-[540px]" aria-label="실시간 얼굴 분석">
-      <CameraView
-        bind:this={ref_this_camera}
-        active={true}
-        pose_target={g_current_step.pose_type}
-        capture_mode={g_current_step.capture_mode}
-        oncapture={on_capture}
-        oncapture_error={on_capture_error}
-      />
-    </section>
-
-    <section class="mx-auto w-full max-w-[540px]">
-      <StepStatusBar
-        step={g_current_step}
-        is_capturing={g_is_capturing}
-        oncapture_click={on_manual_capture_click}
-      />
-    </section>
+        <section class="mx-auto w-full max-w-[540px]">
+          <StepStatusBar
+            step={g_current_step}
+            is_capturing={g_is_capturing}
+            oncapture_click={on_manual_capture_click}
+          />
+        </section>
+      </div>
+    </div>
   {/if}
 
   {#if g_session.phase === 'review'}
