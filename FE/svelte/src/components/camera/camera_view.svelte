@@ -402,6 +402,68 @@
       </div>
     {/if}
 
+    {#if active && g_face_detected && g_frontal_obj}
+      <div
+        class="pointer-events-none absolute right-2.5 top-2.5 z-10 flex w-44 flex-col gap-1.5 rounded-lg border border-white/20 bg-black/55 px-3 py-2 text-[11px] backdrop-blur-sm"
+        aria-live="polite"
+      >
+        <div class="flex items-center gap-2">
+          <span class="w-10 font-semibold text-white/65">좌우</span>
+          <div
+            class="h-1.5 flex-1 overflow-hidden rounded-sm"
+            style="background: {g_yaw_style.track_bg};"
+          >
+            <div
+              class="h-full transition-[width]"
+              style="width: {g_yaw_style.width_pct}%; background: {g_yaw_style.fill_bg};"
+            ></div>
+          </div>
+          <span
+            class="w-12 text-right font-bold tabular-nums"
+            style="color: {g_yaw_style.text_color};"
+          >
+            {g_frontal_obj.yaw.toFixed(1)}°
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-10 font-semibold text-white/65">상하</span>
+          <div
+            class="h-1.5 flex-1 overflow-hidden rounded-sm"
+            style="background: {g_pitch_style.track_bg};"
+          >
+            <div
+              class="h-full transition-[width]"
+              style="width: {g_pitch_style.width_pct}%; background: {g_pitch_style.fill_bg};"
+            ></div>
+          </div>
+          <span
+            class="w-12 text-right font-bold tabular-nums"
+            style="color: {g_pitch_style.text_color};"
+          >
+            {g_frontal_obj.pitch.toFixed(1)}°
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-10 font-semibold text-white/65">기울기</span>
+          <div
+            class="h-1.5 flex-1 overflow-hidden rounded-sm"
+            style="background: {g_roll_style.track_bg};"
+          >
+            <div
+              class="h-full transition-[width]"
+              style="width: {g_roll_style.width_pct}%; background: {g_roll_style.fill_bg};"
+            ></div>
+          </div>
+          <span
+            class="w-12 text-right font-bold tabular-nums"
+            style="color: {g_roll_style.text_color};"
+          >
+            {g_frontal_obj.roll.toFixed(1)}°
+          </span>
+        </div>
+      </div>
+    {/if}
+
     {#if active}
       <div class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2">
         <span
@@ -413,30 +475,4 @@
       </div>
     {/if}
   </div>
-
-  {#if active && g_face_detected && g_frontal_obj}
-    <div class="flex flex-col gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 p-3">
-      <div class="flex items-center gap-2">
-        <span class="w-11 text-xs font-semibold text-zinc-400">좌우</span>
-        <div class="h-1.5 flex-1 overflow-hidden rounded-sm" style="background: {g_yaw_style.track_bg};">
-          <div class="h-full transition-[width]" style="width: {g_yaw_style.width_pct}%; background: {g_yaw_style.fill_bg};"></div>
-        </div>
-        <span class="w-11 text-right text-xs font-bold" style="color: {g_yaw_style.text_color};">{g_frontal_obj.yaw.toFixed(1)}°</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <span class="w-11 text-xs font-semibold text-zinc-400">상하</span>
-        <div class="h-1.5 flex-1 overflow-hidden rounded-sm" style="background: {g_pitch_style.track_bg};">
-          <div class="h-full transition-[width]" style="width: {g_pitch_style.width_pct}%; background: {g_pitch_style.fill_bg};"></div>
-        </div>
-        <span class="w-11 text-right text-xs font-bold" style="color: {g_pitch_style.text_color};">{g_frontal_obj.pitch.toFixed(1)}°</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <span class="w-11 text-xs font-semibold text-zinc-400">기울기</span>
-        <div class="h-1.5 flex-1 overflow-hidden rounded-sm" style="background: {g_roll_style.track_bg};">
-          <div class="h-full transition-[width]" style="width: {g_roll_style.width_pct}%; background: {g_roll_style.fill_bg};"></div>
-        </div>
-        <span class="w-11 text-right text-xs font-bold" style="color: {g_roll_style.text_color};">{g_frontal_obj.roll.toFixed(1)}°</span>
-      </div>
-    </div>
-  {/if}
 </div>
