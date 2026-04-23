@@ -1,5 +1,7 @@
 <script>
+  import { navigate } from '@maks11060/svelte5-router'
   import { ArrowLeft, Camera, Sparkles } from 'lucide-svelte'
+  import { PATH } from '@/config/path'
 
   const shot_step_arr = [
     {
@@ -23,6 +25,11 @@
   // 이전 화면으로 돌아가 고객 상세 흐름을 유지한다.
   function on_click_go_back() {
     window.history.back()
+  }
+
+  // 촬영 완료 후 얼굴 분석 리포트 화면으로 이동한다.
+  function on_click_start_analysis() {
+    navigate(PATH.analysisReport)
   }
 </script>
 
@@ -84,6 +91,7 @@
       <button
         class="mt-3 inline-flex min-h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border-0 bg-[#AA83B4] px-6 text-lg font-extrabold text-white transition hover:bg-[#9A6CA8] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#AA83B4]/30"
         type="button"
+        onclick={on_click_start_analysis}
       >
         <Sparkles size={22} strokeWidth={2.5} aria-hidden="true" />
         <span>얼굴 분석 시작</span>
