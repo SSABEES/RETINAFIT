@@ -68,6 +68,16 @@
     add_capture(capture)
   }
 
+  /**
+   * camera_view 의 trigger_capture_internal 이 toBlob 실패 등으로 에러를 던진 경우 호출됨.
+   * 자동 스텝/수동 스텝 모두에 공통으로 사용자 토스트를 노출한다.
+   * @param {unknown} _err
+   */
+  function on_capture_error(_err) {
+    g_is_capturing = false
+    show_toast('촬영에 실패했어요')
+  }
+
   // 수동 촬영 버튼 클릭 — camera_view 의 trigger_capture 호출 후 결과에 따라 토스트 표시.
   async function on_manual_capture_click() {
     if (g_is_capturing || !ref_this_camera) return
@@ -113,6 +123,7 @@
         pose_target={g_current_step.pose_type}
         capture_mode={g_current_step.capture_mode}
         oncapture={on_capture}
+        oncapture_error={on_capture_error}
       />
     </section>
 

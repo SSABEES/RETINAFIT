@@ -22,7 +22,11 @@
 </script>
 
 {#if open}
-  <div class="fixed inset-0 z-50 grid place-items-center bg-black/45 px-5" role="presentation">
+  <div
+    class="fixed inset-0 z-50 grid place-items-center bg-black/45 px-5"
+    role="presentation"
+    onkeydown={(e) => e.key === 'Escape' && e.preventDefault()}
+  >
     <div
       class="w-full max-w-[480px] overflow-hidden rounded-2xl bg-white text-left shadow-2xl shadow-black/25"
       role="dialog"

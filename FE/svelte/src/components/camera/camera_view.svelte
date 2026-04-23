@@ -32,6 +32,7 @@
    *   pose_target?: 'front' | 'left_profile' | 'right_profile',
    *   capture_mode?: 'auto' | 'manual',
    *   oncapture?: ((c: CaptureResult) => void) | undefined,
+   *   oncapture_error?: ((err: unknown) => void) | undefined,
    * }}
    */
   let {
@@ -39,6 +40,7 @@
     pose_target = 'front',
     capture_mode = 'auto',
     oncapture = undefined,
+    oncapture_error = undefined,
   } = $props()
 
   // FRAME_SKIP: 60fps / 5 = 12Hz 추론 (성능과 반응성의 타협점)
@@ -333,10 +335,11 @@
         measurements_obj: measurements_obj ?? null,
       })
     } catch (err) {
-      // 촬영 실패 시 재시도 가능하도록 dispatched 플래그 해제.
+      // 촬영 실패 시 재시도 가능하도록 dispatched 플래그 해제 + 소비자에게 에러 알림.
       g_already_dispatched = false
       // eslint-disable-next-line no-console
       console.error('[camera_view] capture failed:', err)
+      oncapture_error?.(err)
     }
   }
 

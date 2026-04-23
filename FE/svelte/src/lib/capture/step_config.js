@@ -86,3 +86,14 @@ export function get_steps_for_mode(glasses_mode) {
 export function progress_label(current_step_index, total) {
   return `${current_step_index + 1} / ${total}`
 }
+
+/**
+ * 진행도 비율(0~1)을 반환한다. 마지막 스텝 시작 시점에 1 이 아닌 (total-1)/total 을 반환.
+ * @param {number} current_step_index
+ * @param {number} total
+ * @returns {number}
+ */
+export function progress_ratio(current_step_index, total) {
+  if (total <= 0) return 0
+  return Math.min(1, Math.max(0, current_step_index / total))
+}
