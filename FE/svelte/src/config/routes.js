@@ -5,7 +5,7 @@ import OpticianSelectPage from '@/router/auth/optician_select.svelte'
 import AnalysisPage from '@/router/analysis/index.svelte'
 import AnalysisResultPage from '@/router/analysis/result.svelte'
 import AnalysisReportPage from '@/router/analysis/report.svelte'
-import AnalysisGlassesPage from '@/router/analysis/glasses.svelte'
+import AnalysisLensConsultPage from '@/router/analysis/lens_consult.svelte'
 import AnalysisArFittingPage from '@/router/analysis/arfitting.svelte'
 import UsersPage from '@/router/dashboard/users.svelte'
 import UserDetailPage from '@/router/dashboard/users/[id].svelte'
@@ -25,7 +25,7 @@ export const routes = [
   { path: PATH.analysis, component: AnalysisPage },
   { path: PATH.analysisResult, component: AnalysisResultPage },
   { path: PATH.analysisReport, component: AnalysisReportPage },
-  { path: PATH.analysisGlasses, component: AnalysisGlassesPage },
+  { path: PATH.analysisLensConsult, component: AnalysisLensConsultPage },
   { path: PATH.analysisArFitting, component: AnalysisArFittingPage },
   { path: PATH.users, component: UsersPage },
   { path: PATH.sales, component: SalesPage },
