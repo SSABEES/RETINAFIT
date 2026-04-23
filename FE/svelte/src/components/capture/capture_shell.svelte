@@ -5,6 +5,7 @@
   import StepIndicator from '@/components/capture/step_indicator.svelte'
   import StepStatusBar from '@/components/capture/step_status_bar.svelte'
   import CaptureReview from '@/components/capture/capture_review.svelte'
+  import CaptureThumbnails from '@/components/capture/capture_thumbnails.svelte'
   import {
     get_session,
     set_glasses_mode,
@@ -115,10 +116,11 @@
 
   {#if g_session.phase === 'capturing' && g_current_step}
     <!--
-      3컬럼 레이아웃: [220px 스텝리스트 | 540px 카메라/상태바 | 220px 스페이서]
-      - 좌우 스페이서 폭이 같아 중앙 540px 컬럼이 페이지 가로 정중앙에 고정된다.
-      - justify-center 로 그리드 전체를 컨테이너 안에서 수평 중앙 정렬.
-      - aside 의 self-center 로 스텝 리스트가 카메라+상태바 세로 높이 안에서 수직 중앙 정렬.
+      3컬럼 레이아웃 (좌우 대칭):
+      - 좌측 220px: 스텝 리스트 (세로 중앙 정렬)
+      - 중앙 540px: 카메라 뷰 (가로 중앙 고정)
+      - 우측 220px: 스텝 가이드 + 촬영 버튼 + 캡쳐 썸네일 (상단 정렬)
+      좌우 컬럼 폭이 같아 카메라가 페이지 정중앙에 고정된다.
     -->
     <div class="grid grid-cols-[220px_540px_220px] justify-center gap-6">
       <aside class="self-center">
@@ -127,27 +129,26 @@
           current_index={g_session.current_step_index}
         />
       </aside>
-      <div class="flex flex-col gap-4">
-        <section aria-label="실시간 얼굴 분석">
-          <CameraView
-            bind:this={ref_this_camera}
-            active={true}
-            pose_target={g_current_step.pose_type}
-            capture_mode={g_current_step.capture_mode}
-            oncapture={on_capture}
-            oncapture_error={on_capture_error}
-          />
-        </section>
 
-        <section>
-          <StepStatusBar
-            step={g_current_step}
-            is_capturing={g_is_capturing}
-            oncapture_click={on_manual_capture_click}
-          />
-        </section>
-      </div>
-      <div aria-hidden="true"></div>
+      <section aria-label="실시간 얼굴 분석" class="self-start">
+        <CameraView
+          bind:this={ref_this_camera}
+          active={true}
+          pose_target={g_current_step.pose_type}
+          capture_mode={g_current_step.capture_mode}
+          oncapture={on_capture}
+          oncapture_error={on_capture_error}
+        />
+      </section>
+
+      <aside class="flex flex-col gap-3 self-start">
+        <StepStatusBar
+          step={g_current_step}
+          is_capturing={g_is_capturing}
+          oncapture_click={on_manual_capture_click}
+        />
+        <CaptureThumbnails />
+      </aside>
     </div>
   {/if}
 
