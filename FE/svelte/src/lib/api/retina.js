@@ -1,4 +1,4 @@
-const RETINA_API_BASE_URL = import.meta.env.VITE_RETINA_API_BASE_URL ?? 'https://rapi.beta9.kr'
+const RETINA_API_BASE_URL = import.meta.env.VITE_RETINA_API_BASE_URL
 
 /**
  * RETINAL 프로시저 요청을 beta9 retina API 형식으로 전송한다.
