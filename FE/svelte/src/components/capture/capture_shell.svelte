@@ -114,15 +114,21 @@
   <GlassesModeModal open={g_session.phase === 'select_glasses'} onselect={on_select_glasses} />
 
   {#if g_session.phase === 'capturing' && g_current_step}
-    <div class="grid grid-cols-[220px_1fr] gap-6">
-      <aside class="self-start">
+    <!--
+      3컬럼 레이아웃: [220px 스텝리스트 | 540px 카메라/상태바 | 220px 스페이서]
+      - 좌우 스페이서 폭이 같아 중앙 540px 컬럼이 페이지 가로 정중앙에 고정된다.
+      - justify-center 로 그리드 전체를 컨테이너 안에서 수평 중앙 정렬.
+      - aside 의 self-center 로 스텝 리스트가 카메라+상태바 세로 높이 안에서 수직 중앙 정렬.
+    -->
+    <div class="grid grid-cols-[220px_540px_220px] justify-center gap-6">
+      <aside class="self-center">
         <StepIndicator
           steps_arr={g_session.steps_arr}
           current_index={g_session.current_step_index}
         />
       </aside>
       <div class="flex flex-col gap-4">
-        <section class="mx-auto w-full max-w-[540px]" aria-label="실시간 얼굴 분석">
+        <section aria-label="실시간 얼굴 분석">
           <CameraView
             bind:this={ref_this_camera}
             active={true}
@@ -133,7 +139,7 @@
           />
         </section>
 
-        <section class="mx-auto w-full max-w-[540px]">
+        <section>
           <StepStatusBar
             step={g_current_step}
             is_capturing={g_is_capturing}
@@ -141,6 +147,7 @@
           />
         </section>
       </div>
+      <div aria-hidden="true"></div>
     </div>
   {/if}
 
