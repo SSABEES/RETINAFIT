@@ -18,7 +18,7 @@ import { FaceLandmarker as MpFaceLandmarker, FilesetResolver } from '@mediapipe/
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
 const WASM_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm'
-const CACHE_TTL_MS = 16
+const CACHE_TTL_MS = 16 // 16ms ≈ 60fps 한 프레임 — 같은 rAF 틱의 중복 호출 방지
 const FRAME_MARGIN = 0.03
 
 export const YAW_THR = 12
@@ -123,7 +123,9 @@ export function detect_from_video(landmarker, video) {
   return g_cached_result
 }
 
-// 비디오 검출 결과 캐시를 비운다. 카메라 정지/재시작 시 호출.
+/**
+ * 비디오 검출 결과 캐시를 비운다. 카메라 정지/재시작 시 호출.
+ */
 export function clear_video_cache() {
   g_cached_result = null
   g_cached_timestamp = -1
@@ -202,7 +204,8 @@ function draw_connections(ctx, landmarks, connections, w, h, color, line_width) 
 
 /**
  * 페이스 메시(테셀레이션, 윤곽, 눈, 눈썹, 입술, 홍채)를 canvas 에 그린다.
- * 비디오 프레임은 그리지 않는다 (투명 오버레이로 <video> 위에 겹쳐 씀).
+ * 비디오 프레임은 그리지 않는다 — 이 canvas 는 <video> 위에 투명 오버레이로 겹쳐 그리는 용도이므로
+ * 비디오 프레임을 복제해 그리면 불투명해져 카메라 영상을 가리게 된다.
  * @param {HTMLCanvasElement} canvas
  * @param {FaceLandmarkerResult | null} result
  */

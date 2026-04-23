@@ -9,6 +9,7 @@
 /**
  * 얼굴 실루엣/외곽선 계산에 사용하는 주요 랜드마크 인덱스.
  * 카메라를 바라보는 사람 기준 좌/우.
+ * @type {Record<string, number>}
  */
 export const LANDMARK_IDX = {
   topForehead: 10,

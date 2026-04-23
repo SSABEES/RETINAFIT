@@ -6,6 +6,10 @@
  * @typedef {import("@mediapipe/tasks-vision").NormalizedLandmark} NormalizedLandmark
  */
 
+// 안내측각(inter-canthal) 거리 대비 동공 거리(PD) 비율의 경험 규칙.
+// 원본 Flutter 프로젝트의 측정 검증에서 유도됨. 추후 실측 보정 시 후보 상수.
+const PD_FACTOR = 0.8
+
 /**
  * 478포인트 정규화 랜드마크 배열에서 6가지 픽셀 측정값을 계산한다.
  * 측정값 중 하나라도 0 이하이면 측정 실패로 null 을 반환한다.
@@ -32,7 +36,7 @@ export function compute_measurements(landmarks, width, height) {
   const eye_distance = Math.abs(landmarks[263].x - landmarks[33].x) * width
   const nose_width = Math.abs(landmarks[358].x - landmarks[129].x) * width
   const jaw_width = Math.abs(landmarks[397].x - landmarks[172].x) * width
-  const pd_pixels = eye_distance * 0.8
+  const pd_pixels = eye_distance * PD_FACTOR
 
   if (face_width <= 0 || face_height <= 0 || eye_distance <= 0) return null
 
