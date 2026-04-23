@@ -385,21 +385,73 @@
     }
   }
 
-  // 상태색이 적용된 가이드 타원을 canvas 위에 그린다.
+  /**
+   * 상태색이 적용된 얼굴형 가이드를 canvas 위에 그린다.
+   * 단순 타원 대신 계란형(이마는 둥글게, 턱은 좁게) 베지어 곡선으로 현실적 얼굴 실루엣을 근사한다.
+   * 해부학적 비율 근사: 얼굴 세로/가로 ≈ 1.32, 광대뼈 라인이 세로 중앙 살짝 아래, 하반부가 상반부보다 길다.
+   */
   function draw_guide_ellipse() {
     if (!ref_this_canvas_el || ref_this_canvas_el.width === 0) return
     const ctx = ref_this_canvas_el.getContext('2d')
     if (!ctx) return
-    const cx = ref_this_canvas_el.width * 0.5
-    const cy = ref_this_canvas_el.height * 0.45
-    const rx = ref_this_canvas_el.width * 0.18
-    const ry = ref_this_canvas_el.height * 0.4
+
+    const w = ref_this_canvas_el.width
+    const h = ref_this_canvas_el.height
+    const cx = w * 0.5
+    const cy = h * 0.47
+
+    // 얼굴 전체 세로(이마 위~턱 끝). 카메라 프레임 세로의 60% 를 얼굴 영역으로 가정.
+    const face_h = h * 0.6
+    // 광대뼈 너비(최대 가로) — 얼굴 세로의 약 76% 가 일반적 해부학 평균.
+    const face_w = face_h * 0.76
+
+    // 4개 앵커: top(이마), right(광대), bottom(턱), left(광대 대칭)
+    const top_y = cy - face_h * 0.46 // 상반부 46% (이마 위쪽이 하반부보다 살짝 짧음)
+    const bottom_y = cy + face_h * 0.54 // 하반부 54% (턱이 아래로 더 돌출)
+    const cheek_y = cy + face_h * 0.04 // 광대 라인은 중심 살짝 아래
+    const cheek_x = face_w * 0.5
+
+    // 베지어 제어점: 상단은 수평으로 넓게 벌려 둥근 이마, 하단은 좁게 모아 뾰족한 턱.
+    const k_upper_out = cheek_x * 1.05
+    const k_upper_vert = (cheek_y - top_y) * 0.55
+    const k_lower_in = cheek_x * 0.45
+    const k_lower_vert = (bottom_y - cheek_y) * 0.55
+
     ctx.save()
+    // 배경 영상에 관계없이 선이 잘 보이도록 약한 드롭섀도.
+    ctx.shadowColor = 'rgba(0,0,0,0.55)'
+    ctx.shadowBlur = 4
     ctx.strokeStyle = g_guide_color
     ctx.lineWidth = 3
     ctx.setLineDash(g_is_stable ? [] : [14, 7])
+
     ctx.beginPath()
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
+    ctx.moveTo(cx, top_y)
+    // 이마 → 오른 광대 (둥글게 벌어짐)
+    ctx.bezierCurveTo(
+      cx + k_upper_out, top_y,
+      cx + cheek_x, cheek_y - k_upper_vert,
+      cx + cheek_x, cheek_y,
+    )
+    // 오른 광대 → 턱 (안쪽으로 좁아짐)
+    ctx.bezierCurveTo(
+      cx + cheek_x, cheek_y + k_lower_vert,
+      cx + k_lower_in, bottom_y,
+      cx, bottom_y,
+    )
+    // 턱 → 왼 광대 (대칭)
+    ctx.bezierCurveTo(
+      cx - k_lower_in, bottom_y,
+      cx - cheek_x, cheek_y + k_lower_vert,
+      cx - cheek_x, cheek_y,
+    )
+    // 왼 광대 → 이마 (대칭)
+    ctx.bezierCurveTo(
+      cx - cheek_x, cheek_y - k_upper_vert,
+      cx - k_upper_out, top_y,
+      cx, top_y,
+    )
+    ctx.closePath()
     ctx.stroke()
     ctx.restore()
   }
