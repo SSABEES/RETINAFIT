@@ -2,17 +2,7 @@
   import { navigate } from '@maks11060/svelte5-router'
   import { ArrowLeft } from 'lucide-svelte'
   import { PATH } from '@/config/path'
-  import CameraView from '@/components/camera/camera_view.svelte'
-
-  /**
-   * 카메라 뷰가 30프레임 안정화 후 측정값을 콜백으로 전달하면 콘솔에 로그를 남긴다.
-   * 추후 작업: 측정값을 결과 페이지 라우팅 또는 서버 저장에 연결.
-   * @param {import("@/lib/mediapipe/face_types.js").FaceMeasurements} local_measurements_obj
-   */
-  function on_measure(local_measurements_obj) {
-    // eslint-disable-next-line no-console
-    console.log('[analysis] measured:', local_measurements_obj)
-  }
+  import CaptureShell from '@/components/capture/capture_shell.svelte'
 
   // 이전 화면으로 돌아가 고객 상세 흐름을 유지한다.
   function on_click_go_back() {
@@ -47,9 +37,7 @@
 
   <section class="h-[calc(100%-72px)] overflow-y-auto px-8 py-4">
     <div class="mx-auto max-w-[1216px]">
-      <section class="mx-auto max-w-[540px]" aria-label="실시간 얼굴 분석">
-        <CameraView active={true} onmeasure={on_measure} />
-      </section>
+      <CaptureShell />
     </div>
   </section>
 </main>
