@@ -116,7 +116,7 @@
   {#if g_session.phase === 'capturing' && g_current_step}
     <StepIndicator current_index={g_session.current_step_index} total={g_session.steps_arr.length} />
 
-    <section class="mx-auto max-w-[540px]" aria-label="실시간 얼굴 분석">
+    <section class="mx-auto w-full max-w-[540px]" aria-label="실시간 얼굴 분석">
       <CameraView
         bind:this={ref_this_camera}
         active={true}
