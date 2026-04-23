@@ -1,11 +1,6 @@
 <script>
   import { Link } from '@maks11060/svelte5-router'
-  import {
-    BarChart3,
-    Building2,
-    CircleHelp,
-    Users,
-  } from 'lucide-svelte'
+  import { BarChart3, Building2, CircleHelp, Users } from 'lucide-svelte'
   import { PATH } from '@/config/path'
 
   /** @type {{ active_key?: string }} */

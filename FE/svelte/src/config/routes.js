@@ -1,5 +1,6 @@
 import HomePage from '@/router/HomePage.svelte'
 import LoginPage from '@/router/auth/login.svelte'
+import StoreSelectPage from '@/router/auth/store_select.svelte'
 import OpticianSelectPage from '@/router/auth/optician_select.svelte'
 import AnalysisPage from '@/router/analysis/index.svelte'
 import AnalysisResultPage from '@/router/analysis/result.svelte'
@@ -19,6 +20,7 @@ import { PATH, ROUTE_PATH } from '@/config/path'
 export const routes = [
   { path: PATH.home, component: HomePage },
   { path: PATH.login, component: LoginPage },
+  { path: PATH.storeSelect, component: StoreSelectPage },
   { path: PATH.opticianSelect, component: OpticianSelectPage },
   { path: PATH.analysis, component: AnalysisPage },
   { path: PATH.analysisResult, component: AnalysisResultPage },

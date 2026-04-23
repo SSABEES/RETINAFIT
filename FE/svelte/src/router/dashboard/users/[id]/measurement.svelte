@@ -132,7 +132,9 @@
           <div class="mt-7 grid grid-cols-2 gap-x-8 gap-y-5">
             <label class="grid gap-2 text-sm font-extrabold text-slate-700">
               브릿지 너비
-              <div class="flex min-h-12 items-center rounded-xl border border-slate-200 px-4 focus-within:border-[#9A1BFF] focus-within:ring-3 focus-within:ring-[#9A1BFF]/15">
+              <div
+                class="flex min-h-12 items-center rounded-xl border border-slate-200 px-4 focus-within:border-[#9A1BFF] focus-within:ring-3 focus-within:ring-[#9A1BFF]/15"
+              >
                 <input
                   class="min-w-0 flex-1 border-0 bg-transparent text-base font-semibold text-zinc-900 outline-none"
                   bind:value={ref_measurement_obj.bridge_width}
@@ -142,7 +144,9 @@
             </label>
             <label class="grid gap-2 text-sm font-extrabold text-slate-700">
               렌즈 너비
-              <div class="flex min-h-12 items-center rounded-xl border border-slate-200 px-4 focus-within:border-[#9A1BFF] focus-within:ring-3 focus-within:ring-[#9A1BFF]/15">
+              <div
+                class="flex min-h-12 items-center rounded-xl border border-slate-200 px-4 focus-within:border-[#9A1BFF] focus-within:ring-3 focus-within:ring-[#9A1BFF]/15"
+              >
                 <input
                   class="min-w-0 flex-1 border-0 bg-transparent text-base font-semibold text-zinc-900 outline-none"
                   bind:value={ref_measurement_obj.lens_width}
@@ -152,7 +156,9 @@
             </label>
             <label class="grid gap-2 text-sm font-extrabold text-slate-700">
               렌즈 높이
-              <div class="flex min-h-12 items-center rounded-xl border border-slate-200 px-4 focus-within:border-[#9A1BFF] focus-within:ring-3 focus-within:ring-[#9A1BFF]/15">
+              <div
+                class="flex min-h-12 items-center rounded-xl border border-slate-200 px-4 focus-within:border-[#9A1BFF] focus-within:ring-3 focus-within:ring-[#9A1BFF]/15"
+              >
                 <input
                   class="min-w-0 flex-1 border-0 bg-transparent text-base font-semibold text-zinc-900 outline-none"
                   bind:value={ref_measurement_obj.lens_height}
@@ -162,7 +168,9 @@
             </label>
             <label class="grid gap-2 text-sm font-extrabold text-slate-700">
               다리 길이
-              <div class="flex min-h-12 items-center rounded-xl border border-slate-200 px-4 focus-within:border-[#9A1BFF] focus-within:ring-3 focus-within:ring-[#9A1BFF]/15">
+              <div
+                class="flex min-h-12 items-center rounded-xl border border-slate-200 px-4 focus-within:border-[#9A1BFF] focus-within:ring-3 focus-within:ring-[#9A1BFF]/15"
+              >
                 <input
                   class="min-w-0 flex-1 border-0 bg-transparent text-base font-semibold text-zinc-900 outline-none"
                   bind:value={ref_measurement_obj.temple_length}
