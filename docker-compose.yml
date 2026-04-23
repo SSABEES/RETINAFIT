@@ -1,0 +1,36 @@
+services:
+  be:
+    build:
+      context: ./BE
+    container_name: my-project-be
+    env_file:
+      - ./BE/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - ai
+
+  ai:
+    build:
+      context: ./AI
+    container_name: my-project-ai
+    env_file:
+      - ./AI/.env
+    ports:
+      - "8001:8001"
+
+  db:
+    image: postgres:16-alpine
+    container_name: my-project-db
+    environment:
+      POSTGRES_DB: my_project
+      POSTGRES_USER: my_project
+      POSTGRES_PASSWORD: my_project
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:
