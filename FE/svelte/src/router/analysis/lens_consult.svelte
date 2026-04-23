@@ -107,6 +107,10 @@
           <p class="rounded-xl bg-red-50 px-5 py-4 text-sm font-bold text-red-600" role="alert">
             {g_options_error}
           </p>
+        {:else if g_option_group_arr.length === 0}
+          <p class="rounded-xl bg-slate-50 px-5 py-4 text-sm font-bold text-slate-500">
+            선택 가능한 옵션이 없습니다.
+          </p>
         {:else}
           {#each g_option_group_arr as group_obj (group_obj.key)}
             <section>
