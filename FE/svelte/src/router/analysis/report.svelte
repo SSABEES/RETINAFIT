@@ -768,9 +768,9 @@
         </Link>
         <Link
           class="grid min-h-16 grid-cols-[1fr_auto] items-center rounded-lg bg-[var(--retinal-primary-600)] px-8 text-center text-lg font-extrabold !text-white transition hover:bg-[var(--retinal-primary-500)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/30"
-          href={PATH.analysisArFitting}
+          href={PATH.analysisLensConsult}
         >
-          <span class="text-white">안경 둘러보기</span>
+          <span class="text-white">온보딩 진행</span>
           <ChevronRight size={24} strokeWidth={2.5} class="text-white" aria-hidden="true" />
         </Link>
       </div>

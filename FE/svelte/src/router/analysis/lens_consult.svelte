@@ -148,7 +148,7 @@
       <button
         class="mt-8 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-xl border-0 bg-[#4B0055] text-lg font-extrabold text-white transition hover:bg-[#65006F] disabled:cursor-not-allowed disabled:opacity-50"
         type="button"
-        disabled={!g_can_submit || g_loading}
+        disabled={g_loading}
         onclick={on_click_submit}
       >
         {#if g_loading}
@@ -157,7 +157,7 @@
           <span>저장 중...</span>
         {:else}
           <Glasses size={22} aria-hidden="true" />
-          <span>AR 피팅으로 이동</span>
+          <span>AR피팅 시작하기</span>
         {/if}
       </button>
     </div>
