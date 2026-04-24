@@ -4,24 +4,24 @@
 
 RETINAL — 안경점 실시간 AR 안경 피팅 서비스의 관리자 대시보드 FE.
 
-| 항목 | 버전/라이브러리 |
-|---|---|
-| 프레임워크 | Svelte 5 |
-| 빌드 | Vite |
-| 스타일링 | Tailwind CSS 4 + `src/app.css` 전역 토큰 |
-| 라우터 | `@maks11060/svelte5-router` |
-| 언어 | JavaScript |
+| 항목       | 버전/라이브러리                          |
+| ---------- | ---------------------------------------- |
+| 프레임워크 | Svelte 5                                 |
+| 빌드       | Vite                                     |
+| 스타일링   | Tailwind CSS 4 + `src/app.css` 전역 토큰 |
+| 라우터     | `@maks11060/svelte5-router`              |
+| 언어       | JavaScript                               |
 
 ## 코덱스 스킬
 
 모든 코드 작성 전에 아래 스킬을 먼저 확인하고 규칙을 따른다.
 
-| 스킬 | 파일 | 언제 사용 |
-|---|---|---|
-| **naming** | `.codex/skills/naming/SKILL.md` | 변수명, 함수명, 파일명 — **모든 코드 작업의 전제** |
-| **ui** | `.codex/skills/ui/SKILL.md` | 색상, 레이아웃, 컴포넌트 스타일 적용 시 |
+| 스킬          | 파일                               | 언제 사용                                            |
+| ------------- | ---------------------------------- | ---------------------------------------------------- |
+| **naming**    | `.codex/skills/naming/SKILL.md`    | 변수명, 함수명, 파일명 — **모든 코드 작업의 전제**   |
+| **ui**        | `.codex/skills/ui/SKILL.md`        | 색상, 레이아웃, 컴포넌트 스타일 적용 시              |
 | **component** | `.codex/skills/component/SKILL.md` | 공용 컴포넌트 또는 페이지 전용 조합 컴포넌트 작성 시 |
-| **page** | `.codex/skills/page/SKILL.md` | 새 페이지/라우트 추가 또는 확장 시 |
+| **page**      | `.codex/skills/page/SKILL.md`      | 새 페이지/라우트 추가 또는 확장 시                   |
 
 디자인 토큰 전체 레퍼런스: `.codex/design-system.md`
 

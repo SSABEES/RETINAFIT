@@ -13,6 +13,7 @@
   } from 'lucide-svelte'
   import DashboardShell from '@/components/layout/dashboard_shell.svelte'
   import { PATH } from '@/config/path'
+  import { set_selected_customer } from '@/lib/stores/customer'
   import { get_customer_by_id } from '@/router/dashboard/users/user_data'
 
   /** @type {{ id?: string }} */
@@ -51,6 +52,10 @@
   ])
 
   let g_customer_obj = $derived(get_customer_by_id(id))
+
+  $effect(() => {
+    set_selected_customer(g_customer_obj)
+  })
 </script>
 
 <DashboardShell active_key="users" title="고객 상세">

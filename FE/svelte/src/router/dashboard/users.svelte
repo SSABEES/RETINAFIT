@@ -5,7 +5,7 @@
   import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
   import { PATH } from '@/config/path'
   import { retina_create_customer, retina_find_customer_by_phone } from '@/lib/api/retina'
-  import { customer_arr_store } from '@/lib/stores/customer'
+  import { customer_arr_store, set_selected_customer } from '@/lib/stores/customer'
   import { selected_opt_store_obj } from '@/lib/stores/admin'
 
   let ref_customer_arr = $state([])
@@ -18,6 +18,11 @@
   // 고객 이름에서 목록 아바타에 사용할 첫 글자를 추출한다.
   function get_initial(name) {
     return name.slice(0, 1)
+  }
+
+  // 고객 목록 카드를 클릭하면 분석/상세 화면에서 사용할 선택 고객을 저장한다.
+  function on_click_select_customer(customer_obj) {
+    set_selected_customer(customer_obj)
   }
 
   /**
@@ -212,6 +217,7 @@
               use:link
               class="block rounded-lg outline-none transition hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-[#9A1BFF]/20"
               href={PATH.userDetail(customer_obj.id)}
+              onclick={() => on_click_select_customer(customer_obj)}
               aria-label={`${customer_obj.name} 고객 상세로 이동`}
             >
               <article
