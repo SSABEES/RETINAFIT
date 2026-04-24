@@ -10,13 +10,14 @@
     PITCH_THR,
     ROLL_THR,
   } from '@/lib/mediapipe/face_landmarker.js'
-  import { compute_measurements } from '@/lib/mediapipe/measurements.js'
+  import { compute_measurements, compute_measurement_points } from '@/lib/mediapipe/measurements.js'
   import { video_to_blob } from '@/lib/capture/capture_utils.js'
 
   /**
    * @typedef {import("@/lib/mediapipe/face_types.js").FaceMeasurements} FaceMeasurements
    * @typedef {import("@/lib/mediapipe/face_types.js").FrontalCheck} FrontalCheck
    * @typedef {import("@/lib/mediapipe/face_types.js").CompletenessCheck} CompletenessCheck
+   * @typedef {import("@/lib/mediapipe/face_types.js").Point2D} Point2D
    *
    * @typedef {object} CaptureResult
    * @property {Blob} blob
@@ -25,6 +26,7 @@
    * @property {number} width
    * @property {number} height
    * @property {FaceMeasurements | null} measurements_obj
+   * @property {Record<string, [Point2D, Point2D]> | null} measurement_points_obj
    */
 
   /** @type {{
@@ -326,6 +328,11 @@
     try {
       const { blob, width, height } = await video_to_blob(ref_this_video_el)
       const object_url = URL.createObjectURL(blob)
+      // 캡쳐 시점의 랜드마크 쌍을 픽셀 공간 좌표로 변환. 랜드마크가 없으면 null.
+      const landmarks = g_last_detection?.faceLandmarks?.[0] ?? null
+      const measurement_points_obj = landmarks
+        ? compute_measurement_points(landmarks, width, height)
+        : null
       oncapture?.({
         blob,
         object_url,
@@ -333,6 +340,7 @@
         height,
         captured_at: Date.now(),
         measurements_obj: measurements_obj ?? null,
+        measurement_points_obj,
       })
     } catch (err) {
       // 촬영 실패 시 재시도 가능하도록 dispatched 플래그 해제 + 소비자에게 에러 알림.
