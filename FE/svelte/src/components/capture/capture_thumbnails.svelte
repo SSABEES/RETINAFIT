@@ -12,7 +12,7 @@
     Record
   </div>
 
-  <div class="grid grid-cols-3 gap-2">
+  <div class="grid grid-cols-2 gap-2.5">
     {#each g_session.steps_arr as step, i (step.step_id)}
       {@const capture = g_session.captures_obj[step.step_id]}
       {@const num = String(i + 1).padStart(2, '0')}
