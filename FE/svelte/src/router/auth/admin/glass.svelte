@@ -19,6 +19,7 @@
     { key: 'temple_length', label: '템플 길이', placeholder: '145' },
   ]
 
+  // 새 안경 정보를 입력할 기본 폼 상태를 만든다.
   function create_glass_form() {
     return {
       glasses_name: '',
@@ -50,6 +51,7 @@
   let ref_glass_img_preview_url = $state('')
   let ref_glass_form_obj = $state(create_glass_form())
 
+  // 화면 진입 시 안경 목록을 불러와 리스트를 초기화한다.
   onMount(async () => {
     try {
       ref_glass_list_arr = await get_all_glasses()
@@ -58,6 +60,7 @@
     }
   })
 
+  // 편집 폼을 신규 등록 상태로 되돌린다.
   function reset_glass_form() {
     if (ref_glass_img_preview_url?.startsWith('blob:')) {
       URL.revokeObjectURL(ref_glass_img_preview_url)
@@ -70,26 +73,31 @@
     ref_glass_saved_message = ''
   }
 
+  // 안경 추가 화면으로 전환한다.
   function on_click_open_glass_create() {
     reset_glass_form()
     ref_glass_editor_open = true
   }
 
+  // 편집 화면을 닫고 목록 화면으로 돌아간다.
   function on_click_close_glass_editor() {
     ref_glass_editor_open = false
     ref_open_glass_dropdown_key = ''
     ref_glass_saved_message = ''
   }
 
+  // 커스텀 드롭다운의 열림 상태를 전환한다.
   function on_click_toggle_glass_dropdown(dropdown_key) {
     ref_open_glass_dropdown_key = ref_open_glass_dropdown_key === dropdown_key ? '' : dropdown_key
   }
 
+  // 드롭다운에서 선택한 값을 폼 상태에 반영한다.
   function on_click_select_glass_dropdown(field_key, option_value) {
     ref_glass_form_obj[field_key] = option_value
     ref_open_glass_dropdown_key = ''
   }
 
+  // 대표 이미지 파일을 읽어서 미리보기 URL과 파일명을 갱신한다.
   function on_change_glass_image_file(local_event) {
     const local_file = /** @type {HTMLInputElement} */ (local_event.currentTarget).files?.[0] ?? null
 
@@ -119,6 +127,7 @@
     ref_glass_saved_message = ''
   }
 
+  // 선택한 안경 카드를 편집 폼으로 불러온다.
   function on_click_edit_glass(glass_obj) {
     ref_selected_glass_id = glass_obj.id
     ref_glass_editor_open = true
@@ -138,6 +147,7 @@
     ref_glass_saved_message = `${glass_obj.brand ?? ''} ${glass_obj.model ?? ''} 정보를 불러왔습니다.`
   }
 
+  // 현재 폼 상태를 리스트 저장용 객체로 변환한다.
   function get_glass_payload_obj() {
     return {
       id: ref_selected_glass_id || `glass-${Date.now()}`,
@@ -152,6 +162,7 @@
     }
   }
 
+  // 안경 정보를 신규 등록하거나 기존 항목을 수정한다.
   function on_submit_glass_form(local_event) {
     local_event.preventDefault()
 

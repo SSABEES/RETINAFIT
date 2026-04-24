@@ -31,15 +31,18 @@
     },
   ])
 
+  // 입력 요소에서 문자열 값을 읽어오는 공통 보조 함수다.
   function get_input_value(local_event) {
     return /** @type {HTMLInputElement} */ (local_event.currentTarget).value
   }
 
+  // 새 렌즈 카테고리 이름 입력값을 상태에 반영한다.
   function on_input_new_lens_group_name(local_event) {
     ref_new_lens_group_name = get_input_value(local_event)
     ref_lens_saved_message = ''
   }
 
+  // 렌즈 카테고리의 새 옵션 입력값을 해당 그룹에 반영한다.
   function on_input_new_lens_option(local_event, group_id) {
     const local_option_value = get_input_value(local_event)
 
@@ -49,6 +52,7 @@
     ref_lens_saved_message = ''
   }
 
+  // 새 렌즈 카테고리를 목록에 추가한다.
   function on_click_add_lens_group() {
     const local_group_name = ref_new_lens_group_name.trim()
 
@@ -65,11 +69,13 @@
     ref_lens_saved_message = '렌즈 카테고리가 추가되었습니다.'
   }
 
+  // 선택한 렌즈 카테고리를 목록에서 삭제한다.
   function on_click_remove_lens_group(group_id) {
     ref_lens_group_arr = ref_lens_group_arr.filter((group_obj) => group_obj.id !== group_id)
     ref_lens_saved_message = '렌즈 카테고리가 제거되었습니다.'
   }
 
+  // 선택한 렌즈 카테고리에 새 옵션을 추가한다.
   function on_click_add_lens_option(group_id) {
     const local_group_obj = ref_lens_group_arr.find((group_obj) => group_obj.id === group_id)
     const local_option_name = local_group_obj?.ref_new_option.trim() ?? ''
@@ -87,6 +93,7 @@
     ref_lens_saved_message = '렌즈 옵션이 추가되었습니다.'
   }
 
+  // 선택한 렌즈 카테고리에서 옵션을 제거한다.
   function on_click_remove_lens_option(group_id, option_name) {
     ref_lens_group_arr = ref_lens_group_arr.map((group_obj) =>
       group_obj.id === group_id
@@ -96,6 +103,7 @@
     ref_lens_saved_message = '렌즈 옵션이 제거되었습니다.'
   }
 
+  // 렌즈 조건 저장 버튼을 눌렀을 때 완료 메시지를 표시한다.
   function on_submit_lens_group(local_event) {
     local_event.preventDefault()
     ref_lens_saved_message = '렌즈 조건 설정이 임시 저장되었습니다.'

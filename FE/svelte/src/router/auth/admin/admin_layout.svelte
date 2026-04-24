@@ -24,25 +24,30 @@
   let g_auth_error_message = $state('')
   let g_is_authenticated = $state(false)
 
+  // 세션 저장소의 관리자 인증 상태를 읽어서 로그인 화면과 본문 화면을 전환한다.
   onMount(() => {
     if (typeof sessionStorage === 'undefined') return
     g_is_authenticated = sessionStorage.getItem(ADMIN_AUTH_STORAGE_KEY) === 'true'
   })
 
+  // 입력 요소에서 공통으로 값을 읽어오는 보조 함수다.
   function get_input_value(local_event) {
     return /** @type {HTMLInputElement} */ (local_event.currentTarget).value
   }
 
+  // 관리자 아이디 입력값을 상태에 반영하고 에러 메시지를 지운다.
   function on_input_admin_id(local_event) {
     ref_admin_id = get_input_value(local_event)
     g_auth_error_message = ''
   }
 
+  // 관리자 비밀번호 입력값을 상태에 반영하고 에러 메시지를 지운다.
   function on_input_admin_password(local_event) {
     ref_admin_password = get_input_value(local_event)
     g_auth_error_message = ''
   }
 
+  // 관리자 로그인 폼을 검증하고 인증 성공 시 본문 화면으로 전환한다.
   function on_submit_admin_login(local_event) {
     local_event.preventDefault()
 
@@ -67,6 +72,7 @@
     }
   }
 
+  // 관리자 세션을 해제하고 로그인 화면으로 되돌린다.
   function on_click_logout_admin() {
     g_is_authenticated = false
     ref_admin_id = ''
@@ -78,10 +84,12 @@
     }
   }
 
+  // 관리자 페이지 드롭다운의 열림 상태를 토글한다.
   function on_click_toggle_admin_page_dropdown() {
     g_admin_page_dropdown_open = !g_admin_page_dropdown_open
   }
 
+  // 선택한 관리자 페이지로 이동한다.
   function on_click_move_admin_page(href) {
     g_admin_page_dropdown_open = false
     window.location.href = href

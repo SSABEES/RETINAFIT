@@ -98,6 +98,7 @@
     },
   ])
 
+  // 얼굴형 기준 설정 내용을 저장한 것으로 처리하고 완료 메시지를 표시한다.
   function on_submit_face_criteria(local_event) {
     local_event.preventDefault()
     ref_saved_message = '얼굴형 기준 설정이 임시 저장되었습니다.'
