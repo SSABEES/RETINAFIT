@@ -66,6 +66,7 @@
       width: result.width,
       height: result.height,
       measurements_obj: result.measurements_obj,
+      measurement_points_obj: result.measurement_points_obj,
     }
     add_capture(capture)
   }
