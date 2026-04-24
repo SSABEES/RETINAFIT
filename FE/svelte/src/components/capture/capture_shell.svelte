@@ -115,7 +115,10 @@
   })
 
   // 페이지 이탈 시 ObjectURL 전부 정리.
+  // 단, phase === 'review' 이면 결과 페이지로 이동하는 중이므로 세션을 보존해야 한다.
+  // (리셋은 결과 페이지의 "처음부터" 버튼이 담당한다.)
   onDestroy(() => {
+    if (g_session.phase === 'review') return
     reset_session()
   })
 </script>
