@@ -71,10 +71,28 @@
 /** @type {Record<FaceShape, string>} */
 export const FACE_SHAPE_LABELS_KO = {
   ROUND: '둥근형',
-  LONG: '긴 얼굴형',
+  LONG: '긴형',
   OVAL: '계란형',
-  TRIANGLE: '역삼각형',
-  SQUARE: '각진형',
+  TRIANGLE: '하트형',
+  SQUARE: '사각형',
+}
+
+/** @type {Record<FaceShape, string>} */
+export const FACE_SHAPE_LABELS_EN = {
+  ROUND: 'Round',
+  LONG: 'Oblong',
+  OVAL: 'Oval',
+  TRIANGLE: 'Heart',
+  SQUARE: 'Square',
+}
+
+/** @type {Record<FaceShape, string>} */
+export const FACE_SHAPE_DESCRIPTIONS_KO = {
+  OVAL: '이마가 약간 넓고 턱이 좁게 좁아지는 형태. 선택 폭이 가장 넓어요.',
+  ROUND: '얼굴 폭과 길이가 비슷한 원형. 각진 프레임으로 또렷한 인상을 줄 수 있어요.',
+  SQUARE: '이마·광대·턱 폭이 비슷하고 각짐. 라운드·오벌 프레임으로 부드러움을 줄 수 있어요.',
+  TRIANGLE: '이마가 넓고 턱이 뾰족한 형태. 하단이 넓은 프레임으로 균형을 맞춰요.',
+  LONG: '얼굴 길이가 폭보다 긴 형태. 가로로 넓은 프레임으로 비율을 보완해요.',
 }
 
 /** @type {Record<PDSize, string>} */
