@@ -13,6 +13,9 @@ export const PATH = {
   sales: '/dashboard/sales',
   branches: '/dashboard/branches',
   admin: '/admin',
+  adminFace: '/admin/face',
+  adminLens: '/admin/lens',
+  adminGlass: '/admin/glass',
   /** @param {string | number} id */
   userDetail: (id) => `/dashboard/users/${String(id)}`,
   /** @param {string | number} id */

@@ -20,7 +20,7 @@
   const g_admin_page_arr = [
     { key: 'face', label: '얼굴형 기준 설정' },
     { key: 'lens', label: '렌즈조건 설정' },
-    { key: 'glasses', label: '안경 등록' },
+    { key: 'glasses', label: '안경 정보' },
   ]
 
   const g_glasses_category_option_arr = ['안경', '선글라스', '스포츠']
@@ -151,6 +151,7 @@
   let ref_open_glasses_dropdown_key = $state('')
   let ref_glasses_list_arr = $state([])
   let ref_selected_glasses_id = $state('')
+  let ref_glasses_editor_open = $state(false)
 
   let ref_admin_id = $state('')
   let ref_admin_password = $state('')
@@ -267,6 +268,7 @@
     ref_selected_admin_page = page_key
     g_admin_page_dropdown_open = false
     ref_open_glasses_dropdown_key = ''
+    ref_glasses_editor_open = false
     ref_saved_message = ''
     ref_lens_saved_message = ''
     ref_glasses_saved_message = ''
@@ -433,8 +435,46 @@
     }
   }
 
+  function reset_glasses_form() {
+    ref_selected_glasses_id = ''
+    ref_open_glasses_dropdown_key = ''
+    ref_glasses_img_preview_url = ''
+    ref_glasses_form_obj = {
+      glasses_name: '',
+      glasses_brand: '',
+      glasses_img_file: null,
+      glasses_img_name: '',
+      glasses_3d_url: '',
+      is_active: true,
+      category: '안경',
+      frame_style: '풀프레임',
+      frame_type: '뿔테',
+      material: '아세테이트',
+      color: '',
+      model_code: '',
+      price: '',
+      frame_width: '',
+      lens_width: '',
+      bridge_width: '',
+      lens_height: '',
+      temple_length: '',
+      fit_note: '',
+    }
+    ref_glasses_saved_message = ''
+  }
+
+  function on_click_open_glasses_create() {
+    reset_glasses_form()
+    ref_glasses_editor_open = true
+  }
+
+  function on_click_close_glasses_editor() {
+    ref_glasses_editor_open = false
+  }
+
   function on_click_edit_glasses(glasses_obj) {
     ref_selected_glasses_id = glasses_obj.id
+    ref_glasses_editor_open = true
     ref_glasses_form_obj.glasses_name = glasses_obj.model ?? ''
     ref_glasses_form_obj.glasses_brand = glasses_obj.brand ?? ''
     ref_glasses_form_obj.category = glasses_obj.category ?? '안경'
@@ -529,23 +569,18 @@
   </main>
 {:else}
   <main class="app-frame-page overflow-hidden bg-[var(--retinal-page)] text-[var(--retinal-text)]">
-    <section class="grid h-full min-h-0 grid-rows-[92px_minmax(0,1fr)] overflow-hidden">
-      <header class="grid h-[92px] grid-cols-[1fr_auto] items-center border-b border-[var(--retinal-border)] bg-white px-8">
-        <h1 class="m-0 text-2xl font-extrabold tracking-normal text-zinc-950">관리자 페이지</h1>
-
-        <button
-          class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-extrabold text-[#4B0055] transition hover:border-[#4B0055] hover:bg-[#F5EAF7]"
-          type="button"
-          onclick={on_click_logout_admin}
-        >
-          <LogOut size={18} strokeWidth={2.4} aria-hidden="true" />
-          <span>로그아웃</span>
-        </button>
-      </header>
-
-      <div class="min-h-0 overflow-y-auto px-8 py-8">
+    <section class="h-full min-h-0 overflow-y-auto px-8 py-8">
         <div class="grid min-h-full w-full gap-8">
-        <div class="flex justify-end">
+        <div class="flex items-start justify-between gap-6">
+          <button
+            class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-extrabold text-[#4B0055] transition hover:border-[#4B0055] hover:bg-[#F5EAF7]"
+            type="button"
+            onclick={on_click_logout_admin}
+          >
+            <LogOut size={18} strokeWidth={2.4} aria-hidden="true" />
+            <span>로그아웃</span>
+          </button>
+
           <div class="relative w-[240px] rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 shadow-sm shadow-slate-200/40">
             <p class="mb-2 block text-xs font-extrabold uppercase tracking-[0.14em] text-[#98A2B3]">
               현재 페이지
@@ -808,440 +843,33 @@
         {/if}
 
         {#if ref_selected_admin_page === 'glasses'}
-          <form class="mt-8" onsubmit={on_submit_glasses_form}>
-            <div class="flex items-start justify-between gap-6">
-              <div class="text-left">
-                <h2 class="m-0 text-2xl font-extrabold text-zinc-950">안경 등록</h2>
-              </div>
-
-              <button
-                class="min-h-12 cursor-pointer rounded-xl border-0 bg-[#4B0055] px-7 text-base font-extrabold text-white transition hover:bg-[#65006F] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/30"
-                type="submit"
-              >
-                {ref_selected_glasses_id ? '수정 저장' : '등록 저장'}
-              </button>
-            </div>
-
-            {#if ref_glasses_saved_message}
-              <p
-                class="mt-5 rounded-xl border border-[#D6BBFB] bg-[#F8F1FF] px-5 py-3 text-left text-base font-bold text-[#6B21A8]"
-              >
-                {ref_glasses_saved_message}
-              </p>
-            {/if}
-
+          {#if !ref_glasses_editor_open}
             <section class="mt-8 rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50">
-              <div class="flex justify-end">
-                <div class="grid min-h-12 grid-cols-2 gap-2 rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] p-1">
-                  <button
-                    class={`cursor-pointer rounded-[10px] px-4 text-sm font-extrabold transition ${
-                      ref_glasses_form_obj.is_active
-                        ? 'bg-emerald-500 text-white shadow-sm'
-                        : 'bg-transparent text-slate-500 hover:bg-white hover:text-zinc-950'
-                    }`}
-                    type="button"
-                    aria-pressed={ref_glasses_form_obj.is_active}
-                    onclick={() => on_click_select_glasses_dropdown('is_active', 'is_active', true)}
-                  >
-                    활성화
-                  </button>
-                  <button
-                    class={`cursor-pointer rounded-[10px] px-4 text-sm font-extrabold transition ${
-                      !ref_glasses_form_obj.is_active
-                        ? 'bg-rose-500 text-white shadow-sm'
-                        : 'bg-transparent text-slate-500 hover:bg-white hover:text-zinc-950'
-                    }`}
-                    type="button"
-                    aria-pressed={!ref_glasses_form_obj.is_active}
-                    onclick={() => on_click_select_glasses_dropdown('is_active', 'is_active', false)}
-                  >
-                    비활성화
-                  </button>
-                </div>
-              </div>
-
-              <div class="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                <div class="grid gap-3">
-                  <span class="text-sm font-extrabold text-slate-500">안경 대표 이미지 파일</span>
-                  <div class="overflow-hidden rounded-2xl border border-dashed border-[#D8C6E0] bg-[#FAF7FC]">
-                    <div class="aspect-[4/3] bg-[linear-gradient(180deg,#F8F1F8_0%,#F3F4F6_100%)]">
-                      {#if ref_glasses_img_preview_url}
-                        <img
-                          src={ref_glasses_img_preview_url}
-                          alt="선택한 안경 이미지 미리보기"
-                          class="h-full w-full object-cover"
-                        />
-                      {:else}
-                        <div class="grid h-full place-items-center px-6 text-center">
-                          <div>
-                            <p class="m-0 text-sm font-extrabold text-[#4B0055]">4:3 이미지 영역</p>
-                            <p class="mt-2 mb-0 text-sm font-semibold text-slate-500">
-                              JPG 또는 PNG 파일을 올리면 여기에 표시됩니다.
-                            </p>
-                          </div>
-                        </div>
-                      {/if}
-                    </div>
-
-                    <div class="border-t border-[#E8DAEE] px-4 py-4">
-                      <input
-                        class="block min-h-12 w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3 text-base font-bold text-zinc-950 outline-none file:mr-4 file:cursor-pointer file:rounded-lg file:border-0 file:bg-[#4B0055] file:px-4 file:py-2 file:text-sm file:font-extrabold file:text-white hover:file:bg-[#65006F]"
-                        type="file"
-                        accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                        onchange={on_change_glasses_image_file}
-                        required
-                      />
-                      {#if ref_glasses_form_obj.glasses_img_name}
-                        <p class="mt-3 mb-0 truncate text-sm font-extrabold text-[#4B0055]">
-                          {ref_glasses_form_obj.glasses_img_name}
-                        </p>
-                      {/if}
-                    </div>
-                  </div>
-                </div>
-
-                <div class="grid min-w-0 gap-5 md:grid-cols-2">
-                  <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500 md:col-span-2">
-                    제품명
-                    <input
-                      class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
-                      type="text"
-                      bind:value={ref_glasses_form_obj.glasses_name}
-                      placeholder="예: 쿠보 01"
-                      required
-                    />
-                  </label>
-
-                  <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500 md:col-span-2">
-                    브랜드명
-                    <input
-                      class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
-                      type="text"
-                      bind:value={ref_glasses_form_obj.glasses_brand}
-                      placeholder="예: 젠틀몬스터"
-                      required
-                    />
-                  </label>
-
-                  <div class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-                    카테고리
-                    <div class="relative">
-                      <button
-                        class="flex min-h-12 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[#4B0055] transition hover:border-[#4B0055]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/15"
-                        type="button"
-                        aria-haspopup="listbox"
-                        aria-expanded={ref_open_glasses_dropdown_key === 'category'}
-                        onclick={() => on_click_toggle_glasses_dropdown('category')}
-                      >
-                        <span>{ref_glasses_form_obj.category}</span>
-                        <ChevronDown
-                          size={18}
-                          strokeWidth={2.4}
-                          class={`transition ${ref_open_glasses_dropdown_key === 'category' ? 'rotate-180' : ''}`}
-                          aria-hidden="true"
-                        />
-                      </button>
-
-                      {#if ref_open_glasses_dropdown_key === 'category'}
-                        <div
-                          class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
-                          role="listbox"
-                          aria-label="카테고리 목록"
-                        >
-                          {#each g_glasses_category_option_arr as category_name}
-                            <button
-                              class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
-                                ref_glasses_form_obj.category === category_name
-                                  ? 'bg-[#F5EAF7] text-[#4B0055]'
-                                  : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[#4B0055]'
-                              }`}
-                              type="button"
-                              role="option"
-                              aria-selected={ref_glasses_form_obj.category === category_name}
-                              onclick={() => on_click_select_glasses_dropdown('category', 'category', category_name)}
-                            >
-                              {category_name}
-                            </button>
-                          {/each}
-                        </div>
-                      {/if}
-                    </div>
-                  </div>
-
-                  <div class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-                    프레임 스타일
-                    <div class="relative">
-                      <button
-                        class="flex min-h-12 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[#4B0055] transition hover:border-[#4B0055]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/15"
-                        type="button"
-                        aria-haspopup="listbox"
-                        aria-expanded={ref_open_glasses_dropdown_key === 'frame_style'}
-                        onclick={() => on_click_toggle_glasses_dropdown('frame_style')}
-                      >
-                        <span>{ref_glasses_form_obj.frame_style}</span>
-                        <ChevronDown
-                          size={18}
-                          strokeWidth={2.4}
-                          class={`transition ${ref_open_glasses_dropdown_key === 'frame_style' ? 'rotate-180' : ''}`}
-                          aria-hidden="true"
-                        />
-                      </button>
-
-                      {#if ref_open_glasses_dropdown_key === 'frame_style'}
-                        <div
-                          class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
-                          role="listbox"
-                          aria-label="프레임 스타일 목록"
-                        >
-                          {#each g_glasses_frame_style_option_arr as frame_style_name}
-                            <button
-                              class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
-                                ref_glasses_form_obj.frame_style === frame_style_name
-                                  ? 'bg-[#F5EAF7] text-[#4B0055]'
-                                  : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[#4B0055]'
-                              }`}
-                              type="button"
-                              role="option"
-                              aria-selected={ref_glasses_form_obj.frame_style === frame_style_name}
-                              onclick={() =>
-                                on_click_select_glasses_dropdown(
-                                  'frame_style',
-                                  'frame_style',
-                                  frame_style_name,
-                                )}
-                            >
-                              {frame_style_name}
-                            </button>
-                          {/each}
-                        </div>
-                      {/if}
-                    </div>
-                  </div>
-
-                  <div class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-                    프레임 타입
-                    <div class="relative">
-                      <button
-                        class="flex min-h-12 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[#4B0055] transition hover:border-[#4B0055]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/15"
-                        type="button"
-                        aria-haspopup="listbox"
-                        aria-expanded={ref_open_glasses_dropdown_key === 'frame_type'}
-                        onclick={() => on_click_toggle_glasses_dropdown('frame_type')}
-                      >
-                        <span>{ref_glasses_form_obj.frame_type}</span>
-                        <ChevronDown
-                          size={18}
-                          strokeWidth={2.4}
-                          class={`transition ${ref_open_glasses_dropdown_key === 'frame_type' ? 'rotate-180' : ''}`}
-                          aria-hidden="true"
-                        />
-                      </button>
-
-                      {#if ref_open_glasses_dropdown_key === 'frame_type'}
-                        <div
-                          class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
-                          role="listbox"
-                          aria-label="프레임 타입 목록"
-                        >
-                          {#each g_glasses_frame_type_option_arr as frame_type_name}
-                            <button
-                              class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
-                                ref_glasses_form_obj.frame_type === frame_type_name
-                                  ? 'bg-[#F5EAF7] text-[#4B0055]'
-                                  : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[#4B0055]'
-                              }`}
-                              type="button"
-                              role="option"
-                              aria-selected={ref_glasses_form_obj.frame_type === frame_type_name}
-                              onclick={() =>
-                                on_click_select_glasses_dropdown(
-                                  'frame_type',
-                                  'frame_type',
-                                  frame_type_name,
-                                )}
-                            >
-                              {frame_type_name}
-                            </button>
-                          {/each}
-                        </div>
-                      {/if}
-                    </div>
-                  </div>
-
-                <div class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-                  소재
-                  <div class="relative">
-                    <button
-                      class="flex min-h-12 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[#4B0055] transition hover:border-[#4B0055]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/15"
-                      type="button"
-                      aria-haspopup="listbox"
-                      aria-expanded={ref_open_glasses_dropdown_key === 'material'}
-                      onclick={() => on_click_toggle_glasses_dropdown('material')}
-                    >
-                      <span>{ref_glasses_form_obj.material}</span>
-                      <ChevronDown
-                        size={18}
-                        strokeWidth={2.4}
-                        class={`transition ${ref_open_glasses_dropdown_key === 'material' ? 'rotate-180' : ''}`}
-                        aria-hidden="true"
-                      />
-                    </button>
-
-                    {#if ref_open_glasses_dropdown_key === 'material'}
-                      <div
-                        class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
-                        role="listbox"
-                        aria-label="소재 목록"
-                      >
-                        {#each g_glasses_material_option_arr as material_name}
-                          <button
-                            class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
-                              ref_glasses_form_obj.material === material_name
-                                ? 'bg-[#F5EAF7] text-[#4B0055]'
-                                : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[#4B0055]'
-                            }`}
-                            type="button"
-                            role="option"
-                            aria-selected={ref_glasses_form_obj.material === material_name}
-                            onclick={() =>
-                              on_click_select_glasses_dropdown('material', 'material', material_name)}
-                          >
-                            {material_name}
-                          </button>
-                        {/each}
-                      </div>
-                    {/if}
-                  </div>
-                  </div>
-
-                  <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-                    컬러
-                    <input
-                      class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
-                      type="text"
-                      bind:value={ref_glasses_form_obj.color}
-                      placeholder="예: 블랙"
-                    />
-                  </label>
-
-                  <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-                    모델 코드
-                    <input
-                      class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
-                      type="text"
-                      bind:value={ref_glasses_form_obj.model_code}
-                      placeholder="예: RB5154"
-                    />
-                  </label>
-
-                  <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-                    가격
-                    <input
-                      class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
-                      type="text"
-                      bind:value={ref_glasses_form_obj.price}
-                      placeholder="예: 159,000원"
-                    />
-                  </label>
-
-                  <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-                    프레임 전체 너비
-                    <div class="flex items-center rounded-xl border border-slate-200 bg-white px-4">
-                      <input
-                        class="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-zinc-950 outline-none"
-                        type="number"
-                        min="0"
-                        bind:value={ref_glasses_form_obj.frame_width}
-                        placeholder="142"
-                      />
-                      <span class="text-sm font-bold text-slate-400">mm</span>
-                    </div>
-                  </label>
-
-                  <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-                    렌즈 너비
-                    <div class="flex items-center rounded-xl border border-slate-200 bg-white px-4">
-                      <input
-                        class="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-zinc-950 outline-none"
-                        type="number"
-                        min="0"
-                        bind:value={ref_glasses_form_obj.lens_width}
-                        placeholder="52"
-                      />
-                      <span class="text-sm font-bold text-slate-400">mm</span>
-                    </div>
-                  </label>
-
-                  <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-                    브릿지 너비
-                    <div class="flex items-center rounded-xl border border-slate-200 bg-white px-4">
-                      <input
-                        class="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-zinc-950 outline-none"
-                        type="number"
-                        min="0"
-                        bind:value={ref_glasses_form_obj.bridge_width}
-                        placeholder="18"
-                      />
-                      <span class="text-sm font-bold text-slate-400">mm</span>
-                    </div>
-                  </label>
-
-                  <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-                    렌즈 높이
-                    <div class="flex items-center rounded-xl border border-slate-200 bg-white px-4">
-                      <input
-                        class="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-zinc-950 outline-none"
-                        type="number"
-                        min="0"
-                        bind:value={ref_glasses_form_obj.lens_height}
-                        placeholder="42"
-                      />
-                      <span class="text-sm font-bold text-slate-400">mm</span>
-                    </div>
-                  </label>
-
-                  <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-                    템플 길이
-                    <div class="flex items-center rounded-xl border border-slate-200 bg-white px-4">
-                      <input
-                        class="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-zinc-950 outline-none"
-                        type="number"
-                        min="0"
-                        bind:value={ref_glasses_form_obj.temple_length}
-                        placeholder="145"
-                      />
-                      <span class="text-sm font-bold text-slate-400">mm</span>
-                    </div>
-                  </label>
-
-                  <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500 md:col-span-2">
-                    피팅 메모
-                    <textarea
-                      class="min-h-[120px] rounded-xl border border-slate-200 px-4 py-3 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
-                      bind:value={ref_glasses_form_obj.fit_note}
-                      placeholder="예: 얼굴 너비 대비 안정적인 비율, 장시간 착용 적합"
-                    ></textarea>
-                  </label>
-                </div>
-              </div>
-            </section>
-
-            <section class="mt-6 rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50">
               <div class="flex items-center justify-between gap-4">
-                <h3 class="m-0 text-xl font-extrabold text-zinc-950">안경 리스트</h3>
+                <h2 class="m-0 text-2xl font-extrabold text-zinc-950">안경 정보</h2>
                 <span class="rounded-full bg-[#F5EAF7] px-3 py-1 text-sm font-extrabold text-[#4B0055]">
                   총 {ref_glasses_list_arr.length}개
                 </span>
               </div>
 
               <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <button
+                  class="grid aspect-[4/3] cursor-pointer place-items-center rounded-2xl border border-dashed border-[#D8C6E0] bg-[#FAF7FC] text-[#4B0055] transition hover:border-[#4B0055] hover:bg-[#F8F1F8]"
+                  type="button"
+                  aria-label="안경 추가"
+                  onclick={on_click_open_glasses_create}
+                >
+                  <div class="grid justify-items-center gap-3">
+                    <span class="grid h-16 w-16 place-items-center rounded-full bg-white text-4xl font-light shadow-sm">
+                      +
+                    </span>
+                    <span class="text-base font-extrabold">안경 추가</span>
+                  </div>
+                </button>
+
                 {#each ref_glasses_list_arr as glasses_obj (glasses_obj.id)}
                   <button
-                    class={`overflow-hidden rounded-2xl border text-left transition ${
-                      ref_selected_glasses_id === glasses_obj.id
-                        ? 'border-[#CFA7DD] bg-[#FCF8FD] shadow-[0_16px_32px_rgba(91,0,107,0.08)]'
-                        : 'border-slate-200 bg-white hover:border-[#D8C6E0] hover:shadow-sm'
-                    }`}
+                    class="overflow-hidden rounded-2xl border border-slate-200 bg-white text-left transition hover:border-[#D8C6E0] hover:shadow-sm"
                     type="button"
                     onclick={() => on_click_edit_glasses(glasses_obj)}
                   >
@@ -1260,9 +888,424 @@
                 {/each}
               </div>
             </section>
-          </form>
+          {:else}
+            <form class="mt-8" onsubmit={on_submit_glasses_form}>
+              <div class="flex items-start justify-between gap-6">
+                <h2 class="m-0 text-2xl font-extrabold text-zinc-950">
+                  {ref_selected_glasses_id ? '안경 수정' : '안경 추가'}
+                </h2>
+
+                <div class="flex items-center gap-3">
+                  <button
+                    class="min-h-12 cursor-pointer rounded-xl border border-slate-200 bg-white px-5 text-base font-extrabold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                    type="button"
+                    onclick={on_click_close_glasses_editor}
+                  >
+                    목록으로
+                  </button>
+                  <button
+                    class="min-h-12 cursor-pointer rounded-xl border-0 bg-[#4B0055] px-7 text-base font-extrabold text-white transition hover:bg-[#65006F] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/30"
+                    type="submit"
+                  >
+                    {ref_selected_glasses_id ? '수정 저장' : '등록 저장'}
+                  </button>
+                </div>
+              </div>
+
+              {#if ref_glasses_saved_message}
+                <p
+                  class="mt-5 rounded-xl border border-[#D6BBFB] bg-[#F8F1FF] px-5 py-3 text-left text-base font-bold text-[#6B21A8]"
+                >
+                  {ref_glasses_saved_message}
+                </p>
+              {/if}
+
+              <section class="mt-6 rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50">
+                <div class="flex justify-end">
+                  <div class="grid min-h-12 grid-cols-2 gap-2 rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] p-1">
+                    <button
+                      class={`cursor-pointer rounded-[10px] px-4 text-sm font-extrabold transition ${
+                        ref_glasses_form_obj.is_active
+                          ? 'bg-emerald-500 text-white shadow-sm'
+                          : 'bg-transparent text-slate-500 hover:bg-white hover:text-zinc-950'
+                      }`}
+                      type="button"
+                      aria-pressed={ref_glasses_form_obj.is_active}
+                      onclick={() => on_click_select_glasses_dropdown('is_active', 'is_active', true)}
+                    >
+                      활성화
+                    </button>
+                    <button
+                      class={`cursor-pointer rounded-[10px] px-4 text-sm font-extrabold transition ${
+                        !ref_glasses_form_obj.is_active
+                          ? 'bg-rose-500 text-white shadow-sm'
+                          : 'bg-transparent text-slate-500 hover:bg-white hover:text-zinc-950'
+                      }`}
+                      type="button"
+                      aria-pressed={!ref_glasses_form_obj.is_active}
+                      onclick={() => on_click_select_glasses_dropdown('is_active', 'is_active', false)}
+                    >
+                      비활성화
+                    </button>
+                  </div>
+                </div>
+
+                <div class="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                  <div class="grid content-start gap-2">
+                    <span class="text-sm font-extrabold text-slate-500">안경 대표 이미지 파일</span>
+                    <div class="overflow-hidden rounded-2xl border border-dashed border-[#D8C6E0] bg-[#FAF7FC]">
+                      <div class="aspect-[4/3] bg-[linear-gradient(180deg,#F8F1F8_0%,#F3F4F6_100%)]">
+                        {#if ref_glasses_img_preview_url}
+                          <img
+                            src={ref_glasses_img_preview_url}
+                            alt="선택한 안경 이미지 미리보기"
+                            class="h-full w-full object-cover"
+                          />
+                        {:else}
+                          <div class="grid h-full place-items-center px-6 text-center">
+                            <div>
+                              <p class="m-0 text-sm font-extrabold text-[#4B0055]">4:3 이미지 영역</p>
+                              <p class="mt-2 mb-0 text-sm font-semibold text-slate-500">
+                                JPG 또는 PNG 파일을 올리면 여기에 표시됩니다.
+                              </p>
+                            </div>
+                          </div>
+                        {/if}
+                      </div>
+
+                      <div class="border-t border-[#E8DAEE] px-4 py-4">
+                        <input
+                          class="block min-h-12 w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3 text-base font-bold text-zinc-950 outline-none file:mr-4 file:cursor-pointer file:rounded-lg file:border-0 file:bg-[#4B0055] file:px-4 file:py-2 file:text-sm file:font-extrabold file:text-white hover:file:bg-[#65006F]"
+                          type="file"
+                          accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                          onchange={on_change_glasses_image_file}
+                        />
+                        {#if ref_glasses_form_obj.glasses_img_name}
+                          <p class="mt-3 mb-0 truncate text-sm font-extrabold text-[#4B0055]">
+                            {ref_glasses_form_obj.glasses_img_name}
+                          </p>
+                        {/if}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="grid min-w-0 gap-5 md:grid-cols-2">
+                    <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500 md:col-span-2">
+                      제품명
+                      <input
+                        class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
+                        type="text"
+                        bind:value={ref_glasses_form_obj.glasses_name}
+                        placeholder="예: 쿠보 01"
+                        required
+                      />
+                    </label>
+
+                    <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500 md:col-span-2">
+                      브랜드명
+                      <input
+                        class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
+                        type="text"
+                        bind:value={ref_glasses_form_obj.glasses_brand}
+                        placeholder="예: 젠틀몬스터"
+                        required
+                      />
+                    </label>
+
+                    <div class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+                      카테고리
+                      <div class="relative">
+                        <button
+                          class="flex min-h-12 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[#4B0055] transition hover:border-[#4B0055]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/15"
+                          type="button"
+                          aria-haspopup="listbox"
+                          aria-expanded={ref_open_glasses_dropdown_key === 'category'}
+                          onclick={() => on_click_toggle_glasses_dropdown('category')}
+                        >
+                          <span>{ref_glasses_form_obj.category}</span>
+                          <ChevronDown
+                            size={18}
+                            strokeWidth={2.4}
+                            class={`transition ${ref_open_glasses_dropdown_key === 'category' ? 'rotate-180' : ''}`}
+                            aria-hidden="true"
+                          />
+                        </button>
+
+                        {#if ref_open_glasses_dropdown_key === 'category'}
+                          <div
+                            class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                            role="listbox"
+                            aria-label="카테고리 목록"
+                          >
+                            {#each g_glasses_category_option_arr as category_name}
+                              <button
+                                class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
+                                  ref_glasses_form_obj.category === category_name
+                                    ? 'bg-[#F5EAF7] text-[#4B0055]'
+                                    : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[#4B0055]'
+                                }`}
+                                type="button"
+                                role="option"
+                                aria-selected={ref_glasses_form_obj.category === category_name}
+                                onclick={() => on_click_select_glasses_dropdown('category', 'category', category_name)}
+                              >
+                                {category_name}
+                              </button>
+                            {/each}
+                          </div>
+                        {/if}
+                      </div>
+                    </div>
+
+                    <div class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+                      프레임 스타일
+                      <div class="relative">
+                        <button
+                          class="flex min-h-12 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[#4B0055] transition hover:border-[#4B0055]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/15"
+                          type="button"
+                          aria-haspopup="listbox"
+                          aria-expanded={ref_open_glasses_dropdown_key === 'frame_style'}
+                          onclick={() => on_click_toggle_glasses_dropdown('frame_style')}
+                        >
+                          <span>{ref_glasses_form_obj.frame_style}</span>
+                          <ChevronDown
+                            size={18}
+                            strokeWidth={2.4}
+                            class={`transition ${ref_open_glasses_dropdown_key === 'frame_style' ? 'rotate-180' : ''}`}
+                            aria-hidden="true"
+                          />
+                        </button>
+
+                        {#if ref_open_glasses_dropdown_key === 'frame_style'}
+                          <div
+                            class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                            role="listbox"
+                            aria-label="프레임 스타일 목록"
+                          >
+                            {#each g_glasses_frame_style_option_arr as frame_style_name}
+                              <button
+                                class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
+                                  ref_glasses_form_obj.frame_style === frame_style_name
+                                    ? 'bg-[#F5EAF7] text-[#4B0055]'
+                                    : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[#4B0055]'
+                                }`}
+                                type="button"
+                                role="option"
+                                aria-selected={ref_glasses_form_obj.frame_style === frame_style_name}
+                                onclick={() => on_click_select_glasses_dropdown('frame_style', 'frame_style', frame_style_name)}
+                              >
+                                {frame_style_name}
+                              </button>
+                            {/each}
+                          </div>
+                        {/if}
+                      </div>
+                    </div>
+
+                    <div class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+                      프레임 타입
+                      <div class="relative">
+                        <button
+                          class="flex min-h-12 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[#4B0055] transition hover:border-[#4B0055]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/15"
+                          type="button"
+                          aria-haspopup="listbox"
+                          aria-expanded={ref_open_glasses_dropdown_key === 'frame_type'}
+                          onclick={() => on_click_toggle_glasses_dropdown('frame_type')}
+                        >
+                          <span>{ref_glasses_form_obj.frame_type}</span>
+                          <ChevronDown
+                            size={18}
+                            strokeWidth={2.4}
+                            class={`transition ${ref_open_glasses_dropdown_key === 'frame_type' ? 'rotate-180' : ''}`}
+                            aria-hidden="true"
+                          />
+                        </button>
+
+                        {#if ref_open_glasses_dropdown_key === 'frame_type'}
+                          <div
+                            class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                            role="listbox"
+                            aria-label="프레임 타입 목록"
+                          >
+                            {#each g_glasses_frame_type_option_arr as frame_type_name}
+                              <button
+                                class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
+                                  ref_glasses_form_obj.frame_type === frame_type_name
+                                    ? 'bg-[#F5EAF7] text-[#4B0055]'
+                                    : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[#4B0055]'
+                                }`}
+                                type="button"
+                                role="option"
+                                aria-selected={ref_glasses_form_obj.frame_type === frame_type_name}
+                                onclick={() => on_click_select_glasses_dropdown('frame_type', 'frame_type', frame_type_name)}
+                              >
+                                {frame_type_name}
+                              </button>
+                            {/each}
+                          </div>
+                        {/if}
+                      </div>
+                    </div>
+
+                    <div class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+                      소재
+                      <div class="relative">
+                        <button
+                          class="flex min-h-12 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[#4B0055] transition hover:border-[#4B0055]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/15"
+                          type="button"
+                          aria-haspopup="listbox"
+                          aria-expanded={ref_open_glasses_dropdown_key === 'material'}
+                          onclick={() => on_click_toggle_glasses_dropdown('material')}
+                        >
+                          <span>{ref_glasses_form_obj.material}</span>
+                          <ChevronDown
+                            size={18}
+                            strokeWidth={2.4}
+                            class={`transition ${ref_open_glasses_dropdown_key === 'material' ? 'rotate-180' : ''}`}
+                            aria-hidden="true"
+                          />
+                        </button>
+
+                        {#if ref_open_glasses_dropdown_key === 'material'}
+                          <div
+                            class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                            role="listbox"
+                            aria-label="소재 목록"
+                          >
+                            {#each g_glasses_material_option_arr as material_name}
+                              <button
+                                class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
+                                  ref_glasses_form_obj.material === material_name
+                                    ? 'bg-[#F5EAF7] text-[#4B0055]'
+                                    : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[#4B0055]'
+                                }`}
+                                type="button"
+                                role="option"
+                                aria-selected={ref_glasses_form_obj.material === material_name}
+                                onclick={() => on_click_select_glasses_dropdown('material', 'material', material_name)}
+                              >
+                                {material_name}
+                              </button>
+                            {/each}
+                          </div>
+                        {/if}
+                      </div>
+                    </div>
+
+                    <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+                      컬러
+                      <input
+                        class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
+                        type="text"
+                        bind:value={ref_glasses_form_obj.color}
+                        placeholder="예: 블랙"
+                      />
+                    </label>
+
+                    <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+                      모델 코드
+                      <input
+                        class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
+                        type="text"
+                        bind:value={ref_glasses_form_obj.model_code}
+                        placeholder="예: RB5154"
+                      />
+                    </label>
+
+                    <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+                      가격
+                      <input
+                        class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
+                        type="text"
+                        bind:value={ref_glasses_form_obj.price}
+                        placeholder="예: 159,000원"
+                      />
+                    </label>
+
+                    <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+                      프레임 전체 너비
+                      <div class="flex items-center rounded-xl border border-slate-200 bg-white px-4">
+                        <input
+                          class="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-zinc-950 outline-none"
+                          type="number"
+                          min="0"
+                          bind:value={ref_glasses_form_obj.frame_width}
+                          placeholder="142"
+                        />
+                        <span class="text-sm font-bold text-slate-400">mm</span>
+                      </div>
+                    </label>
+
+                    <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+                      렌즈 너비
+                      <div class="flex items-center rounded-xl border border-slate-200 bg-white px-4">
+                        <input
+                          class="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-zinc-950 outline-none"
+                          type="number"
+                          min="0"
+                          bind:value={ref_glasses_form_obj.lens_width}
+                          placeholder="52"
+                        />
+                        <span class="text-sm font-bold text-slate-400">mm</span>
+                      </div>
+                    </label>
+
+                    <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+                      브릿지 너비
+                      <div class="flex items-center rounded-xl border border-slate-200 bg-white px-4">
+                        <input
+                          class="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-zinc-950 outline-none"
+                          type="number"
+                          min="0"
+                          bind:value={ref_glasses_form_obj.bridge_width}
+                          placeholder="18"
+                        />
+                        <span class="text-sm font-bold text-slate-400">mm</span>
+                      </div>
+                    </label>
+
+                    <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+                      렌즈 높이
+                      <div class="flex items-center rounded-xl border border-slate-200 bg-white px-4">
+                        <input
+                          class="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-zinc-950 outline-none"
+                          type="number"
+                          min="0"
+                          bind:value={ref_glasses_form_obj.lens_height}
+                          placeholder="42"
+                        />
+                        <span class="text-sm font-bold text-slate-400">mm</span>
+                      </div>
+                    </label>
+
+                    <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+                      템플 길이
+                      <div class="flex items-center rounded-xl border border-slate-200 bg-white px-4">
+                        <input
+                          class="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-zinc-950 outline-none"
+                          type="number"
+                          min="0"
+                          bind:value={ref_glasses_form_obj.temple_length}
+                          placeholder="145"
+                        />
+                        <span class="text-sm font-bold text-slate-400">mm</span>
+                      </div>
+                    </label>
+
+                    <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500 md:col-span-2">
+                      피팅 메모
+                      <textarea
+                        class="min-h-[120px] rounded-xl border border-slate-200 px-4 py-3 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
+                        bind:value={ref_glasses_form_obj.fit_note}
+                        placeholder="예: 얼굴 너비 대비 안정적인 비율, 장시간 착용 적합"
+                      ></textarea>
+                    </label>
+                  </div>
+                </div>
+              </section>
+            </form>
+          {/if}
         {/if}
-      </div>
       </div>
     </section>
   </main>
