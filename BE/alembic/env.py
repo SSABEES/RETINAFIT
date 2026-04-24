@@ -1,46 +1,64 @@
+import asyncio
 from logging.config import fileConfig
 
+from sqlalchemy import pool
+from sqlalchemy.ext.asyncio import async_engine_from_config
+
 from alembic import context
-from sqlalchemy import engine_from_config, pool
 
 from app.core.config import settings
+from app.core.database import Base
+
+# 모든 모델을 여기서 import해야 autogenerate가 테이블을 인식함
+# 모델 추가될 때마다 여기에 추가
+# from app.modules.visit.models import Visit
 
 config = context.config
+
+# .env의 DATABASE_URL을 alembic.ini 대신 사용
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = None
+# Base.metadata: 우리가 만든 모든 ORM 모델 테이블 정보
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
+    url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=settings.DATABASE_URL,
+        url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
-
     with context.begin_transaction():
         context.run_migrations()
 
 
-def run_migrations_online() -> None:
-    connectable = engine_from_config(
+def do_run_migrations(connection):
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_migrations_online() -> None:
+    # 비동기 엔진 사용 (aiomysql)
+    connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-
-    with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
-
-        with context.begin_transaction():
-            context.run_migrations()
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+    await connectable.dispose()
 
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    run_migrations_online()
+    asyncio.run(run_migrations_online())
