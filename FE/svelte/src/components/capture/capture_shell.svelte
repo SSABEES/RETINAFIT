@@ -1,10 +1,11 @@
 <script>
   import { onDestroy } from 'svelte'
+  import { navigate } from '@maks11060/svelte5-router'
+  import { PATH } from '@/config/path.js'
   import CameraView from '@/components/camera/camera_view.svelte'
   import GlassesModeModal from '@/components/capture/glasses_mode_modal.svelte'
   import StepIndicator from '@/components/capture/step_indicator.svelte'
   import StepStatusBar from '@/components/capture/step_status_bar.svelte'
-  import CaptureReview from '@/components/capture/capture_review.svelte'
   import CaptureThumbnails from '@/components/capture/capture_thumbnails.svelte'
   import {
     get_session,
@@ -105,6 +106,13 @@
     }, TOAST_VISIBLE_MS)
   }
 
+  // 마지막 캡쳐 완료 → 결과 페이지로 이동.
+  $effect(() => {
+    if (g_session.phase === 'review') {
+      navigate(PATH.analysisResult)
+    }
+  })
+
   // 페이지 이탈 시 ObjectURL 전부 정리.
   onDestroy(() => {
     reset_session()
@@ -150,12 +158,6 @@
         <CaptureThumbnails />
       </aside>
     </div>
-  {/if}
-
-  {#if g_session.phase === 'review'}
-    <section class="mx-auto w-full max-w-[720px]">
-      <CaptureReview />
-    </section>
   {/if}
 
   {#if g_toast_message}
