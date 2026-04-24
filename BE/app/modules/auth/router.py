@@ -15,3 +15,13 @@ async def login(request: LoginRequest):
     - 안경원 정보 + 안경사 정보 + token 반환
     """
     return await service.login(request)
+
+@router.post("/logout")
+async def logout():
+    """
+    로그아웃
+    - 외부 API 로그아웃 없음
+    - FE에서 sessionStorage 비우는 것으로 처리
+    - BE는 200 반환만 함
+    """
+    return {"message": "로그아웃 되었습니다."}
