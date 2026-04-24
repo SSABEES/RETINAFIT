@@ -6,7 +6,7 @@ export const PATH = {
   analysis: '/analysis',
   analysisResult: '/analysis/result',
   analysisReport: '/analysis/report',
-    analysisLensConsult: '/analysis/glasses',
+  analysisLensConsult: '/analysis/lens-consult',
   analysisArFitting: '/analysis/arfitting',
   users: '/dashboard/users',
   sales: '/dashboard/sales',
