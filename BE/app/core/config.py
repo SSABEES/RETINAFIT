@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     # ─── FE ───────────────────────────────────────────────────
     ALLOWED_ORIGINS: list[str] = ["*"]  # 기본값은 전체허용
 
+    # ─── AWS S3 ──────────────────────────────
+    AWS_ACCESS_KEY_ID: str
+    AWS_SECRET_ACCESS_KEY: str
+    AWS_REGION: str = "ap-northeast-2"
+    S3_BUCKET_NAME: str
+
     @property
     def DATABASE_URL(self) -> str:
         # aiomysql: 비동기 MySQL 드라이버

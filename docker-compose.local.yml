@@ -6,7 +6,7 @@ services:
   db:
     image: mysql:8.0
     env_file:
-      - ./BE/.env.local
+      - ./.env.local
     volumes:
       - mysql_data:/var/lib/mysql
     ports:
