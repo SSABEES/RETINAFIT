@@ -4,7 +4,7 @@ services:
       context: ./BE
     container_name: my-project-be
     env_file:
-      - ./BE/.env
+      - BE/.env.local
     ports:
       - "8000:8000"
     depends_on:
@@ -16,7 +16,7 @@ services:
       context: ./AI
     container_name: my-project-ai
     env_file:
-      - ./AI/.env
+      - ./AI/.env.local
     ports:
       - "8001:8001"
 
