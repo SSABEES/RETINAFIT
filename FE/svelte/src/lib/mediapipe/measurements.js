@@ -49,3 +49,33 @@ export function compute_measurements(landmarks, width, height) {
     jaw_width: Math.round(jaw_width),
   }
 }
+
+/**
+ * 자동 측정에 사용된 랜드마크 인덱스 쌍을 픽셀 좌표로 변환해 반환한다.
+ * measurement_list 의 auto 항목 points 필드에 그대로 세팅 가능.
+ *
+ * 매핑 (measurement_utils 의 템플릿 item_id 와 1:1):
+ *  - pd:          [33, 263]   (안내측각 — eye_distance 기반, factor 0.8 은 거리만 축소)
+ *  - face_width:  [234, 454]  (광대)
+ *  - face_height: [10, 152]   (이마/턱끝)
+ *  - jaw_width:   [172, 397]  (턱 외곽)
+ *
+ * @param {NormalizedLandmark[]} landmarks
+ * @param {number} width
+ * @param {number} height
+ * @returns {Record<string, [import('./face_types.js').Point2D, import('./face_types.js').Point2D]> | null}
+ */
+export function compute_measurement_points(landmarks, width, height) {
+  if (!landmarks || landmarks.length < 468) return null
+  /**
+   * @param {number} idx
+   * @returns {import('./face_types.js').Point2D}
+   */
+  const px = (idx) => ({ x: landmarks[idx].x * width, y: landmarks[idx].y * height })
+  return {
+    pd:          [px(33),  px(263)],
+    face_width:  [px(234), px(454)],
+    face_height: [px(10),  px(152)],
+    jaw_width:   [px(172), px(397)],
+  }
+}
