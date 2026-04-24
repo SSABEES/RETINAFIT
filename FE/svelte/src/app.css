@@ -15,24 +15,6 @@
   --retinal-border: #e5e7eb;
   --app-frame-width: 1366px;
   --app-frame-height: 1024px;
-
-  /* Clinical Precision typography stack.
-     디스플레이: Instrument Serif (영문 라벨/제목용).
-     본문: Pretendard Variable (한글 본문/UI).
-     데이터: JetBrains Mono (스텝 번호, 측정값). */
-  --font-serif: 'Instrument Serif', 'Pretendard Variable', serif;
-  --font-sans:
-    'Pretendard Variable', Pretendard, system-ui, -apple-system, BlinkMacSystemFont,
-    'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
-
-  /* Clinical Precision palette (capture 플로우 한정 사용). */
-  --cp-ink: #1a1817;
-  --cp-paper: #f5f3ee;
-  --cp-graphite: #8b847c;
-  --cp-rule: #d9d3c8;
-  --cp-plum: #3d0821;
-  --cp-done: #4a7c59;
 }
 
 * {
@@ -40,7 +22,12 @@
 }
 
 html {
-  font-family: var(--font-sans);
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
   color: #18181b;
   background: #0b0d1a;
   font-synthesis: none;

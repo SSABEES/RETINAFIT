@@ -498,60 +498,7 @@
     </div>
   {/if}
 
-  <!-- Clinical Precision: 카메라 프레임 네 모서리 바깥에 registration mark.
-       인쇄물 crop mark 와 같은 개념으로 "이 영역이 측정 대상"을 시각적으로 등록.
-       relative 래퍼가 절대 위치 마크의 기준이 된다. -->
-  <div class="relative">
-    <svg
-      class="pointer-events-none absolute -left-1.5 -top-1.5 h-4 w-4"
-      viewBox="0 0 16 16"
-      aria-hidden="true"
-    >
-      <path
-        d="M 0 7 L 0 0 L 7 0"
-        stroke="var(--cp-graphite)"
-        stroke-width="1.25"
-        fill="none"
-      />
-    </svg>
-    <svg
-      class="pointer-events-none absolute -right-1.5 -top-1.5 h-4 w-4"
-      viewBox="0 0 16 16"
-      aria-hidden="true"
-    >
-      <path
-        d="M 9 0 L 16 0 L 16 7"
-        stroke="var(--cp-graphite)"
-        stroke-width="1.25"
-        fill="none"
-      />
-    </svg>
-    <svg
-      class="pointer-events-none absolute -left-1.5 -bottom-1.5 h-4 w-4"
-      viewBox="0 0 16 16"
-      aria-hidden="true"
-    >
-      <path
-        d="M 0 9 L 0 16 L 7 16"
-        stroke="var(--cp-graphite)"
-        stroke-width="1.25"
-        fill="none"
-      />
-    </svg>
-    <svg
-      class="pointer-events-none absolute -right-1.5 -bottom-1.5 h-4 w-4"
-      viewBox="0 0 16 16"
-      aria-hidden="true"
-    >
-      <path
-        d="M 9 16 L 16 16 L 16 9"
-        stroke="var(--cp-graphite)"
-        stroke-width="1.25"
-        fill="none"
-      />
-    </svg>
-
-  <div class="relative aspect-[3/4] w-full overflow-hidden bg-black">
+  <div class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black">
     <!-- svelte-ignore a11y_media_has_caption -->
     <video
       bind:this={ref_this_video_el}
@@ -668,6 +615,5 @@
         </span>
       </div>
     {/if}
-    </div>
   </div>
 </div>
