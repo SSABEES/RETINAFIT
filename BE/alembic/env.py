@@ -13,6 +13,7 @@ from app.core.database import Base
 # 모델 추가될 때마다 여기에 추가
 
 from app.modules.visit.models import Visit
+from app.modules.recommendations.models import RecommendOption
 
 config = context.config
 
