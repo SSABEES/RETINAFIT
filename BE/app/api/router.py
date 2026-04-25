@@ -10,9 +10,11 @@ from app.modules.visit.router import router as visit_router
 from app.modules.analysis.router import router as analysis_router
 from app.modules.recommendations.router import router as recommendations_router
 from app.modules.fitting.router import router as fitting_router
+from app.modules.glasses.router import router as glasses_router
 
 
 api_router.include_router(visit_router)
 api_router.include_router(analysis_router)
 api_router.include_router(recommendations_router)
 api_router.include_router(fitting_router)
+api_router.include_router(glasses_router)
