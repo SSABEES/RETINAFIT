@@ -14,6 +14,7 @@ from app.core.database import Base
 
 from app.modules.visit.models import Visit
 from app.modules.recommendations.models import RecommendOption
+from app.modules.fitting.models import FittingCriteria
 
 config = context.config
 
