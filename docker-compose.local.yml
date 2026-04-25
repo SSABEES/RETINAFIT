@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+
+  # ── DB ────────────────────────────────
+  db:
+    image: mysql:8.0
+    env_file:
+      - ./.env.local
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── BE ────────────────────────────────
+  be:
+    build: ./BE
+    env_file:
+      - ./BE/.env.local
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./BE:/app
+    restart: unless-stopped
+
+  # ── FE ────────────────────────────────
+  fe:
+    build: ./FE
+    ports:
+      - "80:80"
+    depends_on:
+      - be
+    restart: unless-stopped
+
+  # ── AI (추후 RAG 도입 시 활성화) ──────
+  # ai:
+  #   build: ./AI
+  #   env_file:
+  #     - ./AI/.env.local
+  #   ports:
+  #     - "8001:8001"
+  #   volumes:
+  #     - ./AI:/app
+  #   restart: unless-stopped
+
+volumes:
+  mysql_data:
