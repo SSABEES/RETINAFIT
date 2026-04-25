@@ -1,14 +1,13 @@
-from sqlalchemy import Integer, String
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import Boolean, Column, Integer, String
 
-
-class Base(DeclarativeBase):
-    pass
+from app.core.database import Base
 
 
 class RecommendOption(Base):
     __tablename__ = "recommend_option"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(100), index=True)
-    description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    option_no = Column(Integer, primary_key=True, autoincrement=True, comment="추천 옵션 ID")
+    option_name = Column(String(50), nullable=False, comment="추천 옵션명 (예: 다초점, 변색, 사무직)")
+    option_category = Column(String(50), nullable=False, comment="추천 옵션 카테고리 (예: 렌즈 종류, 코팅, 생활환경)")
+    display_order = Column(Integer, nullable=False, comment="화면 표시 순서 (드래그로 변경 가능)")
+    is_active = Column(Boolean, nullable=False, default=True, comment="비활성화 시 화면 미표시")
