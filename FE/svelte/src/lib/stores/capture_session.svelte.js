@@ -27,6 +27,11 @@
  * @property {FaceMeasurements} measurements
  * @property {string} source_step_id
  *
+ * @typedef {object} ScaleInfo
+ * @property {number} mm_per_px              환산 비율: value_mm = value_px * mm_per_px
+ * @property {'pd_assumption_63mm'} source   환산 비율을 어떻게 구했는지 (현재는 PD 63mm 가정만 지원)
+ * @property {number} pd_pixels_used         계산에 사용된 PD 픽셀값 (추적용)
+ *
  * @typedef {object} CaptureSessionState
  * @property {Phase} phase
  * @property {GlassesMode | null} glasses_mode
@@ -36,14 +41,19 @@
  * @property {FaceShapeResult | null} face_shape_result
  * @property {Record<string, MeasurementItem>} measurements_obj
  * @property {string | null} active_item_id
+ * @property {ScaleInfo | null} scale
  */
 
 import { get_steps_for_mode } from '@/lib/capture/step_config.js'
 import { classify_face_shape } from '@/lib/mediapipe/classify.js'
 import { build_initial_measurements, pixel_distance } from '@/lib/measurements/measurement_utils.js'
+import { write_mirror, read_mirror, clear_mirror } from '@/lib/utils/session_storage_mirror.js'
 
 // 얼굴형 분류용 정면샷 우선순위. 맨얼굴(front_bare)이 안경 왜곡 없이 광대/턱 폭을 가장 정확히 잡아낸다.
 const FRONT_STEP_PRIORITY = ['front_bare', 'front_glasses']
+
+// PD 가정값 (성인 평균 동공간 거리). ArUco 마커 도입 전까지 임시 환산 기준.
+const ASSUMED_PD_MM = 63
 
 /** @type {CaptureSessionState} */
 let g_session = $state({
@@ -55,6 +65,7 @@ let g_session = $state({
   face_shape_result: null,
   measurements_obj: {},
   active_item_id: null,
+  scale: null,
 })
 
 /**
@@ -78,6 +89,7 @@ export function set_glasses_mode(mode) {
   g_session.face_shape_result = null
   g_session.measurements_obj = {}
   g_session.active_item_id = null
+  g_session.scale = null
   g_session.phase = 'capturing'
 }
 
@@ -110,10 +122,13 @@ export function add_capture(capture) {
   g_session.captures_obj[capture.step_id] = capture
   if (g_session.current_step_index + 1 >= g_session.steps_arr.length) {
     g_session.face_shape_result = compute_face_shape_result()
+    g_session.scale = compute_scale()
     g_session.measurements_obj = build_initial_measurements(
       pick_front_auto_points(),
+      g_session.scale?.mm_per_px ?? null,
     )
     g_session.phase = 'review'
+    mirror_now()
   } else {
     g_session.current_step_index += 1
   }
@@ -129,6 +144,26 @@ function pick_front_auto_points() {
     const capture = g_session.captures_obj[step_id]
     if (capture?.measurement_points_obj) {
       return capture.measurement_points_obj
+    }
+  }
+  return null
+}
+
+/**
+ * 정면 캡쳐의 PD(동공간 거리) 픽셀값을 기준으로 px↔mm 환산 비율을 계산한다.
+ * 성인 평균 PD 63mm 가정. 정면 캡쳐가 없거나 측정값이 없으면 null.
+ * @returns {ScaleInfo | null}
+ */
+function compute_scale() {
+  for (const step_id of FRONT_STEP_PRIORITY) {
+    const capture = g_session.captures_obj[step_id]
+    const pd_pixels = capture?.measurements_obj?.pd_pixels
+    if (pd_pixels && pd_pixels > 0) {
+      return {
+        mm_per_px: ASSUMED_PD_MM / pd_pixels,
+        source: 'pd_assumption_63mm',
+        pd_pixels_used: pd_pixels,
+      }
     }
   }
   return null
@@ -174,6 +209,60 @@ export function reset() {
   g_session.face_shape_result = null
   g_session.measurements_obj = {}
   g_session.active_item_id = null
+  g_session.scale = null
+  clear_mirror()
+}
+
+/**
+ * 현재 측정 관련 세션 일부를 sessionStorage 에 미러링한다.
+ * 측정 변경/지움 등 mutator 마지막에 호출.
+ */
+function mirror_now() {
+  write_mirror({
+    measurements_obj: g_session.measurements_obj,
+    scale: g_session.scale,
+    face_shape_result: g_session.face_shape_result,
+    active_item_id: g_session.active_item_id,
+    mirrored_at: Date.now(),
+  })
+}
+
+/**
+ * sessionStorage 에 저장된 미러가 있으면 measurements/scale/face_shape_result 을 복원한다.
+ * 새로고침/이탈 후 face_measurement 또는 report 마운트 시 호출.
+ * 캡쳐가 비어있으면 (다른 세션 잔여물 가능성) 복원하지 않고 미러 제거.
+ * @returns {boolean} 복원이 실제로 일어났으면 true
+ */
+export function hydrate_from_mirror() {
+  if (Object.keys(g_session.captures_obj).length === 0) {
+    clear_mirror()
+    return false
+  }
+  const mirror = read_mirror()
+  if (!mirror) return false
+  if (mirror.measurements_obj) g_session.measurements_obj = mirror.measurements_obj
+  if (mirror.scale !== undefined) g_session.scale = mirror.scale
+  if (mirror.face_shape_result !== undefined) g_session.face_shape_result = mirror.face_shape_result
+  if (mirror.active_item_id !== undefined) g_session.active_item_id = mirror.active_item_id
+  return true
+}
+
+/**
+ * 현재 환산 비율 정보를 반환한다. 정면샷 PD 측정 전이면 null.
+ * @returns {ScaleInfo | null}
+ */
+export function get_scale() {
+  return g_session.scale
+}
+
+/**
+ * 픽셀 값을 mm 로 변환한다. scale 이 없으면 null 반환 (호출 측에서 px 표기로 fallback).
+ * @param {number | null} value_px
+ * @returns {number | null}
+ */
+export function px_to_mm(value_px) {
+  if (value_px === null || g_session.scale === null) return null
+  return value_px * g_session.scale.mm_per_px
 }
 
 /**
@@ -201,9 +290,10 @@ export function get_active_item_id() {
 export function set_active_item_id(item_id) {
   if (item_id === null) {
     g_session.active_item_id = null
-    return
+  } else {
+    g_session.active_item_id = g_session.active_item_id === item_id ? null : item_id
   }
-  g_session.active_item_id = g_session.active_item_id === item_id ? null : item_id
+  mirror_now()
 }
 
 /**
@@ -215,9 +305,12 @@ export function set_active_item_id(item_id) {
 export function set_item_points(item_id, points) {
   const item = g_session.measurements_obj[item_id]
   if (!item) return
+  const value_px = pixel_distance(points[0], points[1])
   item.points = points
-  item.value_px = pixel_distance(points[0], points[1])
+  item.value_px = value_px
+  item.value_mm = g_session.scale ? value_px * g_session.scale.mm_per_px : null
   item.source = 'manual'
+  mirror_now()
 }
 
 /**
@@ -230,4 +323,5 @@ export function clear_item_points(item_id) {
   item.points = null
   item.value_px = null
   item.value_mm = null
+  mirror_now()
 }
