@@ -12,6 +12,7 @@
   } from '@/lib/stores/capture_session.svelte.js'
   import { compute_evaluations } from '@/lib/measurements/measurement_evaluator.js'
   import { points_to_overlay_line } from '@/lib/measurements/overlay_utils.js'
+  import { upload_captures_to_s3, save_face_analysis } from '@/lib/api/analysis.js'
 
   /** @typedef {import('@/lib/measurements/template.js').ViewAngle} ViewAngle */
 
@@ -326,6 +327,75 @@
   // 측정 항목 행 클릭 시 선택을 토글한다. 같은 항목 다시 누르면 해제.
   function on_click_select_measure(measure_label) {
     ref_selected_measure_key = ref_selected_measure_key === measure_label ? null : measure_label
+  }
+
+  // 온보딩 진행 — 사진 업로드 + 메타 저장 후 다음 화면으로.
+  let ref_is_submitting = $state(false)
+  let ref_submit_error = $state('')
+
+  /**
+   * 세션의 측정/평가/캡쳐 메타를 BE 가 받는 test_json 형태로 직렬화.
+   * BE 스키마는 dict 자유형이라 키 명세는 우리가 정한다.
+   * @returns {Record<string, unknown>}
+   */
+  function build_test_json() {
+    return {
+      schema_version: 1,
+      glasses_mode: g_session.glasses_mode,
+      face_shape: g_face_shape_result,
+      scale: g_session.scale,
+      measurements: g_session.measurements_obj,
+      evaluations: compute_evaluations(g_session.measurements_obj),
+      captures_meta: Object.fromEntries(
+        Object.entries(g_session.captures_obj).map(([key, cap]) => [
+          key,
+          { width: cap.width, height: cap.height, captured_at: cap.captured_at },
+        ]),
+      ),
+    }
+  }
+
+  // sessionStorage 에서 현재 방문 번호를 읽는다 (visit API 가 채워주는 값).
+  // 없으면 null — 호출 측에서 에러 표시.
+  function get_visit_no() {
+    if (typeof sessionStorage === 'undefined') return null
+    const raw = sessionStorage.getItem('retinal_visit_no')
+    if (!raw) return null
+    const n = Number(raw)
+    return Number.isFinite(n) ? n : null
+  }
+
+  async function on_click_submit_onboarding() {
+    if (ref_is_submitting) return
+    ref_submit_error = ''
+    const visit_no = get_visit_no()
+    if (visit_no === null) {
+      ref_submit_error = '방문 정보가 없어 분석 결과를 저장할 수 없습니다.'
+      return
+    }
+    ref_is_submitting = true
+    try {
+      // 1단계: 사진들을 S3 에 업로드해 URL 받기 (BE -95 의 presigned URL 사용).
+      const file_url_map = await upload_captures_to_s3(g_session.captures_obj)
+
+      // 2단계: 정면(main) 분리 + 나머지 test_file_arr.
+      const main_file = file_url_map.front_no_glasses ?? file_url_map.front_glasses ?? ''
+      const test_file_arr = Object.values(file_url_map)
+
+      // 3단계: 메타 저장.
+      await save_face_analysis(visit_no, {
+        main_file,
+        test_file_arr,
+        test_json: build_test_json(),
+      })
+
+      // 성공 — 다음 화면으로.
+      navigate(PATH.analysisLensConsult)
+    } catch (err) {
+      ref_submit_error = err instanceof Error ? err.message : '저장 실패'
+    } finally {
+      ref_is_submitting = false
+    }
   }
 </script>
 
@@ -693,20 +763,29 @@
         {/if}
       </div>
 
-      <div class="grid shrink-0 grid-cols-2 gap-4">
-        <Link
-          class="grid min-h-16 place-items-center rounded-lg border border-[var(--retinal-border)] bg-white text-lg font-extrabold text-zinc-950 transition hover:border-[var(--retinal-primary-600)] hover:bg-[var(--retinal-soft-purple)] hover:text-[var(--retinal-primary-700)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/20"
-          href={PATH.analysis}
-        >
-          다시 분석하기
-        </Link>
-        <Link
-          class="grid min-h-16 grid-cols-[1fr_auto] items-center rounded-lg bg-[var(--retinal-primary-600)] px-8 text-center text-lg font-extrabold !text-white transition hover:bg-[var(--retinal-primary-500)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/30"
-          href={PATH.analysisLensConsult}
-        >
-          <span class="text-white">온보딩 진행</span>
-          <ChevronRight size={24} strokeWidth={2.5} class="text-white" aria-hidden="true" />
-        </Link>
+      <div class="shrink-0 flex flex-col gap-2">
+        {#if ref_submit_error}
+          <p class="m-0 rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700" role="alert">
+            {ref_submit_error}
+          </p>
+        {/if}
+        <div class="grid grid-cols-2 gap-4">
+          <Link
+            class="grid min-h-16 place-items-center rounded-lg border border-[var(--retinal-border)] bg-white text-lg font-extrabold text-zinc-950 transition hover:border-[var(--retinal-primary-600)] hover:bg-[var(--retinal-soft-purple)] hover:text-[var(--retinal-primary-700)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/20"
+            href={PATH.analysis}
+          >
+            다시 분석하기
+          </Link>
+          <button
+            type="button"
+            class="grid min-h-16 grid-cols-[1fr_auto] items-center rounded-lg border-0 bg-[var(--retinal-primary-600)] px-8 text-center text-lg font-extrabold text-white transition hover:bg-[var(--retinal-primary-500)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/30 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={ref_is_submitting}
+            onclick={on_click_submit_onboarding}
+          >
+            <span class="text-white">{ref_is_submitting ? '저장 중...' : '온보딩 진행'}</span>
+            <ChevronRight size={24} strokeWidth={2.5} class="text-white" aria-hidden="true" />
+          </button>
+        </div>
       </div>
     </div>
   </div>
