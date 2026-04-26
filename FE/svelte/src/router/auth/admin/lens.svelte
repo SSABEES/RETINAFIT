@@ -115,7 +115,7 @@
     <div class="flex items-start justify-between gap-6">
       <h2 class="m-0 text-2xl font-extrabold text-zinc-950">렌즈조건 설정</h2>
       <button
-        class="min-h-12 cursor-pointer rounded-xl border-0 bg-[#4B0055] px-7 text-base font-extrabold text-white transition hover:bg-[#65006F]"
+        class="min-h-12 cursor-pointer rounded-xl border-0 bg-[var(--retinal-primary-700)] px-7 text-base font-extrabold text-white transition hover:bg-[var(--retinal-primary-500)]"
         type="submit"
       >
         설정 저장
@@ -135,7 +135,7 @@
             새 카테고리
             <input
               id="new-lens-group"
-              class="min-h-12 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
+              class="min-h-12 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
               type="text"
               value={ref_new_lens_group_name}
               placeholder="예: 렌즈 기능"
@@ -145,7 +145,7 @@
         </div>
 
         <button
-          class="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border-0 bg-[#4B0055] px-5 text-sm font-extrabold text-white transition hover:bg-[#65006F]"
+          class="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border-0 bg-[var(--retinal-primary-700)] px-5 text-sm font-extrabold text-white transition hover:bg-[var(--retinal-primary-500)]"
           type="button"
           onclick={on_click_add_lens_group}
         >
@@ -176,7 +176,7 @@
 
           <div class="mt-6 flex flex-wrap gap-3">
             {#each lens_group_obj.option_arr as option_name, option_index (`${lens_group_obj.id}-${option_index}`)}
-              <span class="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#E7D7EE] bg-[#F8F1F8] px-4 py-2 text-sm font-extrabold text-[#4B0055]">
+              <span class="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#E7D7EE] bg-[#F8F1F8] px-4 py-2 text-sm font-extrabold text-[var(--retinal-primary-700)]">
                 <span>{option_name}</span>
                 <button
                   class="grid h-6 w-6 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-[#7A5C85] transition hover:bg-white hover:text-[#B42318]"
@@ -196,7 +196,7 @@
                 새 옵션
                 <input
                   id={`new-option-${lens_group_obj.id}`}
-                  class="min-h-12 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
+                  class="min-h-12 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
                   type="text"
                   value={lens_group_obj.ref_new_option}
                   placeholder="추가할 옵션명을 입력해 주세요"
@@ -206,7 +206,7 @@
             </div>
 
             <button
-              class="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border-0 bg-[#4B0055] px-5 text-sm font-extrabold text-white transition hover:bg-[#65006F]"
+              class="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border-0 bg-[var(--retinal-primary-700)] px-5 text-sm font-extrabold text-white transition hover:bg-[var(--retinal-primary-500)]"
               type="button"
               onclick={() => on_click_add_lens_option(lens_group_obj.id)}
             >
