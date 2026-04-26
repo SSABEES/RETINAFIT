@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.common.handlers import register_exception_handlers
+from app.api.router import api_router
 
 # ─── 앱 생성 ──────────────────────────────────────────────────
 app = FastAPI(
@@ -28,10 +29,7 @@ app.add_middleware(
 register_exception_handlers(app)
 
 # ─── 라우터 등록 ──────────────────────────────────────────────
-# 모듈 추가될 때마다 여기에 추가
-# from app.api.router import api_router
-# app.include_router(api_router)
-
+app.include_router(api_router, prefix="/api/v1")
 
 # ─── 헬스체크 ─────────────────────────────────────────────────
 # Docker, 배포 서버에서 서버 정상 여부 확인용

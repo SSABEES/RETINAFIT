@@ -1,10 +1,53 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.fitting.schemas import FittingRequest, FittingResponse
+from app.core.database import get_db
+from app.modules.auth.dependencies import get_token
+from app.modules.fitting.schemas import (
+    FittingCriteriaCreate,
+    FittingCriteriaUpdate,
+    FittingCriteriaResponse,
+)
+from app.modules.fitting import service
 
-router = APIRouter()
+router = APIRouter(tags=["fitting"])
 
 
-@router.post("", response_model=FittingResponse)
-def create_fitting(payload: FittingRequest) -> FittingResponse:
-    return FittingResponse(result_image_url=payload.image_url)
+@router.get("/admin/fitting-criteria", response_model=list[FittingCriteriaResponse])
+async def get_criterias(
+    auth: dict = Depends(get_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """판단 기준 목록 조회"""
+    return await service.get_criterias(db)
+
+
+@router.post("/admin/fitting-criteria", response_model=FittingCriteriaResponse, status_code=201)
+async def create_criteria(
+    request: FittingCriteriaCreate,
+    auth: dict = Depends(get_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """판단 기준 추가"""
+    return await service.create_criteria(db, request)
+
+
+@router.patch("/admin/fitting-criteria/{criteria_no}", response_model=FittingCriteriaResponse)
+async def update_criteria(
+    criteria_no: int,
+    request: FittingCriteriaUpdate,
+    auth: dict = Depends(get_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """판단 기준 수정"""
+    return await service.update_criteria(db, criteria_no, request)
+
+
+@router.delete("/admin/fitting-criteria/{criteria_no}", status_code=204)
+async def delete_criteria(
+    criteria_no: int,
+    auth: dict = Depends(get_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """판단 기준 삭제"""
+    await service.delete_criteria(db, criteria_no)
