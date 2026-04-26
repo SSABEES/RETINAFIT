@@ -16,7 +16,7 @@ app = FastAPI(
 
 # ─── CORS ─────────────────────────────────────────────────────
 # FE(Svelte)에서 BE로 요청할 때 브라우저가 막는 것 방지
-# 개발 중에는 전체 허용, 배포 시 FE 주소로 좁혀야 함 -> .env 파일에서 설정
+# 개발 중에는 전체 허용, 배포 시 FE 주소로 좁혀야 함 -> .env.local 파일에서 설정
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if settings.DEBUG else settings.ALLOWED_ORIGINS,
