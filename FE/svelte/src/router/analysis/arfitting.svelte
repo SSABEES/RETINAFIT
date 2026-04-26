@@ -14,28 +14,58 @@
     ChevronRight,
     SlidersHorizontal,
     RotateCcw,
+    Save,
+    FileText,
   } from 'lucide-svelte'
   import { PATH } from '@/config/path'
   import { save_fitting_captures, get_all_glasses } from '@/lib/api/glasses'
 
   /* ── 안경 목록 ──────────────────────────────────────── */
-  let g_recommended_arr = $state([]) // 추천 목록 (초기 원본)
+  let g_recommended_arr = $state([])
   let g_loading = $state(true)
   let g_selected_id = $state(null)
   let g_capture_slot_arr = $state([null, null, null])
   let g_show_intro = $state(false)
 
   const SLOT_LABEL_ARR = ['정면', '측면 좌', '측면 우']
+  const MAX_FITTINGS = 5
 
   let g_all_captured = $derived(g_capture_slot_arr.every((s) => s !== null))
   let g_next_slot_idx = $derived(g_capture_slot_arr.findIndex((s) => s === null))
+
+  /* ── 다중 피팅 저장 ─────────────────────────────────── */
+  // { glasses_id, brand, model, captures } 형태로 최대 5개 저장
+  let g_saved_fittings_arr = $state([])
+
+  let g_can_save = $derived(g_all_captured && g_saved_fittings_arr.length < MAX_FITTINGS)
+  let g_can_submit = $derived(g_saved_fittings_arr.length > 0)
+
+  // 안경 id별 저장 횟수 맵 (저장 표시 배지에 사용)
+  let g_saved_count_map = $derived(
+    g_saved_fittings_arr.reduce((acc, fit) => {
+      acc[fit.glasses_id] = (acc[fit.glasses_id] ?? 0) + 1
+      return acc
+    }, {}),
+  )
+
+  /* ── 토스트 알림 ─────────────────────────────────────── */
+  let g_toast_msg = $state('')
+  let g_toast_timer = $state(null)
+
+  /**
+   * 토스트 메시지를 띄우고 2.8초 후 자동 제거
+   */
+  function show_toast(msg) {
+    g_toast_msg = msg
+    clearTimeout(g_toast_timer)
+    g_toast_timer = setTimeout(() => (g_toast_msg = ''), 2800)
+  }
 
   /* ── 프레임 필터 ─────────────────────────────────────── */
   const FRAME_TYPE_OPTIONS = ['풀프레임', '하프프레임', '무프레임']
   const MATERIAL_OPTIONS = ['아세테이트', '메탈', '티타늄', '혼합']
   const CATEGORY_OPTIONS = ['안경', '선글라스', '스포츠']
 
-  // API 실패 시 사용하는 폴백 데이터
   const MOCK_ALL_GLASSES = [
     { id: 'a1', brand: '젠틀몬스터', model: '쿠보 01', price: '289,000', frame_type: '뿔테', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F5EAF7/AA83B4?text=KUBO+01' },
     { id: 'a2', brand: '레이벤', model: '라운드 메탈', price: '185,000', frame_type: '메탈', frame_style: '풀프레임', material: '메탈', category: '안경', img_url: 'https://placehold.co/340x160/EEF2FF/818CF8?text=Round+Metal' },
@@ -62,7 +92,6 @@
       g_filter_obj.category_arr.length,
   )
 
-  // 필터가 설정되어 있으면 전체 목록에서 필터링, 아니면 추천 목록 표시
   let g_glasses_arr = $derived.by(() => {
     if (g_active_filter_count === 0 || g_all_glasses_arr.length === 0) return g_recommended_arr
     let result = [...g_all_glasses_arr]
@@ -75,7 +104,6 @@
     return result
   })
 
-  // 표시 목록이 바뀌었을 때 선택된 안경이 목록에 없으면 첫 번째로 자동 변경
   $effect(() => {
     if (g_glasses_arr.length > 0 && !g_glasses_arr.find((g) => g.id === g_selected_id)) {
       g_selected_id = g_glasses_arr[0].id
@@ -83,7 +111,6 @@
     }
   })
 
-  // 추천 안경 리스트는 임시 데이터로 진행
   onMount(() => {
     g_show_intro = true
     setTimeout(() => (g_show_intro = false), 3200)
@@ -102,16 +129,21 @@
   })
 
   /**
-   * 안경 선택 시 id를 저장하고 캡처 슬롯을 초기화
+   * 안경 선택 시 id를 저장하고 캡처 슬롯 초기화 (미완성 캡처는 버려짐)
+   * 저장 5개 다 찼으면 토스트 경고 후 차단
    */
   function on_click_select_glasses(id) {
     if (id === g_selected_id) return
+    if (g_saved_fittings_arr.length >= MAX_FITTINGS) {
+      show_toast(`피팅은 최대 ${MAX_FITTINGS}개까지만 저장할 수 있습니다. 저장된 피팅을 취소 후 다시 시도하세요.`)
+      return
+    }
     g_selected_id = id
     g_capture_slot_arr = [null, null, null]
   }
 
   /**
-   * 현재 화면을 캡처하여 배열에 추가
+   * 현재 화면을 캡처하여 다음 빈 슬롯에 추가
    */
   function on_click_capture() {
     if (g_next_slot_idx === -1) return
@@ -129,17 +161,44 @@
     g_capture_slot_arr = new_arr
   }
 
+  /**
+   * 3장 완성된 현재 피팅을 저장 목록에 추가하고 슬롯 초기화
+   * 3장 미완성이거나 5개 초과 시 동작하지 않음
+   */
+  function on_click_save_fitting() {
+    if (!g_can_save) return
+    const glasses_info = g_glasses_arr.find((g) => g.id === g_selected_id)
+    g_saved_fittings_arr = [
+      ...g_saved_fittings_arr,
+      {
+        glasses_id: g_selected_id,
+        brand: glasses_info?.brand ?? '',
+        model: glasses_info?.model ?? '',
+        captures: [...g_capture_slot_arr],
+      },
+    ]
+    g_capture_slot_arr = [null, null, null]
+  }
+
+  /**
+   * 저장된 피팅 목록에서 특정 항목 제거
+   */
+  function on_click_remove_saved(idx) {
+    g_saved_fittings_arr = g_saved_fittings_arr.filter((_, i) => i !== idx)
+  }
+
   let g_submit_loading = $state(false)
   let g_submit_error = $state('')
 
   /**
-   * 캡처 3장을 서버에 저장하고 리포트 페이지로 이동
+   * 저장된 모든 피팅(3장 완성된 것만)을 서버로 전송하고 리포트 페이지로 이동
    */
   async function on_click_submit_report() {
+    if (!g_can_submit) return
     g_submit_loading = true
     g_submit_error = ''
     try {
-      await save_fitting_captures({ glasses_id: g_selected_id, captures: g_capture_slot_arr })
+      await save_fitting_captures(g_saved_fittings_arr)
       window.location.href = PATH.analysisReport
     } catch (local_err) {
       g_submit_error = local_err.message ?? '저장에 실패했습니다.'
@@ -196,20 +255,26 @@
     },
     {
       title: '3장을 촬영하세요',
-      desc: '촬영 버튼을 눌러 정면 → 왼쪽 측면 → 오른쪽 측면\n순서로 3장을 찍어주세요.',
+      desc: '촬영 버튼을 눌러 정면 → 왼쪽 측면 → 오른쪽 측면\n순서로 3장을 찍어주세요.\n3장을 모두 찍어야 피팅 결과를 저장할 수 있습니다.',
       hint: '위 카메라를 바라보고 촬영하세요',
       card_style: 'left: 40px; bottom: 168px',
     },
     {
       title: '촬영 상태를 확인하세요',
-      desc: '3개의 슬롯이 모두 채워졌는지 확인하세요.\nX 버튼으로 재촬영할 수 있습니다.',
+      desc: '3개의 슬롯이 모두 채워졌는지 확인하세요.\nX 버튼으로 재촬영할 수 있습니다.\n다른 안경을 선택하면 현재 촬영 중인 사진은 초기화됩니다.',
       hint: '오른쪽 상단 슬롯을 확인하세요',
       card_style: 'right: 468px; top: 80px',
     },
     {
-      title: '리포트를 확인하세요',
-      desc: '3장이 완료되면 버튼이 활성화됩니다.\n눌러서 AI 분석 리포트를 확인하세요.',
-      hint: '오른쪽 하단 버튼을 눌러주세요',
+      title: '피팅 결과를 저장하세요',
+      desc: '3장이 완료되면 [피팅 결과 저장] 버튼이 활성화됩니다.\n저장 후 다른 안경을 선택해 최대 5개까지 시착할 수 있습니다.\n3장 미완성 상태에서는 저장되지 않습니다.',
+      hint: '오른쪽 하단 왼쪽 버튼을 눌러주세요',
+      card_style: 'right: 468px; bottom: 72px',
+    },
+    {
+      title: '최종 리포트를 확인하세요',
+      desc: '피팅 결과가 1개 이상 저장되면 [최종 분석 리포트 확인] 버튼이 활성화됩니다.\n저장된 안경들을 한 번에 AI가 분석합니다.',
+      hint: '오른쪽 하단 오른쪽 버튼을 눌러주세요',
       card_style: 'right: 468px; bottom: 72px',
     },
   ]
@@ -218,11 +283,11 @@
 
   function on_click_guide_open() { g_guide_step = 1 }
   function on_click_guide_close() { g_guide_step = 0 }
-  function on_click_guide_next() { if (g_guide_step < 4) g_guide_step++; else g_guide_step = 0 }
+  function on_click_guide_next() { if (g_guide_step < 5) g_guide_step++; else g_guide_step = 0 }
   function on_click_guide_prev() { if (g_guide_step > 1) g_guide_step-- }
 
   let g_highlight_camera = $derived(g_guide_step === 2)
-  let g_highlight_aside = $derived(g_guide_step === 1 || g_guide_step === 3 || g_guide_step === 4)
+  let g_highlight_aside = $derived([1, 3, 4, 5].includes(g_guide_step))
 </script>
 
 <main class="app-frame-page flex overflow-hidden bg-[#F8F9FA] text-zinc-900">
@@ -307,7 +372,7 @@
     </div>
   </section>
 
-  <!-- 우측: 캡처 상태 + 추천 안경 + 리포트 버튼 -->
+  <!-- 우측: 캡처 상태 + 추천 안경 + 액션 버튼 -->
   <aside
     class="relative flex w-[440px] flex-col border-l border-slate-200 bg-white shadow-xl transition-[z-index]"
     class:z-50={g_highlight_aside}
@@ -422,6 +487,7 @@
           <div class="flex flex-col gap-4 pb-4">
             {#each g_glasses_arr as item (item.id)}
               {@const active = item.id === g_selected_id}
+              {@const saved_count = g_saved_count_map[item.id] ?? 0}
               <button
                 type="button"
                 onclick={() => on_click_select_glasses(item.id)}
@@ -443,6 +509,11 @@
                   <p class="truncate text-base font-black text-slate-800">{item.model}</p>
                   <div class="mt-1 flex items-center gap-2">
                     <span class="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">{item.frame_type}</span>
+                    {#if saved_count > 0}
+                      <span class="rounded-md bg-[#F5EAF7] px-2 py-0.5 text-[10px] font-bold text-[#7B3F8A]">
+                        피팅 저장됨
+                      </span>
+                    {/if}
                   </div>
                   <div class="mt-2 flex items-center justify-between">
                     <span class="text-sm font-extrabold text-[#7B3F8A]">₩{item.price}</span>
@@ -463,31 +534,87 @@
       </div>
     </div>
 
-    <!-- 최종 리포트 버튼 -->
+    <!-- 저장된 피팅 목록 + 액션 버튼 -->
     <div
-      class="bg-gradient-to-t from-slate-50 to-white p-8 transition-all"
-      class:ring-4={g_guide_step === 4}
-      class:ring-[#AA83B4]={g_guide_step === 4}
-      class:ring-inset={g_guide_step === 4}
+      class="bg-gradient-to-t from-slate-50 to-white p-6 transition-all"
+      class:ring-4={g_guide_step === 4 || g_guide_step === 5}
+      class:ring-[#AA83B4]={g_guide_step === 4 || g_guide_step === 5}
+      class:ring-inset={g_guide_step === 4 || g_guide_step === 5}
     >
+      <!-- 저장된 피팅 칩 목록 -->
+      {#if g_saved_fittings_arr.length > 0}
+        <div class="mb-4">
+          <div class="mb-2 flex items-center justify-between">
+            <span class="text-[11px] font-black uppercase tracking-widest text-slate-400">
+              저장된 피팅 ({g_saved_fittings_arr.length}/{MAX_FITTINGS})
+            </span>
+            {#if g_saved_fittings_arr.length >= MAX_FITTINGS}
+              <span class="text-[10px] font-bold text-amber-500">최대 개수 도달</span>
+            {/if}
+          </div>
+          <div class="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+            {#each g_saved_fittings_arr as fit, idx (idx)}
+              <div
+                class="flex shrink-0 items-center gap-1.5 rounded-xl bg-[#F5EAF7] px-3 py-2"
+                in:fly={{ y: 6, duration: 200 }}
+              >
+                <CheckCheck size={11} class="shrink-0 text-[#7B3F8A]" />
+                <span class="max-w-[72px] truncate text-[11px] font-bold text-[#7B3F8A]"
+                  >{fit.model}</span
+                >
+                <button
+                  type="button"
+                  onclick={() => on_click_remove_saved(idx)}
+                  aria-label="피팅 제거"
+                  class="ml-0.5 shrink-0 text-slate-400 transition-colors hover:text-red-400"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {:else}
+        <p class="mb-4 text-[11px] font-semibold text-slate-400">
+          3장 촬영 완료 후 피팅 결과를 저장하세요 (최대 {MAX_FITTINGS}개)
+        </p>
+      {/if}
+
       {#if g_submit_error}
         <p class="mb-3 text-xs font-bold text-red-500" role="alert">{g_submit_error}</p>
       {/if}
-      <button
-        type="button"
-        disabled={!g_all_captured || g_submit_loading}
-        onclick={on_click_submit_report}
-        class="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-[#4B0055] text-lg font-black text-white shadow-xl transition-all hover:bg-[#320038] disabled:cursor-not-allowed disabled:opacity-20 disabled:grayscale"
-      >
-        {#if g_submit_loading}
-          <span
-            class="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"
-          ></span>
-          <span>저장 중...</span>
-        {:else}
-          최종 분석 리포트 확인
-        {/if}
-      </button>
+
+      <!-- 액션 버튼 2개 -->
+      <div class="grid grid-cols-2 gap-3">
+        <!-- 피팅 결과 저장 -->
+        <button
+          type="button"
+          disabled={!g_can_save}
+          onclick={on_click_save_fitting}
+          class="flex h-14 items-center justify-center gap-2 rounded-2xl border-2 border-[#AA83B4] bg-white text-sm font-black text-[#4B0055] shadow-sm transition-all hover:bg-[#F5EAF7] disabled:cursor-not-allowed disabled:opacity-25 disabled:grayscale"
+        >
+          <Save size={16} />
+          <span>피팅 결과 저장</span>
+        </button>
+
+        <!-- 최종 분석 리포트 -->
+        <button
+          type="button"
+          disabled={!g_can_submit || g_submit_loading}
+          onclick={on_click_submit_report}
+          class="flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#4B0055] text-sm font-black text-white shadow-xl transition-all hover:bg-[#320038] disabled:cursor-not-allowed disabled:opacity-25 disabled:grayscale"
+        >
+          {#if g_submit_loading}
+            <span
+              class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+            ></span>
+            <span>저장 중...</span>
+          {:else}
+            <FileText size={16} />
+            <span>리포트 확인</span>
+          {/if}
+        </button>
+      </div>
     </div>
   </aside>
 </main>
@@ -507,7 +634,6 @@
     in:fly={{ x: 440, duration: 320, easing: cubicOut }}
     out:fly={{ x: 440, duration: 220, easing: cubicOut }}
   >
-    <!-- 드로어 헤더 -->
     <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-8 py-6">
       <div>
         <h3 class="text-lg font-black text-zinc-900">프레임 필터</h3>
@@ -526,7 +652,6 @@
       </button>
     </div>
 
-    <!-- 드로어 바디 -->
     <div class="min-h-0 flex-1 overflow-y-auto">
       {#if g_filter_loading}
         <div class="flex justify-center py-20">
@@ -536,7 +661,6 @@
         </div>
       {:else}
         <div class="space-y-8 px-8 py-6">
-          <!-- 테 종류 -->
           <div>
             <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">테 종류</p>
             <div class="flex flex-wrap gap-2">
@@ -557,7 +681,6 @@
             </div>
           </div>
 
-          <!-- 재질 -->
           <div>
             <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">재질</p>
             <div class="flex flex-wrap gap-2">
@@ -578,7 +701,6 @@
             </div>
           </div>
 
-          <!-- 카테고리 -->
           <div>
             <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">카테고리</p>
             <div class="flex flex-wrap gap-2">
@@ -602,7 +724,6 @@
       {/if}
     </div>
 
-    <!-- 드로어 푸터 -->
     <div class="shrink-0 border-t border-slate-100 bg-slate-50 px-8 py-6">
       <p class="mb-4 text-sm font-bold text-slate-500">
         {#if g_active_filter_count > 0}
@@ -651,7 +772,7 @@
       out:fade={{ duration: 150 }}
     >
       <div class="mb-5 flex gap-1.5">
-        {#each [1, 2, 3, 4] as step_num}
+        {#each [1, 2, 3, 4, 5] as step_num}
           <div
             class="h-1.5 flex-1 rounded-full transition-colors duration-300 {g_guide_step >= step_num
               ? 'bg-[#AA83B4]'
@@ -660,7 +781,7 @@
         {/each}
       </div>
       <p class="mb-1.5 text-xs font-black uppercase tracking-widest text-[#AA83B4]">
-        Step {g_guide_step} / 4
+        Step {g_guide_step} / 5
       </p>
       <h3 class="mb-3 text-lg font-black leading-snug text-zinc-900">{g_guide_info.title}</h3>
       <p class="whitespace-pre-line text-sm leading-relaxed text-slate-500">{g_guide_info.desc}</p>
@@ -693,12 +814,27 @@
             onclick={on_click_guide_next}
             class="rounded-xl bg-[#4B0055] px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-[#320038]"
           >
-            {g_guide_step < 4 ? '다음' : '시작하기'}
+            {g_guide_step < 5 ? '다음' : '시작하기'}
           </button>
         </div>
       </div>
     </div>
   {/if}
+{/if}
+
+<!-- 토스트 알림 -->
+{#if g_toast_msg}
+  <div
+    class="fixed bottom-8 left-1/2 z-[60] -translate-x-1/2"
+    in:fly={{ y: 12, duration: 250 }}
+    out:fade={{ duration: 200 }}
+  >
+    <div
+      class="flex items-center gap-3 rounded-2xl bg-zinc-900/95 px-5 py-3.5 shadow-2xl backdrop-blur-md"
+    >
+      <span class="text-sm font-bold text-white">{g_toast_msg}</span>
+    </div>
+  </div>
 {/if}
 
 <style>
