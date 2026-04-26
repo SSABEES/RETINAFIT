@@ -1,0 +1,715 @@
+<script>
+  import { onMount } from 'svelte'
+  import { fade, fly } from 'svelte/transition'
+  import { cubicOut } from 'svelte/easing'
+  import {
+    ArrowLeft,
+    Camera,
+    Glasses,
+    CheckCheck,
+    User,
+    Sparkles,
+    X,
+    HelpCircle,
+    ChevronRight,
+    SlidersHorizontal,
+    RotateCcw,
+  } from 'lucide-svelte'
+  import { PATH } from '@/config/path'
+  import { save_fitting_captures, get_all_glasses } from '@/lib/api/glasses'
+
+  /* ── 안경 목록 ──────────────────────────────────────── */
+  let g_recommended_arr = $state([]) // 추천 목록 (초기 원본)
+  let g_loading = $state(true)
+  let g_selected_id = $state(null)
+  let g_capture_slot_arr = $state([null, null, null])
+  let g_show_intro = $state(false)
+
+  const SLOT_LABEL_ARR = ['정면', '측면 좌', '측면 우']
+
+  let g_all_captured = $derived(g_capture_slot_arr.every((s) => s !== null))
+  let g_next_slot_idx = $derived(g_capture_slot_arr.findIndex((s) => s === null))
+
+  /* ── 프레임 필터 ─────────────────────────────────────── */
+  const FRAME_TYPE_OPTIONS = ['풀프레임', '하프프레임', '무프레임']
+  const MATERIAL_OPTIONS = ['아세테이트', '메탈', '티타늄', '혼합']
+  const CATEGORY_OPTIONS = ['안경', '선글라스', '스포츠']
+
+  // API 실패 시 사용하는 폴백 데이터
+  const MOCK_ALL_GLASSES = [
+    { id: 'a1', brand: '젠틀몬스터', model: '쿠보 01', price: '289,000', frame_type: '뿔테', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F5EAF7/AA83B4?text=KUBO+01' },
+    { id: 'a2', brand: '레이벤', model: '라운드 메탈', price: '185,000', frame_type: '메탈', frame_style: '풀프레임', material: '메탈', category: '안경', img_url: 'https://placehold.co/340x160/EEF2FF/818CF8?text=Round+Metal' },
+    { id: 'a3', brand: '모스콧', model: '렘토쉬', price: '360,000', frame_type: '아세테이트', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/FEF9EE/F59E0B?text=LEMTOSH' },
+    { id: 'a4', brand: '구찌', model: 'GG0006O', price: '420,000', frame_type: '하프림', frame_style: '하프프레임', material: '메탈', category: '안경', img_url: 'https://placehold.co/340x160/F0FDF4/4ADE80?text=GG0006O' },
+    { id: 'a5', brand: '톰포드', model: 'TF5488-B', price: '380,000', frame_type: '뿔테', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F1F5F9/475569?text=TF5488' },
+    { id: 'a6', brand: '린드버그', model: '에어 티타늄', price: '450,000', frame_type: '무테', frame_style: '무프레임', material: '티타늄', category: '안경', img_url: 'https://placehold.co/340x160/E0F2FE/0284C7?text=Air+Ti' },
+    { id: 'a7', brand: '실루엣', model: 'SPX Full', price: '390,000', frame_type: '무테', frame_style: '무프레임', material: '혼합', category: '안경', img_url: 'https://placehold.co/340x160/FEF3C7/D97706?text=SPX' },
+    { id: 'a8', brand: '오클리', model: 'Frogskins', price: '160,000', frame_type: '뿔테', frame_style: '풀프레임', material: '혼합', category: '선글라스', img_url: 'https://placehold.co/340x160/ECFDF5/059669?text=Frogskins' },
+    { id: 'a9', brand: '레이벤', model: '웨이파러', price: '195,000', frame_type: '아세테이트', frame_style: '풀프레임', material: '아세테이트', category: '선글라스', img_url: 'https://placehold.co/340x160/FFF1F2/E11D48?text=Wayfarer' },
+    { id: 'a10', brand: '나이키', model: 'Veer', price: '120,000', frame_type: '혼합', frame_style: '풀프레임', material: '혼합', category: '스포츠', img_url: 'https://placehold.co/340x160/F0F9FF/0369A1?text=Veer' },
+    { id: 'a11', brand: '프로스펙스', model: 'M-60', price: '89,000', frame_type: '메탈', frame_style: '하프프레임', material: '메탈', category: '스포츠', img_url: 'https://placehold.co/340x160/F5F3FF/7C3AED?text=M-60' },
+    { id: 'a12', brand: '페라가모', model: 'SF2939', price: '280,000', frame_type: '하프림', frame_style: '하프프레임', material: '티타늄', category: '안경', img_url: 'https://placehold.co/340x160/FDF2F8/C026D3?text=SF2939' },
+  ]
+
+  let g_filter_modal_open = $state(false)
+  let g_filter_loading = $state(false)
+  let g_all_glasses_arr = $state([])
+  let g_filter_obj = $state({ frame_type_arr: [], material_arr: [], category_arr: [] })
+
+  let g_active_filter_count = $derived(
+    g_filter_obj.frame_type_arr.length +
+      g_filter_obj.material_arr.length +
+      g_filter_obj.category_arr.length,
+  )
+
+  // 필터가 설정되어 있으면 전체 목록에서 필터링, 아니면 추천 목록 표시
+  let g_glasses_arr = $derived.by(() => {
+    if (g_active_filter_count === 0 || g_all_glasses_arr.length === 0) return g_recommended_arr
+    let result = [...g_all_glasses_arr]
+    if (g_filter_obj.frame_type_arr.length > 0)
+      result = result.filter((g) => g_filter_obj.frame_type_arr.includes(g.frame_style))
+    if (g_filter_obj.material_arr.length > 0)
+      result = result.filter((g) => g_filter_obj.material_arr.includes(g.material))
+    if (g_filter_obj.category_arr.length > 0)
+      result = result.filter((g) => g_filter_obj.category_arr.includes(g.category))
+    return result
+  })
+
+  // 표시 목록이 바뀌었을 때 선택된 안경이 목록에 없으면 첫 번째로 자동 변경
+  $effect(() => {
+    if (g_glasses_arr.length > 0 && !g_glasses_arr.find((g) => g.id === g_selected_id)) {
+      g_selected_id = g_glasses_arr[0].id
+      g_capture_slot_arr = [null, null, null]
+    }
+  })
+
+  // 추천 안경 리스트는 임시 데이터로 진행
+  onMount(() => {
+    g_show_intro = true
+    setTimeout(() => (g_show_intro = false), 3200)
+    const mock_recommended = [
+      { id: 'g1', brand: '젠틀몬스터', model: '쿠보 01', price: '289,000', frame_type: '뿔테', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F5EAF7/AA83B4?text=KUBO+01' },
+      { id: 'g2', brand: '레이벤', model: '라운드 메탈', price: '185,000', frame_type: '메탈', frame_style: '풀프레임', material: '메탈', category: '안경', img_url: 'https://placehold.co/340x160/EEF2FF/818CF8?text=Round+Metal' },
+      { id: 'g3', brand: '모스콧', model: '렘토쉬', price: '360,000', frame_type: '아세테이트', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/FEF9EE/F59E0B?text=LEMTOSH' },
+      { id: 'g4', brand: '구찌', model: 'GG0006O', price: '420,000', frame_type: '하프림', frame_style: '하프프레임', material: '메탈', category: '안경', img_url: 'https://placehold.co/340x160/F0FDF4/4ADE80?text=GG0006O' },
+      { id: 'g5', brand: '톰포드', model: 'TF5488-B', price: '380,000', frame_type: '뿔테', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F1F5F9/475569?text=TF5488' },
+    ]
+    setTimeout(() => {
+      g_recommended_arr = mock_recommended
+      g_selected_id = mock_recommended[0].id
+      g_loading = false
+    }, 500)
+  })
+
+  /**
+   * 안경 선택 시 id를 저장하고 캡처 슬롯을 초기화
+   */
+  function on_click_select_glasses(id) {
+    if (id === g_selected_id) return
+    g_selected_id = id
+    g_capture_slot_arr = [null, null, null]
+  }
+
+  /**
+   * 현재 화면을 캡처하여 배열에 추가
+   */
+  function on_click_capture() {
+    if (g_next_slot_idx === -1) return
+    const new_arr = [...g_capture_slot_arr]
+    new_arr[g_next_slot_idx] = '__captured__'
+    g_capture_slot_arr = new_arr
+  }
+
+  /**
+   * 해당 캡처 슬롯의 이미지를 삭제
+   */
+  function on_click_reset_slot(idx) {
+    const new_arr = [...g_capture_slot_arr]
+    new_arr[idx] = null
+    g_capture_slot_arr = new_arr
+  }
+
+  let g_submit_loading = $state(false)
+  let g_submit_error = $state('')
+
+  /**
+   * 캡처 3장을 서버에 저장하고 리포트 페이지로 이동
+   */
+  async function on_click_submit_report() {
+    g_submit_loading = true
+    g_submit_error = ''
+    try {
+      await save_fitting_captures({ glasses_id: g_selected_id, captures: g_capture_slot_arr })
+      window.location.href = PATH.analysisReport
+    } catch (local_err) {
+      g_submit_error = local_err.message ?? '저장에 실패했습니다.'
+      g_submit_loading = false
+    }
+  }
+
+  /* ── 프레임 필터 모달 ─────────────────────────────────── */
+
+  /**
+   * 필터 모달 열기 — 전체 안경 목록을 한 번만 fetch
+   */
+  async function on_click_open_filter_modal() {
+    g_filter_modal_open = true
+    if (g_all_glasses_arr.length > 0) return
+    g_filter_loading = true
+    try {
+      const data = await get_all_glasses()
+      g_all_glasses_arr = data
+    } catch {
+      g_all_glasses_arr = MOCK_ALL_GLASSES
+    } finally {
+      g_filter_loading = false
+    }
+  }
+
+  /**
+   * 필터 옵션 토글 (즉시 반영)
+   */
+  function on_click_toggle_filter(field, value) {
+    const arr = g_filter_obj[field]
+    g_filter_obj[field] = arr.includes(value)
+      ? arr.filter((v) => v !== value)
+      : [...arr, value]
+  }
+
+  /**
+   * 필터 전체 초기화
+   */
+  function on_click_reset_filter() {
+    g_filter_obj = { frame_type_arr: [], material_arr: [], category_arr: [] }
+  }
+
+  /* ── 사용 가이드 투어 ────────────────────────────────── */
+  let g_guide_step = $state(0)
+
+  const GUIDE_STEP_ARR = [
+    null,
+    {
+      title: '시착할 안경을 선택하세요',
+      desc: '오른쪽 목록에서 원하는 안경을 선택하세요.\n선택하면 카메라에 AR 피팅이 적용됩니다.',
+      hint: '우측 안경 목록을 확인하세요',
+      card_style: 'right: 468px; top: 50%; transform: translateY(-50%)',
+    },
+    {
+      title: '3장을 촬영하세요',
+      desc: '촬영 버튼을 눌러 정면 → 왼쪽 측면 → 오른쪽 측면\n순서로 3장을 찍어주세요.',
+      hint: '위 카메라를 바라보고 촬영하세요',
+      card_style: 'left: 40px; bottom: 168px',
+    },
+    {
+      title: '촬영 상태를 확인하세요',
+      desc: '3개의 슬롯이 모두 채워졌는지 확인하세요.\nX 버튼으로 재촬영할 수 있습니다.',
+      hint: '오른쪽 상단 슬롯을 확인하세요',
+      card_style: 'right: 468px; top: 80px',
+    },
+    {
+      title: '리포트를 확인하세요',
+      desc: '3장이 완료되면 버튼이 활성화됩니다.\n눌러서 AI 분석 리포트를 확인하세요.',
+      hint: '오른쪽 하단 버튼을 눌러주세요',
+      card_style: 'right: 468px; bottom: 72px',
+    },
+  ]
+
+  let g_guide_info = $derived(GUIDE_STEP_ARR[g_guide_step])
+
+  function on_click_guide_open() { g_guide_step = 1 }
+  function on_click_guide_close() { g_guide_step = 0 }
+  function on_click_guide_next() { if (g_guide_step < 4) g_guide_step++; else g_guide_step = 0 }
+  function on_click_guide_prev() { if (g_guide_step > 1) g_guide_step-- }
+
+  let g_highlight_camera = $derived(g_guide_step === 2)
+  let g_highlight_aside = $derived(g_guide_step === 1 || g_guide_step === 3 || g_guide_step === 4)
+</script>
+
+<main class="app-frame-page flex overflow-hidden bg-[#F8F9FA] text-zinc-900">
+  <!-- 좌측: 카메라 -->
+  <section
+    class="relative flex flex-1 flex-col p-8 transition-[z-index]"
+    class:z-50={g_highlight_camera}
+  >
+    <header class="mb-6 flex items-center justify-between">
+      <button
+        type="button"
+        onclick={() => window.history.back()}
+        class="flex items-center gap-2 text-lg font-bold text-slate-500 transition-colors hover:text-slate-800"
+      >
+        <ArrowLeft size={24} />
+        <span>뒤로가기</span>
+      </button>
+      <div class="flex items-center gap-3">
+        <div class="h-2 w-2 animate-pulse rounded-full bg-red-500"></div>
+        <h1 class="text-2xl font-black tracking-tight">AR FITTING</h1>
+      </div>
+      <button
+        type="button"
+        onclick={on_click_guide_open}
+        class="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-500 transition-colors hover:bg-[#F5EAF7] hover:text-[#7B3F8A]"
+      >
+        <HelpCircle size={16} />
+        <span>사용 가이드</span>
+      </button>
+    </header>
+
+    <div
+      class="relative flex-1 overflow-hidden rounded-[2.5rem] bg-zinc-950 shadow-inner transition-all"
+      class:ring-4={g_highlight_camera}
+      class:ring-[#AA83B4]={g_highlight_camera}
+      class:ring-offset-4={g_highlight_camera}
+    >
+      <div
+        class="absolute inset-0 flex items-center justify-center rounded-[2.5rem] border-[16px] border-white/5"
+      >
+        <Camera size={80} strokeWidth={0.5} class="text-white/10" />
+      </div>
+
+      {#if g_show_intro}
+        <div
+          class="absolute left-1/2 top-8 z-10 -translate-x-1/2"
+          in:fly={{ y: -16, duration: 400 }}
+          out:fade={{ duration: 500 }}
+        >
+          <div
+            class="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/60 px-6 py-3.5 shadow-2xl backdrop-blur-md"
+          >
+            <Glasses size={18} class="shrink-0 text-[#AA83B4]" />
+            <span class="whitespace-nowrap text-sm font-semibold text-white/90">
+              원하시는 안경을 선택해 시착해보세요
+            </span>
+          </div>
+        </div>
+      {/if}
+
+      {#if g_next_slot_idx !== -1}
+        <div class="absolute bottom-10 left-1/2 flex -translate-x-1/2 flex-col items-center gap-4">
+          <p class="rounded-full bg-black/40 px-4 py-1 font-medium text-white/80 backdrop-blur-md">
+            {SLOT_LABEL_ARR[g_next_slot_idx]} 각도를 촬영해주세요
+          </p>
+          <button
+            type="button"
+            onclick={on_click_capture}
+            aria-label="{SLOT_LABEL_ARR[g_next_slot_idx]} 촬영"
+            class="group flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-2xl transition-transform hover:scale-110 active:scale-95"
+          >
+            <div
+              class="flex h-16 w-16 items-center justify-center rounded-full border-4 border-[#4B0055]"
+            >
+              <div
+                class="h-12 w-12 rounded-full bg-[#4B0055] transition-all group-hover:bg-[#7B3F8A]"
+              ></div>
+            </div>
+          </button>
+        </div>
+      {/if}
+    </div>
+  </section>
+
+  <!-- 우측: 캡처 상태 + 추천 안경 + 리포트 버튼 -->
+  <aside
+    class="relative flex w-[440px] flex-col border-l border-slate-200 bg-white shadow-xl transition-[z-index]"
+    class:z-50={g_highlight_aside}
+  >
+    <!-- 캡처 슬롯 -->
+    <div
+      class="p-8 pb-4 transition-all"
+      class:ring-4={g_guide_step === 3}
+      class:ring-[#AA83B4]={g_guide_step === 3}
+      class:ring-inset={g_guide_step === 3}
+    >
+      <h2 class="mb-5 text-sm font-black uppercase tracking-widest text-slate-400">
+        Capture Status
+      </h2>
+      <div class="grid grid-cols-3 gap-4">
+        {#each g_capture_slot_arr as slot, idx (idx)}
+          <div class="group relative flex flex-col items-center gap-3">
+            <div
+              class={`flex h-[100px] w-full items-center justify-center rounded-2xl border-2 transition-all ${
+                slot
+                  ? 'border-[#AA83B4] bg-[#F5EAF7]'
+                  : idx === g_next_slot_idx
+                    ? 'animate-pulse border-dashed border-slate-300 bg-slate-50'
+                    : 'border-slate-100 bg-slate-50'
+              }`}
+            >
+              {#if slot}
+                <CheckCheck size={32} class="text-[#7B3F8A]" />
+                <button
+                  type="button"
+                  onclick={() => on_click_reset_slot(idx)}
+                  aria-label="다시 촬영"
+                  class="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-400 shadow-md hover:text-red-500"
+                >
+                  <X size={16} />
+                </button>
+              {:else}
+                <User size={32} class="text-slate-200" />
+              {/if}
+            </div>
+            <span class={`text-xs font-bold ${slot ? 'text-[#7B3F8A]' : 'text-slate-400'}`}
+              >{SLOT_LABEL_ARR[idx]}</span
+            >
+          </div>
+        {/each}
+      </div>
+    </div>
+
+    <hr class="mx-8 my-4 border-slate-100" />
+
+    <!-- 추천 안경 목록 -->
+    <div
+      class="flex min-h-0 flex-1 flex-col px-8 transition-all"
+      class:ring-4={g_guide_step === 1}
+      class:ring-[#AA83B4]={g_guide_step === 1}
+      class:ring-inset={g_guide_step === 1}
+    >
+      <div class="mb-4 flex flex-col gap-1.5">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-black">추천 안경</h2>
+          <button
+            type="button"
+            onclick={on_click_open_filter_modal}
+            class="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500 transition-colors hover:bg-[#F5EAF7] hover:text-[#7B3F8A]"
+          >
+            <SlidersHorizontal size={13} />
+            <span>프레임 변경</span>
+            {#if g_active_filter_count > 0}
+              <span
+                class="flex h-4 w-4 items-center justify-center rounded-full bg-[#4B0055] text-[9px] font-black text-white"
+              >
+                {g_active_filter_count}
+              </span>
+            {/if}
+          </button>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-400">{g_glasses_arr.length}개</span>
+          {#if g_active_filter_count > 0}
+            <button
+              type="button"
+              onclick={on_click_reset_filter}
+              class="flex items-center gap-1 text-[11px] font-bold text-slate-400 transition-colors hover:text-red-400"
+            >
+              <RotateCcw size={10} />
+              <span>필터 초기화</span>
+            </button>
+          {/if}
+        </div>
+      </div>
+
+      <div class="min-h-0 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+        {#if g_loading}
+          <div class="flex justify-center py-16">
+            <span
+              class="h-6 w-6 animate-spin rounded-full border-2 border-[#AA83B4] border-t-transparent"
+            ></span>
+          </div>
+        {:else if g_glasses_arr.length === 0}
+          <div class="flex flex-col items-center gap-3 py-16 text-center">
+            <Glasses size={36} class="text-slate-200" />
+            <p class="text-sm font-bold text-slate-400">조건에 맞는 안경이 없습니다</p>
+            <button
+              type="button"
+              onclick={on_click_reset_filter}
+              class="text-xs font-bold text-[#7B3F8A] underline underline-offset-2"
+            >
+              필터 초기화
+            </button>
+          </div>
+        {:else}
+          <div class="flex flex-col gap-4 pb-4">
+            {#each g_glasses_arr as item (item.id)}
+              {@const active = item.id === g_selected_id}
+              <button
+                type="button"
+                onclick={() => on_click_select_glasses(item.id)}
+                class={`group relative flex items-center gap-5 rounded-[1.5rem] border-2 p-4 text-left transition-all ${
+                  active
+                    ? 'border-[#AA83B4] bg-[#FDF8FF] shadow-md'
+                    : 'border-slate-50 bg-white hover:border-slate-200'
+                }`}
+              >
+                <div
+                  class="flex h-24 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white p-2"
+                >
+                  <img src={item.img_url} alt={item.model} class="h-full w-full object-contain" />
+                </div>
+                <div class="flex flex-1 flex-col overflow-hidden">
+                  <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400"
+                    >{item.brand}</span
+                  >
+                  <p class="truncate text-base font-black text-slate-800">{item.model}</p>
+                  <div class="mt-1 flex items-center gap-2">
+                    <span class="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">{item.frame_type}</span>
+                  </div>
+                  <div class="mt-2 flex items-center justify-between">
+                    <span class="text-sm font-extrabold text-[#7B3F8A]">₩{item.price}</span>
+                    {#if active}
+                      <div
+                        class="flex animate-bounce items-center gap-1 text-[10px] font-black text-[#AA83B4]"
+                      >
+                        <Sparkles size={12} />
+                        <span>FITTING</span>
+                      </div>
+                    {/if}
+                  </div>
+                </div>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </div>
+
+    <!-- 최종 리포트 버튼 -->
+    <div
+      class="bg-gradient-to-t from-slate-50 to-white p-8 transition-all"
+      class:ring-4={g_guide_step === 4}
+      class:ring-[#AA83B4]={g_guide_step === 4}
+      class:ring-inset={g_guide_step === 4}
+    >
+      {#if g_submit_error}
+        <p class="mb-3 text-xs font-bold text-red-500" role="alert">{g_submit_error}</p>
+      {/if}
+      <button
+        type="button"
+        disabled={!g_all_captured || g_submit_loading}
+        onclick={on_click_submit_report}
+        class="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-[#4B0055] text-lg font-black text-white shadow-xl transition-all hover:bg-[#320038] disabled:cursor-not-allowed disabled:opacity-20 disabled:grayscale"
+      >
+        {#if g_submit_loading}
+          <span
+            class="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"
+          ></span>
+          <span>저장 중...</span>
+        {:else}
+          최종 분석 리포트 확인
+        {/if}
+      </button>
+    </div>
+  </aside>
+</main>
+
+<!-- 프레임 필터 드로어 -->
+{#if g_filter_modal_open}
+  <div
+    class="fixed inset-0 z-40 bg-black/40 backdrop-blur-[1px]"
+    role="presentation"
+    onclick={() => (g_filter_modal_open = false)}
+    in:fade={{ duration: 200 }}
+    out:fade={{ duration: 150 }}
+  ></div>
+
+  <div
+    class="fixed right-0 top-0 z-50 flex h-full w-[440px] flex-col bg-white shadow-2xl"
+    in:fly={{ x: 440, duration: 320, easing: cubicOut }}
+    out:fly={{ x: 440, duration: 220, easing: cubicOut }}
+  >
+    <!-- 드로어 헤더 -->
+    <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-8 py-6">
+      <div>
+        <h3 class="text-lg font-black text-zinc-900">프레임 필터</h3>
+        {#if g_filter_loading}
+          <p class="mt-0.5 text-xs text-slate-400">안경 목록 불러오는 중...</p>
+        {:else}
+          <p class="mt-0.5 text-xs text-slate-400">전체 {g_all_glasses_arr.length}개</p>
+        {/if}
+      </div>
+      <button
+        type="button"
+        onclick={() => (g_filter_modal_open = false)}
+        class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+      >
+        <X size={20} />
+      </button>
+    </div>
+
+    <!-- 드로어 바디 -->
+    <div class="min-h-0 flex-1 overflow-y-auto">
+      {#if g_filter_loading}
+        <div class="flex justify-center py-20">
+          <span
+            class="h-6 w-6 animate-spin rounded-full border-2 border-[#AA83B4] border-t-transparent"
+          ></span>
+        </div>
+      {:else}
+        <div class="space-y-8 px-8 py-6">
+          <!-- 테 종류 -->
+          <div>
+            <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">테 종류</p>
+            <div class="flex flex-wrap gap-2">
+              {#each FRAME_TYPE_OPTIONS as opt}
+                {@const selected = g_filter_obj.frame_type_arr.includes(opt)}
+                <button
+                  type="button"
+                  onclick={() => on_click_toggle_filter('frame_type_arr', opt)}
+                  class={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
+                    selected
+                      ? 'bg-[#4B0055] text-white shadow-md'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {opt}
+                </button>
+              {/each}
+            </div>
+          </div>
+
+          <!-- 재질 -->
+          <div>
+            <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">재질</p>
+            <div class="flex flex-wrap gap-2">
+              {#each MATERIAL_OPTIONS as opt}
+                {@const selected = g_filter_obj.material_arr.includes(opt)}
+                <button
+                  type="button"
+                  onclick={() => on_click_toggle_filter('material_arr', opt)}
+                  class={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
+                    selected
+                      ? 'bg-[#4B0055] text-white shadow-md'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {opt}
+                </button>
+              {/each}
+            </div>
+          </div>
+
+          <!-- 카테고리 -->
+          <div>
+            <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">카테고리</p>
+            <div class="flex flex-wrap gap-2">
+              {#each CATEGORY_OPTIONS as opt}
+                {@const selected = g_filter_obj.category_arr.includes(opt)}
+                <button
+                  type="button"
+                  onclick={() => on_click_toggle_filter('category_arr', opt)}
+                  class={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
+                    selected
+                      ? 'bg-[#4B0055] text-white shadow-md'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {opt}
+                </button>
+              {/each}
+            </div>
+          </div>
+        </div>
+      {/if}
+    </div>
+
+    <!-- 드로어 푸터 -->
+    <div class="shrink-0 border-t border-slate-100 bg-slate-50 px-8 py-6">
+      <p class="mb-4 text-sm font-bold text-slate-500">
+        {#if g_active_filter_count > 0}
+          <span class="text-[#4B0055]">{g_glasses_arr.length}개</span>의 안경이 검색됩니다
+        {:else}
+          필터를 선택하면 실시간으로 결과가 반영됩니다
+        {/if}
+      </p>
+      <div class="flex gap-3">
+        <button
+          type="button"
+          onclick={on_click_reset_filter}
+          disabled={g_active_filter_count === 0}
+          class="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 py-3.5 text-sm font-bold text-slate-500 transition-all hover:border-slate-300 hover:bg-white disabled:opacity-40"
+        >
+          <RotateCcw size={14} />
+          초기화
+        </button>
+        <button
+          type="button"
+          onclick={() => (g_filter_modal_open = false)}
+          class="flex flex-[2] items-center justify-center rounded-2xl bg-[#4B0055] py-3.5 text-sm font-black text-white transition-colors hover:bg-[#320038]"
+        >
+          적용하기
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- 가이드 오버레이 -->
+{#if g_guide_step > 0}
+  <div
+    class="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]"
+    role="presentation"
+    onclick={on_click_guide_close}
+    in:fade={{ duration: 250 }}
+    out:fade={{ duration: 200 }}
+  ></div>
+
+  {#if g_guide_info}
+    <div
+      class="fixed z-50 w-80 rounded-3xl bg-white p-6 shadow-2xl"
+      style={g_guide_info.card_style}
+      in:fly={{ y: 8, duration: 300 }}
+      out:fade={{ duration: 150 }}
+    >
+      <div class="mb-5 flex gap-1.5">
+        {#each [1, 2, 3, 4] as step_num}
+          <div
+            class="h-1.5 flex-1 rounded-full transition-colors duration-300 {g_guide_step >= step_num
+              ? 'bg-[#AA83B4]'
+              : 'bg-slate-100'}"
+          ></div>
+        {/each}
+      </div>
+      <p class="mb-1.5 text-xs font-black uppercase tracking-widest text-[#AA83B4]">
+        Step {g_guide_step} / 4
+      </p>
+      <h3 class="mb-3 text-lg font-black leading-snug text-zinc-900">{g_guide_info.title}</h3>
+      <p class="whitespace-pre-line text-sm leading-relaxed text-slate-500">{g_guide_info.desc}</p>
+      <div
+        class="mt-4 flex items-center justify-between gap-2 rounded-2xl bg-[#F5EAF7] px-4 py-3"
+      >
+        <span class="text-xs font-bold text-[#7B3F8A]">{g_guide_info.hint}</span>
+        <ChevronRight size={14} class="shrink-0 text-[#AA83B4]" />
+      </div>
+      <div class="mt-5 flex items-center justify-between">
+        <button
+          type="button"
+          onclick={on_click_guide_close}
+          class="text-xs font-bold text-slate-400 transition-colors hover:text-slate-600"
+        >
+          건너뛰기
+        </button>
+        <div class="flex gap-2">
+          {#if g_guide_step > 1}
+            <button
+              type="button"
+              onclick={on_click_guide_prev}
+              class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
+            >
+              이전
+            </button>
+          {/if}
+          <button
+            type="button"
+            onclick={on_click_guide_next}
+            class="rounded-xl bg-[#4B0055] px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-[#320038]"
+          >
+            {g_guide_step < 4 ? '다음' : '시작하기'}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+{/if}
+
+<style>
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 10px;
+  }
+</style>
