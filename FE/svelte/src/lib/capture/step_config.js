@@ -41,7 +41,7 @@ export const ALL_STEPS = [
     capture_mode: 'manual',
   },
   {
-    step_id: 'front_bare',
+    step_id: 'front_no_glasses',
     label: '정면 (안경 미착용)',
     hint: '안경을 벗고 정면을 바라봐 주세요',
     pose_type: 'front',
@@ -49,7 +49,7 @@ export const ALL_STEPS = [
     capture_mode: 'auto',
   },
   {
-    step_id: 'left_bare',
+    step_id: 'left_no_glasses',
     label: '좌측 (안경 미착용)',
     hint: '안경을 벗은 상태로 고개를 왼쪽으로 돌려 주세요',
     pose_type: 'left_profile',
@@ -57,7 +57,7 @@ export const ALL_STEPS = [
     capture_mode: 'manual',
   },
   {
-    step_id: 'right_bare',
+    step_id: 'right_no_glasses',
     label: '우측 (안경 미착용)',
     hint: '안경을 벗은 상태로 고개를 오른쪽으로 돌려 주세요',
     pose_type: 'right_profile',

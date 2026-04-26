@@ -83,6 +83,18 @@
   onDestroy(() => {
     window.removeEventListener('keydown', on_keydown_global)
   })
+
+  /**
+   * 항목 값을 캔버스 라벨용 문자열로 변환한다. mm 우선, 없으면 px.
+   * @param {MeasurementItem} item
+   * @returns {string}
+   */
+  function format_value(item) {
+    if (item.value_mm !== null && item.value_mm !== undefined) {
+      return `${item.value_mm.toFixed(1)} mm`
+    }
+    return `${Math.round(item.value_px ?? 0)} px`
+  }
 </script>
 
 {#if capture}
@@ -133,7 +145,7 @@
             font-weight="700"
             text-anchor="middle"
           >
-            {item.label}: {Math.round(item.value_px ?? 0)} px
+            {item.label}: {format_value(item)}
           </text>
         {/if}
       {/each}

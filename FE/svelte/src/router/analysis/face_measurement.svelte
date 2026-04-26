@@ -1,5 +1,6 @@
 <script>
-  import { ArrowLeft, RotateCcw } from 'lucide-svelte'
+  import { onMount } from 'svelte'
+  import { ArrowLeft, Eraser, FileText, RotateCcw } from 'lucide-svelte'
   import { navigate } from '@maks11060/svelte5-router'
   import { PATH } from '@/config/path.js'
   import {
@@ -10,6 +11,8 @@
     set_active_item_id,
     set_item_points,
     clear_item_points,
+    clear_all_measurements,
+    pick_capture_for_view,
     reset as reset_session,
   } from '@/lib/stores/capture_session.svelte.js'
   import ResultHeader from '@/components/analysis/result_header.svelte'
@@ -19,12 +22,20 @@
 
   /** @typedef {import('@/lib/measurements/template.js').ViewAngle} ViewAngle */
 
+  const VIEW_LABELS = {
+    front_no_glasses: '정면 (미착용)',
+    front_glasses:    '정면 (안경)',
+    left_no_glasses:  '좌측 (미착용)',
+    left_glasses:     '좌측 (안경)',
+    right_no_glasses: '우측 (미착용)',
+    right_glasses:    '우측 (안경)',
+  }
+
   const g_session = $derived(get_session())
   const g_face_shape_result = $derived(get_face_shape_result())
   const g_active_item_id = $derived(get_active_item_id())
 
-  let g_view = $state(/** @type {ViewAngle} */ ('front'))
-  let g_bare_or_glasses = $state(/** @type {'bare' | 'glasses'} */ ('bare'))
+  let g_view = $state(/** @type {ViewAngle} */ ('front_no_glasses'))
 
   // 세션이 비어 있으면 (직접 URL 진입 등) /analysis 로 리다이렉트.
   $effect(() => {
@@ -33,36 +44,19 @@
     }
   })
 
-  // 현재 뷰 + 안경 모드에 해당하는 Capture 를 선택한다.
-  // 규칙: view === 'front' 이면 g_bare_or_glasses 반영, 측면은 항상 bare (프로필에서 모드 구분 UI 비노출 예정).
-  const g_view_label = $derived({
-    front: '정면',
-    left_profile: '좌측',
-    right_profile: '우측',
-  }[g_view])
+  // 마운트 시점에 query param ?item=xxx 가 있으면 해당 항목을 자동 활성화.
+  // 리포트의 "측정하기" 버튼 deep-link 진입 동선을 지원한다.
+  onMount(() => {
+    const params = new URLSearchParams(window.location.search)
+    const initial_item = params.get('item')
+    if (initial_item) set_active_item_id(initial_item)
+  })
 
-  const g_selected_capture = $derived(pick_capture(g_view, g_bare_or_glasses))
-
-  /**
-   * 현재 세션에서 뷰/모드에 맞는 Capture 하나를 선택한다.
-   * with_glasses 모드에서는 bare/glasses 둘 다 있음, no_glasses 모드에서는 bare 만 존재.
-   * glasses 를 요청했는데 해당 캡쳐가 없으면 bare 로 fallback.
-   * @param {ViewAngle} view
-   * @param {'bare' | 'glasses'} mode
-   */
-  function pick_capture(view, mode) {
-    const suffix_arr = mode === 'glasses' ? ['_glasses', '_bare'] : ['_bare', '_glasses']
-    const prefix = { front: 'front', left_profile: 'left', right_profile: 'right' }[view]
-    for (const suffix of suffix_arr) {
-      const cap = g_session.captures_obj[`${prefix}${suffix}`]
-      if (cap) return cap
-    }
-    return null
-  }
-
+  const g_view_label = $derived(VIEW_LABELS[g_view])
+  const g_selected_capture = $derived(pick_capture_for_view(g_view))
   const g_items_arr = $derived(get_measurement_items(g_view))
 
-  // 뷰 변경 시 active/pending 해제 (active 해제는 setter 가 처리, pending 은 measure_canvas 의 effect 처리).
+  // 뷰 변경 시 active 해제 (캔버스의 pending 상태도 measure_canvas 의 effect 가 함께 정리).
   $effect(() => {
     const _v = g_view
     set_active_item_id(null)
@@ -96,17 +90,21 @@
     g_view = v
   }
 
-  /** @param {'bare' | 'glasses'} m */
-  function on_mode_change(m) {
-    g_bare_or_glasses = m
-  }
-
-  // 뒤로가기: 캡쳐 화면으로 복귀.
   function on_click_back() {
     navigate(PATH.analysis)
   }
 
-  // "처음부터": 세션 리셋 + 캡쳐 화면으로 이동.
+  // "측정값 모두 지우기" — 캡쳐는 유지하고 measurements_obj 만 초기화 (자동 항목은 다시 채워짐).
+  function on_click_clear_all() {
+    clear_all_measurements()
+  }
+
+  // "리포트 보기" — 분석 리포트 화면으로 이동. 측정값은 세션에 그대로 유지.
+  function on_click_view_report() {
+    navigate(PATH.analysisReport)
+  }
+
+  // "처음부터" — 세션 전체 리셋 후 캡쳐 화면으로.
   function on_click_restart() {
     reset_session()
     navigate(PATH.analysis)
@@ -115,11 +113,11 @@
 
 <main class="app-frame-page overflow-hidden bg-[#F7F8FA] text-zinc-950">
   <header
-    class="grid h-[72px] grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-white px-8"
+    class="grid h-[72px] grid-cols-[1fr_auto_1fr] items-center border-b border-[var(--retinal-border)] bg-white px-8"
   >
     <div class="flex justify-start">
       <button
-        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-1 text-base font-bold text-slate-600 transition hover:text-[#4B0055]"
+        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-1 text-base font-bold text-slate-600 transition hover:text-[var(--retinal-primary-700)]"
         type="button"
         onclick={on_click_back}
       >
@@ -128,9 +126,25 @@
       </button>
     </div>
     <h1 class="m-0 text-2xl font-extrabold tracking-normal text-zinc-950">얼굴 측정</h1>
-    <div class="flex justify-end">
+    <div class="flex items-center justify-end gap-2">
       <button
-        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-zinc-900 transition hover:bg-slate-50"
+        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-[var(--retinal-border)] bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+        type="button"
+        onclick={on_click_clear_all}
+      >
+        <Eraser size={16} strokeWidth={2.5} aria-hidden="true" />
+        <span>측정값 모두 지우기</span>
+      </button>
+      <button
+        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border-0 bg-[var(--retinal-primary-600)] px-3 text-sm font-bold text-white transition hover:bg-[var(--retinal-primary-700)]"
+        type="button"
+        onclick={on_click_view_report}
+      >
+        <FileText size={16} strokeWidth={2.5} aria-hidden="true" />
+        <span>리포트 보기</span>
+      </button>
+      <button
+        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-[var(--retinal-border)] bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
         type="button"
         onclick={on_click_restart}
       >
@@ -156,9 +170,7 @@
           <PhotoSwitcher
             session={g_session}
             view={g_view}
-            bare_or_glasses={g_bare_or_glasses}
             onview_change={on_view_change}
-            onmode_change={on_mode_change}
           />
         </div>
         <MeasurementList

@@ -50,8 +50,8 @@ import { classify_face_shape } from '@/lib/mediapipe/classify.js'
 import { build_initial_measurements, pixel_distance } from '@/lib/measurements/measurement_utils.js'
 import { write_mirror, read_mirror, clear_mirror } from '@/lib/utils/session_storage_mirror.js'
 
-// 얼굴형 분류용 정면샷 우선순위. 맨얼굴(front_bare)이 안경 왜곡 없이 광대/턱 폭을 가장 정확히 잡아낸다.
-const FRONT_STEP_PRIORITY = ['front_bare', 'front_glasses']
+// 얼굴형 분류용 정면샷 우선순위. 맨얼굴(front_no_glasses)이 안경 왜곡 없이 광대/턱 폭을 가장 정확히 잡아낸다.
+const FRONT_STEP_PRIORITY = ['front_no_glasses', 'front_glasses']
 
 // PD 가정값 (성인 평균 동공간 거리). ArUco 마커 도입 전까지 임시 환산 기준.
 const ASSUMED_PD_MM = 63
@@ -280,6 +280,30 @@ export function px_to_mm(value_px) {
  */
 export function get_measurement_items(view) {
   return Object.values(g_session.measurements_obj).filter((m) => m.view === view)
+}
+
+/**
+ * 뷰 키에 해당하는 캡쳐를 반환한다. view 와 step_id 가 동일한 키 체계를 쓰므로
+ * 직접 lookup 가능. 캡쳐 없으면 null.
+ * @param {ViewAngle} view
+ * @returns {Capture | null}
+ */
+export function pick_capture_for_view(view) {
+  return g_session.captures_obj[view] ?? null
+}
+
+/**
+ * 모든 측정값을 초기 상태로 되돌린다 (캡쳐는 유지).
+ * 자동 항목은 현재 정면샷 랜드마크 기반으로 다시 채워진다.
+ * face_measurement 의 "측정값 모두 지우기" 버튼이 호출.
+ */
+export function clear_all_measurements() {
+  g_session.measurements_obj = build_initial_measurements(
+    pick_front_auto_points(),
+    g_session.scale?.mm_per_px ?? null,
+  )
+  g_session.active_item_id = null
+  mirror_now()
 }
 
 /**

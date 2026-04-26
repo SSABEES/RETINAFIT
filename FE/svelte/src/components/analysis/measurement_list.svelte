@@ -38,10 +38,25 @@
     evt.stopPropagation()
     onclear?.(item_id)
   }
+
+  /**
+   * 항목 값을 표시용 문자열로 변환한다. mm 우선, 없으면 px, 둘 다 없으면 '—'.
+   * @param {MeasurementItem} item
+   * @returns {string}
+   */
+  function format_value(item) {
+    if (item.value_mm !== null && item.value_mm !== undefined) {
+      return `${item.value_mm.toFixed(1)} mm`
+    }
+    if (item.value_px !== null && item.value_px !== undefined) {
+      return `${Math.round(item.value_px)} px`
+    }
+    return '—'
+  }
 </script>
 
 <section
-  class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-200/40"
+  class="flex flex-col gap-3 rounded-xl border border-[var(--retinal-border)] bg-white px-4 py-4 shadow-sm shadow-slate-200/40"
   aria-label="측정 항목 리스트"
 >
   <div class="flex items-baseline justify-between">
@@ -60,8 +75,8 @@
         {@const has_value = item.value_px !== null}
         <li>
           <div
-            class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-slate-50"
-            class:bg-slate-100={is_active}
+            class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-[var(--retinal-soft-purple)]"
+            class:bg-[var(--retinal-soft-purple)]={is_active}
             role="button"
             tabindex="0"
             aria-pressed={is_active}
@@ -75,16 +90,16 @@
           >
             <span
               class="grid h-4 w-4 flex-none place-items-center rounded-full border border-slate-400"
-              class:border-[#4B0055]={is_active}
+              class:border-[var(--retinal-primary-600)]={is_active}
               aria-hidden="true"
             >
               {#if is_active}
-                <span class="h-2 w-2 rounded-full bg-[#4B0055]"></span>
+                <span class="h-2 w-2 rounded-full bg-[var(--retinal-primary-600)]"></span>
               {/if}
             </span>
             <span class="flex-1 truncate text-sm font-semibold text-zinc-900">{item.label}</span>
             <span class="flex-none text-sm font-bold tabular-nums" class:text-zinc-950={has_value} class:text-slate-400={!has_value}>
-              {has_value ? `${Math.round(item.value_px ?? 0)} px` : '—'}
+              {format_value(item)}
             </span>
             <span
               class="flex-none rounded-md px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider"
