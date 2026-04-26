@@ -505,10 +505,10 @@
             </div>
 
             {#if g_active_analysis_obj}
-            <div class="mt-4 grid grid-cols-[minmax(0,520px)_1fr] gap-6">
-              <figure class="m-0 flex flex-col">
+            <div class="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,520px)_1fr] gap-6">
+              <figure class="m-0 flex min-h-0 flex-col items-center">
                 <div
-                  class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-[#111827] text-slate-500"
+                  class="relative aspect-[3/4] max-h-full max-w-full overflow-hidden rounded-lg bg-[#111827] text-slate-500"
                 >
                   {#if g_active_analysis_obj.image_src}
                     <img
