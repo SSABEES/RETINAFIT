@@ -19,6 +19,7 @@ import { apiRequest } from '@/lib/api/client'
  *
  * @param {string[]} keys  업로드 대상 식별자 (예: 'front_no_glasses')
  * @returns {Promise<Record<string, { upload_url: string, file_url: string }>>}
+ * @throws {Error} apiRequest 가 비-2xx 응답이거나 네트워크 오류 시
  */
 export async function request_presigned_urls(keys) {
   // TODO(S14P31S107-95): 실제 엔드포인트 확정 시 경로/응답 형태 업데이트.
@@ -31,10 +32,12 @@ export async function request_presigned_urls(keys) {
 /**
  * Blob 을 presigned URL 로 직접 PUT 한다 (FE → S3 직접 통신).
  * BE 를 거치지 않으므로 BE 대역폭/메모리 부담 없음.
+ * Content-Type 은 blob.type 우선, 없으면 image/jpeg 로 강제 지정한다.
  *
  * @param {string} upload_url  presigned PUT URL
- * @param {Blob} blob
- * @returns {Promise<void>}
+ * @param {Blob} blob          업로드할 파일 바이너리
+ * @returns {Promise<void>}    성공 시 void, 실패 시 throw
+ * @throws {Error} S3 응답이 비-2xx 인 경우 status 를 포함한 메시지를 던진다.
  */
 export async function upload_blob_to_s3(upload_url, blob) {
   const response = await fetch(upload_url, {
@@ -49,9 +52,11 @@ export async function upload_blob_to_s3(upload_url, blob) {
 
 /**
  * 캡쳐 6장 (또는 3장) 을 병렬로 S3 에 업로드하고 file_url 매핑을 반환한다.
+ * Promise.all 로 fan-out 하므로 한 장이라도 실패하면 전체가 reject 된다.
  *
- * @param {Record<string, Capture>} captures_obj
- * @returns {Promise<Record<string, string>>}  step_id → file_url
+ * @param {Record<string, Capture>} captures_obj  step_id → Capture
+ * @returns {Promise<Record<string, string>>}     step_id → file_url
+ * @throws {Error} presigned URL 누락, S3 PUT 실패, 또는 BE presigned 호출 실패 시
  */
 export async function upload_captures_to_s3(captures_obj) {
   const keys = Object.keys(captures_obj)
@@ -79,9 +84,10 @@ export async function upload_captures_to_s3(captures_obj) {
  *  - test_file_arr: 측정 사진 URL 배열
  *  - test_json:    측정값 + 평가 + 메타 dict
  *
- * @param {number} visit_no
+ * @param {number} visit_no  방문 ID (URL path 매개변수)
  * @param {{ main_file: string, test_file_arr: string[], test_json: Record<string, unknown> }} body
- * @returns {Promise<{ visit_no: number, [k: string]: any }>}
+ * @returns {Promise<{ visit_no: number, [k: string]: any }>}  저장된 방문 정보
+ * @throws {Error} BE 가 비-2xx 응답을 주거나 검증 실패 시
  */
 export async function save_face_analysis(visit_no, body) {
   return apiRequest(`/visits/${visit_no}/face`, {
