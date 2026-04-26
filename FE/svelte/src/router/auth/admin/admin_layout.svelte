@@ -6,8 +6,24 @@
   import { PATH } from '@/config/path'
 
   const ADMIN_AUTH_STORAGE_KEY = 'retinal_admin_authenticated'
-  const ADMIN_ID = 'retinai1'
-  const ADMIN_PASSWORD = '1234'
+  // 관리자 자격증명은 .env 의 VITE_ADMIN_ID / VITE_ADMIN_PASSWORD 로 주입한다.
+  // 개발 편의를 위해 DEV 모드 한정 fallback 을 두고, PROD 에선 누락 시 빈 값이 되어 로그인 자체가 실패한다.
+  const ADMIN_ID =
+    import.meta.env.VITE_ADMIN_ID ?? (import.meta.env.DEV ? 'retinai1' : '')
+  const ADMIN_PASSWORD =
+    import.meta.env.VITE_ADMIN_PASSWORD ?? (import.meta.env.DEV ? '1234' : '')
+
+  if (!ADMIN_ID || !ADMIN_PASSWORD) {
+    if (import.meta.env.DEV) {
+      console.warn(
+        '[admin] VITE_ADMIN_ID / VITE_ADMIN_PASSWORD 환경변수가 비어 있습니다. 개발 기본값으로 동작합니다.',
+      )
+    } else {
+      console.error(
+        '[admin] 관리자 자격증명 환경변수가 누락되어 로그인이 비활성화됩니다.',
+      )
+    }
+  }
 
   /** @type {{ active_key?: string, children?: import('svelte').Snippet }} */
   let { active_key = 'face', children } = $props()
