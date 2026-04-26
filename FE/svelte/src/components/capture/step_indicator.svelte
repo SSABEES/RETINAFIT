@@ -17,9 +17,11 @@
    * @returns {string}
    */
   function row_style(is_done, is_current) {
-    if (is_current) return 'border-color: #4B0055; background: #F5EAF7;'
-    if (is_done) return 'border-color: #2E7D32; background: #E8F5E9;'
-    return 'border-color: #E5E7EB; background: #ffffff;'
+    if (is_current)
+      return 'border-color: var(--retinal-primary-700); background: var(--retinal-soft-purple);'
+    if (is_done)
+      return 'border-color: var(--retinal-success-700); background: var(--retinal-success-soft);'
+    return 'border-color: var(--retinal-border); background: var(--retinal-surface);'
   }
 
   /**
@@ -29,9 +31,9 @@
    * @returns {string}
    */
   function badge_style(is_done, is_current) {
-    if (is_current) return 'background: #4B0055; color: #ffffff;'
-    if (is_done) return 'background: #2E7D32; color: #ffffff;'
-    return 'background: #E5E7EB; color: #64748b;'
+    if (is_current) return 'background: var(--retinal-primary-700); color: var(--retinal-surface);'
+    if (is_done) return 'background: var(--retinal-success-700); color: var(--retinal-surface);'
+    return 'background: var(--retinal-border); color: var(--retinal-text-secondary);'
   }
 </script>
 
@@ -54,7 +56,11 @@
       <div class="min-w-0 flex-1">
         <div
           class="text-sm font-extrabold"
-          style={is_current ? 'color: #4B0055;' : is_done ? 'color: #2E7D32;' : 'color: #111827;'}
+          style={is_current
+            ? 'color: var(--retinal-primary-700);'
+            : is_done
+              ? 'color: var(--retinal-success-700);'
+              : 'color: var(--retinal-text);'}
         >
           Step {i + 1}
         </div>

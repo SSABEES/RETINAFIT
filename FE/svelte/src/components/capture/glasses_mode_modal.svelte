@@ -34,7 +34,7 @@
       aria-labelledby="glasses-mode-title"
       tabindex="-1"
     >
-      <header class="bg-[#4B0055] px-7 py-5 text-white">
+      <header class="bg-[var(--retinal-primary-700)] px-7 py-5 text-white">
         <h2 id="glasses-mode-title" class="m-0 text-2xl font-extrabold">얼굴 분석 시작</h2>
         <p class="m-0 mt-1 text-sm font-medium text-white/80">
           고객의 안경 착용 상태를 선택해 주세요
@@ -43,7 +43,7 @@
 
       <div class="grid gap-3 px-7 py-6">
         <button
-          class="min-h-16 cursor-pointer rounded-xl border-2 border-[#4B0055]/20 bg-white px-5 text-left transition hover:border-[#4B0055] hover:bg-[#F5EAF7] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#9A1BFF]/30"
+          class="min-h-16 cursor-pointer rounded-xl border-2 border-[var(--retinal-primary-700)]/20 bg-white px-5 text-left transition hover:border-[var(--retinal-primary-700)] hover:bg-[var(--retinal-soft-purple)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-accent)]/30"
           type="button"
           onclick={on_click_with_glasses}
         >
@@ -54,7 +54,7 @@
         </button>
 
         <button
-          class="min-h-16 cursor-pointer rounded-xl border-2 border-[#4B0055]/20 bg-white px-5 text-left transition hover:border-[#4B0055] hover:bg-[#F5EAF7] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#9A1BFF]/30"
+          class="min-h-16 cursor-pointer rounded-xl border-2 border-[var(--retinal-primary-700)]/20 bg-white px-5 text-left transition hover:border-[var(--retinal-primary-700)] hover:bg-[var(--retinal-soft-purple)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-accent)]/30"
           type="button"
           onclick={on_click_no_glasses}
         >

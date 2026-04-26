@@ -400,7 +400,7 @@
 </script>
 
 <main
-  class="app-frame-page flex h-full flex-col overflow-hidden bg-[#F7F8FA] text-[var(--retinal-text)]"
+  class="app-frame-page flex h-full flex-col overflow-hidden bg-[var(--retinal-page)] text-[var(--retinal-text)]"
 >
   <header
     class="grid h-[72px] shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-white px-8"
@@ -578,7 +578,7 @@
             <div class="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,520px)_1fr] gap-6">
               <figure class="m-0 flex min-h-0 flex-col items-center">
                 <div
-                  class="relative aspect-[3/4] max-h-full max-w-full overflow-hidden rounded-lg bg-[#111827] text-slate-500"
+                  class="relative aspect-[3/4] max-h-full max-w-full overflow-hidden rounded-lg bg-[var(--retinal-text)] text-slate-500"
                 >
                   {#if g_active_analysis_obj.image_src}
                     <img
@@ -600,7 +600,7 @@
                               y1={shape_obj.y1}
                               x2={shape_obj.x2}
                               y2={shape_obj.y2}
-                              stroke="#9A1BFF"
+                              stroke="var(--retinal-accent)"
                               stroke-width="3"
                               stroke-linecap="round"
                               vector-effect="non-scaling-stroke"
@@ -610,9 +610,9 @@
                               cx={shape_obj.cx}
                               cy={shape_obj.cy}
                               r={shape_obj.r}
-                              fill="#9A1BFF"
+                              fill="var(--retinal-accent)"
                               fill-opacity="0.3"
-                              stroke="#9A1BFF"
+                              stroke="var(--retinal-accent)"
                               stroke-width="3"
                               vector-effect="non-scaling-stroke"
                             />
@@ -622,9 +622,9 @@
                               y={shape_obj.y}
                               width={shape_obj.width}
                               height={shape_obj.height}
-                              fill="#9A1BFF"
+                              fill="var(--retinal-accent)"
                               fill-opacity="0.15"
-                              stroke="#9A1BFF"
+                              stroke="var(--retinal-accent)"
                               stroke-width="3"
                               vector-effect="non-scaling-stroke"
                             />

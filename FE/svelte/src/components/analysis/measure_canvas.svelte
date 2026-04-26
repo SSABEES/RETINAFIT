@@ -124,7 +124,10 @@
           {@const p1 = item.points[0]}
           {@const p2 = item.points[1]}
           {@const is_active = active_item_id === item.item_id}
-          {@const stroke = item.source === 'auto' ? '#1f7a3a' : '#ff6f00'}
+          {@const stroke =
+            item.source === 'auto'
+              ? 'var(--retinal-measure-auto)'
+              : 'var(--retinal-measure-manual)'}
           {@const dash = item.source === 'auto' ? '6 4' : undefined}
           <line
             x1={p1.x}
@@ -151,7 +154,12 @@
       {/each}
 
       {#if g_pending_first}
-        <circle cx={g_pending_first.x} cy={g_pending_first.y} r="8" fill="#ff6f00" />
+        <circle
+          cx={g_pending_first.x}
+          cy={g_pending_first.y}
+          r="8"
+          fill="var(--retinal-measure-manual)"
+        />
       {/if}
     </svg>
   </div>

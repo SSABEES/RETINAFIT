@@ -30,7 +30,7 @@
 
     {#if step.capture_mode === 'manual'}
       <button
-        class="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[#4B0055] px-4 text-sm font-extrabold text-white transition hover:bg-[#65006F] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/30 disabled:cursor-not-allowed disabled:opacity-60"
+        class="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[var(--retinal-primary-700)] px-4 text-sm font-extrabold text-white transition hover:bg-[var(--retinal-primary-500)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-700)]/30 disabled:cursor-not-allowed disabled:opacity-60"
         type="button"
         disabled={is_capturing}
         onclick={on_click_capture}

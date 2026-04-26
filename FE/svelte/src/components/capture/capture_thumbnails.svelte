@@ -22,7 +22,7 @@
             class="h-full w-full object-cover"
           />
           <span
-            class="absolute left-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-[#2E7D32] text-[9px] font-extrabold text-white"
+            class="absolute left-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-[var(--retinal-success-700)] text-[9px] font-extrabold text-white"
             aria-hidden="true"
           >
             ✓
