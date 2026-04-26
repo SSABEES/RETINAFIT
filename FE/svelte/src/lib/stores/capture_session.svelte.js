@@ -44,6 +44,7 @@
  * @property {ScaleInfo | null} scale
  */
 
+import { untrack } from 'svelte'
 import { get_steps_for_mode } from '@/lib/capture/step_config.js'
 import { classify_face_shape } from '@/lib/mediapipe/classify.js'
 import { build_initial_measurements, pixel_distance } from '@/lib/measurements/measurement_utils.js'
@@ -216,14 +217,20 @@ export function reset() {
 /**
  * 현재 측정 관련 세션 일부를 sessionStorage 에 미러링한다.
  * 측정 변경/지움 등 mutator 마지막에 호출.
+ *
+ * 주의: $effect/$derived 안에서 set_* 호출이 발생하면 mirror_now 의 g_session 읽기가
+ * 호출자의 reactive deps 로 등록되어 의도치 않은 재실행 루프를 만든다.
+ * untrack 으로 감싸 reactive 추적을 명시적으로 끊는다.
  */
 function mirror_now() {
-  write_mirror({
-    measurements_obj: g_session.measurements_obj,
-    scale: g_session.scale,
-    face_shape_result: g_session.face_shape_result,
-    active_item_id: g_session.active_item_id,
-    mirrored_at: Date.now(),
+  untrack(() => {
+    write_mirror({
+      measurements_obj: g_session.measurements_obj,
+      scale: g_session.scale,
+      face_shape_result: g_session.face_shape_result,
+      active_item_id: g_session.active_item_id,
+      mirrored_at: Date.now(),
+    })
   })
 }
 
