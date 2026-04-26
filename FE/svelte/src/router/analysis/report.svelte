@@ -505,10 +505,10 @@
             </div>
 
             {#if g_active_analysis_obj}
-            <div class="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,520px)_1fr] gap-6">
-              <figure class="m-0 flex min-h-0 flex-col">
+            <div class="mt-4 grid grid-cols-[minmax(0,520px)_1fr] gap-6">
+              <figure class="m-0 flex flex-col">
                 <div
-                  class="relative grid aspect-[3/4] w-full place-items-center overflow-hidden rounded-lg bg-[#111827] text-slate-500"
+                  class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-[#111827] text-slate-500"
                 >
                   {#if g_active_analysis_obj.image_src}
                     <img
@@ -563,7 +563,7 @@
                       </svg>
                     {/if}
                   {:else}
-                    <div class="grid justify-items-center gap-3">
+                    <div class="absolute inset-0 grid place-items-center gap-3 text-slate-500">
                       <Camera size={48} strokeWidth={1.8} aria-hidden="true" />
                       <p class="m-0 text-sm font-semibold">사진이 없습니다</p>
                     </div>

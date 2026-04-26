@@ -82,5 +82,22 @@ export function compute_evaluations(measurements_obj) {
     }
   }
 
+  // 얼굴 비율: face_height / face_width. "1:1.41" 식으로 표시.
+  // 적정 1.30~1.50 (이상형), 그 외엔 표시만 하고 평가 톤은 중립.
+  const face_height = measurements_obj.face_height?.value_px
+  if (face_width && face_height) {
+    const ratio = face_height / face_width
+    const is_ideal = ratio >= 1.3 && ratio <= 1.5
+    result.face_ratio = {
+      key: 'face_ratio',
+      label: '얼굴 비율',
+      value_text: `1:${ratio.toFixed(2)}${is_ideal ? ' (이상형)' : ''}`,
+      tone: is_ideal ? 'emerald' : 'slate',
+      depends_on: ['face_width', 'face_height'],
+      threshold_source: 'MOCK',
+      raw_value: ratio,
+    }
+  }
+
   return result
 }
