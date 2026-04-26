@@ -330,8 +330,8 @@
   }
 
   // 온보딩 진행 — 사진 업로드 + 메타 저장 후 다음 화면으로.
-  let ref_is_submitting = $state(false)
-  let ref_submit_error = $state('')
+  let g_is_submitting = $state(false)
+  let g_submit_error = $state('')
 
   /**
    * 세션의 측정/평가/캡쳐 메타를 BE 가 받는 test_json 형태로 직렬화.
@@ -366,14 +366,14 @@
   }
 
   async function on_click_submit_onboarding() {
-    if (ref_is_submitting) return
-    ref_submit_error = ''
+    if (g_is_submitting) return
+    g_submit_error = ''
     const visit_no = get_visit_no()
     if (visit_no === null) {
-      ref_submit_error = '방문 정보가 없어 분석 결과를 저장할 수 없습니다.'
+      g_submit_error = '방문 정보가 없어 분석 결과를 저장할 수 없습니다.'
       return
     }
-    ref_is_submitting = true
+    g_is_submitting = true
     try {
       // 1단계: 사진들을 S3 에 업로드해 URL 받기 (BE -95 의 presigned URL 사용).
       const file_url_map = await upload_captures_to_s3(g_session.captures_obj)
@@ -392,9 +392,9 @@
       // 성공 — 다음 화면으로.
       navigate(PATH.analysisLensConsult)
     } catch (err) {
-      ref_submit_error = err instanceof Error ? err.message : '저장 실패'
+      g_submit_error = err instanceof Error ? err.message : '저장 실패'
     } finally {
-      ref_is_submitting = false
+      g_is_submitting = false
     }
   }
 </script>
@@ -764,9 +764,9 @@
       </div>
 
       <div class="shrink-0 flex flex-col gap-2">
-        {#if ref_submit_error}
+        {#if g_submit_error}
           <p class="m-0 rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700" role="alert">
-            {ref_submit_error}
+            {g_submit_error}
           </p>
         {/if}
         <div class="grid grid-cols-2 gap-4">
@@ -779,10 +779,10 @@
           <button
             type="button"
             class="grid min-h-16 grid-cols-[1fr_auto] items-center rounded-lg border-0 bg-[var(--retinal-primary-600)] px-8 text-center text-lg font-extrabold text-white transition hover:bg-[var(--retinal-primary-500)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/30 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={ref_is_submitting}
+            disabled={g_is_submitting}
             onclick={on_click_submit_onboarding}
           >
-            <span class="text-white">{ref_is_submitting ? '저장 중...' : '온보딩 진행'}</span>
+            <span class="text-white">{g_is_submitting ? '저장 중...' : '온보딩 진행'}</span>
             <ChevronRight size={24} strokeWidth={2.5} class="text-white" aria-hidden="true" />
           </button>
         </div>
