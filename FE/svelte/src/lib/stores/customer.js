@@ -2,6 +2,7 @@ import { get } from 'svelte/store'
 import { writable } from 'svelte/store'
 
 const SELECTED_CUSTOMER_STORAGE_KEY = 'retinal_selected_customer_obj'
+const SELECTED_VISIT_STORAGE_KEY = 'retinal_selected_visit_obj'
 
 /**
  * @typedef {{
@@ -21,8 +22,33 @@ const SELECTED_CUSTOMER_STORAGE_KEY = 'retinal_selected_customer_obj'
  * }} CustomerObj
  */
 
+/**
+ * @typedef {{
+ *   visit_no: number,
+ *   create_dt: string,
+ *   test_dt: string | null,
+ *   vp_dt: string | null,
+ *   real_vp_dt: string | null,
+ *   update_dt: string | null,
+ *   is_new?: boolean,
+ * }} VisitObj
+ */
+
 export const customer_arr_store = writable(/** @type {CustomerObj[]} */ ([]))
 export const selected_customer_obj = writable(get_selected_customer_storage())
+export const selected_visit_obj = writable(/** @type {VisitObj | null} */ (get_selected_visit_storage()))
+
+// 저장된 선택 방문 정보를 sessionStorage에서 읽는다.
+function get_selected_visit_storage() {
+  if (typeof sessionStorage === 'undefined') return /** @type {VisitObj | null} */ (null)
+  const local_value = sessionStorage.getItem(SELECTED_VISIT_STORAGE_KEY)
+  if (!local_value) return /** @type {VisitObj | null} */ (null)
+  try {
+    return /** @type {VisitObj | null} */ (JSON.parse(local_value))
+  } catch {
+    return /** @type {VisitObj | null} */ (null)
+  }
+}
 
 // 저장된 선택 고객 정보를 sessionStorage에서 읽는다.
 function get_selected_customer_storage() {
@@ -50,6 +76,15 @@ function get_selected_customer_storage() {
 export function set_selected_customer(customer_obj) {
   selected_customer_obj.set(customer_obj)
   sessionStorage.setItem(SELECTED_CUSTOMER_STORAGE_KEY, JSON.stringify(customer_obj))
+}
+
+/**
+ * 선택한 방문 정보를 저장하고 새로고침 시 복원할 수 있게 sessionStorage에 보관한다.
+ * @param {VisitObj} visit_obj
+ */
+export function set_selected_visit(visit_obj) {
+  selected_visit_obj.set(visit_obj)
+  sessionStorage.setItem(SELECTED_VISIT_STORAGE_KEY, JSON.stringify(visit_obj))
 }
 
 /**

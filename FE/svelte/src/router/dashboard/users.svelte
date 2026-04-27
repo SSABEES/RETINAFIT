@@ -1,15 +1,25 @@
 <script>
-  import { link } from '@maks11060/svelte5-router'
+  import { link, navigate } from '@maks11060/svelte5-router'
   import { CalendarDays, Phone, Search, UserPlus } from 'lucide-svelte'
   import DashboardShell from '@/components/layout/dashboard_shell.svelte'
   import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
+  import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import { PATH } from '@/config/path'
   import { retina_create_customer, retina_find_customer_by_phone } from '@/lib/api/retina'
-  import { customer_arr_store, set_selected_customer } from '@/lib/stores/customer'
-  import { selected_opt_store_obj } from '@/lib/stores/admin'
+  import { get_visit_list, create_visit } from '@/lib/api/visit'
+  import {
+    customer_arr_store,
+    set_selected_customer,
+    set_selected_visit,
+  } from '@/lib/stores/customer'
+  import { selected_opt_store_obj, selected_admin_obj } from '@/lib/stores/admin'
 
   let ref_customer_arr = $state([])
   let ref_customer_create_modal_open = $state(false)
+
+  /* ── 방문 이어하기 확인 모달 ─────────────────────────── */
+  let g_visit_confirm_open = $state(false)
+  let g_visit_target_customer = $state(/** @type {any} */ (null))
   let ref_search_phone = $state('')
   let g_search_error_message = $state('')
   let g_create_error_message = $state('')
@@ -20,9 +30,55 @@
     return name.slice(0, 1)
   }
 
-  // 고객 목록 카드를 클릭하면 분석/상세 화면에서 사용할 선택 고객을 저장한다.
+  // 고객 카드 클릭 — 이전 방문 있으면 이어서 진행할 것인지 confirm, 없으면 바로 신규 생성
   function on_click_select_customer(customer_obj) {
     set_selected_customer(customer_obj)
+    g_visit_target_customer = customer_obj
+    if (customer_obj.visit_count > 0) {
+      g_visit_confirm_open = true
+    } else {
+      on_start_new_visit()
+    }
+  }
+
+  // 이전 방문 이어서 — 가장 최근 방문 조회 후 진입
+  async function on_confirm_continue_visit() {
+    g_visit_confirm_open = false
+    try {
+      const local_result = await get_visit_list({
+        cust_no: g_visit_target_customer.id,
+        opt_no: $selected_opt_store_obj?.opt_no,
+      })
+      const local_recent = local_result?.visit_arr?.[0] ?? null
+      if (local_recent) set_selected_visit(local_recent)
+    } catch {
+      /* API 미연동 시 무시 */
+    }
+    navigate(PATH.userDetail(g_visit_target_customer.id))
+  }
+
+  // 신규 방문 생성 후 진입
+  async function on_start_new_visit() {
+    g_visit_confirm_open = false
+    try {
+      const local_result = await create_visit({
+        cust_no: g_visit_target_customer.id,
+        opt_no: $selected_opt_store_obj?.opt_no,
+        member_no: $selected_admin_obj?.member_no,
+      })
+      set_selected_visit({ ...local_result, is_new: true })
+    } catch {
+      set_selected_visit({
+        visit_no: null,
+        create_dt: new Date().toISOString(),
+        test_dt: null,
+        vp_dt: null,
+        real_vp_dt: null,
+        update_dt: null,
+        is_new: true,
+      })
+    }
+    navigate(PATH.userDetail(g_visit_target_customer.id))
   }
 
   /**
@@ -213,10 +269,9 @@
       {#if ref_customer_arr.length > 0}
         <div class="grid gap-5">
           {#each ref_customer_arr as customer_obj (customer_obj.id)}
-            <a
-              use:link
-              class="block rounded-lg outline-none transition hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-[#9A1BFF]/20"
-              href={PATH.userDetail(customer_obj.id)}
+            <button
+              type="button"
+              class="block w-full rounded-lg outline-none transition hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-[#9A1BFF]/20"
               onclick={() => on_click_select_customer(customer_obj)}
               aria-label={`${customer_obj.name} 고객 상세로 이동`}
             >
@@ -268,7 +323,7 @@
                   </p>
                 </div>
               </article>
-            </a>
+            </button>
           {/each}
         </div>
       {:else}
@@ -286,5 +341,15 @@
     error_message={g_create_error_message}
     onclose={on_click_close_customer_create_modal}
     oncreate={on_create_customer}
+  />
+
+  <ConfirmModal
+    open={g_visit_confirm_open}
+    title="이전 방문 기록이 있습니다"
+    message="이어서 상담을 진행하시겠습니까?"
+    cancelLabel="새로 시작"
+    confirmLabel="이어서 상담"
+    oncancel={on_start_new_visit}
+    onconfirm={on_confirm_continue_visit}
   />
 </DashboardShell>
