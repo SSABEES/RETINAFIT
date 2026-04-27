@@ -48,7 +48,7 @@ export const create_visit = (param_obj) => {
  * @returns {Promise<{ glasses_no: number, front_url: string, left_url: string, right_url: string, front_key: string, left_key: string, right_key: string }>}
  */
 export const get_vp_presigned_urls = (param_obj) => {
-  return apiRequest(`/v1/visits/${param_obj.visit_no}/files/vp`, {
+  return apiRequest(`/api/v1/visits/${param_obj.visit_no}/files/vp`, {
     method: 'POST',
     body: { glasses_no: param_obj.glasses_no },
   })
@@ -59,7 +59,7 @@ export const get_vp_presigned_urls = (param_obj) => {
  * @param {{ visit_no: number, glasses_no: number }} param_obj
  */
 export const get_real_vp_presigned_urls = (param_obj) => {
-  return apiRequest(`/v1/visits/${param_obj.visit_no}/files/real-vp`, {
+  return apiRequest(`/api/v1/visits/${param_obj.visit_no}/files/real-vp`, {
     method: 'POST',
     body: { glasses_no: param_obj.glasses_no },
   })

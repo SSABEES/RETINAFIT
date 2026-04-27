@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/api/client'
+import { get_session_auth_headers } from '@/lib/api/session_auth'
 
 // 전부 다 경로 확정되면 수정 필요
 
@@ -34,8 +35,9 @@ export const save_lens_requirements = (selected_obj) => {
  * @returns {Promise<{ glasses_no: number, front_url: string, left_url: string, right_url: string, front_key: string, left_key: string, right_key: string }>}
  */
 export const request_fitting_presigned_urls = (visit_no, glasses_no) => {
-  return apiRequest(`/v1/visits/${visit_no}/files/vp`, {
+  return apiRequest(`/api/v1/visits/${visit_no}/files/vp`, {
     method: 'POST',
+    headers: get_session_auth_headers(),
     body: { glasses_no },
   })
 }
@@ -46,8 +48,9 @@ export const request_fitting_presigned_urls = (visit_no, glasses_no) => {
  * @param {{ vp_file_arr: string[], vp_json: { glasses_no: number, fitting_result: object } }} body
  */
 export const confirm_fitting_result = (visit_no, body) => {
-  return apiRequest(`/v1/visits/${visit_no}/vp`, {
+  return apiRequest(`/api/v1/visits/${visit_no}/vp`, {
     method: 'POST',
+    headers: get_session_auth_headers(),
     body,
   })
 }
