@@ -2,7 +2,6 @@
   import { Link } from '@maks11060/svelte5-router'
   import {
     ArrowLeft,
-    ChartNoAxesColumnIncreasing,
     CalendarDays,
     FileText,
     Phone,
@@ -13,13 +12,26 @@
   } from 'lucide-svelte'
   import DashboardShell from '@/components/layout/dashboard_shell.svelte'
   import { PATH } from '@/config/path'
-  import { set_selected_customer } from '@/lib/stores/customer'
+  import { get_visit_list } from '@/lib/api/visit'
+  import { set_selected_customer, set_selected_visit } from '@/lib/stores/customer'
   import { get_customer_by_id } from '@/router/dashboard/users/user_data'
 
   /** @type {{ id?: string }} */
   let { id = '1' } = $props()
 
+  let g_customer_obj = $derived(get_customer_by_id(id))
+  let g_recent_visit_obj = $state(/** @type {any} */ (null))
+  let g_is_analysis_completed = $derived(Boolean(g_recent_visit_obj?.test_dt))
+
   let action_card_arr = $derived([
+      {
+      title: '얼굴 분석',
+      description: '얼굴형 및 톤 분석',
+      href: PATH.analysis,
+      icon: ScanFace,
+      color_class: 'bg-[#4B0055] text-white',
+      status: g_is_analysis_completed ? '완료' : '',
+    },
     {
       title: '측정값 입력',
       description: '신규 측정값 입력',
@@ -28,33 +40,38 @@
       color_class: 'bg-[#F3E8F5] text-[#4B0055]',
     },
     {
-      title: '얼굴 분석',
-      description: '얼굴형 및 피부톤 분석',
-      href: PATH.analysis,
-      icon: ScanFace,
-      color_class: 'bg-[#4B0055] text-white',
-      status: '완료',
-    },
-    {
       title: '기록 관리',
-      description: '방문 및 상담 기록',
+      description: '최종 리포트와 분석 이력 확인',
       href: PATH.userRecords(id),
       icon: FileText,
       color_class: 'bg-[#DDF8ED] text-[#00856A]',
     },
-    {
-      title: '분석 이력',
-      description: '얼굴 분석 결과 기록',
-      href: PATH.userAnalysisHistory(id),
-      icon: ChartNoAxesColumnIncreasing,
-      color_class: 'bg-[#FFE2B8] text-[#C2410C]',
-    },
   ])
 
-  let g_customer_obj = $derived(get_customer_by_id(id))
+  // 고객 상세 진입 시 최신 방문 이력을 불러와 분석 상태 표시 기준으로 사용한다.
+  async function load_recent_visit() {
+    try {
+      const local_result_obj = await get_visit_list({
+        cust_no: id,
+      })
+      const local_visit_arr = Array.isArray(local_result_obj?.visits) ? local_result_obj.visits : []
+
+      g_recent_visit_obj = local_visit_arr[0] ?? null
+
+      if (g_recent_visit_obj) {
+        set_selected_visit(g_recent_visit_obj)
+      }
+    } catch {
+      g_recent_visit_obj = null
+    }
+  }
 
   $effect(() => {
     set_selected_customer(g_customer_obj)
+  })
+
+  $effect(() => {
+    load_recent_visit()
   })
 </script>
 
@@ -108,40 +125,42 @@
         </div>
       </section>
 
-      <section
-        class="mt-8 flex min-h-[108px] items-center justify-between gap-8 rounded-2xl bg-[#F3E8F5] px-7 py-6 text-left"
-      >
-        <div class="flex items-center gap-4">
-          <div class="grid h-12 w-12 place-items-center rounded-full bg-[#4B0055] text-white">
-            <ScanFace size={25} strokeWidth={2.3} aria-hidden="true" />
-          </div>
-          <div>
-            <h2 class="m-0 text-xl font-extrabold text-[#4B0055]">얼굴형 분석 완료</h2>
-            <div class="mt-2 flex flex-wrap gap-2">
-              <span
-                class="rounded-full bg-white/70 px-3 py-1 text-sm font-extrabold text-[#6D1B7B]"
-              >
-                {g_customer_obj.face_shape || '미분석'}
-              </span>
-              <span
-                class="rounded-full bg-[#FFE7D4] px-3 py-1 text-sm font-extrabold text-[#C2410C]"
-              >
-                {g_customer_obj.skin_tone || '미분석'}
-              </span>
+      {#if g_is_analysis_completed}
+        <section
+          class="mt-8 flex min-h-[108px] items-center justify-between gap-8 rounded-2xl bg-[#F3E8F5] px-7 py-6 text-left"
+        >
+          <div class="flex items-center gap-4">
+            <div class="grid h-12 w-12 place-items-center rounded-full bg-[#4B0055] text-white">
+              <ScanFace size={25} strokeWidth={2.3} aria-hidden="true" />
+            </div>
+            <div>
+              <h2 class="m-0 text-xl font-extrabold text-[#4B0055]">얼굴형 분석 완료</h2>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <span
+                  class="rounded-full bg-white/70 px-3 py-1 text-sm font-extrabold text-[#6D1B7B]"
+                >
+                  미분석
+                </span>
+                <span
+                  class="rounded-full bg-[#FFE7D4] px-3 py-1 text-sm font-extrabold text-[#C2410C]"
+                >
+                  미분석
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <button
-          class="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border-0 bg-[#4B0055] px-7 text-base font-extrabold text-white transition hover:bg-[#65006F] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/30"
-          type="button"
-        >
-          <Sparkles size={20} strokeWidth={2.5} aria-hidden="true" />
-          <span>AR 피팅 시작</span>
-        </button>
-      </section>
+          <button
+            class="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border-0 bg-[#4B0055] px-7 text-base font-extrabold text-white transition hover:bg-[#65006F] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/30"
+            type="button"
+          >
+            <Sparkles size={20} strokeWidth={2.5} aria-hidden="true" />
+            <span>AR 피팅 시작</span>
+          </button>
+        </section>
+      {/if}
 
-      <div class="mt-6 grid grid-cols-2 gap-6">
+      <div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-3">
         {#each action_card_arr as action_obj (action_obj.title)}
           <Link
             class="relative min-h-[206px] rounded-2xl border border-[#E8EAF0] bg-white px-8 py-8 text-left transition hover:border-[#DCC9E2] hover:shadow-md hover:shadow-slate-200/60 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#9A1BFF]/20"

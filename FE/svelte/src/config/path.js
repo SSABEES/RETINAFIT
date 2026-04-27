@@ -4,6 +4,7 @@ export const PATH = {
   storeSelect: '/auth/store-select',
   opticianSelect: '/auth/optician-select',
   analysis: '/analysis',
+  analysisFaceMeasurement: '/analysis/face-measurement',
   analysisResult: '/analysis/result',
   analysisReport: '/analysis/report',
   analysisLensConsult: '/analysis/lens-consult',
@@ -12,6 +13,9 @@ export const PATH = {
   sales: '/dashboard/sales',
   branches: '/dashboard/branches',
   admin: '/admin',
+  adminFace: '/admin/face',
+  adminLens: '/admin/lens',
+  adminGlass: '/admin/glass',
   /** @param {string | number} id */
   userDetail: (id) => `/dashboard/users/${String(id)}`,
   /** @param {string | number} id */

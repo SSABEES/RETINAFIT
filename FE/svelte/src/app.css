@@ -12,7 +12,12 @@
   --retinal-soft-purple: #f5eaf7;
   --retinal-text: #111827;
   --retinal-text-secondary: #667085;
+  --retinal-text-muted: #98a2b3;
   --retinal-border: #e5e7eb;
+  --retinal-success-700: #2e7d32;
+  --retinal-success-soft: #e8f5e9;
+  --retinal-measure-auto: #1f7a3a;
+  --retinal-measure-manual: #ff6f00;
   --app-frame-width: 1366px;
   --app-frame-height: 1024px;
 }
