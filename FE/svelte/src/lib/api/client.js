@@ -1,32 +1,32 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
+import { api_base_url } from '@/lib/config/env'
 
 /**
  * @typedef {Omit<RequestInit, 'body'> & { body?: BodyInit | Record<string, unknown> | null }} ApiRequestOptions
  */
 
 /**
- * API 요청을 공통 형식으로 보내고 JSON 응답과 오류 처리를 표준화한다.
+ * 공통 JSON API 요청을 보내고 응답과 에러를 일관된 형식으로 처리한다.
  * @param {string} path
  * @param {ApiRequestOptions} [options]
  */
 export const apiRequest = async (path, options = {}) => {
-  const { headers, body, ...restOptions } = options
-  const hasJsonBody = body && typeof body === 'object' && !(body instanceof FormData)
+  const { headers, body, ...rest_options } = options
+  const local_has_json_body = body && typeof body === 'object' && !(body instanceof FormData)
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...restOptions,
+  const local_response = await fetch(`${api_base_url}${path}`, {
+    ...rest_options,
     headers: {
-      ...(hasJsonBody ? { 'Content-Type': 'application/json' } : {}),
+      ...(local_has_json_body ? { 'Content-Type': 'application/json' } : {}),
       ...headers,
     },
-    body: hasJsonBody ? JSON.stringify(body) : body,
+    body: local_has_json_body ? JSON.stringify(body) : body,
   })
 
-  const data = await response.json().catch(() => null)
+  const local_data_obj = await local_response.json().catch(() => null)
 
-  if (!response.ok) {
-    throw new Error(data?.message ?? `Request failed with status ${response.status}.`)
+  if (!local_response.ok) {
+    throw new Error(local_data_obj?.message ?? `Request failed with status ${local_response.status}.`)
   }
 
-  return data
+  return local_data_obj
 }

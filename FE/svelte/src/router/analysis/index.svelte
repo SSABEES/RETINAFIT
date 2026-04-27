@@ -2,29 +2,34 @@
   import { navigate } from '@maks11060/svelte5-router'
   import { ArrowLeft, Camera, Sparkles } from 'lucide-svelte'
   import { PATH } from '@/config/path'
+  import { selected_customer_obj } from '@/lib/stores/customer'
 
   const shot_step_arr = [
     {
       title: '정면 (안경 착용)',
-      description: '안경을 착용한 상태로 정면을 바라봐 주세요',
+      description: '안경을 착용한 상태로 정면을 바라봐 주세요.',
     },
     {
       title: '정면 (안경 미착용)',
-      description: '안경을 벗은 상태로 정면을 바라봐 주세요',
+      description: '안경을 벗은 상태로 정면을 바라봐 주세요.',
     },
     {
-      title: '왼쪽 귀',
-      description: '왼쪽 귀가 잘 보이도록 촬영해주세요',
+      title: '왼쪽 측면',
+      description: '왼쪽 측면이 잘 보이도록 촬영해 주세요.',
     },
     {
-      title: '오른쪽 귀',
-      description: '오른쪽 귀가 잘 보이도록 촬영해주세요',
+      title: '오른쪽 측면',
+      description: '오른쪽 측면이 잘 보이도록 촬영해 주세요.',
     },
   ]
 
-  // 이전 화면으로 돌아가 고객 상세 흐름을 유지한다.
+  let g_back_path = $derived(
+    $selected_customer_obj?.id ? PATH.userDetail($selected_customer_obj.id) : PATH.users,
+  )
+
+  // 뒤로가기 버튼 클릭 시 현재 선택된 고객의 상세 대시보드로 이동한다.
   function on_click_go_back() {
-    window.history.back()
+    navigate(g_back_path)
   }
 
   // 촬영 완료 후 얼굴 분석 리포트 화면으로 이동한다.
@@ -61,7 +66,7 @@
       >
         <p class="m-0 text-[46px] font-extrabold leading-tight tracking-normal text-white/92">
           고객과 관련한<br />
-          가이드 도입
+          가이드 영역
         </p>
       </section>
 
