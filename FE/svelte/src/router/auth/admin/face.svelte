@@ -110,7 +110,7 @@
     <div class="flex items-start justify-between gap-6">
       <h2 class="m-0 text-2xl font-extrabold text-zinc-950">얼굴형 기준 설정</h2>
       <button
-        class="min-h-12 cursor-pointer rounded-xl border-0 bg-[#4B0055] px-7 text-base font-extrabold text-white transition hover:bg-[#65006F]"
+        class="min-h-12 cursor-pointer rounded-xl border-0 bg-[var(--retinal-primary-700)] px-7 text-base font-extrabold text-white transition hover:bg-[var(--retinal-primary-500)]"
         type="submit"
       >
         기준 저장
@@ -128,7 +128,7 @@
         <article class="rounded-2xl border border-slate-200 bg-white px-8 py-7 text-left shadow-sm shadow-slate-200/50">
           <div class="flex items-center gap-3">
             <h3 class="m-0 text-2xl font-extrabold text-zinc-950">{face_obj.name}</h3>
-            <span class="rounded-full bg-[#F5EAF7] px-3 py-1 text-sm font-extrabold text-[#4B0055]">
+            <span class="rounded-full bg-[var(--retinal-soft-purple)] px-3 py-1 text-sm font-extrabold text-[var(--retinal-primary-700)]">
               {face_obj.english_nm}
             </span>
           </div>
