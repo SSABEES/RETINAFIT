@@ -111,7 +111,7 @@
   }
 </script>
 
-<main class="app-frame-page overflow-hidden bg-[#F7F8FA] text-zinc-950">
+<main class="app-frame-page flex flex-col overflow-hidden bg-[#F7F8FA] text-zinc-950">
   <header
     class="grid h-[72px] grid-cols-[1fr_auto_1fr] items-center border-b border-[var(--retinal-border)] bg-white px-8"
   >
@@ -154,19 +154,21 @@
     </div>
   </header>
 
-  <section class="h-[calc(100%-72px)] overflow-y-auto px-8 py-6">
-    <div class="mx-auto flex max-w-[1216px] flex-col gap-4">
+  <section class="flex min-h-0 flex-1 overflow-hidden px-8 py-6">
+    <div class="mx-auto flex h-full w-full max-w-[1216px] flex-col gap-4">
       <ResultHeader result={g_face_shape_result} />
 
-      <div class="grid grid-cols-[minmax(0,1fr)_360px] gap-6">
-        <div class="flex flex-col gap-3">
-          <MeasureCanvas
-            capture={g_selected_capture}
-            items_arr={g_items_arr}
-            active_item_id={g_active_item_id}
-            onpoints_set={on_points_set}
-            oncancel={on_cancel}
-          />
+      <div class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_360px] gap-6">
+        <div class="flex min-h-0 flex-col gap-3">
+          <div class="flex min-h-0 flex-1 items-center justify-center">
+            <MeasureCanvas
+              capture={g_selected_capture}
+              items_arr={g_items_arr}
+              active_item_id={g_active_item_id}
+              onpoints_set={on_points_set}
+              oncancel={on_cancel}
+            />
+          </div>
           <PhotoSwitcher
             session={g_session}
             view={g_view}

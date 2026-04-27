@@ -98,9 +98,12 @@
 </script>
 
 {#if capture}
-  <div class="relative w-full max-w-[720px]">
+  <div
+    class="relative mx-auto block max-h-full"
+    style="aspect-ratio: {capture.width} / {capture.height}; max-width: min(100%, 720px);"
+  >
     <img
-      class="block h-auto w-full select-none"
+      class="block h-full w-full select-none"
       src={capture.object_url}
       alt="측정 대상 사진"
       width={capture.width}
@@ -165,7 +168,8 @@
   </div>
 {:else}
   <div
-    class="grid aspect-[3/4] w-full max-w-[720px] place-items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-sm font-semibold text-slate-400"
+    class="mx-auto grid max-h-full place-items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-sm font-semibold text-slate-400"
+    style="aspect-ratio: 3 / 4; max-width: min(100%, 720px);"
   >
     사진이 선택되지 않았습니다
   </div>
