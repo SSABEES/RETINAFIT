@@ -18,7 +18,9 @@
     FileText,
   } from 'lucide-svelte'
   import { PATH } from '@/config/path'
-  import { save_fitting_captures, get_all_glasses } from '@/lib/api/glasses'
+  import { get_all_glasses } from '@/lib/api/glasses'
+  import { get_vp_presigned_urls } from '@/lib/api/visit'
+  import { selected_visit_obj } from '@/lib/stores/customer'
 
   /* ── 안경 목록 ──────────────────────────────────────── */
   let g_recommended_arr = $state([])
@@ -191,14 +193,22 @@
   let g_submit_error = $state('')
 
   /**
-   * 저장된 모든 피팅(3장 완성된 것만)을 서버로 전송하고 리포트 페이지로 이동
+   * 저장된 모든 피팅에 대해 presigned URL을 발급받고 리포트 페이지로 이동
    */
   async function on_click_submit_report() {
     if (!g_can_submit) return
     g_submit_loading = true
     g_submit_error = ''
     try {
-      await save_fitting_captures(g_saved_fittings_arr)
+      const local_visit_no = $selected_visit_obj?.visit_no
+      await Promise.all(
+        g_saved_fittings_arr.map((fitting_obj) =>
+          get_vp_presigned_urls({
+            visit_no: local_visit_no,
+            glasses_no: Number(fitting_obj.glasses_id),
+          }),
+        ),
+      )
       window.location.href = PATH.analysisReport
     } catch (local_err) {
       g_submit_error = local_err.message ?? '저장에 실패했습니다.'

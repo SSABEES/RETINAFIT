@@ -5,7 +5,7 @@ import { apiRequest } from '@/lib/api/client'
  * @param {{ cust_no: number, opt_no: number }} param_obj
  */
 export const get_visit_list = ({ cust_no, opt_no }) => {
-  return apiRequest(`/api/v1/visit?cust_no=${cust_no}&opt_no=${opt_no}`)
+  return apiRequest(`/v1/visit?cust_no=${cust_no}&opt_no=${opt_no}`)
 }
 
 /**
@@ -13,8 +13,20 @@ export const get_visit_list = ({ cust_no, opt_no }) => {
  * @param {{ cust_no: number, opt_no: number, member_no: number }} param_obj
  */
 export const create_visit = (param_obj) => {
-  return apiRequest('/api/v1/visit', {
+  return apiRequest('/v1/visit', {
     method: 'POST',
     body: param_obj,
+  })
+}
+
+/**
+ * 가상 피팅 이미지 S3 presigned URL을 발급한다.
+ * @param {{ visit_no: number, glasses_no: number }} param_obj
+ * @returns {Promise<{ glasses_no: number, front_url: string, left_url: string, right_url: string, front_key: string, left_key: string, right_key: string }>}
+ */
+export const get_vp_presigned_urls = (param_obj) => {
+  return apiRequest(`/v1/visits/${param_obj.visit_no}/files/vp`, {
+    method: 'POST',
+    body: { glasses_no: param_obj.glasses_no },
   })
 }
