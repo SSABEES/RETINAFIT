@@ -4,7 +4,7 @@
   import AuthInput from '@/components/input/auth_input.svelte'
   import PasswordInput from '@/components/input/password_input.svelte'
   import { PATH } from '@/config/path'
-  import { retina_login } from '@/lib/api/retina'
+  import { login } from '@/lib/api/auth'
   import { set_login_select_data } from '@/lib/stores/admin'
 
   let ref_store_id = $state('')
@@ -13,7 +13,7 @@
   let g_is_loading = $state(false)
 
   /**
-   * 공용 입력 컴포넌트에서 전달된 이벤트의 실제 input 값을 반환한다.
+   * 공용 입력 컴포넌트에서 전달한 이벤트에서 실제 input 값을 꺼낸다.
    * @param {Event} local_event
    */
   function get_input_value(local_event) {
@@ -21,7 +21,7 @@
   }
 
   /**
-   * 매장 ID 입력값을 로그인 폼 상태에 반영하고 에러 메시지를 초기화한다.
+   * 아이디 입력값을 상태에 반영하고 기존 에러 메시지를 비운다.
    * @param {Event} local_event
    */
   function on_input_store_id(local_event) {
@@ -30,7 +30,7 @@
   }
 
   /**
-   * 비밀번호 입력값을 로그인 폼 상태에 반영하고 에러 메시지를 초기화한다.
+   * 비밀번호 입력값을 상태에 반영하고 기존 에러 메시지를 비운다.
    * @param {Event} local_event
    */
   function on_input_password(local_event) {
@@ -39,31 +39,37 @@
   }
 
   /**
-   * 로그인 API의 안경점 목록을 화면에서 사용하는 안경점 선택 데이터로 변환한다.
-   * @param {Array<Record<string, unknown>>} opt_arr
+   * 로그인 응답의 안경원 정보를 기존 선택 화면이 쓰는 공용 형태로 변환한다.
+   * @param {{ opt_no?: number | string, opt_name?: string, company_tel?: string } | null | undefined} opt_info_obj
    */
-  function normalize_opt_store_arr(opt_arr) {
-    return opt_arr.map((opt_obj, local_index) => ({
-      id: Number(opt_obj.OPT_NO ?? local_index + 1),
-      opt_no: String(opt_obj.OPT_NO ?? ''),
-      name: String(opt_obj.OPT_NAME ?? opt_obj.COMPANY_NAME ?? '안경점'),
-      tel: String(opt_obj.COMPANY_TEL ?? ''),
-      raw_obj: opt_obj,
-    }))
+  function normalize_opt_store_arr(opt_info_obj) {
+    if (!opt_info_obj?.opt_no) {
+      return []
+    }
+
+    return [
+      {
+        id: Number(opt_info_obj.opt_no),
+        opt_no: String(opt_info_obj.opt_no),
+        name: String(opt_info_obj.opt_name ?? '안경원'),
+        tel: String(opt_info_obj.company_tel ?? ''),
+        raw_obj: opt_info_obj,
+      },
+    ]
   }
 
   /**
-   * 로그인 폼 제출 시 필수값을 검증하고 로그인 성공 시 안경점 선택 화면으로 이동한다.
+   * 로그인 폼 제출 시 필수값을 검증하고 로그인 성공 후 안경원 선택 화면으로 이동한다.
    * @param {SubmitEvent} local_event
    */
   async function on_submit_login(local_event) {
     local_event.preventDefault()
 
-    const local_user_id = ref_store_id.trim()
+    const local_id = ref_store_id.trim()
     const local_password = ref_password.trim()
 
-    if (!local_user_id || !local_password) {
-      g_error_message = '아이디와 비밀번호를 모두 입력해주세요.'
+    if (!local_id || !local_password) {
+      g_error_message = '아이디와 비밀번호를 모두 입력해 주세요.'
       return
     }
 
@@ -71,26 +77,32 @@
     g_error_message = ''
 
     try {
-      const local_login_result_obj = await retina_login({
-        user_id: local_user_id,
-        user_passwd: local_password,
+      const local_login_response_obj = await login({
+        id: local_id,
+        password: local_password,
       })
 
-      if (local_login_result_obj.result_no !== '0') {
-        throw new Error('아이디 또는 비밀번호가 올바르지 않습니다.')
-      }
-
-      const local_opt_store_arr = normalize_opt_store_arr(local_login_result_obj.opt_arr)
+      const local_opt_store_arr = normalize_opt_store_arr(local_login_response_obj?.opt_info)
 
       if (local_opt_store_arr.length === 0) {
-        throw new Error('선택 가능한 안경점 정보가 없습니다.')
+        throw new Error('로그인 응답에 안경원 정보가 없습니다.')
       }
 
-      set_login_select_data(local_opt_store_arr, local_login_result_obj.member_arr)
+      const local_member_arr = Array.isArray(local_login_response_obj?.member_list)
+        ? local_login_response_obj.member_list
+        : []
+
+      if (local_member_arr.length === 0) {
+        throw new Error('로그인 응답에 안경사 정보가 없습니다.')
+      }
+
+      set_login_select_data(local_opt_store_arr, local_member_arr)
       navigate(PATH.storeSelect)
     } catch (local_error) {
       g_error_message =
-        local_error instanceof Error ? local_error.message : '로그인 처리 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '로그인 처리 중 오류가 발생했습니다.'
     } finally {
       g_is_loading = false
     }
@@ -99,7 +111,7 @@
 
 <main class="app-frame-page overflow-hidden bg-[#11142A] text-white">
   <section
-    class="relative grid min-h-full place-items-start justify-items-center px-6 pt-24 pb-12 before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_50%_12%,rgba(154,27,255,0.3),transparent_32%),linear-gradient(135deg,#11142A_0%,#4B0055_45%,#180F2E_100%)] before:content-['']"
+    class="relative grid min-h-full place-items-start justify-items-center px-6 pb-12 pt-24 before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_50%_12%,rgba(154,27,255,0.3),transparent_32%),linear-gradient(135deg,#11142A_0%,#4B0055_45%,#180F2E_100%)] before:content-['']"
     aria-labelledby="login-title"
   >
     <div class="relative z-10 flex w-full max-w-[440px] flex-col items-center">
@@ -125,7 +137,7 @@
             id="store-id"
             label="아이디"
             value={ref_store_id}
-            placeholder="아이디를 입력하세요"
+            placeholder="아이디를 입력해 주세요"
             maxlength={30}
             variant="dark"
             disabled={g_is_loading}
@@ -137,8 +149,8 @@
             id="password"
             label="비밀번호"
             value={ref_password}
-            placeholder="비밀번호를 입력하세요"
-            maxlength={15}
+            placeholder="비밀번호를 입력해 주세요"
+            maxlength={30}
             variant="dark"
             disabled={g_is_loading}
             oninput={on_input_password}
