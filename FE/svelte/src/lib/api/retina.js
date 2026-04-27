@@ -1,7 +1,7 @@
-const RETINA_API_BASE_URL = import.meta.env.VITE_RETINA_API_BASE_URL
+import { retina_api_base_url } from '@/lib/config/env'
 
 /**
- * RETINAL 프로시저 요청을 beta9 retina API 형식으로 전송한다.
+ * RETINAL 프로시저 요청을 Retina 로그인 API 형식으로 전송한다.
  * @param {Record<string, unknown>} request_obj
  * @param {{ token?: string, token_no?: string }} [auth_obj]
  */
@@ -12,7 +12,7 @@ async function exec_retina_request(request_obj, auth_obj = {}) {
     token_no: auth_obj.token_no ?? '',
   }
 
-  const local_response = await fetch(`${RETINA_API_BASE_URL}/retina/login`, {
+  const local_response = await fetch(`${retina_api_base_url}/retina/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -24,7 +24,7 @@ async function exec_retina_request(request_obj, auth_obj = {}) {
 
   if (!local_response.ok) {
     throw new Error(
-      local_result_obj?.message ?? `로그인 요청에 실패했습니다. (${local_response.status})`,
+      local_result_obj?.message ?? `로그인 요청이 실패했습니다. (${local_response.status})`,
     )
   }
 
@@ -36,7 +36,7 @@ async function exec_retina_request(request_obj, auth_obj = {}) {
 }
 
 /**
- * 로그인 토큰이 필요한 RETINAL 프로시저 요청을 beta9 request API로 전송한다.
+ * 로그인 토큰이 필요한 RETINAL 프로시저 요청을 Retina request API로 전송한다.
  * @param {Record<string, unknown>} request_obj
  */
 async function exec_retina_auth_request(request_obj) {
@@ -44,7 +44,7 @@ async function exec_retina_auth_request(request_obj) {
   const local_token_no = sessionStorage.getItem('token_no')
 
   if (!local_token || !local_token_no) {
-    throw new Error('로그인 정보가 없습니다. 다시 로그인해주세요.')
+    throw new Error('로그인 정보가 없습니다. 다시 로그인해 주세요.')
   }
 
   const local_body_obj = {
@@ -53,7 +53,7 @@ async function exec_retina_auth_request(request_obj) {
     token_no: local_token_no,
   }
 
-  const local_response = await fetch(`${RETINA_API_BASE_URL}/retina/request`, {
+  const local_response = await fetch(`${retina_api_base_url}/retina/request`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -64,7 +64,7 @@ async function exec_retina_auth_request(request_obj) {
   const local_result_obj = await local_response.json().catch(() => null)
 
   if (!local_response.ok) {
-    throw new Error(local_result_obj?.message ?? `요청에 실패했습니다. (${local_response.status})`)
+    throw new Error(local_result_obj?.message ?? `요청이 실패했습니다. (${local_response.status})`)
   }
 
   if (!local_result_obj) {
@@ -72,7 +72,7 @@ async function exec_retina_auth_request(request_obj) {
   }
 
   if (local_result_obj.O_TOKEN === '-1') {
-    throw new Error('로그인 세션이 만료되었습니다. 다시 로그인해주세요.')
+    throw new Error('로그인 세션이 만료되었습니다. 다시 로그인해 주세요.')
   }
 
   if (local_result_obj.data?.RESULT !== undefined) {
@@ -83,7 +83,8 @@ async function exec_retina_auth_request(request_obj) {
 }
 
 /**
- * 매장 계정으로 로그인하고 안경원/안경사 목록과 토큰 정보를 반환한다.
+ * 매장 계정으로 로그인하고 안경원 목록과 안경사 목록을 반환한다.
+ * 기존 Retina 연동 화면과의 호환을 위해 유지한다.
  * @param {{ user_id: string, user_passwd: string }} login_obj
  */
 export async function retina_login(login_obj) {
@@ -118,7 +119,7 @@ export async function retina_login(login_obj) {
 }
 
 /**
- * 선택된 안경원 번호와 휴대폰 번호로 고객 정보를 조회한다.
+ * 선택한 안경원 번호와 휴대폰 번호로 고객 정보를 조회한다.
  * @param {{ opt_no: string, phone: string }} search_obj
  */
 export async function retina_find_customer_by_phone(search_obj) {
@@ -139,7 +140,7 @@ export async function retina_find_customer_by_phone(search_obj) {
 }
 
 /**
- * 선택된 안경원에 신규 고객 정보를 등록한다.
+ * 선택한 안경원에 신규 고객 정보를 등록한다.
  * @param {{ opt_no: string, name: string, phone1: string, phone2: string, birth_dt: string, gender: string }} customer_obj
  */
 export async function retina_create_customer(customer_obj) {
