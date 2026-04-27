@@ -13,9 +13,6 @@
    * @property {(() => void) | undefined} [onconfirm]
    */
 
-  /** @type {ConfirmModalProps} */
-  const g_props = $props()
-
   let {
     open = false,
     title = 'Confirm',
@@ -25,9 +22,9 @@
     onclose = undefined,
     oncancel = undefined,
     onconfirm = undefined,
-  } = g_props
+  } = /** @type {ConfirmModalProps} */ ($props())
 
-  // 우측 상단 닫기 버튼 클릭 시 현재 화면에 머문 채 모달만 닫는다.
+  // 우측 상단 닫기 버튼 클릭 시 현재 화면은 유지한 채 모달만 닫는다.
   function on_click_close() {
     onclose?.()
   }

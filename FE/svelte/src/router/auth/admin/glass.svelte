@@ -5,28 +5,32 @@
   import {
     create_admin_glasses,
     delete_admin_glasses,
+    get_admin_glasses_3d_presigned_url,
     get_admin_glasses_arr,
+    get_admin_glasses_img_presigned_url,
+    get_uploaded_file_url,
+    upload_admin_glasses_file,
     update_admin_glasses,
   } from '@/lib/api/admin_glasses'
 
   const g_glass_dropdown_arr = [
     { key: 'category', label: '카테고리', option_arr: ['안경', '선글라스', '스포츠'] },
     { key: 'frame_style', label: '프레임 스타일', option_arr: ['풀프레임', '하프프레임', '무테프레임'] },
-    { key: 'frame_type', label: '프레임 타입', option_arr: ['뿔테', '메탈', '하금테', '무테', '혼합'] },
+    { key: 'frame_type', label: '프레임 타입', option_arr: ['뿔테', '메탈', '합금테', '무테', '혼합'] },
     { key: 'material', label: '소재', option_arr: ['아세테이트', '메탈', '티타늄', '혼합'] },
   ]
 
   const g_metric_field_arr = [
     { key: 'frame_width', label: '프레임 전체 너비', placeholder: '142' },
     { key: 'lens_width', label: '렌즈 너비', placeholder: '52' },
-    { key: 'bridge_width', label: '브릿지 너비', placeholder: '18' },
+    { key: 'bridge_width', label: '브리지 너비', placeholder: '18' },
     { key: 'lens_height', label: '렌즈 높이', placeholder: '42' },
     { key: 'temple_length', label: '템플 길이', placeholder: '145' },
   ]
 
   const g_glass_placeholder_image_url = 'https://placehold.co/640x480/F5EAF7/AA83B4?text=GLASS'
 
-  // 새 안경 등록과 수정에 공통으로 쓰는 기본 폼 상태를 만든다.
+  // 안경 등록과 수정에 공통으로 쓰는 기본 입력 상태를 만든다.
   function create_glass_form() {
     return {
       glasses_name: '',
@@ -64,7 +68,7 @@
   }
 
   /**
-   * 관리자 안경 API 응답을 기존 카드 UI에서 쓰기 쉬운 형태로 정규화한다.
+   * 관리자 안경 API 응답을 현재 화면에서 바로 쓰기 쉬운 형태로 정규화한다.
    * @param {Record<string, any>} glass_obj
    */
   function normalize_admin_glass_obj(glass_obj) {
@@ -130,10 +134,14 @@
   let ref_glass_editor_open = $state(false)
   let ref_open_glass_dropdown_key = $state('')
   let ref_glass_form_obj = $state(create_glass_form())
+  let ref_glass_img_file_obj = $state(/** @type {File | null} */ (null))
+  let ref_glass_3d_file_obj = $state(/** @type {File | null} */ (null))
+  let ref_glass_preview_override_url = $state('')
 
-  let g_glass_preview_url = $derived(ref_glass_form_obj.glasses_img_url.trim() || g_glass_placeholder_image_url)
+  let g_glass_preview_url = $derived(
+    ref_glass_preview_override_url || ref_glass_form_obj.glasses_img_url.trim() || g_glass_placeholder_image_url,
+  )
 
-  // 화면 진입 시 관리자 안경 목록을 불러온다.
   onMount(() => {
     on_load_admin_glass_arr()
   })
@@ -148,22 +156,28 @@
 
       ref_glass_list_arr = [...(local_glass_arr ?? [])]
         .map(normalize_admin_glass_obj)
-        .sort((glass_a_obj, glass_b_obj) => {
-          return new Date(glass_b_obj.created_at || 0).getTime() - new Date(glass_a_obj.created_at || 0).getTime()
-        })
+        .sort(
+          (local_left_glass_obj, local_right_glass_obj) =>
+            new Date(local_right_glass_obj.created_at || 0).getTime() -
+            new Date(local_left_glass_obj.created_at || 0).getTime(),
+        )
     } catch (local_error) {
       ref_glass_list_arr = []
-      ref_glass_error_message = local_error instanceof Error ? local_error.message : '안경 목록을 불러오지 못했습니다.'
+      ref_glass_error_message =
+        local_error instanceof Error ? local_error.message : '안경 목록을 불러오지 못했습니다.'
     } finally {
       ref_glass_list_loading = false
     }
   }
 
-  // 편집 폼을 신규 등록 상태로 되돌린다.
+  // 현재 편집 폼을 신규 등록 상태로 되돌린다.
   function reset_glass_form() {
     ref_selected_glasses_no = null
     ref_open_glass_dropdown_key = ''
     ref_glass_form_obj = create_glass_form()
+    ref_glass_img_file_obj = null
+    ref_glass_3d_file_obj = null
+    ref_glass_preview_override_url = ''
     ref_glass_saved_message = ''
     ref_glass_error_message = ''
   }
@@ -178,6 +192,9 @@
   function on_click_close_glass_editor() {
     ref_glass_editor_open = false
     ref_open_glass_dropdown_key = ''
+    ref_glass_img_file_obj = null
+    ref_glass_3d_file_obj = null
+    ref_glass_preview_override_url = ''
     ref_glass_saved_message = ''
     ref_glass_error_message = ''
   }
@@ -193,11 +210,49 @@
     ref_open_glass_dropdown_key = ''
   }
 
-  // 선택한 안경 카드를 편집 폼에 채운다.
+  // 대표 이미지 파일을 선택하면 저장 전 미리보기와 업로드 대상을 갱신한다.
+  function on_change_glass_img_file(local_event) {
+    const local_file_obj = local_event.currentTarget.files?.[0] ?? null
+    ref_glass_img_file_obj = local_file_obj
+    ref_glass_preview_override_url = local_file_obj ? URL.createObjectURL(local_file_obj) : ''
+  }
+
+  // 3D 파일을 선택하면 저장 시 업로드할 파일 대상을 갱신한다.
+  function on_change_glass_3d_file(local_event) {
+    ref_glass_3d_file_obj = local_event.currentTarget.files?.[0] ?? null
+  }
+
+  // 새 파일이 있으면 presigned URL을 발급받아 직접 업로드하고 등록용 URL을 만든다.
+  async function upload_glass_asset_if_needed() {
+    let local_glasses_img_url = ref_glass_form_obj.glasses_img_url.trim()
+    let local_glasses_3d_url = ref_glass_form_obj.glasses_3d_url.trim()
+
+    if (ref_glass_img_file_obj) {
+      const local_img_presigned_url = await get_admin_glasses_img_presigned_url()
+      await upload_admin_glasses_file(local_img_presigned_url, ref_glass_img_file_obj)
+      local_glasses_img_url = get_uploaded_file_url(local_img_presigned_url)
+    }
+
+    if (ref_glass_3d_file_obj) {
+      const local_3d_presigned_url = await get_admin_glasses_3d_presigned_url()
+      await upload_admin_glasses_file(local_3d_presigned_url, ref_glass_3d_file_obj)
+      local_glasses_3d_url = get_uploaded_file_url(local_3d_presigned_url)
+    }
+
+    return {
+      glasses_img_url: local_glasses_img_url,
+      glasses_3d_url: local_glasses_3d_url,
+    }
+  }
+
+  // 선택한 안경 카드 정보를 편집 폼에 채운다.
   function on_click_edit_glass(glass_obj) {
     ref_selected_glasses_no = glass_obj.glasses_no
     ref_glass_editor_open = true
     ref_open_glass_dropdown_key = ''
+    ref_glass_img_file_obj = null
+    ref_glass_3d_file_obj = null
+    ref_glass_preview_override_url = ''
     ref_glass_form_obj = {
       ...create_glass_form(),
       glasses_name: glass_obj.glasses_name ?? '',
@@ -223,12 +278,12 @@
     ref_glass_error_message = ''
   }
 
-  // 안경 정보를 등록하거나 기존 안경 정보를 수정한다.
+  // 안경 정보를 저장할 때 필요한 파일 업로드를 먼저 끝낸 뒤 등록 또는 수정을 실행한다.
   async function on_submit_glass_form(local_event) {
     local_event.preventDefault()
 
-    if (!ref_glass_form_obj.glasses_img_url.trim()) {
-      ref_glass_error_message = '대표 이미지 URL을 입력해 주세요.'
+    if (!ref_glass_form_obj.glasses_img_url.trim() && !ref_glass_img_file_obj) {
+      ref_glass_error_message = '대표 이미지를 선택해 주세요.'
       ref_glass_saved_message = ''
       return
     }
@@ -238,6 +293,11 @@
     ref_glass_saved_message = ''
 
     try {
+      const local_uploaded_asset_obj = await upload_glass_asset_if_needed()
+
+      ref_glass_form_obj.glasses_img_url = local_uploaded_asset_obj.glasses_img_url
+      ref_glass_form_obj.glasses_3d_url = local_uploaded_asset_obj.glasses_3d_url
+
       const local_glass_payload_obj = get_admin_glass_payload_obj()
 
       if (ref_selected_glasses_no) {
@@ -252,15 +312,19 @@
         ref_glass_saved_message = '안경 정보를 등록했습니다.'
       }
 
+      ref_glass_img_file_obj = null
+      ref_glass_3d_file_obj = null
+      ref_glass_preview_override_url = ''
       await on_load_admin_glass_arr()
     } catch (local_error) {
-      ref_glass_error_message = local_error instanceof Error ? local_error.message : '안경 저장에 실패했습니다.'
+      ref_glass_error_message =
+        local_error instanceof Error ? local_error.message : '안경 저장에 실패했습니다.'
     } finally {
       ref_glass_submit_loading = false
     }
   }
 
-  // 현재 편집 중인 안경을 비활성화하고 목록으로 돌아간다.
+  // 현재 편집 중인 안경을 비활성화하고 목록 화면으로 돌아간다.
   async function on_click_delete_glass() {
     if (!ref_selected_glasses_no) return
 
@@ -273,7 +337,8 @@
       await on_load_admin_glass_arr()
       on_click_close_glass_editor()
     } catch (local_error) {
-      ref_glass_error_message = local_error instanceof Error ? local_error.message : '안경 비활성화에 실패했습니다.'
+      ref_glass_error_message =
+        local_error instanceof Error ? local_error.message : '안경 비활성화에 실패했습니다.'
     } finally {
       ref_glass_delete_loading = false
     }
@@ -332,7 +397,7 @@
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
                     <p class="m-0 truncate text-lg font-extrabold text-zinc-950">{glass_obj.glasses_name}</p>
-                    <p class="mt-2 mb-0 truncate text-sm font-semibold text-slate-500">{glass_obj.glasses_brand}</p>
+                    <p class="mb-0 mt-2 truncate text-sm font-semibold text-slate-500">{glass_obj.glasses_brand}</p>
                   </div>
 
                   <span
@@ -449,24 +514,29 @@
 
               <div class="grid gap-4 border-t border-[#E8DAEE] px-4 py-4">
                 <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-                  대표 이미지 URL
+                  대표 이미지 파일
                   <input
-                    class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
-                    type="url"
-                    bind:value={ref_glass_form_obj.glasses_img_url}
-                    placeholder="https://example.com/glasses-image.png"
-                    required
+                    class="min-h-12 min-w-0 rounded-xl border border-slate-200 bg-white px-4 py-3 text-base font-bold text-zinc-950 outline-none transition file:mr-4 file:rounded-lg file:border-0 file:bg-[#F3E8F5] file:px-3 file:py-2 file:text-sm file:font-extrabold file:text-[#4B0055] focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
+                    type="file"
+                    accept="image/*"
+                    onchange={on_change_glass_img_file}
                   />
+                  <span class="text-xs font-semibold text-slate-400">
+                    {ref_glass_img_file_obj?.name ?? (ref_glass_form_obj.glasses_img_url ? '기존 이미지 사용 중' : '선택된 파일 없음')}
+                  </span>
                 </label>
 
                 <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-                  3D 모델 URL
+                  3D 모델 파일
                   <input
-                    class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
-                    type="url"
-                    bind:value={ref_glass_form_obj.glasses_3d_url}
-                    placeholder="https://example.com/glasses-model.glb"
+                    class="min-h-12 min-w-0 rounded-xl border border-slate-200 bg-white px-4 py-3 text-base font-bold text-zinc-950 outline-none transition file:mr-4 file:rounded-lg file:border-0 file:bg-[#F3E8F5] file:px-3 file:py-2 file:text-sm file:font-extrabold file:text-[#4B0055] focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
+                    type="file"
+                    accept=".glb,.gltf,.fbx,.obj,.usdz,.stl,.ply,.3dm"
+                    onchange={on_change_glass_3d_file}
                   />
+                  <span class="text-xs font-semibold text-slate-400">
+                    {ref_glass_3d_file_obj?.name ?? (ref_glass_form_obj.glasses_3d_url ? '기존 3D 파일 사용 중' : '선택된 파일 없음')}
+                  </span>
                 </label>
               </div>
             </div>

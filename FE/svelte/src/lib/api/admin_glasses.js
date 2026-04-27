@@ -66,3 +66,83 @@ export function delete_admin_glasses(glasses_obj) {
     headers: get_session_auth_headers(),
   })
 }
+
+/**
+ * 대표 이미지 업로드용 presigned URL 을 발급받는다.
+ * 문자열 응답 또는 presigned_url/url/upload_url 키를 가진 객체 응답을 모두 지원한다.
+ * @returns {Promise<string | Record<string, unknown>>}
+ */
+export function get_admin_glasses_img_presigned_url() {
+  return apiRequest('/api/v1/admin/glasses/files/img', {
+    method: 'POST',
+    headers: get_session_auth_headers(),
+  })
+}
+
+/**
+ * 3D 파일 업로드용 presigned URL 을 발급받는다.
+ * 문자열 응답 또는 presigned_url/url/upload_url 키를 가진 객체 응답을 모두 지원한다.
+ * @returns {Promise<string | Record<string, unknown>>}
+ */
+export function get_admin_glasses_3d_presigned_url() {
+  return apiRequest('/api/v1/admin/glasses/files/3d', {
+    method: 'POST',
+    headers: get_session_auth_headers(),
+  })
+}
+
+/**
+ * presigned URL 응답값에서 실제 업로드 URL 문자열만 꺼낸다.
+ * @param {string | Record<string, unknown>} presigned_value
+ */
+export function get_presigned_upload_url(presigned_value) {
+  if (typeof presigned_value === 'string') {
+    return presigned_value
+  }
+
+  const local_candidate_url =
+    presigned_value?.presigned_url ??
+    presigned_value?.upload_url ??
+    presigned_value?.url ??
+    presigned_value?.url_3d ??
+    presigned_value?.img_url ??
+    presigned_value?.file_url ??
+    presigned_value?.glasses_img_url ??
+    presigned_value?.glasses_3d_url ??
+    presigned_value?.model_url
+
+  if (typeof local_candidate_url !== 'string' || !local_candidate_url.trim()) {
+    throw new Error('Presigned URL 응답 형식이 올바르지 않습니다.')
+  }
+
+  return local_candidate_url
+}
+
+/**
+ * presigned URL 로 파일을 직접 업로드한다.
+ * @param {string | Record<string, unknown>} presigned_value
+ * @param {File} file_obj
+ */
+export async function upload_admin_glasses_file(presigned_value, file_obj) {
+  const local_upload_url = get_presigned_upload_url(presigned_value)
+
+  const local_response = await fetch(local_upload_url, {
+    method: 'PUT',
+    body: file_obj,
+    headers: {
+      'Content-Type': file_obj.type || 'application/octet-stream',
+    },
+  })
+
+  if (!local_response.ok) {
+    throw new Error(`파일 업로드에 실패했습니다. (status ${local_response.status})`)
+  }
+}
+
+/**
+ * presigned URL 에서 실제 저장 파일 URL 부분만 잘라 등록 API 에 사용할 값으로 만든다.
+ * @param {string | Record<string, unknown>} presigned_value
+ */
+export function get_uploaded_file_url(presigned_value) {
+  return get_presigned_upload_url(presigned_value).split('?')[0]
+}
