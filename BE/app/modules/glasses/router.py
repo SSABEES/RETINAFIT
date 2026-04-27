@@ -9,7 +9,7 @@ from app.modules.glasses.schemas import (
     GlassesResponse,
 )
 from app.modules.glasses import service
-
+from app.common.s3_utils import generate_presigned_url, generate_object_key
 router = APIRouter(tags=["glasses"])
 
 
@@ -61,3 +61,22 @@ async def delete_glasses(
 ):
     """안경 비활성화 (관리자)"""
     await service.delete_glasses(db, glasses_no)
+
+@router.post("/admin/glasses/files/img")
+async def get_glasses_img_presigned_url(
+    auth: dict = Depends(get_token),
+):
+    """안경 대표 이미지 Presigned URL 발급"""
+    img_key = generate_object_key(0, "glasses/img")
+    img_url = generate_presigned_url(img_key)
+    return {"img_url": img_url, "img_key": img_key}
+
+
+@router.post("/admin/glasses/files/3d")
+async def get_glasses_3d_presigned_url(
+    auth: dict = Depends(get_token),
+):
+    """안경 3D 파일 Presigned URL 발급"""
+    key_3d = generate_object_key(0, "glasses/3d")
+    url_3d = generate_presigned_url(key_3d)
+    return {"url_3d": url_3d, "key_3d": key_3d}
