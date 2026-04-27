@@ -1,21 +1,44 @@
 import { apiRequest } from '@/lib/api/client'
+import { get_session_auth_headers } from '@/lib/api/session_auth'
 
 /**
- * 고객의 방문 기록 목록 조회
- * @param {{ cust_no: number, opt_no: number }} param_obj
+ * 고객 방문 이력을 최신순으로 조회한다.
+ * @param {{ cust_no: number | string }} param_obj
  */
-export const get_visit_list = ({ cust_no, opt_no }) => {
-  return apiRequest(`/v1/customers/${cust_no}/visits?opt_no=${opt_no}`)
+export const get_visit_list = ({ cust_no }) => {
+  return apiRequest(`/api/v1/customers/${cust_no}/visits`, {
+    headers: get_session_auth_headers(),
+  })
 }
 
 /**
- * 신규 방문 생성
- * @param {{ cust_no: number, opt_no: number, member_no: number }} param_obj
+ * 방문 단건 상세를 조회한다.
+ * @param {{ visit_no: number | string }} param_obj
+ */
+export const get_visit = ({ visit_no }) => {
+  return apiRequest(`/api/v1/visits/${visit_no}`, {
+    headers: get_session_auth_headers(),
+  })
+}
+
+/**
+ * 신규 방문을 생성한다.
+ * @param {{ opt_no: number | string, cust_no: number | string, cust_name: string, birthday: string, phone_no1: string, phone_no2: string, sex: number, member_no: number | string }} param_obj
  */
 export const create_visit = (param_obj) => {
-  return apiRequest('/v1/visits', {
+  return apiRequest('/api/v1/visits', {
     method: 'POST',
-    body: param_obj,
+    headers: get_session_auth_headers(),
+    body: {
+      opt_no: Number(param_obj.opt_no),
+      cust_no: Number(param_obj.cust_no),
+      cust_name: param_obj.cust_name,
+      birthday: param_obj.birthday,
+      phone_no1: param_obj.phone_no1.replace(/[^0-9]/g, ''),
+      phone_no2: param_obj.phone_no2.replace(/[^0-9]/g, ''),
+      sex: Number(param_obj.sex),
+      member_no: Number(param_obj.member_no),
+    },
   })
 }
 

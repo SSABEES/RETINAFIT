@@ -52,7 +52,7 @@
         <section class="rounded-2xl border border-[#E8EAF0] bg-white px-8 py-8 text-left">
           <h1 class="m-0 inline-flex items-center gap-3 text-2xl font-extrabold text-zinc-950">
             <Eye size={24} strokeWidth={2.4} class="text-[#9A1BFF]" aria-hidden="true" />
-            <span>{g_customer_obj.name}님 시력 측정</span>
+            <span>{g_customer_obj.name}님의 시력 측정</span>
           </h1>
 
           <div class="mt-8 grid grid-cols-2 gap-8">
@@ -127,7 +127,7 @@
         </section>
 
         <section class="rounded-2xl border border-[#E8EAF0] bg-white px-8 py-8 text-left">
-          <h1 class="m-0 text-2xl font-extrabold text-zinc-950">안경테 측정값 (선택)</h1>
+          <h1 class="m-0 text-2xl font-extrabold text-zinc-950">안경테 측정값(선택)</h1>
 
           <div class="mt-7 grid grid-cols-2 gap-x-8 gap-y-5">
             <label class="grid gap-2 text-sm font-extrabold text-slate-700">

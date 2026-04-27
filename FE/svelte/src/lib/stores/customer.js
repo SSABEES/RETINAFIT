@@ -9,6 +9,7 @@ const SELECTED_VISIT_STORAGE_KEY = 'retinal_selected_visit_obj'
  *   id: number,
  *   name: string,
  *   phone: string,
+ *   phone2?: string,
  *   email?: string,
  *   gender?: string,
  *   birth_dt?: string,
@@ -18,6 +19,8 @@ const SELECTED_VISIT_STORAGE_KEY = 'retinal_selected_visit_obj'
  *   skin_tone?: string,
  *   analysis_done?: boolean,
  *   status?: string,
+ *   status_key?: string,
+ *   status_box_class?: string,
  *   raw_obj?: Record<string, unknown>,
  * }} CustomerObj
  */
@@ -70,7 +73,7 @@ function get_selected_customer_storage() {
 }
 
 /**
- * 선택한 고객 정보를 저장하고 새로고침 시 복원할 수 있게 sessionStorage에 보관한다.
+ * 선택 고객 정보를 저장하고 새로고침 후에도 복원되도록 sessionStorage에 보관한다.
  * @param {CustomerObj} customer_obj
  */
 export function set_selected_customer(customer_obj) {
@@ -79,7 +82,7 @@ export function set_selected_customer(customer_obj) {
 }
 
 /**
- * 선택한 방문 정보를 저장하고 새로고침 시 복원할 수 있게 sessionStorage에 보관한다.
+ * 선택 방문 정보를 저장하고 새로고침 후에도 복원되도록 sessionStorage에 보관한다.
  * @param {VisitObj} visit_obj
  */
 export function set_selected_visit(visit_obj) {
@@ -93,4 +96,41 @@ export function set_selected_visit(visit_obj) {
  */
 export function get_customer_store_by_id(id) {
   return get(customer_arr_store).find((customer_obj) => customer_obj.id === Number(id)) ?? null
+}
+
+/**
+ * 고객 정보를 목록과 선택 상태에 동시에 반영한다.
+ * @param {number | string} id
+ * @param {Partial<CustomerObj>} customer_patch_obj
+ */
+export function update_customer_store_by_id(id, customer_patch_obj) {
+  const local_customer_id = Number(id)
+  let local_updated_customer_obj = null
+
+  customer_arr_store.update((customer_arr) =>
+    customer_arr.map((customer_obj) => {
+      if (customer_obj.id !== local_customer_id) {
+        return customer_obj
+      }
+
+      local_updated_customer_obj = {
+        ...customer_obj,
+        ...customer_patch_obj,
+      }
+
+      return local_updated_customer_obj
+    }),
+  )
+
+  if (!local_updated_customer_obj) {
+    return null
+  }
+
+  const local_selected_customer_obj = get(selected_customer_obj)
+
+  if (local_selected_customer_obj?.id === local_customer_id) {
+    set_selected_customer(local_updated_customer_obj)
+  }
+
+  return local_updated_customer_obj
 }

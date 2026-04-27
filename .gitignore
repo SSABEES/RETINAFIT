@@ -45,6 +45,11 @@ FE/svelte/.vite/
 FE/svelte/*.local
 
 ################################
+# Local design docs (not pushed)
+################################
+FE/svelte/docs/superpowers/
+
+################################
 # AI data
 ################################
 AI/data/*
