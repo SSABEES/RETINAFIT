@@ -62,51 +62,7 @@
 
   <section class="h-[calc(100%-72px)] overflow-y-auto px-8 py-4">
     <div class="mx-auto max-w-[1216px]">
-<<<<<<< HEAD
-      <section
-        class="mx-auto grid h-[458px] max-w-[804px] place-items-center rounded-2xl bg-[#0F1628] px-10 text-center text-white"
-        aria-label="촬영 가이드"
-      >
-        <p class="m-0 text-[46px] font-extrabold leading-tight tracking-normal text-white/92">
-          고객과 관련한<br />
-          가이드 영역
-        </p>
-      </section>
-
-      <section
-        class="mt-4 rounded-xl border border-slate-200 bg-white px-5 py-5 shadow-sm shadow-slate-200/40"
-        aria-label="촬영 단계"
-      >
-        <div class="grid grid-cols-4 gap-4">
-          {#each shot_step_arr as shot_step_obj (shot_step_obj.title)}
-            <article class="min-w-0 text-left">
-              <h2 class="m-0 text-base font-extrabold text-zinc-950">{shot_step_obj.title}</h2>
-              <p class="m-0 mt-2 min-h-5 truncate text-sm font-semibold text-slate-500">
-                {shot_step_obj.description}
-              </p>
-              <button
-                class="mt-3 inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[#AA83B4] px-4 text-sm font-extrabold text-white transition hover:bg-[#9A6CA8] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#AA83B4]/30"
-                type="button"
-              >
-                <Camera size={16} strokeWidth={2.5} aria-hidden="true" />
-                <span>촬영하기</span>
-              </button>
-            </article>
-          {/each}
-        </div>
-      </section>
-
-      <button
-        class="mt-3 inline-flex min-h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border-0 bg-[#AA83B4] px-6 text-lg font-extrabold text-white transition hover:bg-[#9A6CA8] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#AA83B4]/30"
-        type="button"
-        onclick={on_click_start_analysis}
-      >
-        <Sparkles size={22} strokeWidth={2.5} aria-hidden="true" />
-        <span>얼굴 분석 시작</span>
-      </button>
-=======
       <CaptureShell />
->>>>>>> 1fade6074ebab09bc6eac49209d072bf0443ac11
     </div>
   </section>
 </main>
