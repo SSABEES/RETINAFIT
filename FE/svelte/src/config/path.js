@@ -4,6 +4,7 @@ export const PATH = {
   storeSelect: '/auth/store-select',
   opticianSelect: '/auth/optician-select',
   analysis: '/analysis',
+  analysisFaceMeasurement: '/analysis/face-measurement',
   analysisResult: '/analysis/result',
   analysisReport: '/analysis/report',
   analysisLensConsult: '/analysis/lens-consult',

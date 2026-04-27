@@ -1,217 +1,110 @@
 <script>
-  import { Link } from '@maks11060/svelte5-router'
+  import { onMount } from 'svelte'
+  import { Link, navigate } from '@maks11060/svelte5-router'
   import { ArrowLeft, Camera, ChevronRight, Ear, ScanFace, Sparkles } from 'lucide-svelte'
   import { PATH } from '@/config/path'
   import { selected_customer_obj } from '@/lib/stores/customer'
+  import {
+    get_session,
+    get_face_shape_result,
+    get_measurement_items,
+    hydrate_from_mirror,
+  } from '@/lib/stores/capture_session.svelte.js'
+  import { compute_evaluations } from '@/lib/measurements/measurement_evaluator.js'
+  import { points_to_overlay_line } from '@/lib/measurements/overlay_utils.js'
+  import { upload_captures_to_s3, save_face_analysis } from '@/lib/api/analysis.js'
 
-  const g_view_tab_arr = [
-    { key: 'front_glasses', label: '정면 (안경 착용)' },
-    { key: 'left_glasses', label: '왼쪽 측면 (안경 착용)' },
-    { key: 'right_glasses', label: '오른쪽 측면 (안경 착용)' },
-    { key: 'front_no_glasses', label: '정면 (미착용)' },
-    { key: 'left_no_glasses', label: '왼쪽 측면 (미착용)' },
-    { key: 'right_no_glasses', label: '오른쪽 측면 (미착용)' },
+  /** @typedef {import('@/lib/measurements/template.js').ViewAngle} ViewAngle */
+
+  /** @type {{ key: ViewAngle, label: string, image_caption: string, title: string, measure_title: string, sub_card_title: string }[]} */
+  const TAB_DEFS = [
+    { key: 'front_no_glasses', label: '정면 (미착용)',  image_caption: '정면 사진 (미착용)',     title: '정면 얼굴 분석',     measure_title: '얼굴 측정값', sub_card_title: '핏 평가' },
+    { key: 'front_glasses',    label: '정면 (안경 착용)', image_caption: '정면 사진 (안경 착용)',  title: '정면 안경 착용 분석', measure_title: '안경 측정',   sub_card_title: '프레임 핏 분석' },
+    { key: 'left_no_glasses',  label: '왼쪽 측면 (미착용)', image_caption: '왼쪽 측면 사진 (미착용)', title: '왼쪽 측면 분석',    measure_title: '측면 측정',   sub_card_title: '핏 평가' },
+    { key: 'left_glasses',     label: '왼쪽 측면 (안경 착용)', image_caption: '왼쪽 측면 사진 (안경 착용)', title: '왼쪽 측면 안경 착용 분석', measure_title: '측면 프레임 측정', sub_card_title: '핏 평가' },
+    { key: 'right_no_glasses', label: '오른쪽 측면 (미착용)', image_caption: '오른쪽 측면 사진 (미착용)', title: '오른쪽 측면 분석',  measure_title: '측면 측정',   sub_card_title: '핏 평가' },
+    { key: 'right_glasses',    label: '오른쪽 측면 (안경 착용)', image_caption: '오른쪽 측면 사진 (안경 착용)', title: '오른쪽 측면 안경 착용 분석', measure_title: '측면 프레임 측정', sub_card_title: '핏 평가' },
   ]
 
-  const g_analysis_by_tab_obj = {
-    front_glasses: {
-      image_caption: '정면 사진 (안경 착용)',
-      image_src: '/dummy/center.png',
-      title: '정면 안경 착용 분석',
-      measure_title: '안경 측정',
-      measure_arr: [
-        {
-          label: '프레임 전체 너비',
-          value: '142mm',
-          note: '',
-          tone: 'text-zinc-950',
-          overlay_arr: [
-            { type: 'line', x1: 18, y1: 38, x2: 82, y2: 38 },
-            { type: 'line', x1: 18, y1: 35, x2: 18, y2: 41 },
-            { type: 'line', x1: 82, y1: 35, x2: 82, y2: 41 },
-          ],
-        },
-        {
-          label: '렌즈 너비 (좌/우)',
-          value: '52mm / 52mm',
-          note: '',
-          tone: 'text-zinc-950',
-          overlay_arr: [
-            { type: 'line', x1: 22, y1: 43, x2: 46, y2: 43 },
-            { type: 'line', x1: 54, y1: 43, x2: 78, y2: 43 },
-          ],
-        },
-        {
-          label: '브릿지 너비',
-          value: '18mm',
-          note: '',
-          tone: 'text-zinc-950',
-          overlay_arr: [{ type: 'line', x1: 46, y1: 41, x2: 54, y2: 41 }],
-        },
-        {
-          label: '렌즈 높이',
-          value: '42mm',
-          note: '',
-          tone: 'text-zinc-950',
-          overlay_arr: [{ type: 'line', x1: 34, y1: 39, x2: 34, y2: 49 }],
-        },
-        {
-          label: '템플 길이',
-          value: '145mm',
-          note: '',
-          tone: 'text-zinc-950',
-          overlay_arr: [{ type: 'line', x1: 78, y1: 42, x2: 94, y2: 48 }],
-        },
-      ],
-      sub_card_title: '프레임 핏 분석',
-      sub_measure_arr: [
-        {
-          label: '얼굴 대비 프레임 비율',
-          value: '적정',
-          note: '',
-          tone: 'text-emerald-600',
-          overlay_arr: [{ type: 'rect', x: 16, y: 28, width: 68, height: 52 }],
-        },
-        {
-          label: '렌즈 중심과 눈동자 정렬',
-          value: '양호',
-          note: '',
-          tone: 'text-emerald-600',
-          overlay_arr: [
-            { type: 'circle', cx: 34, cy: 43, r: 2.5 },
-            { type: 'circle', cx: 66, cy: 43, r: 2.5 },
-          ],
-        },
-        {
-          label: '템플 각도',
-          value: '12°',
-          note: '',
-          tone: 'text-zinc-950',
-          overlay_arr: [
-            { type: 'line', x1: 78, y1: 42, x2: 94, y2: 48 },
-            { type: 'line', x1: 78, y1: 42, x2: 94, y2: 42 },
-          ],
-        },
-      ],
-    },
-    left_glasses: {
-      image_caption: '왼쪽 측면 사진 (안경 착용)',
-      image_src: '/dummy/left.png',
-      title: '왼쪽 측면 안경 착용 분석',
-      measure_title: '측면 프레임 측정',
-      measure_arr: [
-        {
-          label: '템플 각도',
-          value: '12°',
-          note: '정상 범위',
-          tone: 'text-emerald-600',
-          overlay_arr: [
-            { type: 'line', x1: 30, y1: 42, x2: 80, y2: 50 },
-            { type: 'line', x1: 30, y1: 42, x2: 80, y2: 42 },
-          ],
-        },
-        {
-          label: '귀 걸이 위치',
-          value: '적정',
-          note: '',
-          tone: 'text-emerald-600',
-          overlay_arr: [{ type: 'circle', cx: 78, cy: 52, r: 4 }],
-        },
-        {
-          label: '프레임 기울기',
-          value: '0.5°',
-          note: '',
-          tone: 'text-zinc-950',
-          overlay_arr: [{ type: 'line', x1: 25, y1: 40, x2: 55, y2: 41 }],
-        },
-        {
-          label: '템플 압력',
-          value: '약함',
-          note: '',
-          tone: 'text-zinc-950',
-          overlay_arr: [{ type: 'rect', x: 58, y: 45, width: 24, height: 12 }],
-        },
-      ],
-    },
-    right_glasses: {
-      image_caption: '오른쪽 측면 사진 (안경 착용)',
-      image_src: '/dummy/right.png',
-      title: '오른쪽 측면 안경 착용 분석',
-      measure_title: '측면 프레임 측정',
-      measure_arr: [
-        {
-          label: '템플 각도',
-          value: '10°',
-          note: '정상 범위',
-          tone: 'text-emerald-600',
-          overlay_arr: [
-            { type: 'line', x1: 20, y1: 42, x2: 70, y2: 50 },
-            { type: 'line', x1: 20, y1: 42, x2: 70, y2: 42 },
-          ],
-        },
-        {
-          label: '귀 걸이 위치',
-          value: '적정',
-          note: '',
-          tone: 'text-emerald-600',
-          overlay_arr: [{ type: 'circle', cx: 22, cy: 52, r: 4 }],
-        },
-        {
-          label: '프레임 기울기',
-          value: '0.8°',
-          note: '',
-          tone: 'text-zinc-950',
-          overlay_arr: [{ type: 'line', x1: 45, y1: 41, x2: 75, y2: 40 }],
-        },
-        {
-          label: '템플 압력',
-          value: '약함',
-          note: '',
-          tone: 'text-zinc-950',
-          overlay_arr: [{ type: 'rect', x: 18, y: 45, width: 24, height: 12 }],
-        },
-      ],
-    },
-    front_no_glasses: {
-      image_caption: '정면 사진 (미착용)',
-      title: '정면 얼굴 분석',
-      measure_title: '얼굴 측정값',
-      measure_arr: [
-        { label: 'PD (눈 간격)', value: '64mm', note: '', tone: 'text-zinc-950' },
-        { label: '얼굴 너비', value: '135mm', note: '', tone: 'text-zinc-950' },
-        { label: '얼굴 길이', value: '190mm', note: '', tone: 'text-zinc-950' },
-        { label: '턱 너비', value: '118mm', note: '', tone: 'text-zinc-950' },
-        { label: '이마 너비', value: '128mm', note: '', tone: 'text-zinc-950' },
-        { label: '광대 너비', value: '142mm', note: '', tone: 'text-zinc-950' },
-        { label: '얼굴 비율', value: '1:1.41', note: '(이상형)', tone: 'text-emerald-600' },
-      ],
-    },
-    left_no_glasses: {
-      image_caption: '왼쪽 측면 사진 (미착용)',
-      title: '왼쪽 측면 분석',
-      measure_title: '측면 / 귀 측정',
-      measure_arr: [
-        { label: '귀 높이', value: '+2mm', note: '중심선 대비 위쪽', tone: 'text-zinc-950' },
-        { label: '귀 각도', value: '8°', note: '정상 범위', tone: 'text-emerald-600' },
-        { label: '템플 권장 각도', value: '12°', note: '', tone: 'text-zinc-950' },
-        { label: '귀 위치', value: '표준', note: '', tone: 'text-emerald-600' },
-      ],
-    },
-    right_no_glasses: {
-      image_caption: '오른쪽 측면 사진 (미착용)',
-      title: '오른쪽 측면 분석',
-      measure_title: '측면 / 귀 측정',
-      measure_arr: [
-        { label: '귀 높이', value: '-3mm', note: '중심선 대비 아래쪽', tone: 'text-zinc-950' },
-        { label: '귀 각도', value: '7°', note: '정상 범위', tone: 'text-emerald-600' },
-        { label: '템플 권장 각도', value: '10°', note: '', tone: 'text-zinc-950' },
-        { label: '귀 위치', value: '표준', note: '', tone: 'text-emerald-600' },
-      ],
-      sub_card_title: '좌우 귀 높이 차이',
-      highlight_value: '5mm',
-      highlight_text: '왼쪽이 오른쪽보다 5mm 높습니다',
-    },
+  const g_session = $derived(get_session())
+  const g_face_shape_result = $derived(get_face_shape_result())
+
+  // 세션 캡쳐가 존재하는 탭만 노출. 3장 모드: *_no_glasses 3개. 6장 모드: 6개 모두.
+  const g_view_tab_arr = $derived(TAB_DEFS.filter((t) => g_session.captures_obj[t.key]))
+
+  /**
+   * 측정값을 표시 문자열로 변환. mm 우선, 없으면 px, 둘 다 없으면 '—'.
+   * @param {{ value_mm?: number | null, value_px: number | null }} item
+   * @returns {string}
+   */
+  function format_measure_value(item) {
+    if (item.value_mm !== null && item.value_mm !== undefined) {
+      return `${item.value_mm.toFixed(1)} mm`
+    }
+    if (item.value_px !== null && item.value_px !== undefined) {
+      return `${Math.round(item.value_px)} px`
+    }
+    return '—'
   }
+
+  /**
+   * 평가 톤 → 텍스트 컬러 클래스 매핑.
+   * @param {'emerald' | 'amber' | 'red' | 'slate'} tone
+   * @returns {string}
+   */
+  function eval_tone_class(tone) {
+    if (tone === 'emerald') return 'text-emerald-600'
+    if (tone === 'amber') return 'text-amber-600'
+    if (tone === 'red') return 'text-red-600'
+    return 'text-slate-600'
+  }
+
+  // 6개 탭 각각의 분석 데이터를 세션에서 동적으로 빌드.
+  // measure_arr 의 각 item 은 라벨/값/오버레이 좌표(%) 를 담는다.
+  // 미측정 항목은 has_value=false 로 표시되어 템플릿에서 deep-link 처리됨.
+  const g_analysis_by_tab_obj = $derived.by(() => {
+    /** @type {Record<string, any>} */
+    const result = {}
+    const evaluations = compute_evaluations(g_session.measurements_obj)
+    for (const tab of TAB_DEFS) {
+      const capture = g_session.captures_obj[tab.key]
+      const items = get_measurement_items(tab.key)
+      const measure_arr = items.map((item) => {
+        const overlay_line = capture && item.points
+          ? points_to_overlay_line(item.points, capture.width, capture.height)
+          : null
+        return {
+          label: item.label,
+          item_id: item.item_id,
+          value: format_measure_value(item),
+          has_value: item.value_px !== null,
+          source: item.source,
+          note: '',
+          tone: item.value_px !== null ? 'text-zinc-950' : 'text-slate-400',
+          overlay_arr: overlay_line ? [overlay_line] : [],
+        }
+      })
+      // 이 뷰의 측정값에 의존하는 평가만 sub_measure 로 노출.
+      const sub_measure_arr = Object.values(evaluations)
+        .filter((ev) => ev.depends_on.some((id) => items.find((it) => it.item_id === id)))
+        .map((ev) => ({
+          label: ev.label,
+          value: ev.value_text,
+          tone: eval_tone_class(ev.tone),
+          overlay_arr: [],
+        }))
+      result[tab.key] = {
+        image_caption: tab.image_caption,
+        image_src: capture?.object_url ?? null,
+        title: tab.title,
+        measure_title: tab.measure_title,
+        sub_card_title: tab.sub_card_title,
+        measure_arr,
+        sub_measure_arr,
+      }
+    }
+    return result
+  })
 
   const g_face_shape_meta_obj = {
     oval: { label: '계란형', aliases: ['계란형', '타원형', 'oval'] },
@@ -339,8 +232,11 @@
       : '고객님',
   )
 
+  // 얼굴형 우선순위: 고객 객체의 face_shape > 세션 분류 결과 > 기본 'oval'.
   let g_customer_face_shape_key = $derived(
-    normalize_face_shape_key($selected_customer_obj?.face_shape ?? 'oval'),
+    normalize_face_shape_key(
+      $selected_customer_obj?.face_shape ?? g_face_shape_result?.face_shape ?? 'oval',
+    ),
   )
 
   // 현재 고객 얼굴형 키에 어울리는 안경테만 카탈로그에서 추출한다.
@@ -368,8 +264,29 @@
     },
   ])
 
-  let ref_active_tab = $state('front_glasses')
-  let g_active_analysis_obj = $derived(g_analysis_by_tab_obj[ref_active_tab])
+  // 마운트 시점에 세션 미러 복원 시도. 캡쳐 자체가 메모리 휘발이라
+  // 새로고침 후엔 captures_obj 가 비어 가드가 /analysis 로 돌려보낸다.
+  onMount(() => {
+    hydrate_from_mirror()
+  })
+
+  // 세션이 비어 있으면 (직접 URL 진입 등) /analysis 로 리다이렉트.
+  $effect(() => {
+    if (Object.keys(g_session.captures_obj).length === 0) {
+      navigate(PATH.analysis)
+    }
+  })
+
+  // 활성 탭 — 첫 노출 가능 탭(보통 front_no_glasses 또는 front_glasses) 자동 초기화.
+  let ref_active_tab = $state(/** @type {string} */ (''))
+  $effect(() => {
+    if (!ref_active_tab && g_view_tab_arr.length > 0) {
+      ref_active_tab = g_view_tab_arr[0].key
+    }
+  })
+  let g_active_analysis_obj = $derived(
+    ref_active_tab ? g_analysis_by_tab_obj[ref_active_tab] : null,
+  )
 
   // 상단 네비게이션 탭을 통해 전환할 메인 뷰 종류 목록.
   const g_main_view_tab_arr = [
@@ -384,7 +301,7 @@
 
   // 현재 탭의 모든 측정 항목(주/보조)에서 선택된 key에 해당하는 overlay 배열을 찾는다.
   let g_active_overlay_arr = $derived.by(() => {
-    if (!ref_selected_measure_key) return null
+    if (!ref_selected_measure_key || !g_active_analysis_obj) return null
     const local_all_measure_arr = [
       ...(g_active_analysis_obj.measure_arr ?? []),
       ...(g_active_analysis_obj.sub_measure_arr ?? []),
@@ -411,10 +328,79 @@
   function on_click_select_measure(measure_label) {
     ref_selected_measure_key = ref_selected_measure_key === measure_label ? null : measure_label
   }
+
+  // 온보딩 진행 — 사진 업로드 + 메타 저장 후 다음 화면으로.
+  let g_is_submitting = $state(false)
+  let g_submit_error = $state('')
+
+  /**
+   * 세션의 측정/평가/캡쳐 메타를 BE 가 받는 test_json 형태로 직렬화.
+   * BE 스키마는 dict 자유형이라 키 명세는 우리가 정한다.
+   * @returns {Record<string, unknown>}
+   */
+  function build_test_json() {
+    return {
+      schema_version: 1,
+      glasses_mode: g_session.glasses_mode,
+      face_shape: g_face_shape_result,
+      scale: g_session.scale,
+      measurements: g_session.measurements_obj,
+      evaluations: compute_evaluations(g_session.measurements_obj),
+      captures_meta: Object.fromEntries(
+        Object.entries(g_session.captures_obj).map(([key, cap]) => [
+          key,
+          { width: cap.width, height: cap.height, captured_at: cap.captured_at },
+        ]),
+      ),
+    }
+  }
+
+  // sessionStorage 에서 현재 방문 번호를 읽는다 (visit API 가 채워주는 값).
+  // 없으면 null — 호출 측에서 에러 표시.
+  function get_visit_no() {
+    if (typeof sessionStorage === 'undefined') return null
+    const raw = sessionStorage.getItem('retinal_visit_no')
+    if (!raw) return null
+    const n = Number(raw)
+    return Number.isFinite(n) ? n : null
+  }
+
+  async function on_click_submit_onboarding() {
+    if (g_is_submitting) return
+    g_submit_error = ''
+    const visit_no = get_visit_no()
+    if (visit_no === null) {
+      g_submit_error = '방문 정보가 없어 분석 결과를 저장할 수 없습니다.'
+      return
+    }
+    g_is_submitting = true
+    try {
+      // 1단계: 사진들을 S3 에 업로드해 URL 받기 (BE -95 의 presigned URL 사용).
+      const file_url_map = await upload_captures_to_s3(g_session.captures_obj)
+
+      // 2단계: 정면(main) 분리 + 나머지 test_file_arr.
+      const main_file = file_url_map.front_no_glasses ?? file_url_map.front_glasses ?? ''
+      const test_file_arr = Object.values(file_url_map)
+
+      // 3단계: 메타 저장.
+      await save_face_analysis(visit_no, {
+        main_file,
+        test_file_arr,
+        test_json: build_test_json(),
+      })
+
+      // 성공 — 다음 화면으로.
+      navigate(PATH.analysisLensConsult)
+    } catch (err) {
+      g_submit_error = err instanceof Error ? err.message : '저장 실패'
+    } finally {
+      g_is_submitting = false
+    }
+  }
 </script>
 
 <main
-  class="app-frame-page flex h-full flex-col overflow-hidden bg-[#F7F8FA] text-[var(--retinal-text)]"
+  class="app-frame-page flex h-full flex-col overflow-hidden bg-[var(--retinal-page)] text-[var(--retinal-text)]"
 >
   <header
     class="grid h-[72px] shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-white px-8"
@@ -588,10 +574,11 @@
               {/each}
             </div>
 
+            {#if g_active_analysis_obj}
             <div class="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,520px)_1fr] gap-6">
-              <figure class="m-0 flex min-h-0 flex-col">
+              <figure class="m-0 flex min-h-0 flex-col items-center">
                 <div
-                  class="relative grid aspect-[3/4] w-full place-items-center overflow-hidden rounded-lg bg-[#111827] text-slate-500"
+                  class="relative aspect-[3/4] max-h-full max-w-full overflow-hidden rounded-lg bg-[var(--retinal-text)] text-slate-500"
                 >
                   {#if g_active_analysis_obj.image_src}
                     <img
@@ -613,7 +600,7 @@
                               y1={shape_obj.y1}
                               x2={shape_obj.x2}
                               y2={shape_obj.y2}
-                              stroke="#9A1BFF"
+                              stroke="var(--retinal-accent)"
                               stroke-width="3"
                               stroke-linecap="round"
                               vector-effect="non-scaling-stroke"
@@ -623,9 +610,9 @@
                               cx={shape_obj.cx}
                               cy={shape_obj.cy}
                               r={shape_obj.r}
-                              fill="#9A1BFF"
+                              fill="var(--retinal-accent)"
                               fill-opacity="0.3"
-                              stroke="#9A1BFF"
+                              stroke="var(--retinal-accent)"
                               stroke-width="3"
                               vector-effect="non-scaling-stroke"
                             />
@@ -635,9 +622,9 @@
                               y={shape_obj.y}
                               width={shape_obj.width}
                               height={shape_obj.height}
-                              fill="#9A1BFF"
+                              fill="var(--retinal-accent)"
                               fill-opacity="0.15"
-                              stroke="#9A1BFF"
+                              stroke="var(--retinal-accent)"
                               stroke-width="3"
                               vector-effect="non-scaling-stroke"
                             />
@@ -646,7 +633,7 @@
                       </svg>
                     {/if}
                   {:else}
-                    <div class="grid justify-items-center gap-3">
+                    <div class="absolute inset-0 grid place-items-center gap-3 text-slate-500">
                       <Camera size={48} strokeWidth={1.8} aria-hidden="true" />
                       <p class="m-0 text-sm font-semibold">사진이 없습니다</p>
                     </div>
@@ -673,28 +660,42 @@
 
                     <div class="grid">
                       {#each g_active_analysis_obj.measure_arr as measure_obj, measure_index (`${measure_obj.label}-${measure_index}`)}
-                        <button
-                          type="button"
-                          class={`flex min-h-11 w-full cursor-pointer items-center justify-between gap-4 rounded-md border-b border-slate-100 px-2 text-left transition last:border-b-0 ${
+                        <div
+                          class={`flex min-h-11 w-full items-center justify-between gap-4 rounded-md border-b border-slate-100 px-2 transition last:border-b-0 ${
                             ref_selected_measure_key === measure_obj.label
                               ? 'bg-[var(--retinal-soft-purple)]'
                               : 'hover:bg-slate-50'
                           }`}
-                          aria-pressed={ref_selected_measure_key === measure_obj.label}
-                          onclick={() => on_click_select_measure(measure_obj.label)}
                         >
-                          <span class="min-w-0 flex-1 text-sm font-bold text-slate-500">
-                            {measure_obj.label}
-                          </span>
-                          <span
-                            class={`ml-auto flex-none text-right text-base font-extrabold ${measure_obj.tone}`}
+                          <button
+                            type="button"
+                            class="flex min-w-0 flex-1 cursor-pointer items-center text-left bg-transparent border-0 p-0"
+                            aria-pressed={ref_selected_measure_key === measure_obj.label}
+                            onclick={() => on_click_select_measure(measure_obj.label)}
                           >
-                            {measure_obj.value}
-                            {#if measure_obj.note}
-                              <span class="ml-1 text-xs font-bold">{measure_obj.note}</span>
-                            {/if}
-                          </span>
-                        </button>
+                            <span class="min-w-0 flex-1 text-sm font-bold text-slate-500">
+                              {measure_obj.label}
+                            </span>
+                          </button>
+                          {#if measure_obj.has_value}
+                            <span
+                              class={`ml-auto flex-none text-right text-base font-extrabold ${measure_obj.tone}`}
+                            >
+                              {measure_obj.value}
+                              {#if measure_obj.note}
+                                <span class="ml-1 text-xs font-bold">{measure_obj.note}</span>
+                              {/if}
+                            </span>
+                          {:else}
+                            <Link
+                              class="ml-auto inline-flex flex-none items-center gap-1 rounded-md border border-[var(--retinal-primary-600)] bg-white px-2.5 py-1 text-xs font-extrabold text-[var(--retinal-primary-700)] transition hover:bg-[var(--retinal-soft-purple)]"
+                              href={`${PATH.analysisFaceMeasurement}?item=${measure_obj.item_id}`}
+                            >
+                              측정하기
+                              <ChevronRight size={14} strokeWidth={2.5} aria-hidden="true" />
+                            </Link>
+                          {/if}
+                        </div>
                       {/each}
                     </div>
                   </div>
@@ -755,24 +756,36 @@
                 {/if}
               </div>
             </div>
+            {:else}
+              <p class="mt-4 text-sm font-semibold text-slate-500">분석 데이터를 준비 중입니다.</p>
+            {/if}
           </section>
         {/if}
       </div>
 
-      <div class="grid shrink-0 grid-cols-2 gap-4">
-        <Link
-          class="grid min-h-16 place-items-center rounded-lg border border-[var(--retinal-border)] bg-white text-lg font-extrabold text-zinc-950 transition hover:border-[var(--retinal-primary-600)] hover:bg-[var(--retinal-soft-purple)] hover:text-[var(--retinal-primary-700)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/20"
-          href={PATH.analysis}
-        >
-          다시 분석하기
-        </Link>
-        <Link
-          class="grid min-h-16 grid-cols-[1fr_auto] items-center rounded-lg bg-[var(--retinal-primary-600)] px-8 text-center text-lg font-extrabold !text-white transition hover:bg-[var(--retinal-primary-500)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/30"
-          href={PATH.analysisLensConsult}
-        >
-          <span class="text-white">온보딩 진행</span>
-          <ChevronRight size={24} strokeWidth={2.5} class="text-white" aria-hidden="true" />
-        </Link>
+      <div class="shrink-0 flex flex-col gap-2">
+        {#if g_submit_error}
+          <p class="m-0 rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700" role="alert">
+            {g_submit_error}
+          </p>
+        {/if}
+        <div class="grid grid-cols-2 gap-4">
+          <Link
+            class="grid min-h-16 place-items-center rounded-lg border border-[var(--retinal-border)] bg-white text-lg font-extrabold text-zinc-950 transition hover:border-[var(--retinal-primary-600)] hover:bg-[var(--retinal-soft-purple)] hover:text-[var(--retinal-primary-700)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/20"
+            href={PATH.analysis}
+          >
+            다시 분석하기
+          </Link>
+          <button
+            type="button"
+            class="grid min-h-16 grid-cols-[1fr_auto] items-center rounded-lg border-0 bg-[var(--retinal-primary-600)] px-8 text-center text-lg font-extrabold text-white transition hover:bg-[var(--retinal-primary-500)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/30 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={g_is_submitting}
+            onclick={on_click_submit_onboarding}
+          >
+            <span class="text-white">{g_is_submitting ? '저장 중...' : '온보딩 진행'}</span>
+            <ChevronRight size={24} strokeWidth={2.5} class="text-white" aria-hidden="true" />
+          </button>
+        </div>
       </div>
     </div>
   </div>

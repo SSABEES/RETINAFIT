@@ -1,6 +1,8 @@
 <script>
+  import { onMount } from 'svelte'
   import { navigate } from '@maks11060/svelte5-router'
-  import { ArrowLeft, Camera, Sparkles } from 'lucide-svelte'
+  import { ArrowLeft } from 'lucide-svelte'
+  import CaptureShell from '@/components/capture/capture_shell.svelte'
   import { PATH } from '@/config/path'
   import { selected_customer_obj } from '@/lib/stores/customer'
 
@@ -60,6 +62,7 @@
 
   <section class="h-[calc(100%-72px)] overflow-y-auto px-8 py-4">
     <div class="mx-auto max-w-[1216px]">
+<<<<<<< HEAD
       <section
         class="mx-auto grid h-[458px] max-w-[804px] place-items-center rounded-2xl bg-[#0F1628] px-10 text-center text-white"
         aria-label="촬영 가이드"
@@ -101,6 +104,9 @@
         <Sparkles size={22} strokeWidth={2.5} aria-hidden="true" />
         <span>얼굴 분석 시작</span>
       </button>
+=======
+      <CaptureShell />
+>>>>>>> 1fade6074ebab09bc6eac49209d072bf0443ac11
     </div>
   </section>
 </main>
