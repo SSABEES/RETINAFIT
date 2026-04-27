@@ -282,7 +282,7 @@
 
 <AdminLayout active_key="glass">
   {#if !ref_glass_editor_open}
-    <section class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50">
+    <section class="grid gap-6">
       <div class="flex items-center justify-between gap-4">
         <h2 class="m-0 text-2xl font-extrabold text-zinc-950">안경 정보</h2>
         <span class="rounded-full bg-[var(--retinal-soft-purple)] px-3 py-1 text-sm font-extrabold text-[var(--retinal-primary-700)]">
@@ -291,61 +291,63 @@
       </div>
 
       {#if ref_glass_error_message}
-        <p class="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 text-left text-sm font-bold text-rose-700">
+        <p class="rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 text-left text-sm font-bold text-rose-700">
           {ref_glass_error_message}
         </p>
       {/if}
 
-      <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <button
-          class="grid aspect-[4/3] cursor-pointer place-items-center rounded-2xl border border-dashed border-[#D8C6E0] bg-[#FAF7FC] text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)] hover:bg-[#F8F1F8]"
-          type="button"
-          onclick={on_click_open_glass_create}
-        >
-          <div class="grid justify-items-center gap-3">
-            <span class="grid h-16 w-16 place-items-center rounded-full bg-white text-4xl font-light shadow-sm">+</span>
-            <span class="text-base font-extrabold">안경 추가</span>
-          </div>
-        </button>
-
-        {#if ref_glass_list_loading}
-          <div class="grid aspect-[4/3] place-items-center rounded-2xl border border-slate-200 bg-slate-50 px-6 text-center text-sm font-bold text-slate-500">
-            안경 목록을 불러오는 중입니다.
-          </div>
-        {/if}
-
-        {#each ref_glass_list_arr as glass_obj (glass_obj.glasses_no)}
+      <section class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50">
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <button
-            class="overflow-hidden rounded-2xl border border-slate-200 bg-white text-left transition hover:border-[#D8C6E0] hover:shadow-sm"
+            class="grid aspect-[4/3] cursor-pointer place-items-center rounded-2xl border border-dashed border-[#D8C6E0] bg-[#FAF7FC] text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)] hover:bg-[#F8F1F8]"
             type="button"
-            onclick={() => on_click_edit_glass(glass_obj)}
+            onclick={on_click_open_glass_create}
           >
-            <div class="aspect-[4/3] bg-[#F7F1F9]">
-              <img
-                src={glass_obj.glasses_img_url || g_glass_placeholder_image_url}
-                alt={`${glass_obj.glasses_brand} ${glass_obj.glasses_name}`}
-                class="h-full w-full object-cover"
-              />
-            </div>
-            <div class="px-5 py-4">
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <p class="m-0 truncate text-lg font-extrabold text-zinc-950">{glass_obj.glasses_name}</p>
-                  <p class="mt-2 mb-0 truncate text-sm font-semibold text-slate-500">{glass_obj.glasses_brand}</p>
-                </div>
-
-                <span
-                  class={`shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold ${
-                    glass_obj.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-                  }`}
-                >
-                  {glass_obj.is_active ? '활성' : '비활성'}
-                </span>
-              </div>
+            <div class="grid justify-items-center gap-3">
+              <span class="grid h-16 w-16 place-items-center rounded-full bg-white text-4xl font-light shadow-sm">+</span>
+              <span class="text-base font-extrabold">안경 추가</span>
             </div>
           </button>
-        {/each}
-      </div>
+
+          {#if ref_glass_list_loading}
+            <div class="grid aspect-[4/3] place-items-center rounded-2xl border border-slate-200 bg-slate-50 px-6 text-center text-sm font-bold text-slate-500">
+              안경 목록을 불러오는 중입니다.
+            </div>
+          {/if}
+
+          {#each ref_glass_list_arr as glass_obj (glass_obj.glasses_no)}
+            <button
+              class="overflow-hidden rounded-2xl border border-slate-200 bg-white text-left transition hover:border-[#D8C6E0] hover:shadow-sm"
+              type="button"
+              onclick={() => on_click_edit_glass(glass_obj)}
+            >
+              <div class="aspect-[4/3] bg-[#F7F1F9]">
+                <img
+                  src={glass_obj.glasses_img_url || g_glass_placeholder_image_url}
+                  alt={`${glass_obj.glasses_brand} ${glass_obj.glasses_name}`}
+                  class="h-full w-full object-cover"
+                />
+              </div>
+              <div class="px-5 py-4">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="m-0 truncate text-lg font-extrabold text-zinc-950">{glass_obj.glasses_name}</p>
+                    <p class="mt-2 mb-0 truncate text-sm font-semibold text-slate-500">{glass_obj.glasses_brand}</p>
+                  </div>
+
+                  <span
+                    class={`shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold ${
+                      glass_obj.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                    }`}
+                  >
+                    {glass_obj.is_active ? '활성' : '비활성'}
+                  </span>
+                </div>
+              </div>
+            </button>
+          {/each}
+        </div>
+      </section>
     </section>
   {:else}
     <form class="grid gap-6" onsubmit={on_submit_glass_form}>
