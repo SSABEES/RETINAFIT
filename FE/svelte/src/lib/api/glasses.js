@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/api/client'
+import { get_session_auth_headers } from '@/lib/api/session_auth'
 
 // 전부 다 경로 확정되면 수정 필요
 
@@ -28,44 +29,29 @@ export const save_lens_requirements = (selected_obj) => {
 }
 
 /**
- * AR 피팅 결과를 multipart/form-data 로 서버에 전송
- * @param {Array<{ glasses_id: string, brand: string, model: string, captures: File[] }>} fittings_arr
- *
- * FormData 구조 (안경 2개, 파일 6장 예시):
- *   metadata   = JSON { fittings: [{ glasses_id, brand, model, capture_count }, ...] }
- *   captures   = File (g1 정면)     ← index 0
- *   captures   = File (g1 측면 좌)  ← index 1
- *   captures   = File (g1 측면 우)  ← index 2
- *   captures   = File (g2 정면)     ← index 3
- *   captures   = File (g2 측면 좌)  ← index 4
- *   captures   = File (g2 측면 우)  ← index 5
- *
- * 백엔드는 metadata의 capture_count 로 captures 배열을 안경별로 분리
+ * 안경 1개에 대한 가상 피팅 이미지 Presigned URL 발급 요청
+ * @param {number} visit_no
+ * @param {number} glasses_no
+ * @returns {Promise<{ glasses_no: number, front_url: string, left_url: string, right_url: string, front_key: string, left_key: string, right_key: string }>}
  */
-export const save_fitting_captures = (fittings_arr) => {
-  const form = new FormData()
-
-  const metadata = {
-    fittings: fittings_arr.map((fit) => ({
-      glasses_id: fit.glasses_id,
-      brand: fit.brand,
-      model: fit.model,
-      capture_count: fit.captures.filter((f) => f instanceof File).length,
-    })),
-  }
-  form.append('metadata', JSON.stringify(metadata))
-
-  fittings_arr.forEach((fit) => {
-    fit.captures.forEach((file) => {
-      if (file instanceof File) {
-        form.append('captures', file)
-      }
-    })
-  })
-
-  return apiRequest('/glasses/fitting', {
+export const request_fitting_presigned_urls = (visit_no, glasses_no) => {
+  return apiRequest(`/api/v1/visits/${visit_no}/files/vp`, {
     method: 'POST',
-    body: form,
+    headers: get_session_auth_headers(),
+    body: { glasses_no },
+  })
+}
+
+/**
+ * S3 업로드 완료 후 가상 피팅 결과를 백엔드에 저장
+ * @param {number} visit_no
+ * @param {{ vp_file_arr: string[], vp_json: { glasses_no: number, fitting_result: object } }} body
+ */
+export const confirm_fitting_result = (visit_no, body) => {
+  return apiRequest(`/api/v1/visits/${visit_no}/vp`, {
+    method: 'POST',
+    headers: get_session_auth_headers(),
+    body,
   })
 }
 

@@ -291,15 +291,11 @@ fun FaceFittingScreen(
                 }
             }
         ) {
-            // 얼굴 메쉬를 depth-only 재질로 렌더해서 occluder 역할 (색은 안 그리고 depth 만).
-            // 안경 다리가 얼굴 뒤로 돌아가면 depth test 에 걸려 자연스럽게 가려진다.
-            detectedFaces.firstOrNull()?.let { face ->
-                AugmentedFaceNode(
-                    augmentedFace = face,
-                    meshMaterialInstance = faceOccluderInstance,
-                    apply = { faceNodeImpl = this },
-                )
-            }
+            // AugmentedFaceNode 제거: 얼굴 mesh occluder 가 dispose 시 MaterialInstance 와
+            // Renderable 의 destroy 순서 race 로 Filament Precondition Panic → SIGABRT 발생.
+            // 대신 GLB 노드 (`temple_left` / `temple_right`) 의 yaw-based visibility 토글로
+            // 안경 다리 가림 처리. 단일 mesh GLB 의 경우 머리 뒤 temple 이 비치는 시각적
+            // 단점이 있으나, 3-part split GLB (스펙 권장) 에서는 이미 충분히 자연스러움.
 
             val instance = modelInstance
             if (instance != null) {
