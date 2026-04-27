@@ -6,8 +6,24 @@
   import { PATH } from '@/config/path'
 
   const ADMIN_AUTH_STORAGE_KEY = 'retinal_admin_authenticated'
-  const ADMIN_ID = 'retinai1'
-  const ADMIN_PASSWORD = '1234'
+  // 관리자 자격증명은 .env 의 VITE_ADMIN_ID / VITE_ADMIN_PASSWORD 로 주입한다.
+  // 개발 편의를 위해 DEV 모드 한정 fallback 을 두고, PROD 에선 누락 시 빈 값이 되어 로그인 자체가 실패한다.
+  const ADMIN_ID =
+    import.meta.env.VITE_ADMIN_ID ?? (import.meta.env.DEV ? 'retinai1' : '')
+  const ADMIN_PASSWORD =
+    import.meta.env.VITE_ADMIN_PASSWORD ?? (import.meta.env.DEV ? '1234' : '')
+
+  if (!ADMIN_ID || !ADMIN_PASSWORD) {
+    if (import.meta.env.DEV) {
+      console.warn(
+        '[admin] VITE_ADMIN_ID / VITE_ADMIN_PASSWORD 환경변수가 비어 있습니다. 개발 기본값으로 동작합니다.',
+      )
+    } else {
+      console.error(
+        '[admin] 관리자 자격증명 환경변수가 누락되어 로그인이 비활성화됩니다.',
+      )
+    }
+  }
 
   /** @type {{ active_key?: string, children?: import('svelte').Snippet }} */
   let { active_key = 'face', children } = $props()
@@ -97,11 +113,11 @@
 </script>
 
 {#if !g_is_authenticated}
-  <main class="app-frame-page overflow-hidden bg-[#F7F8FA] text-[var(--retinal-text)]">
+  <main class="app-frame-page overflow-hidden bg-[var(--retinal-page)] text-[var(--retinal-text)]">
     <section class="grid h-full place-items-center px-8 py-10">
       <section class="w-full max-w-[460px] rounded-[28px] border border-[#EFE7F2] bg-white p-8 shadow-sm shadow-slate-200/50">
         <div class="mb-8 text-left">
-          <p class="m-0 text-sm font-extrabold uppercase tracking-[0.18em] text-[#98A2B3]">
+          <p class="m-0 text-sm font-extrabold uppercase tracking-[0.18em] text-[var(--retinal-text-muted)]">
             RETINAL ADMIN
           </p>
           <h1 class="mt-3 mb-0 text-[1.9rem] font-extrabold tracking-[-0.02em] text-zinc-950">
@@ -138,7 +154,7 @@
           {/if}
 
           <button
-            class="min-h-14 cursor-pointer rounded-xl border-0 bg-[#4B0055] text-lg font-extrabold text-white transition hover:bg-[#65006F] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/30"
+            class="min-h-14 cursor-pointer rounded-xl border-0 bg-[var(--retinal-primary-700)] text-lg font-extrabold text-white transition hover:bg-[var(--retinal-primary-500)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-700)]/30"
             type="submit"
           >
             관리자 로그인
@@ -153,7 +169,7 @@
       <div class="grid min-h-full w-full gap-8">
         <div class="flex items-start justify-between gap-6">
           <button
-            class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-extrabold text-[#4B0055] transition hover:border-[#4B0055] hover:bg-[#F5EAF7]"
+            class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)] hover:bg-[var(--retinal-soft-purple)]"
             type="button"
             onclick={on_click_logout_admin}
           >
@@ -161,13 +177,13 @@
             <span>로그아웃</span>
           </button>
 
-          <div class="relative w-[240px] rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 shadow-sm shadow-slate-200/40">
-            <p class="mb-2 block text-xs font-extrabold uppercase tracking-[0.14em] text-[#98A2B3]">
+          <div class="relative w-[240px] rounded-2xl border border-[var(--retinal-border)] bg-white px-4 py-3 shadow-sm shadow-slate-200/40">
+            <p class="mb-2 block text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--retinal-text-muted)]">
               현재 페이지
             </p>
 
             <button
-              class="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[#4B0055] transition hover:border-[#4B0055]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/15"
+              class="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-700)]/15"
               type="button"
               aria-haspopup="listbox"
               aria-expanded={g_admin_page_dropdown_open}
@@ -184,7 +200,7 @@
 
             {#if g_admin_page_dropdown_open}
               <div
-                class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retinal-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
                 role="listbox"
                 aria-label="관리자 페이지 목록"
               >
@@ -192,8 +208,8 @@
                   <button
                     class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                       active_key === admin_page_obj.key
-                        ? 'bg-[#F5EAF7] text-[#4B0055]'
-                        : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[#4B0055]'
+                        ? 'bg-[var(--retinal-soft-purple)] text-[var(--retinal-primary-700)]'
+                        : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retinal-primary-700)]'
                     }`}
                     type="button"
                     role="option"
