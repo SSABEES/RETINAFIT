@@ -18,7 +18,8 @@
     FileText,
   } from 'lucide-svelte'
   import { PATH } from '@/config/path'
-  import { save_fitting_captures, get_all_glasses } from '@/lib/api/glasses'
+  import { get_all_glasses, request_fitting_presigned_urls, confirm_fitting_result } from '@/lib/api/glasses'
+  import { selected_visit_obj } from '@/lib/stores/customer'
 
   /* ── 안경 목록 ──────────────────────────────────────── */
   let g_recommended_arr = $state([])
@@ -67,18 +68,18 @@
   const CATEGORY_OPTIONS = ['안경', '선글라스', '스포츠']
 
   const MOCK_ALL_GLASSES = [
-    { id: 'a1', brand: '젠틀몬스터', model: '쿠보 01', price: '289,000', frame_type: '뿔테', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F5EAF7/AA83B4?text=KUBO+01' },
-    { id: 'a2', brand: '레이벤', model: '라운드 메탈', price: '185,000', frame_type: '메탈', frame_style: '풀프레임', material: '메탈', category: '안경', img_url: 'https://placehold.co/340x160/EEF2FF/818CF8?text=Round+Metal' },
-    { id: 'a3', brand: '모스콧', model: '렘토쉬', price: '360,000', frame_type: '아세테이트', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/FEF9EE/F59E0B?text=LEMTOSH' },
-    { id: 'a4', brand: '구찌', model: 'GG0006O', price: '420,000', frame_type: '하프림', frame_style: '하프프레임', material: '메탈', category: '안경', img_url: 'https://placehold.co/340x160/F0FDF4/4ADE80?text=GG0006O' },
-    { id: 'a5', brand: '톰포드', model: 'TF5488-B', price: '380,000', frame_type: '뿔테', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F1F5F9/475569?text=TF5488' },
-    { id: 'a6', brand: '린드버그', model: '에어 티타늄', price: '450,000', frame_type: '무테', frame_style: '무프레임', material: '티타늄', category: '안경', img_url: 'https://placehold.co/340x160/E0F2FE/0284C7?text=Air+Ti' },
-    { id: 'a7', brand: '실루엣', model: 'SPX Full', price: '390,000', frame_type: '무테', frame_style: '무프레임', material: '혼합', category: '안경', img_url: 'https://placehold.co/340x160/FEF3C7/D97706?text=SPX' },
-    { id: 'a8', brand: '오클리', model: 'Frogskins', price: '160,000', frame_type: '뿔테', frame_style: '풀프레임', material: '혼합', category: '선글라스', img_url: 'https://placehold.co/340x160/ECFDF5/059669?text=Frogskins' },
-    { id: 'a9', brand: '레이벤', model: '웨이파러', price: '195,000', frame_type: '아세테이트', frame_style: '풀프레임', material: '아세테이트', category: '선글라스', img_url: 'https://placehold.co/340x160/FFF1F2/E11D48?text=Wayfarer' },
-    { id: 'a10', brand: '나이키', model: 'Veer', price: '120,000', frame_type: '혼합', frame_style: '풀프레임', material: '혼합', category: '스포츠', img_url: 'https://placehold.co/340x160/F0F9FF/0369A1?text=Veer' },
-    { id: 'a11', brand: '프로스펙스', model: 'M-60', price: '89,000', frame_type: '메탈', frame_style: '하프프레임', material: '메탈', category: '스포츠', img_url: 'https://placehold.co/340x160/F5F3FF/7C3AED?text=M-60' },
-    { id: 'a12', brand: '페라가모', model: 'SF2939', price: '280,000', frame_type: '하프림', frame_style: '하프프레임', material: '티타늄', category: '안경', img_url: 'https://placehold.co/340x160/FDF2F8/C026D3?text=SF2939' },
+    { id: 1,  glasses_no: 1,  brand: '젠틀몬스터', model: '쿠보 01',      price: '289,000', frame_type: '뿔테',      frame_style: '풀프레임',  material: '아세테이트', category: '안경',    img_url: 'https://placehold.co/340x160/F5EAF7/AA83B4?text=KUBO+01' },
+    { id: 2,  glasses_no: 2,  brand: '레이벤',     model: '라운드 메탈',  price: '185,000', frame_type: '메탈',      frame_style: '풀프레임',  material: '메탈',       category: '안경',    img_url: 'https://placehold.co/340x160/EEF2FF/818CF8?text=Round+Metal' },
+    { id: 3,  glasses_no: 3,  brand: '모스콧',     model: '렘토쉬',       price: '360,000', frame_type: '아세테이트', frame_style: '풀프레임',  material: '아세테이트', category: '안경',    img_url: 'https://placehold.co/340x160/FEF9EE/F59E0B?text=LEMTOSH' },
+    { id: 4,  glasses_no: 4,  brand: '구찌',       model: 'GG0006O',      price: '420,000', frame_type: '하프림',    frame_style: '하프프레임', material: '메탈',       category: '안경',    img_url: 'https://placehold.co/340x160/F0FDF4/4ADE80?text=GG0006O' },
+    { id: 5,  glasses_no: 5,  brand: '톰포드',     model: 'TF5488-B',     price: '380,000', frame_type: '뿔테',      frame_style: '풀프레임',  material: '아세테이트', category: '안경',    img_url: 'https://placehold.co/340x160/F1F5F9/475569?text=TF5488' },
+    { id: 6,  glasses_no: 6,  brand: '린드버그',   model: '에어 티타늄',  price: '450,000', frame_type: '무테',      frame_style: '무프레임',  material: '티타늄',     category: '안경',    img_url: 'https://placehold.co/340x160/E0F2FE/0284C7?text=Air+Ti' },
+    { id: 7,  glasses_no: 7,  brand: '실루엣',     model: 'SPX Full',     price: '390,000', frame_type: '무테',      frame_style: '무프레임',  material: '혼합',       category: '안경',    img_url: 'https://placehold.co/340x160/FEF3C7/D97706?text=SPX' },
+    { id: 8,  glasses_no: 8,  brand: '오클리',     model: 'Frogskins',    price: '160,000', frame_type: '뿔테',      frame_style: '풀프레임',  material: '혼합',       category: '선글라스', img_url: 'https://placehold.co/340x160/ECFDF5/059669?text=Frogskins' },
+    { id: 9,  glasses_no: 9,  brand: '레이벤',     model: '웨이파러',     price: '195,000', frame_type: '아세테이트', frame_style: '풀프레임',  material: '아세테이트', category: '선글라스', img_url: 'https://placehold.co/340x160/FFF1F2/E11D48?text=Wayfarer' },
+    { id: 10, glasses_no: 10, brand: '나이키',     model: 'Veer',         price: '120,000', frame_type: '혼합',      frame_style: '풀프레임',  material: '혼합',       category: '스포츠',  img_url: 'https://placehold.co/340x160/F0F9FF/0369A1?text=Veer' },
+    { id: 11, glasses_no: 11, brand: '프로스펙스', model: 'M-60',         price: '89,000',  frame_type: '메탈',      frame_style: '하프프레임', material: '메탈',       category: '스포츠',  img_url: 'https://placehold.co/340x160/F5F3FF/7C3AED?text=M-60' },
+    { id: 12, glasses_no: 12, brand: '페라가모',   model: 'SF2939',       price: '280,000', frame_type: '하프림',    frame_style: '하프프레임', material: '티타늄',     category: '안경',    img_url: 'https://placehold.co/340x160/FDF2F8/C026D3?text=SF2939' },
   ]
 
   let g_filter_modal_open = $state(false)
@@ -115,11 +116,11 @@
     g_show_intro = true
     setTimeout(() => (g_show_intro = false), 3200)
     const mock_recommended = [
-      { id: 'g1', brand: '젠틀몬스터', model: '쿠보 01', price: '289,000', frame_type: '뿔테', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F5EAF7/AA83B4?text=KUBO+01' },
-      { id: 'g2', brand: '레이벤', model: '라운드 메탈', price: '185,000', frame_type: '메탈', frame_style: '풀프레임', material: '메탈', category: '안경', img_url: 'https://placehold.co/340x160/EEF2FF/818CF8?text=Round+Metal' },
-      { id: 'g3', brand: '모스콧', model: '렘토쉬', price: '360,000', frame_type: '아세테이트', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/FEF9EE/F59E0B?text=LEMTOSH' },
-      { id: 'g4', brand: '구찌', model: 'GG0006O', price: '420,000', frame_type: '하프림', frame_style: '하프프레임', material: '메탈', category: '안경', img_url: 'https://placehold.co/340x160/F0FDF4/4ADE80?text=GG0006O' },
-      { id: 'g5', brand: '톰포드', model: 'TF5488-B', price: '380,000', frame_type: '뿔테', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F1F5F9/475569?text=TF5488' },
+      { id: 1, glasses_no: 1, brand: '젠틀몬스터', model: '쿠보 01',     price: '289,000', frame_type: '뿔테',      frame_style: '풀프레임',  material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F5EAF7/AA83B4?text=KUBO+01' },
+      { id: 2, glasses_no: 2, brand: '레이벤',     model: '라운드 메탈', price: '185,000', frame_type: '메탈',      frame_style: '풀프레임',  material: '메탈',       category: '안경', img_url: 'https://placehold.co/340x160/EEF2FF/818CF8?text=Round+Metal' },
+      { id: 3, glasses_no: 3, brand: '모스콧',     model: '렘토쉬',      price: '360,000', frame_type: '아세테이트', frame_style: '풀프레임',  material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/FEF9EE/F59E0B?text=LEMTOSH' },
+      { id: 4, glasses_no: 4, brand: '구찌',       model: 'GG0006O',     price: '420,000', frame_type: '하프림',    frame_style: '하프프레임', material: '메탈',       category: '안경', img_url: 'https://placehold.co/340x160/F0FDF4/4ADE80?text=GG0006O' },
+      { id: 5, glasses_no: 5, brand: '톰포드',     model: 'TF5488-B',    price: '380,000', frame_type: '뿔테',      frame_style: '풀프레임',  material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F1F5F9/475569?text=TF5488' },
     ]
     setTimeout(() => {
       g_recommended_arr = mock_recommended
@@ -162,25 +163,6 @@
   }
 
   /**
-   * 3장 완성된 현재 피팅을 저장 목록에 추가하고 슬롯 초기화
-   * 3장 미완성이거나 5개 초과 시 동작하지 않음
-   */
-  function on_click_save_fitting() {
-    if (!g_can_save) return
-    const glasses_info = g_glasses_arr.find((g) => g.id === g_selected_id)
-    g_saved_fittings_arr = [
-      ...g_saved_fittings_arr,
-      {
-        glasses_id: g_selected_id,
-        brand: glasses_info?.brand ?? '',
-        model: glasses_info?.model ?? '',
-        captures: [...g_capture_slot_arr],
-      },
-    ]
-    g_capture_slot_arr = [null, null, null]
-  }
-
-  /**
    * 저장된 피팅 목록에서 특정 항목 제거
    */
   function on_click_remove_saved(idx) {
@@ -191,19 +173,70 @@
   let g_submit_error = $state('')
 
   /**
-   * 저장된 모든 피팅(3장 완성된 것만)을 서버로 전송하고 리포트 페이지로 이동
+   * 3장 캡처된 현재 피팅을 API로 저장: Presigned URL 발급 → S3 업로드 → 백엔드 저장
    */
-  async function on_click_submit_report() {
-    if (!g_can_submit) return
+  async function on_click_save_fitting() {
+    if (!g_can_save || g_submit_loading) return
     g_submit_loading = true
     g_submit_error = ''
     try {
-      await save_fitting_captures(g_saved_fittings_arr)
-      window.location.href = PATH.analysisReport
+      const local_visit_no = $selected_visit_obj?.visit_no
+      const glasses_info = g_glasses_arr.find((g) => g.id === g_selected_id)
+      const local_glasses_no = glasses_info?.glasses_no ?? g_selected_id
+
+      // 1단계: 안경별 Presigned URL 발급 (front/left/right)
+      const local_presigned = await request_fitting_presigned_urls(local_visit_no, local_glasses_no)
+
+      // 2단계: front → left → right 순으로 S3에 PUT 업로드
+      // 실제 File이 아닌 슬롯(카메라 미연동)은 더미 파일로 대체
+      const local_file_arr = g_capture_slot_arr.map((f) =>
+        f instanceof File
+          ? f
+          : new File([new Blob(['dummy'], { type: 'image/jpeg' })], 'capture.jpg', { type: 'image/jpeg' }),
+      )
+      const local_url_arr = [local_presigned.front_url, local_presigned.left_url, local_presigned.right_url]
+      await Promise.all(
+        local_url_arr.map((url, idx) =>
+          fetch(url, {
+            method: 'PUT',
+            body: local_file_arr[idx],
+          }).then((res) => {
+            if (!res.ok) throw new Error(`S3 업로드 실패 (${res.status})`)
+          }),
+        ),
+      )
+
+      // 3단계: 업로드된 key 배열을 백엔드에 저장
+      await confirm_fitting_result(local_visit_no, {
+        vp_file_arr: [local_presigned.front_key, local_presigned.left_key, local_presigned.right_key],
+        vp_json: { glasses_no: local_glasses_no, fitting_result: {} },
+      })
+
+      // 로컬 저장 목록 업데이트 및 슬롯 초기화
+      g_saved_fittings_arr = [
+        ...g_saved_fittings_arr,
+        {
+          glasses_id: g_selected_id,
+          glasses_no: local_glasses_no,
+          brand: glasses_info?.brand ?? '',
+          model: glasses_info?.model ?? '',
+          captures: [...g_capture_slot_arr],
+        },
+      ]
+      g_capture_slot_arr = [null, null, null]
     } catch (local_err) {
-      g_submit_error = local_err.message ?? '저장에 실패했습니다.'
+      g_submit_error = local_err instanceof Error ? local_err.message : '저장에 실패했습니다.'
+    } finally {
       g_submit_loading = false
     }
+  }
+
+  /**
+   * 저장된 피팅이 1개 이상이면 리포트 페이지로 이동
+   */
+  function on_click_submit_report() {
+    if (!g_can_submit) return
+    window.location.href = PATH.analysisResult
   }
 
   /* ── 프레임 필터 모달 ─────────────────────────────────── */
@@ -589,30 +622,30 @@
         <!-- 피팅 결과 저장 -->
         <button
           type="button"
-          disabled={!g_can_save}
+          disabled={!g_can_save || g_submit_loading}
           onclick={on_click_save_fitting}
           class="flex h-14 items-center justify-center gap-2 rounded-2xl border-2 border-[#AA83B4] bg-white text-sm font-black text-[#4B0055] shadow-sm transition-all hover:bg-[#F5EAF7] disabled:cursor-not-allowed disabled:opacity-25 disabled:grayscale"
         >
-          <Save size={16} />
-          <span>피팅 결과 저장</span>
+          {#if g_submit_loading}
+            <span
+              class="h-4 w-4 animate-spin rounded-full border-2 border-[#4B0055] border-t-transparent"
+            ></span>
+            <span>저장 중...</span>
+          {:else}
+            <Save size={16} />
+            <span>피팅 결과 저장</span>
+          {/if}
         </button>
 
         <!-- 최종 분석 리포트 -->
         <button
           type="button"
-          disabled={!g_can_submit || g_submit_loading}
+          disabled={!g_can_submit}
           onclick={on_click_submit_report}
           class="flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#4B0055] text-sm font-black text-white shadow-xl transition-all hover:bg-[#320038] disabled:cursor-not-allowed disabled:opacity-25 disabled:grayscale"
         >
-          {#if g_submit_loading}
-            <span
-              class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
-            ></span>
-            <span>저장 중...</span>
-          {:else}
-            <FileText size={16} />
-            <span>리포트 확인</span>
-          {/if}
+          <FileText size={16} />
+          <span>리포트 확인</span>
         </button>
       </div>
     </div>
