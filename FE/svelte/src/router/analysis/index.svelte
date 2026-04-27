@@ -4,36 +4,34 @@
   import { ArrowLeft } from 'lucide-svelte'
   import CaptureShell from '@/components/capture/capture_shell.svelte'
   import { PATH } from '@/config/path'
-  import { selected_customer_obj, set_selected_customer } from '@/lib/stores/customer'
-  import { hydrate_from_mirror } from '@/lib/stores/capture_session.svelte.js'
+  import { selected_customer_obj } from '@/lib/stores/customer'
 
-  // 개발 모드에서 고객 미선택 시 자동으로 주입할 더미 고객. 프로덕션 빌드에선 사용하지 않는다.
-  const DEV_DUMMY_CUSTOMER = {
-    id: 0,
-    name: '개발용 더미',
-    phone: '000-0000-0000',
-    visit_count: 0,
-    last_visit_dt: '',
-  }
+  const shot_step_arr = [
+    {
+      title: '정면 (안경 착용)',
+      description: '안경을 착용한 상태로 정면을 바라봐 주세요.',
+    },
+    {
+      title: '정면 (안경 미착용)',
+      description: '안경을 벗은 상태로 정면을 바라봐 주세요.',
+    },
+    {
+      title: '왼쪽 측면',
+      description: '왼쪽 측면이 잘 보이도록 촬영해 주세요.',
+    },
+    {
+      title: '오른쪽 측면',
+      description: '오른쪽 측면이 잘 보이도록 촬영해 주세요.',
+    },
+  ]
 
-  // 분석 진입 가드 — 선택된 고객이 없으면 고객 목록으로 돌려보낸다.
-  // 단, 개발 모드(import.meta.env.DEV)에선 더미 고객을 자동 주입해 빠른 이터레이션을 돕는다.
-  onMount(() => {
-    if (!$selected_customer_obj) {
-      if (import.meta.env.DEV) {
-        set_selected_customer(DEV_DUMMY_CUSTOMER)
-      } else {
-        navigate(PATH.users)
-        return
-      }
-    }
-    // 새로고침/이탈 후 재진입 시 sessionStorage 미러에서 측정값 복원 (가능한 경우만).
-    hydrate_from_mirror()
-  })
+  let g_back_path = $derived(
+    $selected_customer_obj?.id ? PATH.userDetail($selected_customer_obj.id) : PATH.users,
+  )
 
-  // 이전 화면으로 돌아가 고객 상세 흐름을 유지한다.
+  // 뒤로가기 버튼 클릭 시 현재 선택된 고객의 상세 대시보드로 이동한다.
   function on_click_go_back() {
-    window.history.back()
+    navigate(g_back_path)
   }
 
   // 촬영 완료 후 얼굴 분석 리포트 화면으로 이동한다.
