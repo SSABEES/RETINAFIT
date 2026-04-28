@@ -98,7 +98,11 @@
               {/if}
             </span>
             <span class="flex-1 truncate text-sm font-semibold text-zinc-900">{item.label}</span>
-            <span class="flex-none text-sm font-bold tabular-nums" class:text-zinc-950={has_value} class:text-slate-400={!has_value}>
+            <span
+              class="flex-none text-sm font-bold tabular-nums"
+              class:text-zinc-950={has_value}
+              class:text-slate-400={!has_value}
+            >
               {format_value(item)}
             </span>
             <span

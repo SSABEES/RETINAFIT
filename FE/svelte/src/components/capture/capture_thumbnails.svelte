@@ -16,11 +16,7 @@
         aria-label="Step {i + 1} {capture ? '촬영 완료' : '미촬영'}"
       >
         {#if capture}
-          <img
-            src={capture.object_url}
-            alt={step.label}
-            class="h-full w-full object-cover"
-          />
+          <img src={capture.object_url} alt={step.label} class="h-full w-full object-cover" />
           <span
             class="absolute left-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-[var(--retinal-success-700)] text-[9px] font-extrabold text-white"
             aria-hidden="true"

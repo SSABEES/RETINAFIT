@@ -43,24 +43,16 @@ export const create_visit = (param_obj) => {
 }
 
 /**
- * 가상 피팅 이미지 S3 presigned URL을 발급한다.
- * @param {{ visit_no: number, glasses_no: number }} param_obj
- * @returns {Promise<{ glasses_no: number, front_url: string, left_url: string, right_url: string, front_key: string, left_key: string, right_key: string }>}
+ * 안경사 추천 옵션 선택을 방문 데이터에 저장한다.
+ * visit_no 경로에 맞는 visited row 의 opt_recommend_json 을 업데이트한다.
+ * @param {{ visit_no: number | string, opt_recommend_json: Record<string, unknown> }} param_obj
  */
-export const get_vp_presigned_urls = (param_obj) => {
-  return apiRequest(`/api/v1/visits/${param_obj.visit_no}/files/vp`, {
+export const save_visit_recommend = ({ visit_no, opt_recommend_json }) => {
+  return apiRequest(`/api/v1/visits/${visit_no}/recommend`, {
     method: 'POST',
-    body: { glasses_no: param_obj.glasses_no },
-  })
-}
-
-/**
- * 실제 착용 이미지 S3 presigned URL을 발급한다.
- * @param {{ visit_no: number, glasses_no: number }} param_obj
- */
-export const get_real_vp_presigned_urls = (param_obj) => {
-  return apiRequest(`/api/v1/visits/${param_obj.visit_no}/files/real-vp`, {
-    method: 'POST',
-    body: { glasses_no: param_obj.glasses_no },
+    headers: get_session_auth_headers(),
+    body: {
+      opt_recommend_json,
+    },
   })
 }

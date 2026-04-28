@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+
+import 'native/virtual_fitting.dart';
 
 const String _defaultWebAppUrl = 'http://10.0.2.2:5173';
 const String _webAppUrl = String.fromEnvironment(
@@ -40,10 +44,20 @@ class _WebShellPageState extends State<WebShellPage> {
   late final WebViewController _controller;
   var _loadingProgress = 0;
   String? _loadError;
+  String? _lastArEvent;
+  StreamSubscription<VirtualFittingEvent>? _arEventSub;
 
   @override
   void initState() {
     super.initState();
+
+    _arEventSub = VirtualFittingChannel.events.listen((event) {
+      // ignore: avoid_print
+      print('[AR] $event');
+      if (mounted) {
+        setState(() => _lastArEvent = '${event.event}: ${event.data}');
+      }
+    });
 
     _controller =
         WebViewController(
@@ -76,6 +90,29 @@ class _WebShellPageState extends State<WebShellPage> {
   }
 
   @override
+  void dispose() {
+    _arEventSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _launchArDebug() async {
+    try {
+      final id = await VirtualFittingChannel.launch(
+        productId: 'debug-001',
+        productName: 'Debug Sample (ssample_glass)',
+        assetPath: 'fixtures/glasses/ssample_glasses/ssample_glass.glb',
+      );
+      if (mounted) {
+        setState(() => _lastArEvent = 'launched requestId=$id');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _lastArEvent = 'launch error: $e');
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
@@ -89,6 +126,8 @@ class _WebShellPageState extends State<WebShellPage> {
                 message: _loadError!,
                 url: _webAppUrl,
                 onRetry: () => _controller.reload(),
+                onLaunchAr: _launchArDebug,
+                lastArEvent: _lastArEvent,
               ),
           ],
         ),
@@ -102,11 +141,15 @@ class _WebLoadError extends StatelessWidget {
     required this.message,
     required this.url,
     required this.onRetry,
+    required this.onLaunchAr,
+    required this.lastArEvent,
   });
 
   final String message;
   final String url;
   final VoidCallback onRetry;
+  final VoidCallback onLaunchAr;
+  final String? lastArEvent;
 
   @override
   Widget build(BuildContext context) {
@@ -134,6 +177,25 @@ class _WebLoadError extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 FilledButton(onPressed: onRetry, child: const Text('Retry')),
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 12),
+                Text(
+                  'Native bridge debug',
+                  style: Theme.of(context).textTheme.titleMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: onLaunchAr,
+                  child: const Text('AR 테스트 (ssample_glass.glb)'),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  lastArEvent ?? '(이벤트 없음)',
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
           ),

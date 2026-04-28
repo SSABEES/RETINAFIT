@@ -30,6 +30,7 @@ export const routes = [
   { path: PATH.analysisResult, component: AnalysisResultPage },
   { path: PATH.analysisReport, component: AnalysisReportPage },
   { path: PATH.analysisLensConsult, component: AnalysisLensConsultPage },
+  { path: PATH.analysisLensConsultLegacy, component: AnalysisLensConsultPage },
   { path: PATH.analysisArFitting, component: AnalysisArFittingPage },
   { path: PATH.users, component: UsersPage },
   { path: PATH.sales, component: SalesPage },
