@@ -26,10 +26,35 @@ export const apiRequest = async (path, options = {}) => {
   const local_data_obj = await local_response.json().catch(() => null)
 
   if (!local_response.ok) {
-    throw new Error(
-      local_data_obj?.message ?? `Request failed with status ${local_response.status}.`,
-    )
+    throw new Error(extract_error_message(local_data_obj, local_response.status))
   }
 
   return local_data_obj
+}
+
+// 응답 본문에서 사용자에게 보여줄 에러 메시지를 추출한다.
+// FastAPI 검증 에러는 detail 이 배열 형태여서 별도 정리가 필요하다.
+function extract_error_message(data_obj, status) {
+  if (!data_obj) return `Request failed with status ${status}.`
+
+  if (typeof data_obj.message === 'string' && data_obj.message) {
+    return data_obj.message
+  }
+
+  if (Array.isArray(data_obj.detail)) {
+    return data_obj.detail
+      .map((detail_obj) => {
+        const local_loc = Array.isArray(detail_obj?.loc) ? detail_obj.loc.join('.') : ''
+        const local_msg = detail_obj?.msg ?? ''
+        return local_loc ? `${local_loc}: ${local_msg}` : local_msg
+      })
+      .filter(Boolean)
+      .join(' / ')
+  }
+
+  if (typeof data_obj.detail === 'string' && data_obj.detail) {
+    return data_obj.detail
+  }
+
+  return `Request failed with status ${status}.`
 }
