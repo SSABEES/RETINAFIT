@@ -47,7 +47,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./infra/nginx.conf:/etc/nginx/nginx.conf
+      - ./INF/nginx.conf:/etc/nginx/nginx.conf
     depends_on:
       - be
       - fe
