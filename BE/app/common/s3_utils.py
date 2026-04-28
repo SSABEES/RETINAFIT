@@ -49,3 +49,32 @@ def generate_object_key(visit_no: int, folder: str, filename: str = None) -> str
 def get_file_url(object_key: str) -> str:
     """S3 파일 URL 반환"""
     return f"https://{settings.S3_BUCKET_NAME}.s3.{settings.AWS_REGION}.amazonaws.com/{object_key}"
+
+
+def get_file_url(object_key: str) -> str:
+    """
+    S3 퍼블릭 URL 반환
+    glasses/ 폴더처럼 퍼블릭 접근 허용된 경우 사용
+    """
+    return f"https://{settings.S3_BUCKET_NAME}.s3.{settings.AWS_REGION}.amazonaws.com/{object_key}"
+
+
+def get_presigned_download_url(object_key: str, expires_in: int = 3600) -> str:
+    """
+    S3 조회용 Presigned URL 발급
+    visits/ 폴더처럼 Private인 경우 사용
+    - expires_in: URL 만료 시간 (초, 기본 1시간)
+    """
+    s3_client = get_s3_client()
+    try:
+        url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": settings.S3_BUCKET_NAME,
+                "Key": object_key,
+            },
+            ExpiresIn=expires_in,
+        )
+        return url
+    except ClientError as e:
+        raise Exception(f"조회용 Presigned URL 발급 실패: {str(e)}")
