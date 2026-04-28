@@ -131,7 +131,7 @@
       - 우측 220px: 스텝 가이드 + 촬영 버튼 + 캡쳐 썸네일 (상단 정렬)
       좌우 컬럼 폭이 같아 카메라가 페이지 정중앙에 고정된다.
     -->
-    <div class="grid grid-cols-[220px_540px_220px] justify-center gap-6">
+    <div class="capture-layout grid justify-center gap-6">
       <aside class="self-center">
         <StepIndicator
           steps_arr={g_session.steps_arr}
@@ -171,3 +171,16 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .capture-layout {
+    grid-template-columns: 220px 540px 220px;
+  }
+
+  @media (max-width: 1280px), (max-height: 820px) {
+    .capture-layout {
+      grid-template-columns: 180px minmax(0, 430px) 180px;
+      gap: 1rem;
+    }
+  }
+</style>

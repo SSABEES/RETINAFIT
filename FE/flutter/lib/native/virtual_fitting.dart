@@ -35,12 +35,16 @@ class VirtualFittingChannel {
   static Future<String> launch({
     required String productId,
     required String productName,
-    required String assetPath,
+    String assetPath = '',
+    String modelUrl = '',
+    String cacheKey = '',
   }) async {
     final result = await _methodChannel.invokeMethod<String>('launch', {
       'productId': productId,
       'productName': productName,
       'assetPath': assetPath,
+      'modelUrl': modelUrl,
+      'cacheKey': cacheKey,
     });
     return result ?? '';
   }

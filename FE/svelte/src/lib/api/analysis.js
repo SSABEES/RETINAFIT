@@ -1,43 +1,52 @@
 /**
- * 얼굴 측정 결과를 백엔드에 저장하는 API 클라이언트.
+ * Face analysis upload/save API helpers.
  *
- * 흐름 (온보딩 진행 클릭 시):
- * 1. 사진 6장(또는 3장)을 S3 에 업로드해 URL 받기
- *    - S3 통신 API (S14P31S107-95) 가 presigned URL 을 발급한다고 가정
- * 2. POST /visits/{visit_no}/face 로 메타 + S3 URL 들 저장
- *    - BE: app/modules/analysis/router.py 의 save_face_analysis
+ * Flow:
+ * 1. Request presigned URLs for bare and/or glasses capture groups.
+ * 2. Upload capture blobs directly to S3 with PUT.
+ * 3. Save uploaded file URLs and analysis JSON to the visit face endpoint.
  *
  * @typedef {import('@/lib/stores/capture_session.svelte.js').Capture} Capture
  */
 
 import { apiRequest } from '@/lib/api/client'
+import { get_session_auth_headers } from '@/lib/api/session_auth'
 
 /**
- * BE 의 presigned URL 발급 엔드포인트 호출.
- * S3 통신 API (S14P31S107-95) 가 아직 진행 중이라 엔드포인트 경로/응답 형태는 임시 가정.
- * 실제 명세 확정되면 이 함수만 갱신하면 된다.
- *
- * @param {string[]} keys  업로드 대상 식별자 (예: 'front_no_glasses')
- * @returns {Promise<Record<string, { upload_url: string, file_url: string }>>}
- * @throws {Error} apiRequest 가 비-2xx 응답이거나 네트워크 오류 시
+ * @typedef {'bare' | 'glasses'} TestFileType
  */
-export async function request_presigned_urls(keys) {
-  // TODO(S14P31S107-95): 실제 엔드포인트 확정 시 경로/응답 형태 업데이트.
-  return apiRequest('/uploads/presigned-urls', {
+
+/**
+ * @typedef {{
+ *   type: TestFileType,
+ *   front_url: string,
+ *   left_url: string,
+ *   right_url: string,
+ *   front_key: string,
+ *   left_key: string,
+ *   right_key: string,
+ * }} TestFilePresignedResponse
+ */
+
+/**
+ * Request presigned URLs for one 3-photo face-analysis capture group.
+ * @param {number} visit_no
+ * @param {TestFileType} type
+ * @returns {Promise<TestFilePresignedResponse>}
+ */
+export async function request_presigned_urls(visit_no, type) {
+  return apiRequest(`/api/v1/visits/${visit_no}/files/test`, {
     method: 'POST',
-    body: { keys },
+    headers: get_session_auth_headers(),
+    body: { type },
   })
 }
 
 /**
- * Blob 을 presigned URL 로 직접 PUT 한다 (FE → S3 직접 통신).
- * BE 를 거치지 않으므로 BE 대역폭/메모리 부담 없음.
- * Content-Type 은 blob.type 우선, 없으면 image/jpeg 로 강제 지정한다.
- *
- * @param {string} upload_url  presigned PUT URL
- * @param {Blob} blob          업로드할 파일 바이너리
- * @returns {Promise<void>}    성공 시 void, 실패 시 throw
- * @throws {Error} S3 응답이 비-2xx 인 경우 status 를 포함한 메시지를 던진다.
+ * Upload a blob directly to S3 with a presigned PUT URL.
+ * @param {string} upload_url
+ * @param {Blob} blob
+ * @returns {Promise<void>}
  */
 export async function upload_blob_to_s3(upload_url, blob) {
   const response = await fetch(upload_url, {
@@ -45,53 +54,121 @@ export async function upload_blob_to_s3(upload_url, blob) {
     body: blob,
     headers: { 'Content-Type': blob.type || 'image/jpeg' },
   })
+
   if (!response.ok) {
-    throw new Error(`S3 업로드 실패 (status ${response.status})`)
+    throw new Error(`S3 upload failed (status ${response.status})`)
   }
 }
 
 /**
- * 캡쳐 6장 (또는 3장) 을 병렬로 S3 에 업로드하고 file_url 매핑을 반환한다.
- * Promise.all 로 fan-out 하므로 한 장이라도 실패하면 전체가 reject 된다.
- *
- * @param {Record<string, Capture>} captures_obj  step_id → Capture
- * @returns {Promise<Record<string, string>>}     step_id → file_url
- * @throws {Error} presigned URL 누락, S3 PUT 실패, 또는 BE presigned 호출 실패 시
+ * @param {string} upload_url
+ * @returns {string}
  */
-export async function upload_captures_to_s3(captures_obj) {
-  const keys = Object.keys(captures_obj)
-  const presigned_map = await request_presigned_urls(keys)
+function get_uploaded_file_url(upload_url) {
+  return String(upload_url).split('?')[0]
+}
 
+/**
+ * @param {Record<string, Capture>} captures_obj
+ * @param {string} key
+ * @returns {boolean}
+ */
+function has_capture(captures_obj, key) {
+  return Boolean(captures_obj[key]?.blob)
+}
+
+/**
+ * @param {TestFileType} type
+ * @returns {{ front: string, left: string, right: string }}
+ */
+function get_capture_key_map(type) {
+  if (type === 'bare') {
+    return {
+      front: 'front_no_glasses',
+      left: 'left_no_glasses',
+      right: 'right_no_glasses',
+    }
+  }
+
+  return {
+    front: 'front_glasses',
+    left: 'left_glasses',
+    right: 'right_glasses',
+  }
+}
+
+/**
+ * Upload one 3-photo capture group and return a step-id to uploaded-file-url map.
+ * @param {Record<string, Capture>} captures_obj
+ * @param {number} visit_no
+ * @param {TestFileType} type
+ * @returns {Promise<Record<string, string>>}
+ */
+async function upload_capture_group(captures_obj, visit_no, type) {
+  const capture_key_map = get_capture_key_map(type)
+  const front_capture = captures_obj[capture_key_map.front]
+  const left_capture = captures_obj[capture_key_map.left]
+  const right_capture = captures_obj[capture_key_map.right]
+
+  if (!front_capture || !left_capture || !right_capture) {
+    throw new Error(`${type} capture set requires front/left/right images.`)
+  }
+
+  const presigned = await request_presigned_urls(visit_no, type)
+
+  await Promise.all([
+    upload_blob_to_s3(presigned.front_url, front_capture.blob),
+    upload_blob_to_s3(presigned.left_url, left_capture.blob),
+    upload_blob_to_s3(presigned.right_url, right_capture.blob),
+  ])
+
+  return {
+    [capture_key_map.front]: get_uploaded_file_url(presigned.front_url),
+    [capture_key_map.left]: get_uploaded_file_url(presigned.left_url),
+    [capture_key_map.right]: get_uploaded_file_url(presigned.right_url),
+  }
+}
+
+/**
+ * Upload all captured face-analysis photos to S3 and return a step-id to file-url map.
+ * Supports one bare group, one glasses group, or both.
+ * @param {Record<string, Capture>} captures_obj
+ * @param {number} visit_no
+ * @returns {Promise<Record<string, string>>}
+ */
+export async function upload_captures_to_s3(captures_obj, visit_no) {
   /** @type {Record<string, string>} */
   const file_url_map = {}
-  await Promise.all(
-    keys.map(async (key) => {
-      const presigned = presigned_map[key]
-      if (!presigned) {
-        throw new Error(`'${key}' presigned URL 누락`)
-      }
-      await upload_blob_to_s3(presigned.upload_url, captures_obj[key].blob)
-      file_url_map[key] = presigned.file_url
-    }),
-  )
+
+  if (
+    has_capture(captures_obj, 'front_no_glasses') ||
+    has_capture(captures_obj, 'left_no_glasses') ||
+    has_capture(captures_obj, 'right_no_glasses')
+  ) {
+    Object.assign(file_url_map, await upload_capture_group(captures_obj, visit_no, 'bare'))
+  }
+
+  if (
+    has_capture(captures_obj, 'front_glasses') ||
+    has_capture(captures_obj, 'left_glasses') ||
+    has_capture(captures_obj, 'right_glasses')
+  ) {
+    Object.assign(file_url_map, await upload_capture_group(captures_obj, visit_no, 'glasses'))
+  }
+
   return file_url_map
 }
 
 /**
- * 얼굴 측정 결과를 BE 에 저장한다.
- * BE 스키마: BE/app/modules/analysis/schemas.py 의 FaceAnalysisRequest
- *  - main_file:    정면 사진 URL (필수)
- *  - test_file_arr: 측정 사진 URL 배열
- *  - test_json:    측정값 + 평가 + 메타 dict
- *
- * @param {number} visit_no  방문 ID (URL path 매개변수)
+ * Save face-analysis metadata to the visit.
+ * @param {number} visit_no
  * @param {{ main_file: string, test_file_arr: string[], test_json: Record<string, unknown> }} body
- * @returns {Promise<{ visit_no: number, [k: string]: any }>}  저장된 방문 정보
- * @throws {Error} BE 가 비-2xx 응답을 주거나 검증 실패 시
+ * @returns {Promise<{ visit_no: number, [k: string]: any }>}
  */
 export async function save_face_analysis(visit_no, body) {
-  return apiRequest(`/visits/${visit_no}/face`, {
+  return apiRequest(`/api/v1/visits/${visit_no}/face`, {
     method: 'POST',
+    headers: get_session_auth_headers(),
     body,
   })
 }

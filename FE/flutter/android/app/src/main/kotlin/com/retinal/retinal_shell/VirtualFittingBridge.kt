@@ -62,14 +62,32 @@ class VirtualFittingBridge(context: Context) {
     private fun handleLaunch(call: MethodCall, result: MethodChannel.Result) {
         val productId = call.argument<String>("productId")
         val assetPath = call.argument<String>("assetPath")
+        val modelUrl = call.argument<String>("modelUrl")
+        val cacheKey = call.argument<String>("cacheKey")
 
-        if (productId.isNullOrBlank() || assetPath.isNullOrBlank()) {
+        if (productId.isNullOrBlank()) {
             result.error(
                 "INVALID_ARGUMENT",
-                "productId and assetPath are required",
-                mapOf("productId" to productId, "assetPath" to assetPath),
+                "productId is required",
+                mapOf("productId" to productId),
             )
             return
+        }
+
+        val assetSource = when {
+            !assetPath.isNullOrBlank() -> AssetSource.LocalAsset(assetPath = assetPath)
+            !modelUrl.isNullOrBlank() -> AssetSource.RemoteModel(
+                modelUrl = modelUrl,
+                cacheKey = cacheKey?.takeIf { it.isNotBlank() } ?: productId,
+            )
+            else -> {
+                result.error(
+                    "INVALID_ARGUMENT",
+                    "Either assetPath or modelUrl is required",
+                    mapOf("productId" to productId, "assetPath" to assetPath, "modelUrl" to modelUrl),
+                )
+                return
+            }
         }
 
         val productName = call.argument<String>("productName") ?: productId
@@ -81,7 +99,7 @@ class VirtualFittingBridge(context: Context) {
         val request = VirtualFittingRequest(
             session = SessionRef(sessionId = "session-shell", requestId = requestId),
             product = ProductRef(productId = productId, productName = productName),
-            asset = AssetSource.LocalAsset(assetPath = assetPath),
+            asset = assetSource,
         )
 
         currentTicket = launcher.launch(request) { event -> sendEvent(event) }

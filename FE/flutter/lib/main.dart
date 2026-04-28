@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -41,6 +42,9 @@ class WebShellPage extends StatefulWidget {
 }
 
 class _WebShellPageState extends State<WebShellPage> {
+  static const _bridge_channel_name = 'RetinalFlutterBridgeChannel';
+  static const _flutter_event_name = 'retinal:flutter_event';
+
   late final WebViewController _controller;
   var _loadingProgress = 0;
   String? _loadError;
@@ -54,6 +58,7 @@ class _WebShellPageState extends State<WebShellPage> {
     _arEventSub = VirtualFittingChannel.events.listen((event) {
       // ignore: avoid_print
       print('[AR] $event');
+      unawaited(_broadcast_ar_event(event));
       if (mounted) {
         setState(() => _lastArEvent = '${event.event}: ${event.data}');
       }
@@ -67,6 +72,12 @@ class _WebShellPageState extends State<WebShellPage> {
           )
           ..setJavaScriptMode(JavaScriptMode.unrestricted)
           ..setBackgroundColor(Colors.white)
+          ..addJavaScriptChannel(
+            _bridge_channel_name,
+            onMessageReceived: (message) {
+              unawaited(_handle_bridge_message(message.message));
+            },
+          )
           ..setNavigationDelegate(
             NavigationDelegate(
               onProgress: (progress) {
@@ -78,6 +89,9 @@ class _WebShellPageState extends State<WebShellPage> {
                 if (mounted) {
                   setState(() => _loadError = null);
                 }
+              },
+              onPageFinished: (_) {
+                unawaited(_install_flutter_bridge());
               },
               onWebResourceError: (error) {
                 if (error.isForMainFrame == true && mounted) {
@@ -93,6 +107,160 @@ class _WebShellPageState extends State<WebShellPage> {
   void dispose() {
     _arEventSub?.cancel();
     super.dispose();
+  }
+
+  // WebView 안의 Svelte 앱이 Promise 기반으로 호출할 Flutter 브리지를 주입한다.
+  Future<void> _install_flutter_bridge() async {
+    await _controller.runJavaScript('''
+      (() => {
+        const g_pending_request_map_obj = new Map()
+
+        window.__retinal_flutter_bridge__ = {
+          is_ready: true,
+          invoke(method_name, params_obj = {}) {
+            return new Promise((resolve, reject) => {
+              const local_request_id =
+                (globalThis.crypto?.randomUUID?.() ?? 'req-' + Date.now() + '-' + Math.random())
+
+              g_pending_request_map_obj.set(local_request_id, { resolve, reject })
+
+              ${_bridge_channel_name}.postMessage(
+                JSON.stringify({
+                  request_id: local_request_id,
+                  method: method_name,
+                  params: params_obj,
+                }),
+              )
+            })
+          },
+          resolve_request(request_id, payload_obj) {
+            const local_pending_obj = g_pending_request_map_obj.get(request_id)
+            if (!local_pending_obj) return
+            g_pending_request_map_obj.delete(request_id)
+            local_pending_obj.resolve(payload_obj?.result ?? null)
+          },
+          reject_request(request_id, payload_obj) {
+            const local_pending_obj = g_pending_request_map_obj.get(request_id)
+            if (!local_pending_obj) return
+            g_pending_request_map_obj.delete(request_id)
+            local_pending_obj.reject(new Error(payload_obj?.message ?? 'Flutter bridge error'))
+          },
+        }
+      })()
+    ''');
+  }
+
+  // JS 채널 요청을 기존 VirtualFittingChannel 메서드로 연결한다.
+  Future<void> _handle_bridge_message(String raw_message) async {
+    String local_request_id = '';
+
+    try {
+      final local_payload_obj = jsonDecode(raw_message) as Map<String, dynamic>;
+      local_request_id = local_payload_obj['request_id'] as String? ?? '';
+      final local_method_name = local_payload_obj['method'] as String? ?? '';
+      final local_params_obj =
+          Map<String, dynamic>.from(local_payload_obj['params'] as Map? ?? const {});
+
+      switch (local_method_name) {
+        case 'checkAvailability':
+          final local_availability = await VirtualFittingChannel.checkAvailability();
+          await _send_bridge_success(
+            request_id: local_request_id,
+            result: local_availability,
+          );
+          break;
+        case 'launch':
+          final local_launch_request_id = await VirtualFittingChannel.launch(
+            productId: local_params_obj['productId'] as String? ?? '',
+            productName: local_params_obj['productName'] as String? ?? '',
+            assetPath: local_params_obj['assetPath'] as String? ?? '',
+            modelUrl: local_params_obj['modelUrl'] as String? ?? '',
+            cacheKey: local_params_obj['cacheKey'] as String? ?? '',
+          );
+          await _send_bridge_success(
+            request_id: local_request_id,
+            result: local_launch_request_id,
+          );
+          break;
+        case 'cancel':
+          await VirtualFittingChannel.cancel();
+          await _send_bridge_success(
+            request_id: local_request_id,
+            result: null,
+          );
+          break;
+        default:
+          await _send_bridge_error(
+            request_id: local_request_id,
+            message: 'Unsupported bridge method: $local_method_name',
+          );
+      }
+    } catch (local_error) {
+      await _send_bridge_error(
+        request_id: local_request_id,
+        message: local_error.toString(),
+      );
+    }
+  }
+
+  // Flutter 처리 결과를 WebView Promise resolve 로 돌려준다.
+  Future<void> _send_bridge_success({
+    required String request_id,
+    required Object? result,
+  }) async {
+    if (request_id.isEmpty) {
+      return;
+    }
+
+    final local_payload_text = jsonEncode({
+      'result': result,
+    });
+
+    await _controller.runJavaScript('''
+      window.__retinal_flutter_bridge__?.resolve_request(
+        ${jsonEncode(request_id)},
+        $local_payload_text,
+      )
+    ''');
+  }
+
+  // Flutter 처리 오류를 WebView Promise reject 로 돌려준다.
+  Future<void> _send_bridge_error({
+    required String request_id,
+    required String message,
+  }) async {
+    if (request_id.isEmpty) {
+      return;
+    }
+
+    final local_payload_text = jsonEncode({
+      'message': message,
+    });
+
+    await _controller.runJavaScript('''
+      window.__retinal_flutter_bridge__?.reject_request(
+        ${jsonEncode(request_id)},
+        $local_payload_text,
+      )
+    ''');
+  }
+
+  // Native AR 이벤트를 DOM CustomEvent 로 브로드캐스트해 Svelte 에서 구독하게 한다.
+  Future<void> _broadcast_ar_event(VirtualFittingEvent event) async {
+    final local_payload_text = jsonEncode({
+      'requestId': event.requestId,
+      'event': event.event,
+      'data': event.data,
+    });
+
+    await _controller.runJavaScript('''
+      window.dispatchEvent(
+        new CustomEvent(
+          ${jsonEncode(_flutter_event_name)},
+          { detail: $local_payload_text },
+        ),
+      )
+    ''');
   }
 
   Future<void> _launchArDebug() async {
