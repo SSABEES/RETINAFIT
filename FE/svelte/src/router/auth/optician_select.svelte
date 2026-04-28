@@ -1,6 +1,6 @@
 <script>
   import { navigate } from '@maks11060/svelte5-router'
-  import { ArrowLeft, ChevronLeft, ChevronRight, UserRound } from 'lucide-svelte'
+  import { ChevronLeft, ChevronRight, UserRound } from 'lucide-svelte'
   import { PATH } from '@/config/path'
   import { admin_arr, selected_opt_store_obj, set_selected_admin } from '@/lib/stores/admin'
 
@@ -24,11 +24,6 @@
   function on_click_select_optician(optician_obj) {
     set_selected_admin(optician_obj)
     navigate(PATH.users)
-  }
-
-  // 안경점 선택 화면으로 돌아간다.
-  function on_click_back_store_select() {
-    navigate(PATH.storeSelect)
   }
 
   // 안경사 목록을 이전 페이지로 이동한다.
@@ -77,16 +72,7 @@
         aria-label="안경사 목록"
       >
         <div class="mb-5 grid min-h-11 grid-cols-[1fr_auto_1fr] items-center gap-4">
-          <div class="flex justify-start">
-            <button
-              class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-white/14 bg-white/10 px-4 text-sm font-extrabold text-white transition hover:bg-white/16 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-white/60"
-              type="button"
-              onclick={on_click_back_store_select}
-            >
-              <ArrowLeft size={18} strokeWidth={2.4} aria-hidden="true" />
-              <span>안경점 선택</span>
-            </button>
-          </div>
+          <div></div>
 
           <div class="min-w-0">
             {#if $selected_opt_store_obj}
