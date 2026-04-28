@@ -51,7 +51,7 @@ FE/svelte/public/mediapipe/wasm/
 ################################
 # Local design docs (not pushed)
 ################################
-FE/svelte/docs/superpowers/
+FE/svelte/docs/*
 
 ################################
 # AI data
