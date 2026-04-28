@@ -60,6 +60,9 @@
   let g_flutter_availability = $state('UNKNOWN')
   let g_flutter_event_text = $state('')
   let g_flutter_launch_loading = $state(false)
+  // Native AR 다녀온 후 WEB 카메라 stream 이 죽어 있는 경우 재시작 트리거.
+  // active 를 false → true 로 토글하면 camera_view 의 $effect 가 cleanup → re-init 한다.
+  let g_camera_active = $state(true)
   /** @type {{ trigger_capture: () => Promise<boolean>, reset: () => void } | null} */
   let ref_this_camera = $state(null)
 
@@ -166,12 +169,7 @@
       !g_flutter_launch_loading,
   )
 
-  $effect(() => {
-    if (g_glasses_arr.length > 0 && !g_glasses_arr.find((g) => g.id === g_selected_id)) {
-      g_selected_id = g_glasses_arr[0].id
-      g_capture_slot_arr = [null, null, null]
-    }
-  })
+  // 자동 선택 제거 — 사용자가 명시적으로 안경 카드를 클릭해야 g_selected_id 가 설정된다.
 
   onMount(() => {
     g_show_intro = true
@@ -200,6 +198,15 @@
       const local_data_text = JSON.stringify(local_event_obj?.data ?? {})
 
       g_flutter_event_text = `${local_event_name}: ${local_data_text}`
+
+      // Native AR 종료 → WEB 카메라 stream 복구.
+      // 토글로 camera_view 의 $effect 가 cleanup → on_start_camera 다시 호출하게 함.
+      if (local_event_name === 'closed') {
+        g_camera_active = false
+        setTimeout(() => {
+          g_camera_active = true
+        }, 200)
+      }
     })
 
     get_all_glasses()
@@ -207,7 +214,7 @@
         const local_normalized_glass_arr = normalize_glasses_arr(local_glass_arr)
         g_all_glasses_arr = local_normalized_glass_arr
         g_recommended_arr = local_normalized_glass_arr.slice(0, 5)
-        g_selected_id = g_recommended_arr[0]?.id ?? null
+        // 자동 선택 제거 — 사용자가 직접 카드를 클릭해야 한다.
       })
       .catch(() => {
         g_all_glasses_arr = []
@@ -228,16 +235,18 @@
    * 이미 5개를 채웠다면 토스트 경고 후 차단
    */
   function on_click_select_glasses(id) {
-    if (id === g_selected_id) return
     if (g_saved_fittings_arr.length >= MAX_FITTINGS) {
       show_toast(
         `피팅은 최대 ${MAX_FITTINGS}개까지만 저장할 수 있습니다. 저장된 피팅을 취소한 뒤 다시 시도하세요.`,
       )
       return
     }
-    clear_capture_slot_arr()
-    g_selected_id = id
-    ref_this_camera?.reset()
+    // 다른 안경으로 변경할 때만 캡쳐 슬롯/카메라 리셋. 같은 카드 재클릭은 AR 재진입만 허용.
+    if (id !== g_selected_id) {
+      clear_capture_slot_arr()
+      g_selected_id = id
+      ref_this_camera?.reset()
+    }
 
     const local_glasses_obj =
       g_glasses_arr.find((local_item_obj) => local_item_obj.id === id) ?? null
@@ -656,7 +665,7 @@
       <div class="absolute inset-0 overflow-hidden rounded-[2.5rem] border-[16px] border-white/5">
         <CameraView
           bind:this={ref_this_camera}
-          active={true}
+          active={g_camera_active}
           pose_target={g_camera_pose_target}
           capture_mode="manual"
           show_overlay={false}
@@ -684,20 +693,8 @@
 
       {#if g_next_slot_idx !== -1}
         <div class="absolute bottom-10 left-1/2 flex -translate-x-1/2 flex-col items-center gap-4">
-          {#if g_flutter_bridge_ready}
-            <button
-              type="button"
-              onclick={on_click_launch_flutter_fitting}
-              disabled={!g_can_launch_flutter_fitting}
-              class="rounded-full border border-white/20 bg-black/50 px-4 py-2 text-xs font-bold text-white backdrop-blur-md transition hover:bg-black/65 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {#if g_flutter_launch_loading}
-                Flutter AR 실행 중...
-              {:else}
-                Flutter AR 피팅 열기
-              {/if}
-            </button>
-          {/if}
+          <!-- "Flutter AR 피팅 열기" 버튼 제거 — 우측 안경 카드 클릭이 AR 트리거로 동작함 -->
+
           <p class="rounded-full bg-black/40 px-4 py-1 font-medium text-white/80 backdrop-blur-md">
             {SLOT_LABEL_ARR[g_next_slot_idx]} 각도를 촬영해주세요
           </p>
