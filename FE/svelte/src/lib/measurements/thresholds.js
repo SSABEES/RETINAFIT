@@ -19,6 +19,10 @@ export const EAR_HEIGHT_DIFF_THRESHOLD_MM = 4.0
 
 // === MOCK: 가이드북 미정의 ===
 
+// OH(Optical Height) 좌우 차 — 1mm 이상이면 좌우 동공 높이 처방 보정 권장.
+// 일반 안경학 표준 placeholder. 매장 매뉴얼 확정 시 GUIDEBOOK 으로 승격.
+export const OH_DIFF_THRESHOLD_MM = 1.0
+
 // 비대칭 IoU 점수 매핑 — IOU_FLOOR 이하면 0점, IOU_CEIL 이상이면 100점.
 // 일반인 자연 비대칭은 IoU 0.92~0.97 → 49~85점 범위.
 export const ASYMMETRY_IOU_FLOOR = 0.85
@@ -49,8 +53,9 @@ export const THRESHOLD_SOURCE = Object.freeze({
   MOCK: 'MOCK',
 })
 
-/** @typedef {'MONO_PD_DIFF_HIGH' | 'EAR_HEIGHT_DIFF_HIGH'} WarningCode */
+/** @typedef {'MONO_PD_DIFF_HIGH' | 'EAR_HEIGHT_DIFF_HIGH' | 'OH_DIFF_HIGH'} WarningCode */
 export const WARNING_CODE = Object.freeze({
   MONO_PD_DIFF_HIGH: 'MONO_PD_DIFF_HIGH',
   EAR_HEIGHT_DIFF_HIGH: 'EAR_HEIGHT_DIFF_HIGH',
+  OH_DIFF_HIGH: 'OH_DIFF_HIGH',
 })

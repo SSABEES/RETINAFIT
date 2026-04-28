@@ -21,6 +21,7 @@
 
 import {
   MONO_PD_DIFF_THRESHOLD_MM,
+  OH_DIFF_THRESHOLD_MM,
   THRESHOLD_SOURCE,
   WARNING_CODE,
 } from './thresholds.js'
@@ -127,6 +128,27 @@ export function compute_evaluations(measurements_obj) {
       depends_on: ['right_pd', 'left_pd'],
       threshold_source: THRESHOLD_SOURCE.GUIDEBOOK,
       warning_code: flagged ? WARNING_CODE.MONO_PD_DIFF_HIGH : null,
+      raw_value: diff,
+    }
+  }
+
+  // OH(Optical Height) 좌우 차 — MOCK 임계값 1mm.
+  // 좌·우 OH 가 모두 mm 값으로 들어와 있어야 평가 (scale 보유 + 두 점 측정 완료).
+  const right_oh_mm = measurements_obj.right_oh?.value_mm
+  const left_oh_mm = measurements_obj.left_oh?.value_mm
+  if (right_oh_mm !== null && right_oh_mm !== undefined && left_oh_mm !== null && left_oh_mm !== undefined) {
+    const diff = Math.abs(right_oh_mm - left_oh_mm)
+    const flagged = diff >= OH_DIFF_THRESHOLD_MM
+    result.oh_diff = {
+      key: 'oh_diff',
+      label: 'OH 좌우 차',
+      value_text: flagged
+        ? `${diff.toFixed(1)} mm (좌우 차이 큼)`
+        : `${diff.toFixed(1)} mm`,
+      tone: flagged ? 'amber' : 'emerald',
+      depends_on: ['right_oh', 'left_oh'],
+      threshold_source: THRESHOLD_SOURCE.MOCK,
+      warning_code: flagged ? WARNING_CODE.OH_DIFF_HIGH : null,
       raw_value: diff,
     }
   }
