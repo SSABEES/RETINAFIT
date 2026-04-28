@@ -8,10 +8,8 @@
   const ADMIN_AUTH_STORAGE_KEY = 'retinal_admin_authenticated'
   // 관리자 자격증명은 .env 의 VITE_ADMIN_ID / VITE_ADMIN_PASSWORD 로 주입한다.
   // 개발 편의를 위해 DEV 모드 한정 fallback 을 두고, PROD 에선 누락 시 빈 값이 되어 로그인 자체가 실패한다.
-  const ADMIN_ID =
-    import.meta.env.VITE_ADMIN_ID ?? (import.meta.env.DEV ? 'retinai1' : '')
-  const ADMIN_PASSWORD =
-    import.meta.env.VITE_ADMIN_PASSWORD ?? (import.meta.env.DEV ? '1234' : '')
+  const ADMIN_ID = import.meta.env.VITE_ADMIN_ID ?? (import.meta.env.DEV ? 'retinai1' : '')
+  const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD ?? (import.meta.env.DEV ? '1234' : '')
 
   if (!ADMIN_ID || !ADMIN_PASSWORD) {
     if (import.meta.env.DEV) {
@@ -19,9 +17,7 @@
         '[admin] VITE_ADMIN_ID / VITE_ADMIN_PASSWORD 환경변수가 비어 있습니다. 개발 기본값으로 동작합니다.',
       )
     } else {
-      console.error(
-        '[admin] 관리자 자격증명 환경변수가 누락되어 로그인이 비활성화됩니다.',
-      )
+      console.error('[admin] 관리자 자격증명 환경변수가 누락되어 로그인이 비활성화됩니다.')
     }
   }
 
@@ -115,9 +111,13 @@
 {#if !g_is_authenticated}
   <main class="app-frame-page overflow-hidden bg-[var(--retinal-page)] text-[var(--retinal-text)]">
     <section class="grid h-full place-items-center px-8 py-10">
-      <section class="w-full max-w-[460px] rounded-[28px] border border-[#EFE7F2] bg-white p-8 shadow-sm shadow-slate-200/50">
+      <section
+        class="w-full max-w-[460px] rounded-[28px] border border-[#EFE7F2] bg-white p-8 shadow-sm shadow-slate-200/50"
+      >
         <div class="mb-8 text-left">
-          <p class="m-0 text-sm font-extrabold uppercase tracking-[0.18em] text-[var(--retinal-text-muted)]">
+          <p
+            class="m-0 text-sm font-extrabold uppercase tracking-[0.18em] text-[var(--retinal-text-muted)]"
+          >
             RETINAL ADMIN
           </p>
           <h1 class="mt-3 mb-0 text-[1.9rem] font-extrabold tracking-[-0.02em] text-zinc-950">
@@ -164,7 +164,9 @@
     </section>
   </main>
 {:else}
-  <main class="app-frame-page relative overflow-hidden bg-[var(--retinal-page)] text-[var(--retinal-text)]">
+  <main
+    class="app-frame-page relative overflow-hidden bg-[var(--retinal-page)] text-[var(--retinal-text)]"
+  >
     <div class="absolute top-6 left-8 right-8 z-20 flex items-start justify-between gap-6">
       <button
         class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)] hover:bg-[var(--retinal-soft-purple)]"
@@ -175,8 +177,12 @@
         <span>로그아웃</span>
       </button>
 
-      <div class="relative w-[240px] rounded-2xl border border-[var(--retinal-border)] bg-white px-4 py-3 shadow-sm shadow-slate-200/40">
-        <p class="mb-2 block text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--retinal-text-muted)]">
+      <div
+        class="relative w-[240px] rounded-2xl border border-[var(--retinal-border)] bg-white px-4 py-3 shadow-sm shadow-slate-200/40"
+      >
+        <p
+          class="mb-2 block text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--retinal-text-muted)]"
+        >
           현재 페이지
         </p>
 
@@ -187,7 +193,10 @@
           aria-expanded={g_admin_page_dropdown_open}
           onclick={on_click_toggle_admin_page_dropdown}
         >
-          <span>{g_admin_page_arr.find((admin_page_obj) => admin_page_obj.key === active_key)?.label}</span>
+          <span
+            >{g_admin_page_arr.find((admin_page_obj) => admin_page_obj.key === active_key)
+              ?.label}</span
+          >
           <ChevronDown
             size={18}
             strokeWidth={2.4}

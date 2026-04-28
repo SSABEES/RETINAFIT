@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte'
+  import { SvelteSet } from 'svelte/reactivity'
   import { Plus, Save, Trash2 } from 'lucide-svelte'
   import AdminLayout from '@/router/auth/admin/admin_layout.svelte'
   import {
@@ -87,7 +88,7 @@
       const local_criteria_arr = await get_fitting_criteria_arr()
       const local_matrix_obj = {}
       const local_extra_arr = []
-      const local_shape_key_set = new Set()
+      const local_shape_key_set = new SvelteSet()
 
       // 사용자가 이번 세션에 추가했지만 아직 저장 전인 얼굴형도 유지한다.
       for (const shape_obj of g_face_shape_arr) {
@@ -139,7 +140,9 @@
       g_extra_criteria_arr = local_extra_arr
     } catch (local_error) {
       const local_message =
-        local_error instanceof Error ? local_error.message : '판단 기준 조회 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '판단 기준 조회 중 오류가 발생했습니다.'
       show_toast(local_message, 'error')
     } finally {
       g_is_loading = false
@@ -248,7 +251,9 @@
       await load_criteria_arr()
     } catch (local_error) {
       const local_message =
-        local_error instanceof Error ? local_error.message : '판단 기준 저장 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '판단 기준 저장 중 오류가 발생했습니다.'
       show_toast(local_message, 'error')
     } finally {
       g_saving_shape_key = ''
@@ -259,7 +264,8 @@
   async function on_click_delete_face_shape(shape_obj) {
     const local_delete_no_arr = []
     for (const measurement_obj of MEASUREMENT_ARR) {
-      const local_cell_obj = g_criteria_matrix_obj[get_criteria_key(shape_obj.key, measurement_obj.key)]
+      const local_cell_obj =
+        g_criteria_matrix_obj[get_criteria_key(shape_obj.key, measurement_obj.key)]
       if (local_cell_obj?.criteria_no) {
         local_delete_no_arr.push(local_cell_obj.criteria_no)
       }
@@ -272,7 +278,9 @@
         )
       }
 
-      g_face_shape_arr = g_face_shape_arr.filter((local_shape_obj) => local_shape_obj.key !== shape_obj.key)
+      g_face_shape_arr = g_face_shape_arr.filter(
+        (local_shape_obj) => local_shape_obj.key !== shape_obj.key,
+      )
       const local_next_matrix_obj = { ...g_criteria_matrix_obj }
       for (const measurement_obj of MEASUREMENT_ARR) {
         delete local_next_matrix_obj[get_criteria_key(shape_obj.key, measurement_obj.key)]
@@ -296,7 +304,9 @@
       await load_criteria_arr()
     } catch (local_error) {
       const local_message =
-        local_error instanceof Error ? local_error.message : '판단 기준 삭제 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '판단 기준 삭제 중 오류가 발생했습니다.'
       show_toast(local_message, 'error')
     }
   }
@@ -320,7 +330,9 @@
       </div>
     {/if}
 
-    <h2 class="m-0 justify-self-start text-left text-2xl font-extrabold text-zinc-950">얼굴형 기준 설정</h2>
+    <h2 class="m-0 justify-self-start text-left text-2xl font-extrabold text-zinc-950">
+      얼굴형 기준 설정
+    </h2>
 
     <form
       class="grid gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm shadow-slate-200/50 md:grid-cols-[1fr_220px_auto]"
@@ -358,22 +370,30 @@
     </form>
 
     {#if g_is_loading}
-      <div class="rounded-2xl border border-slate-200 bg-white px-8 py-10 text-center text-base font-bold text-slate-500 shadow-sm shadow-slate-200/50">
+      <div
+        class="rounded-2xl border border-slate-200 bg-white px-8 py-10 text-center text-base font-bold text-slate-500 shadow-sm shadow-slate-200/50"
+      >
         판단 기준을 불러오는 중입니다.
       </div>
     {:else if g_face_shape_arr.length === 0}
-      <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-8 py-12 text-center text-sm font-bold text-slate-500 shadow-sm shadow-slate-200/50">
+      <div
+        class="rounded-2xl border border-dashed border-slate-200 bg-white px-8 py-12 text-center text-sm font-bold text-slate-500 shadow-sm shadow-slate-200/50"
+      >
         등록된 얼굴형이 없습니다. 위에서 [얼굴형 추가]로 항목을 등록해 주세요.
       </div>
     {:else}
       <div class="grid gap-6">
         {#each g_face_shape_arr as shape_obj (shape_obj.key)}
-          <section class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50">
+          <section
+            class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
+          >
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div class="flex items-center gap-3">
                 <h3 class="m-0 text-2xl font-extrabold text-zinc-950">{shape_obj.key}</h3>
                 {#if shape_obj.en}
-                  <span class="rounded-full bg-[#F5EAF7] px-3 py-1 text-xs font-extrabold text-[#4B0055]">
+                  <span
+                    class="rounded-full bg-[#F5EAF7] px-3 py-1 text-xs font-extrabold text-[#4B0055]"
+                  >
                     {shape_obj.en}
                   </span>
                 {/if}
@@ -417,7 +437,9 @@
                             step="0.01"
                             bind:value={g_criteria_matrix_obj[cell_key].lower_bound}
                           />
-                          <span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
+                          <span
+                            class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400"
+                          >
                             {measurement_obj.unit}
                           </span>
                         </span>
@@ -432,7 +454,9 @@
                             step="0.01"
                             bind:value={g_criteria_matrix_obj[cell_key].upper_bound}
                           />
-                          <span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
+                          <span
+                            class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400"
+                          >
                             {measurement_obj.unit}
                           </span>
                         </span>
@@ -446,19 +470,26 @@
         {/each}
 
         {#if g_extra_criteria_arr.length > 0}
-          <section class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50">
+          <section
+            class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
+          >
             <div>
               <h3 class="m-0 text-xl font-extrabold text-zinc-950">기타 기준</h3>
               <p class="mt-2 mb-0 text-sm font-semibold text-slate-500">
-                위 매트릭스 형식에 속하지 않는 기존 데이터입니다. 필요 없는 항목은 삭제할 수 있습니다.
+                위 매트릭스 형식에 속하지 않는 기존 데이터입니다. 필요 없는 항목은 삭제할 수
+                있습니다.
               </p>
             </div>
 
             <div class="mt-6 grid gap-3">
               {#each g_extra_criteria_arr as criteria_obj (criteria_obj.criteria_no)}
-                <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E9E8F0] bg-[#FAFBFC] px-5 py-4">
+                <div
+                  class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E9E8F0] bg-[#FAFBFC] px-5 py-4"
+                >
                   <div class="grid gap-1">
-                    <span class="text-sm font-extrabold text-zinc-950">{criteria_obj.criteria_label}</span>
+                    <span class="text-sm font-extrabold text-zinc-950"
+                      >{criteria_obj.criteria_label}</span
+                    >
                     <span class="text-xs font-bold text-slate-500">
                       {criteria_obj.range_type} · {criteria_obj.lower_bound} ~ {criteria_obj.upper_bound}
                     </span>

@@ -15,8 +15,16 @@
 
   const g_glass_dropdown_arr = [
     { key: 'category', label: '카테고리', option_arr: ['안경', '선글라스', '스포츠'] },
-    { key: 'frame_style', label: '프레임 스타일', option_arr: ['풀프레임', '하프프레임', '무테프레임'] },
-    { key: 'frame_type', label: '프레임 타입', option_arr: ['뿔테', '메탈', '합금테', '무테', '혼합'] },
+    {
+      key: 'frame_style',
+      label: '프레임 스타일',
+      option_arr: ['풀프레임', '하프프레임', '무테프레임'],
+    },
+    {
+      key: 'frame_type',
+      label: '프레임 타입',
+      option_arr: ['뿔테', '메탈', '합금테', '무테', '혼합'],
+    },
     { key: 'material', label: '소재', option_arr: ['아세테이트', '메탈', '티타늄', '혼합'] },
   ]
 
@@ -139,7 +147,9 @@
   let ref_glass_preview_override_url = $state('')
 
   let g_glass_preview_url = $derived(
-    ref_glass_preview_override_url || ref_glass_form_obj.glasses_img_url.trim() || g_glass_placeholder_image_url,
+    ref_glass_preview_override_url ||
+      ref_glass_form_obj.glasses_img_url.trim() ||
+      g_glass_placeholder_image_url,
   )
 
   onMount(() => {
@@ -267,11 +277,26 @@
       color: glass_obj.color ?? '',
       model_code: glass_obj.model_code ?? '',
       price: glass_obj.price ?? '',
-      frame_width: glass_obj.frame_width === null || glass_obj.frame_width === undefined ? '' : String(glass_obj.frame_width),
-      lens_width: glass_obj.lens_width === null || glass_obj.lens_width === undefined ? '' : String(glass_obj.lens_width),
-      bridge_width: glass_obj.bridge_width === null || glass_obj.bridge_width === undefined ? '' : String(glass_obj.bridge_width),
-      lens_height: glass_obj.lens_height === null || glass_obj.lens_height === undefined ? '' : String(glass_obj.lens_height),
-      temple_length: glass_obj.temple_length === null || glass_obj.temple_length === undefined ? '' : String(glass_obj.temple_length),
+      frame_width:
+        glass_obj.frame_width === null || glass_obj.frame_width === undefined
+          ? ''
+          : String(glass_obj.frame_width),
+      lens_width:
+        glass_obj.lens_width === null || glass_obj.lens_width === undefined
+          ? ''
+          : String(glass_obj.lens_width),
+      bridge_width:
+        glass_obj.bridge_width === null || glass_obj.bridge_width === undefined
+          ? ''
+          : String(glass_obj.bridge_width),
+      lens_height:
+        glass_obj.lens_height === null || glass_obj.lens_height === undefined
+          ? ''
+          : String(glass_obj.lens_height),
+      temple_length:
+        glass_obj.temple_length === null || glass_obj.temple_length === undefined
+          ? ''
+          : String(glass_obj.temple_length),
       fit_note: glass_obj.fit_note ?? '',
     }
     ref_glass_saved_message = `${glass_obj.glasses_brand ?? ''} ${glass_obj.glasses_name ?? ''} 정보를 불러왔습니다.`
@@ -350,18 +375,24 @@
     <section class="grid gap-6">
       <div class="flex items-center justify-between gap-4">
         <h2 class="m-0 text-2xl font-extrabold text-zinc-950">안경 정보</h2>
-        <span class="rounded-full bg-[var(--retinal-soft-purple)] px-3 py-1 text-sm font-extrabold text-[var(--retinal-primary-700)]">
+        <span
+          class="rounded-full bg-[var(--retinal-soft-purple)] px-3 py-1 text-sm font-extrabold text-[var(--retinal-primary-700)]"
+        >
           총 {ref_glass_list_arr.length}개
         </span>
       </div>
 
       {#if ref_glass_error_message}
-        <p class="rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 text-left text-sm font-bold text-rose-700">
+        <p
+          class="rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 text-left text-sm font-bold text-rose-700"
+        >
           {ref_glass_error_message}
         </p>
       {/if}
 
-      <section class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50">
+      <section
+        class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
+      >
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <button
             class="grid aspect-[4/3] cursor-pointer place-items-center rounded-2xl border border-dashed border-[#D8C6E0] bg-[#FAF7FC] text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)] hover:bg-[#F8F1F8]"
@@ -369,13 +400,18 @@
             onclick={on_click_open_glass_create}
           >
             <div class="grid justify-items-center gap-3">
-              <span class="grid h-16 w-16 place-items-center rounded-full bg-white text-4xl font-light shadow-sm">+</span>
+              <span
+                class="grid h-16 w-16 place-items-center rounded-full bg-white text-4xl font-light shadow-sm"
+                >+</span
+              >
               <span class="text-base font-extrabold">안경 추가</span>
             </div>
           </button>
 
           {#if ref_glass_list_loading}
-            <div class="grid aspect-[4/3] place-items-center rounded-2xl border border-slate-200 bg-slate-50 px-6 text-center text-sm font-bold text-slate-500">
+            <div
+              class="grid aspect-[4/3] place-items-center rounded-2xl border border-slate-200 bg-slate-50 px-6 text-center text-sm font-bold text-slate-500"
+            >
               안경 목록을 불러오는 중입니다.
             </div>
           {/if}
@@ -396,13 +432,19 @@
               <div class="px-5 py-4">
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
-                    <p class="m-0 truncate text-lg font-extrabold text-zinc-950">{glass_obj.glasses_name}</p>
-                    <p class="mb-0 mt-2 truncate text-sm font-semibold text-slate-500">{glass_obj.glasses_brand}</p>
+                    <p class="m-0 truncate text-lg font-extrabold text-zinc-950">
+                      {glass_obj.glasses_name}
+                    </p>
+                    <p class="mb-0 mt-2 truncate text-sm font-semibold text-slate-500">
+                      {glass_obj.glasses_brand}
+                    </p>
                   </div>
 
                   <span
                     class={`shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold ${
-                      glass_obj.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                      glass_obj.is_active
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : 'bg-rose-50 text-rose-600'
                     }`}
                   >
                     {glass_obj.is_active ? '활성' : '비활성'}
@@ -459,20 +501,28 @@
       </div>
 
       {#if ref_glass_saved_message}
-        <p class="rounded-xl border border-[#D6BBFB] bg-[#F8F1FF] px-5 py-3 text-left text-base font-bold text-[#6B21A8]">
+        <p
+          class="rounded-xl border border-[#D6BBFB] bg-[#F8F1FF] px-5 py-3 text-left text-base font-bold text-[#6B21A8]"
+        >
           {ref_glass_saved_message}
         </p>
       {/if}
 
       {#if ref_glass_error_message}
-        <p class="rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 text-left text-base font-bold text-rose-700">
+        <p
+          class="rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 text-left text-base font-bold text-rose-700"
+        >
           {ref_glass_error_message}
         </p>
       {/if}
 
-      <section class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50">
+      <section
+        class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
+      >
         <div class="flex justify-end">
-          <div class="grid min-h-12 grid-cols-2 gap-2 rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] p-1">
+          <div
+            class="grid min-h-12 grid-cols-2 gap-2 rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] p-1"
+          >
             <button
               class={`cursor-pointer rounded-[10px] px-4 text-sm font-extrabold transition ${
                 ref_glass_form_obj.is_active
@@ -503,7 +553,9 @@
           <div class="grid content-start gap-2">
             <span class="text-sm font-extrabold text-slate-500">안경 대표 이미지 미리보기</span>
 
-            <div class="overflow-hidden rounded-2xl border border-dashed border-[#D8C6E0] bg-[#FAF7FC]">
+            <div
+              class="overflow-hidden rounded-2xl border border-dashed border-[#D8C6E0] bg-[#FAF7FC]"
+            >
               <div class="aspect-[4/3] bg-[linear-gradient(180deg,#F8F1F8_0%,#F3F4F6_100%)]">
                 <img
                   src={g_glass_preview_url}
@@ -522,7 +574,10 @@
                     onchange={on_change_glass_img_file}
                   />
                   <span class="text-xs font-semibold text-slate-400">
-                    {ref_glass_img_file_obj?.name ?? (ref_glass_form_obj.glasses_img_url ? '기존 이미지 사용 중' : '선택된 파일 없음')}
+                    {ref_glass_img_file_obj?.name ??
+                      (ref_glass_form_obj.glasses_img_url
+                        ? '기존 이미지 사용 중'
+                        : '선택된 파일 없음')}
                   </span>
                 </label>
 
@@ -535,7 +590,10 @@
                     onchange={on_change_glass_3d_file}
                   />
                   <span class="text-xs font-semibold text-slate-400">
-                    {ref_glass_3d_file_obj?.name ?? (ref_glass_form_obj.glasses_3d_url ? '기존 3D 파일 사용 중' : '선택된 파일 없음')}
+                    {ref_glass_3d_file_obj?.name ??
+                      (ref_glass_form_obj.glasses_3d_url
+                        ? '기존 3D 파일 사용 중'
+                        : '선택된 파일 없음')}
                   </span>
                 </label>
               </div>
@@ -585,8 +643,10 @@
                   </button>
 
                   {#if ref_open_glass_dropdown_key === dropdown_obj.key}
-                    <div class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retinal-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
-                      {#each dropdown_obj.option_arr as option_name}
+                    <div
+                      class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retinal-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                    >
+                      {#each dropdown_obj.option_arr as option_name (option_name)}
                         <button
                           class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                             ref_glass_form_obj[dropdown_obj.key] === option_name
@@ -594,7 +654,8 @@
                               : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retinal-primary-700)]'
                           }`}
                           type="button"
-                          onclick={() => on_click_select_glass_dropdown(dropdown_obj.key, option_name)}
+                          onclick={() =>
+                            on_click_select_glass_dropdown(dropdown_obj.key, option_name)}
                         >
                           {option_name}
                         </button>

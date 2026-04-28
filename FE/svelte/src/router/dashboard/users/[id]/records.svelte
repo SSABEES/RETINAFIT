@@ -81,7 +81,9 @@
       ref_visit_arr = normalize_visit_arr(local_report_visit_arr)
     } catch (local_error) {
       g_error_message =
-        local_error instanceof Error ? local_error.message : '방문 이력 조회 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '방문 이력 조회 중 오류가 발생했습니다.'
     }
   }
 
@@ -123,7 +125,10 @@
         </div>
 
         {#if g_error_message}
-          <p class="m-0 rounded-lg bg-red-50 px-5 py-4 text-base font-bold text-red-700" role="alert">
+          <p
+            class="m-0 rounded-lg bg-red-50 px-5 py-4 text-base font-bold text-red-700"
+            role="alert"
+          >
             {g_error_message}
           </p>
         {/if}

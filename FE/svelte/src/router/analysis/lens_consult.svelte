@@ -104,7 +104,8 @@
       })
   })
 
-  const is_selected = (group_key, option_id) => ref_selected_obj[group_key]?.includes(option_id) ?? false
+  const is_selected = (group_key, option_id) =>
+    ref_selected_obj[group_key]?.includes(option_id) ?? false
 
   let g_can_submit = $derived(
     Object.values(ref_selected_obj).some(
@@ -152,7 +153,9 @@
 </script>
 
 <main class="app-frame-page overflow-hidden bg-[#F7F8FA] text-zinc-950">
-  <header class="grid h-[74px] grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-white px-8">
+  <header
+    class="grid h-[74px] grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-white px-8"
+  >
     <div class="flex justify-start">
       <button
         class="inline-flex min-h-10 items-center gap-2 rounded-lg px-1 text-base font-bold text-slate-600 transition hover:text-[#4B0055] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#9A1BFF]/20"
@@ -167,10 +170,14 @@
     <div></div>
   </header>
 
-  <section class="h-[calc(100%-74px)] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+  <section
+    class="h-[calc(100%-74px)] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+  >
     <div class="mx-auto max-w-[1120px] px-8 pb-8 pt-8">
       <div class="mx-auto mb-8 max-w-[860px] rounded-[24px] bg-[#F3E8F5] px-12 py-7 text-center">
-        <p class="m-0 whitespace-nowrap text-[26px] font-extrabold leading-tight tracking-[-0.02em] text-[#4B0055]">
+        <p
+          class="m-0 whitespace-nowrap text-[26px] font-extrabold leading-tight tracking-[-0.02em] text-[#4B0055]"
+        >
           고객에게 맞는 렌즈와 사용 환경을 체크해 주세요.
         </p>
         <p class="m-0 mt-2 text-[17px] font-bold text-[#7B3F8A]">
@@ -180,21 +187,30 @@
 
       {#if g_options_loading}
         <div class="grid place-items-center py-24">
-          <span class="h-10 w-10 animate-spin rounded-full border-[3px] border-[#4B0055] border-t-transparent"></span>
+          <span
+            class="h-10 w-10 animate-spin rounded-full border-[3px] border-[#4B0055] border-t-transparent"
+          ></span>
         </div>
       {:else if g_options_error}
-        <p class="mx-auto max-w-[640px] rounded-2xl bg-red-50 px-6 py-5 text-center text-base font-bold text-red-600" role="alert">
+        <p
+          class="mx-auto max-w-[640px] rounded-2xl bg-red-50 px-6 py-5 text-center text-base font-bold text-red-600"
+          role="alert"
+        >
           {g_options_error}
         </p>
       {:else if g_option_group_arr.length === 0}
-        <p class="mx-auto max-w-[640px] rounded-2xl bg-slate-50 px-6 py-5 text-center text-base font-bold text-slate-500">
+        <p
+          class="mx-auto max-w-[640px] rounded-2xl bg-slate-50 px-6 py-5 text-center text-base font-bold text-slate-500"
+        >
           선택 가능한 옵션이 없습니다.
         </p>
       {:else}
         <div class="space-y-7">
           {#each g_option_group_arr as group_obj (group_obj.key)}
             <section>
-              <h2 class="mb-4 text-center text-[22px] font-extrabold tracking-[-0.02em] text-zinc-950">
+              <h2
+                class="mb-4 text-center text-[22px] font-extrabold tracking-[-0.02em] text-zinc-950"
+              >
                 {group_obj.label}
               </h2>
               <div class="mx-auto flex max-w-[760px] flex-wrap justify-center gap-4">
@@ -220,7 +236,10 @@
       {/if}
 
       {#if g_error}
-        <p class="mx-auto mt-8 max-w-[640px] rounded-2xl bg-red-50 px-6 py-5 text-center text-base font-bold text-red-600" role="alert">
+        <p
+          class="mx-auto mt-8 max-w-[640px] rounded-2xl bg-red-50 px-6 py-5 text-center text-base font-bold text-red-600"
+          role="alert"
+        >
           {g_error}
         </p>
       {/if}
@@ -233,7 +252,9 @@
           onclick={on_click_submit}
         >
           {#if g_loading}
-            <span class="h-6 w-6 animate-spin rounded-full border-[3px] border-white border-t-transparent"></span>
+            <span
+              class="h-6 w-6 animate-spin rounded-full border-[3px] border-white border-t-transparent"
+            ></span>
             <span>저장 중...</span>
           {:else}
             <Glasses size={25} aria-hidden="true" />

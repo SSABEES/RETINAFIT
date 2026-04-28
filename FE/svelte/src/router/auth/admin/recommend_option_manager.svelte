@@ -47,20 +47,25 @@
   let ref_drag_option_no = $state(null)
   let ref_drag_over_option_no = $state(null)
 
-  let g_category_name_map_obj = $derived(
-    Object.fromEntries(category_meta_arr.map((category_meta_obj) => [category_meta_obj.key, category_meta_obj.label])),
-  )
-
   let g_filtered_option_arr = $derived(
     ref_option_arr
-      .filter((option_obj) => category_meta_arr.some((category_meta_obj) => category_meta_obj.key === option_obj.option_category))
-      .sort((left_option_obj, right_option_obj) => left_option_obj.display_order - right_option_obj.display_order),
+      .filter((option_obj) =>
+        category_meta_arr.some(
+          (category_meta_obj) => category_meta_obj.key === option_obj.option_category,
+        ),
+      )
+      .sort(
+        (left_option_obj, right_option_obj) =>
+          left_option_obj.display_order - right_option_obj.display_order,
+      ),
   )
 
   let g_grouped_option_arr = $derived(
     category_meta_arr.map((category_meta_obj) => ({
       ...category_meta_obj,
-      option_arr: g_filtered_option_arr.filter((option_obj) => option_obj.option_category === category_meta_obj.key),
+      option_arr: g_filtered_option_arr.filter(
+        (option_obj) => option_obj.option_category === category_meta_obj.key,
+      ),
     })),
   )
 
@@ -100,7 +105,9 @@
       ref_option_arr = normalize_option_arr(Array.isArray(local_option_arr) ? local_option_arr : [])
     } catch (local_error) {
       g_error_message =
-        local_error instanceof Error ? local_error.message : '추천 옵션 조회 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '추천 옵션 조회 중 오류가 발생했습니다.'
       show_toast(g_error_message, 'error')
     } finally {
       g_is_loading = false
@@ -179,7 +186,9 @@
       await load_option_arr()
     } catch (local_error) {
       g_error_message =
-        local_error instanceof Error ? local_error.message : '추천 옵션 추가 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '추천 옵션 추가 중 오류가 발생했습니다.'
       show_toast(g_error_message, 'error')
     }
   }
@@ -207,7 +216,9 @@
       await load_option_arr()
     } catch (local_error) {
       g_error_message =
-        local_error instanceof Error ? local_error.message : '추천 옵션 수정 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '추천 옵션 수정 중 오류가 발생했습니다.'
       show_toast(g_error_message, 'error')
     }
   }
@@ -224,7 +235,9 @@
       await load_option_arr()
     } catch (local_error) {
       g_error_message =
-        local_error instanceof Error ? local_error.message : '추천 옵션 삭제 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '추천 옵션 삭제 중 오류가 발생했습니다.'
       show_toast(g_error_message, 'error')
     }
   }
@@ -262,7 +275,8 @@
     }
 
     const local_same_category_option_arr = g_filtered_option_arr.filter(
-      (filtered_option_obj) => filtered_option_obj.option_category === target_option_obj.option_category,
+      (filtered_option_obj) =>
+        filtered_option_obj.option_category === target_option_obj.option_category,
     )
     const local_drag_index = local_same_category_option_arr.findIndex(
       (filtered_option_obj) => filtered_option_obj.option_no === local_drag_option_no,
@@ -295,7 +309,9 @@
       await load_option_arr()
     } catch (local_error) {
       g_error_message =
-        local_error instanceof Error ? local_error.message : '표시 순서 변경 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '표시 순서 변경 중 오류가 발생했습니다.'
       show_toast(g_error_message, 'error')
     } finally {
       reset_drag_option_state()
@@ -356,8 +372,10 @@
             onclick={on_click_toggle_option_category_dropdown}
           >
             <span>
-              {category_meta_arr.find((category_meta_obj) => category_meta_obj.key === ref_option_form_obj.option_category)?.label
-                ?? '카테고리 선택'}
+              {category_meta_arr.find(
+                (category_meta_obj) =>
+                  category_meta_obj.key === ref_option_form_obj.option_category,
+              )?.label ?? '카테고리 선택'}
             </span>
             <ChevronDown
               size={18}
@@ -416,13 +434,17 @@
     </form>
 
     {#if g_is_loading}
-      <div class="rounded-2xl border border-slate-200 bg-white px-8 py-10 text-center text-base font-bold text-slate-500 shadow-sm shadow-slate-200/50">
+      <div
+        class="rounded-2xl border border-slate-200 bg-white px-8 py-10 text-center text-base font-bold text-slate-500 shadow-sm shadow-slate-200/50"
+      >
         추천 옵션을 불러오는 중입니다.
       </div>
     {:else}
       <div class="grid gap-6">
         {#each g_grouped_option_arr as category_group_obj (category_group_obj.key)}
-          <section class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50">
+          <section
+            class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
+          >
             <div class="flex items-center justify-between gap-4">
               <div>
                 <h3 class="m-0 text-xl font-extrabold text-zinc-950">{category_group_obj.label}</h3>
@@ -448,7 +470,9 @@
                     ondrop={() => on_drop_option(option_obj)}
                     ondragend={reset_drag_option_state}
                   >
-                    <div class="grid place-items-center self-stretch rounded-xl border border-[#EFE7F2] bg-white px-3 text-slate-400">
+                    <div
+                      class="grid place-items-center self-stretch rounded-xl border border-[#EFE7F2] bg-white px-3 text-slate-400"
+                    >
                       <GripVertical size={18} strokeWidth={2.2} aria-hidden="true" />
                     </div>
 
@@ -461,7 +485,9 @@
                     </div>
 
                     <label class="grid text-sm font-extrabold text-slate-500">
-                      <span class="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4">
+                      <span
+                        class="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4"
+                      >
                         <input
                           class="h-4 w-4 accent-[#4B0055]"
                           type="checkbox"
@@ -495,7 +521,9 @@
                 {/each}
               </div>
             {:else}
-              <div class="mt-6 rounded-2xl border border-dashed border-slate-200 bg-[#FAFBFC] px-6 py-8 text-center text-sm font-bold text-slate-500">
+              <div
+                class="mt-6 rounded-2xl border border-dashed border-slate-200 bg-[#FAFBFC] px-6 py-8 text-center text-sm font-bold text-slate-500"
+              >
                 등록된 추천 옵션이 없습니다.
               </div>
             {/if}

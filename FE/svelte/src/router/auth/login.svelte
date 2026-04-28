@@ -100,9 +100,7 @@
       navigate(PATH.storeSelect)
     } catch (local_error) {
       g_error_message =
-        local_error instanceof Error
-          ? local_error.message
-          : '로그인 처리 중 오류가 발생했습니다.'
+        local_error instanceof Error ? local_error.message : '로그인 처리 중 오류가 발생했습니다.'
     } finally {
       g_is_loading = false
     }

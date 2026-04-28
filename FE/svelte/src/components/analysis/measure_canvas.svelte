@@ -30,7 +30,7 @@
 
   // active가 바뀌면 pending 상태를 초기화한다.
   $effect(() => {
-    const _active = active_item_id
+    active_item_id
     g_pending_first = null
   })
 
@@ -141,7 +141,7 @@
             y1={p1.y}
             x2={p2.x}
             y2={p2.y}
-            stroke={stroke}
+            {stroke}
             stroke-width={is_active ? 5 : 3}
             stroke-dasharray={dash}
           />

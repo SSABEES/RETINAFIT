@@ -73,9 +73,9 @@ export function compute_measurement_points(landmarks, width, height) {
    */
   const px = (idx) => ({ x: landmarks[idx].x * width, y: landmarks[idx].y * height })
   return {
-    pd:          [px(33),  px(263)],
-    face_width:  [px(234), px(454)],
-    face_height: [px(10),  px(152)],
-    jaw_width:   [px(172), px(397)],
+    pd: [px(33), px(263)],
+    face_width: [px(234), px(454)],
+    face_height: [px(10), px(152)],
+    jaw_width: [px(172), px(397)],
   }
 }

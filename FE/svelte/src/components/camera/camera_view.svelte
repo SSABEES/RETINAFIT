@@ -285,7 +285,12 @@
         )
         if (m) g_measurements_obj = m
         // 정면 포즈에서만 안정화 진행. 프로필 포즈에서는 버퍼 유지할 필요가 없음.
-        if (g_should_check_frontal && m && g_complete_obj.is_complete && g_frontal_obj?.is_frontal) {
+        if (
+          g_should_check_frontal &&
+          m &&
+          g_complete_obj.is_complete &&
+          g_frontal_obj?.is_frontal
+        ) {
           update_stability(m)
         } else {
           g_buffer_arr = []
@@ -345,7 +350,7 @@
     } catch (err) {
       // 촬영 실패 시 재시도 가능하도록 dispatched 플래그 해제 + 소비자에게 에러 알림.
       g_already_dispatched = false
-      // eslint-disable-next-line no-console
+
       console.error('[camera_view] capture failed:', err)
       oncapture_error?.(err)
     }
@@ -365,16 +370,13 @@
    */
   export async function trigger_capture() {
     if (capture_mode === 'auto') {
-      // eslint-disable-next-line no-console
       console.warn('[camera_view] trigger_capture: auto 모드에서는 외부 호출이 불필요합니다')
     }
     if (!ref_this_video_el || ref_this_video_el.videoWidth === 0) {
-      // eslint-disable-next-line no-console
       console.warn('[camera_view] trigger_capture: 비디오 프레임이 준비되지 않음')
       return false
     }
     if (pose_target === 'front' && !g_face_detected) {
-      // eslint-disable-next-line no-console
       console.warn('[camera_view] trigger_capture: 정면 포즈에서 얼굴이 감지되지 않음')
       return false
     }
@@ -437,28 +439,26 @@
     ctx.moveTo(cx, top_y)
     // 이마 → 오른 광대 (둥글게 벌어짐)
     ctx.bezierCurveTo(
-      cx + k_upper_out, top_y,
-      cx + cheek_x, cheek_y - k_upper_vert,
-      cx + cheek_x, cheek_y,
+      cx + k_upper_out,
+      top_y,
+      cx + cheek_x,
+      cheek_y - k_upper_vert,
+      cx + cheek_x,
+      cheek_y,
     )
     // 오른 광대 → 턱 (안쪽으로 좁아짐)
-    ctx.bezierCurveTo(
-      cx + cheek_x, cheek_y + k_lower_vert,
-      cx + k_lower_in, bottom_y,
-      cx, bottom_y,
-    )
+    ctx.bezierCurveTo(cx + cheek_x, cheek_y + k_lower_vert, cx + k_lower_in, bottom_y, cx, bottom_y)
     // 턱 → 왼 광대 (대칭)
     ctx.bezierCurveTo(
-      cx - k_lower_in, bottom_y,
-      cx - cheek_x, cheek_y + k_lower_vert,
-      cx - cheek_x, cheek_y,
+      cx - k_lower_in,
+      bottom_y,
+      cx - cheek_x,
+      cheek_y + k_lower_vert,
+      cx - cheek_x,
+      cheek_y,
     )
     // 왼 광대 → 이마 (대칭)
-    ctx.bezierCurveTo(
-      cx - cheek_x, cheek_y - k_upper_vert,
-      cx - k_upper_out, top_y,
-      cx, top_y,
-    )
+    ctx.bezierCurveTo(cx - cheek_x, cheek_y - k_upper_vert, cx - k_upper_out, top_y, cx, top_y)
     ctx.closePath()
     ctx.stroke()
     ctx.restore()
@@ -496,7 +496,9 @@
 
 <div class="flex flex-col gap-3">
   {#if g_init_error}
-    <div class="rounded-lg border border-red-500 bg-zinc-900 p-3 text-sm font-semibold text-red-400">
+    <div
+      class="rounded-lg border border-red-500 bg-zinc-900 p-3 text-sm font-semibold text-red-400"
+    >
       <p>{g_init_error}</p>
       {#if g_permission_denied}
         <p class="mt-1 text-xs font-normal text-zinc-400">
@@ -507,7 +509,6 @@
   {/if}
 
   <div class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black">
-    <!-- svelte-ignore a11y_media_has_caption -->
     <video
       bind:this={ref_this_video_el}
       class="absolute inset-0 h-full w-full object-cover"
@@ -527,12 +528,24 @@
         class="pointer-events-none absolute left-2.5 top-2.5 z-10 grid grid-cols-[auto_auto] gap-x-2.5 gap-y-0.5 rounded-lg border border-white/20 bg-black/55 px-3 py-2 text-[11px] tabular-nums text-zinc-200 backdrop-blur-sm"
         aria-live="polite"
       >
-        <span class="text-white/65">너비</span><b class="text-right font-bold text-emerald-300">{g_measurements_obj.face_width}</b>
-        <span class="text-white/65">높이</span><b class="text-right font-bold text-emerald-300">{g_measurements_obj.face_height}</b>
-        <span class="text-white/65">눈간</span><b class="text-right font-bold text-emerald-300">{g_measurements_obj.eye_distance}</b>
-        <span class="text-white/65">PD</span><b class="text-right font-bold text-emerald-300">{g_measurements_obj.pd_pixels}</b>
-        <span class="text-white/65">코</span><b class="text-right font-bold text-emerald-300">{g_measurements_obj.nose_width}</b>
-        <span class="text-white/65">턱</span><b class="text-right font-bold text-emerald-300">{g_measurements_obj.jaw_width}</b>
+        <span class="text-white/65">너비</span><b class="text-right font-bold text-emerald-300"
+          >{g_measurements_obj.face_width}</b
+        >
+        <span class="text-white/65">높이</span><b class="text-right font-bold text-emerald-300"
+          >{g_measurements_obj.face_height}</b
+        >
+        <span class="text-white/65">눈간</span><b class="text-right font-bold text-emerald-300"
+          >{g_measurements_obj.eye_distance}</b
+        >
+        <span class="text-white/65">PD</span><b class="text-right font-bold text-emerald-300"
+          >{g_measurements_obj.pd_pixels}</b
+        >
+        <span class="text-white/65">코</span><b class="text-right font-bold text-emerald-300"
+          >{g_measurements_obj.nose_width}</b
+        >
+        <span class="text-white/65">턱</span><b class="text-right font-bold text-emerald-300"
+          >{g_measurements_obj.jaw_width}</b
+        >
       </div>
     {/if}
 

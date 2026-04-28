@@ -18,7 +18,11 @@
     FileText,
   } from 'lucide-svelte'
   import { PATH } from '@/config/path'
-  import { get_all_glasses, request_fitting_presigned_urls, confirm_fitting_result } from '@/lib/api/glasses'
+  import {
+    get_all_glasses,
+    request_fitting_presigned_urls,
+    confirm_fitting_result,
+  } from '@/lib/api/glasses'
   import { selected_visit_obj } from '@/lib/stores/customer'
 
   /* ── 안경 목록 상태 ──────────────────────────────────────── */
@@ -145,7 +149,9 @@
   function on_click_select_glasses(id) {
     if (id === g_selected_id) return
     if (g_saved_fittings_arr.length >= MAX_FITTINGS) {
-      show_toast(`피팅은 최대 ${MAX_FITTINGS}개까지만 저장할 수 있습니다. 저장된 피팅을 취소한 뒤 다시 시도하세요.`)
+      show_toast(
+        `피팅은 최대 ${MAX_FITTINGS}개까지만 저장할 수 있습니다. 저장된 피팅을 취소한 뒤 다시 시도하세요.`,
+      )
       return
     }
     g_selected_id = id
@@ -201,9 +207,15 @@
       const local_file_arr = g_capture_slot_arr.map((f) =>
         f instanceof File
           ? f
-          : new File([new Blob(['dummy'], { type: 'image/jpeg' })], 'capture.jpg', { type: 'image/jpeg' }),
+          : new File([new Blob(['dummy'], { type: 'image/jpeg' })], 'capture.jpg', {
+              type: 'image/jpeg',
+            }),
       )
-      const local_url_arr = [local_presigned.front_url, local_presigned.left_url, local_presigned.right_url]
+      const local_url_arr = [
+        local_presigned.front_url,
+        local_presigned.left_url,
+        local_presigned.right_url,
+      ]
       await Promise.all(
         local_url_arr.map((url, idx) =>
           fetch(url, {
@@ -217,7 +229,11 @@
 
       // 3단계: 업로드된 key 배열로 백엔드에 저장
       await confirm_fitting_result(local_visit_no, {
-        vp_file_arr: [local_presigned.front_key, local_presigned.left_key, local_presigned.right_key],
+        vp_file_arr: [
+          local_presigned.front_key,
+          local_presigned.left_key,
+          local_presigned.right_key,
+        ],
         vp_json: { glasses_no: local_glasses_no, fitting_result: {} },
       })
 
@@ -272,9 +288,7 @@
    */
   function on_click_toggle_filter(field, value) {
     const arr = g_filter_obj[field]
-    g_filter_obj[field] = arr.includes(value)
-      ? arr.filter((v) => v !== value)
-      : [...arr, value]
+    g_filter_obj[field] = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]
   }
 
   /**
@@ -323,10 +337,19 @@
 
   let g_guide_info = $derived(GUIDE_STEP_ARR[g_guide_step])
 
-  function on_click_guide_open() { g_guide_step = 1 }
-  function on_click_guide_close() { g_guide_step = 0 }
-  function on_click_guide_next() { if (g_guide_step < 5) g_guide_step++; else g_guide_step = 0 }
-  function on_click_guide_prev() { if (g_guide_step > 1) g_guide_step-- }
+  function on_click_guide_open() {
+    g_guide_step = 1
+  }
+  function on_click_guide_close() {
+    g_guide_step = 0
+  }
+  function on_click_guide_next() {
+    if (g_guide_step < 5) g_guide_step++
+    else g_guide_step = 0
+  }
+  function on_click_guide_prev() {
+    if (g_guide_step > 1) g_guide_step--
+  }
 
   let g_highlight_camera = $derived(g_guide_step === 2)
   let g_highlight_aside = $derived([1, 3, 4, 5].includes(g_guide_step))
@@ -550,9 +573,14 @@
                   >
                   <p class="truncate text-base font-black text-slate-800">{item.model}</p>
                   <div class="mt-1 flex items-center gap-2">
-                    <span class="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">{item.frame_type}</span>
+                    <span
+                      class="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500"
+                      >{item.frame_type}</span
+                    >
                     {#if saved_count > 0}
-                      <span class="rounded-md bg-[#F5EAF7] px-2 py-0.5 text-[10px] font-bold text-[#7B3F8A]">
+                      <span
+                        class="rounded-md bg-[#F5EAF7] px-2 py-0.5 text-[10px] font-bold text-[#7B3F8A]"
+                      >
                         피팅 저장됨
                       </span>
                     {/if}
@@ -706,7 +734,7 @@
           <div>
             <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">테 종류</p>
             <div class="flex flex-wrap gap-2">
-              {#each FRAME_TYPE_OPTIONS as opt}
+              {#each FRAME_TYPE_OPTIONS as opt (opt)}
                 {@const selected = g_filter_obj.frame_type_arr.includes(opt)}
                 <button
                   type="button"
@@ -726,7 +754,7 @@
           <div>
             <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">재질</p>
             <div class="flex flex-wrap gap-2">
-              {#each MATERIAL_OPTIONS as opt}
+              {#each MATERIAL_OPTIONS as opt (opt)}
                 {@const selected = g_filter_obj.material_arr.includes(opt)}
                 <button
                   type="button"
@@ -746,7 +774,7 @@
           <div>
             <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">카테고리</p>
             <div class="flex flex-wrap gap-2">
-              {#each CATEGORY_OPTIONS as opt}
+              {#each CATEGORY_OPTIONS as opt (opt)}
                 {@const selected = g_filter_obj.category_arr.includes(opt)}
                 <button
                   type="button"
@@ -814,9 +842,10 @@
       out:fade={{ duration: 150 }}
     >
       <div class="mb-5 flex gap-1.5">
-        {#each [1, 2, 3, 4, 5] as step_num}
+        {#each [1, 2, 3, 4, 5] as step_num (step_num)}
           <div
-            class="h-1.5 flex-1 rounded-full transition-colors duration-300 {g_guide_step >= step_num
+            class="h-1.5 flex-1 rounded-full transition-colors duration-300 {g_guide_step >=
+            step_num
               ? 'bg-[#AA83B4]'
               : 'bg-slate-100'}"
           ></div>
@@ -827,9 +856,7 @@
       </p>
       <h3 class="mb-3 text-lg font-black leading-snug text-zinc-900">{g_guide_info.title}</h3>
       <p class="whitespace-pre-line text-sm leading-relaxed text-slate-500">{g_guide_info.desc}</p>
-      <div
-        class="mt-4 flex items-center justify-between gap-2 rounded-2xl bg-[#F5EAF7] px-4 py-3"
-      >
+      <div class="mt-4 flex items-center justify-between gap-2 rounded-2xl bg-[#F5EAF7] px-4 py-3">
         <span class="text-xs font-bold text-[#7B3F8A]">{g_guide_info.hint}</span>
         <ChevronRight size={14} class="shrink-0 text-[#AA83B4]" />
       </div>

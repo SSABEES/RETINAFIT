@@ -52,8 +52,10 @@ export function compute_evaluations(measurements_obj) {
   if (frame_width && face_width) {
     const ratio = frame_width / face_width
     const { value_text, tone } = evaluate_ratio(ratio, {
-      ok_min: 0.95, ok_max: 1.05,
-      warn_min: 0.88, warn_max: 1.12,
+      ok_min: 0.95,
+      ok_max: 1.05,
+      warn_min: 0.88,
+      warn_max: 1.12,
     })
     result.face_to_frame_ratio = {
       key: 'face_to_frame_ratio',

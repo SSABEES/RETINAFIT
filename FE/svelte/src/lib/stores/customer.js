@@ -39,7 +39,9 @@ const SELECTED_VISIT_STORAGE_KEY = 'retinal_selected_visit_obj'
 
 export const customer_arr_store = writable(/** @type {CustomerObj[]} */ ([]))
 export const selected_customer_obj = writable(get_selected_customer_storage())
-export const selected_visit_obj = writable(/** @type {VisitObj | null} */ (get_selected_visit_storage()))
+export const selected_visit_obj = writable(
+  /** @type {VisitObj | null} */ (get_selected_visit_storage()),
+)
 
 // 저장된 선택 방문 정보를 sessionStorage에서 읽는다.
 function get_selected_visit_storage() {
