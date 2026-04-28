@@ -15,9 +15,11 @@
 
 import { FaceLandmarker as MpFaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 
-const MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
-const WASM_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm'
+// 모델·WASM 모두 same-origin 자체 호스팅. CDN/CSP/버전 불일치 회피 + Flutter WebView 호환.
+// WASM: vite-plugin-static-copy 가 node_modules → dist/mediapipe/wasm 으로 복사 (vite.config.js 참조)
+// 모델: public/mediapipe/models/ 에 커밋된 정적 자산
+const MODEL_URL = `${import.meta.env.BASE_URL}mediapipe/models/face_landmarker.task`
+const WASM_BASE = `${import.meta.env.BASE_URL}mediapipe/wasm`
 const CACHE_TTL_MS = 16 // 16ms ≈ 60fps 한 프레임 — 같은 rAF 틱의 중복 호출 방지
 const FRAME_MARGIN = 0.03
 

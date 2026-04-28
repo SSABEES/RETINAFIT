@@ -13,9 +13,9 @@
 
 import { FaceDetector as MpFaceDetector, FilesetResolver } from '@mediapipe/tasks-vision'
 
-const MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite'
-const WASM_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm'
+// face_landmarker.js 와 동일하게 same-origin 자체 호스팅. 자세한 배경은 그쪽 주석 참조.
+const MODEL_URL = `${import.meta.env.BASE_URL}mediapipe/models/blaze_face_short_range.tflite`
+const WASM_BASE = `${import.meta.env.BASE_URL}mediapipe/wasm`
 
 /** @type {Promise<FaceDetector> | null} */
 let g_image_detector_promise = null
