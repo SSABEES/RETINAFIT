@@ -33,6 +33,7 @@
    *   active?: boolean,
    *   pose_target?: 'front' | 'left_profile' | 'right_profile',
    *   capture_mode?: 'auto' | 'manual',
+   *   show_overlay?: boolean,
    *   oncapture?: ((c: CaptureResult) => void) | undefined,
    *   oncapture_error?: ((err: unknown) => void) | undefined,
    * }}
@@ -41,6 +42,7 @@
     active = false,
     pose_target = 'front',
     capture_mode = 'auto',
+    show_overlay = true,
     oncapture = undefined,
     oncapture_error = undefined,
   } = $props()
@@ -307,7 +309,7 @@
     }
 
     sync_canvas_size()
-    if (ref_this_canvas_el) {
+    if (show_overlay && ref_this_canvas_el) {
       draw_face_mesh(ref_this_canvas_el, g_last_detection)
       draw_guide_ellipse()
     }
@@ -519,11 +521,12 @@
     ></video>
     <canvas
       bind:this={ref_this_canvas_el}
+      class:hidden={!show_overlay}
       class="pointer-events-none absolute inset-0 h-full w-full object-cover"
       style="transform: scaleX(-1);"
     ></canvas>
 
-    {#if active && g_face_detected && g_measurements_obj}
+    {#if show_overlay && active && g_face_detected && g_measurements_obj}
       <div
         class="pointer-events-none absolute left-2.5 top-2.5 z-10 grid grid-cols-[auto_auto] gap-x-2.5 gap-y-0.5 rounded-lg border border-white/20 bg-black/55 px-3 py-2 text-[11px] tabular-nums text-zinc-200 backdrop-blur-sm"
         aria-live="polite"
@@ -549,7 +552,7 @@
       </div>
     {/if}
 
-    {#if active && pose_target === 'front' && g_face_detected && g_frontal_obj && !g_frontal_obj.is_frontal}
+    {#if show_overlay && active && pose_target === 'front' && g_face_detected && g_frontal_obj && !g_frontal_obj.is_frontal}
       <div
         class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse text-[7rem] leading-none text-orange-400 drop-shadow-[0_2px_16px_rgba(0,0,0,0.65)]"
         aria-hidden="true"
@@ -564,7 +567,7 @@
       </div>
     {/if}
 
-    {#if active && pose_target === 'front' && g_face_detected && g_frontal_obj}
+    {#if show_overlay && active && pose_target === 'front' && g_face_detected && g_frontal_obj}
       <div
         class="pointer-events-none absolute right-2.5 top-2.5 z-10 flex w-44 flex-col gap-1.5 rounded-lg border border-white/20 bg-black/55 px-3 py-2 text-[11px] backdrop-blur-sm"
         aria-live="polite"
@@ -626,7 +629,7 @@
       </div>
     {/if}
 
-    {#if active}
+    {#if show_overlay && active}
       <div class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2">
         <span
           class="inline-block rounded-full border-[1.5px] px-4 py-2 text-sm font-bold backdrop-blur-sm"

@@ -109,13 +109,13 @@
 
 <main class="app-frame-page overflow-hidden bg-[#11142A] text-white">
   <section
-    class="relative grid min-h-full place-items-start justify-items-center px-6 pb-12 pt-24 before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_50%_12%,rgba(154,27,255,0.3),transparent_32%),linear-gradient(135deg,#11142A_0%,#4B0055_45%,#180F2E_100%)] before:content-['']"
+    class="relative grid min-h-full place-items-start justify-items-center px-6 pb-8 pt-16 before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_50%_12%,rgba(154,27,255,0.3),transparent_32%),linear-gradient(135deg,#11142A_0%,#4B0055_45%,#180F2E_100%)] before:content-[''] tablet-login-section"
     aria-labelledby="login-title"
   >
-    <div class="relative z-10 flex w-full max-w-[440px] flex-col items-center">
-      <div class="mb-10 flex flex-col items-center text-center">
+    <div class="relative z-10 flex w-full max-w-[440px] flex-col items-center tablet-login-panel">
+      <div class="mb-8 flex flex-col items-center text-center">
         <img
-          class="mb-5 h-auto w-[148px] rounded-xl shadow-2xl shadow-black/20"
+          class="mb-4 h-auto w-[132px] rounded-xl shadow-2xl shadow-black/20 tablet-login-logo"
           src="/icnos.png"
           alt="Retin AI"
           width="900"
@@ -127,7 +127,7 @@
       </div>
 
       <form
-        class="w-full rounded-[26px] border border-white/8 bg-white/12 px-10 py-10 shadow-2xl shadow-black/22 backdrop-blur-md"
+        class="w-full rounded-[26px] border border-white/8 bg-white/12 px-8 py-8 shadow-2xl shadow-black/22 backdrop-blur-md tablet-login-form"
         onsubmit={on_submit_login}
       >
         <div class="grid gap-7">
@@ -181,3 +181,24 @@
     </p>
   </section>
 </main>
+
+<style>
+  @media (max-width: 1280px), (max-height: 820px) {
+    .tablet-login-section {
+      padding-top: 3rem;
+      padding-bottom: 2rem;
+    }
+
+    .tablet-login-panel {
+      max-width: 420px;
+    }
+
+    .tablet-login-logo {
+      width: 120px;
+    }
+
+    .tablet-login-form {
+      padding: 1.75rem;
+    }
+  }
+</style>
