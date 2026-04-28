@@ -174,6 +174,8 @@ class _WebShellPageState extends State<WebShellPage> {
             productId: local_params_obj['productId'] as String? ?? '',
             productName: local_params_obj['productName'] as String? ?? '',
             assetPath: local_params_obj['assetPath'] as String? ?? '',
+            modelUrl: local_params_obj['modelUrl'] as String? ?? '',
+            cacheKey: local_params_obj['cacheKey'] as String? ?? '',
           );
           await _send_bridge_success(
             request_id: local_request_id,
