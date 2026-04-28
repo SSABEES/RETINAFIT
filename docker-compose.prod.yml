@@ -35,8 +35,8 @@ services:
     build: ./FE
     env_file:
       - ./FE/.env.prod
-    ports:
-      - "80:80"
+    expose:
+      - "80"
     depends_on:
       - be
     restart: unless-stopped
