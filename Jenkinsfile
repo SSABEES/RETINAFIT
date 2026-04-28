@@ -29,8 +29,6 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh """
-                    cp -r . ${DEPLOY_PATH}
-                    cd ${DEPLOY_PATH}
                     docker compose -f docker-compose.prod.yml down
                     docker compose -f docker-compose.prod.yml up -d
                 """
