@@ -54,7 +54,7 @@
    * camera_view 가 촬영을 마치면 세션에 저장하고 다음 스텝으로 진행.
    * @param {import('@/components/camera/camera_view.svelte').CaptureResult} result
    */
-  function on_capture(result) {
+  async function on_capture(result) {
     g_is_capturing = false
     if (!g_current_step) return
     /** @type {Capture} */
@@ -67,8 +67,9 @@
       height: result.height,
       measurements_obj: result.measurements_obj,
       measurement_points_obj: result.measurement_points_obj,
+      landmarks: result.landmarks,
     }
-    add_capture(capture)
+    await add_capture(capture)
   }
 
   /**

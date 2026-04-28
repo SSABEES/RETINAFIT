@@ -15,10 +15,23 @@
     pick_capture_for_view,
     reset as reset_session,
   } from '@/lib/stores/capture_session.svelte.js'
+  import { EAR_HEIGHT_DIFF_THRESHOLD_MM } from '@/lib/measurements/thresholds.js'
   import ResultHeader from '@/components/analysis/result_header.svelte'
   import MeasureCanvas from '@/components/analysis/measure_canvas.svelte'
   import MeasurementList from '@/components/analysis/measurement_list.svelte'
   import PhotoSwitcher from '@/components/analysis/photo_switcher.svelte'
+
+  /**
+   * 부호 있는 mm 값을 표시 문자열로 변환. null/undefined 면 '—'.
+   * 음수는 U+2212 minus sign 으로 표기 (시각적 일관성).
+   * @param {number | null | undefined} value_mm
+   * @returns {string}
+   */
+  function format_signed_mm(value_mm) {
+    if (value_mm === null || value_mm === undefined) return '—'
+    const sign = value_mm >= 0 ? '' : '−'
+    return `${sign}${Math.abs(value_mm).toFixed(1)} mm`
+  }
 
   /** @typedef {import('@/lib/measurements/template.js').ViewAngle} ViewAngle */
 
@@ -175,13 +188,59 @@
             onview_change={on_view_change}
           />
         </div>
-        <MeasurementList
-          items_arr={g_items_arr}
-          active_item_id={g_active_item_id}
-          view_label={g_view_label}
-          onselect={on_select_item}
-          onclear={on_clear_item}
-        />
+        <div class="flex min-h-0 flex-col gap-3 overflow-y-auto">
+          <MeasurementList
+            items_arr={g_items_arr}
+            active_item_id={g_active_item_id}
+            view_label={g_view_label}
+            onselect={on_select_item}
+            onclear={on_clear_item}
+          />
+          {#if g_view === 'front_no_glasses' && g_face_shape_result?.ear_offsets_obj}
+            {@const eo = g_face_shape_result.ear_offsets_obj}
+            {@const ear_diff_mm = (eo.right_y_offset_mm !== null && eo.left_y_offset_mm !== null)
+              ? Math.abs(eo.right_y_offset_mm - eo.left_y_offset_mm)
+              : null}
+            {@const ear_diff_flagged = ear_diff_mm !== null && ear_diff_mm >= EAR_HEIGHT_DIFF_THRESHOLD_MM}
+            <section
+              class="flex flex-col gap-2 rounded-xl border border-[var(--retinal-border)] bg-white px-4 py-4 shadow-sm shadow-slate-200/40"
+              aria-label="자동 산출 귀 높이 (참고)"
+            >
+              <div class="flex items-baseline justify-between">
+                <h3 class="m-0 text-sm font-extrabold text-zinc-950">귀 높이 (자동)</h3>
+                <span class="text-xs font-semibold text-slate-500">눈선 기준 ± 편차</span>
+              </div>
+              <ul class="m-0 flex list-none flex-col gap-1 p-0">
+                <li class="flex items-center gap-3 px-3 py-2">
+                  <span class="flex-1 truncate text-sm font-semibold text-zinc-900">우측 귀 높이</span>
+                  <span class="flex-none text-sm font-bold tabular-nums text-zinc-950">
+                    {format_signed_mm(eo.right_y_offset_mm)}
+                  </span>
+                  <span class="flex-none rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-800">자동</span>
+                </li>
+                <li class="flex items-center gap-3 px-3 py-2">
+                  <span class="flex-1 truncate text-sm font-semibold text-zinc-900">좌측 귀 높이</span>
+                  <span class="flex-none text-sm font-bold tabular-nums text-zinc-950">
+                    {format_signed_mm(eo.left_y_offset_mm)}
+                  </span>
+                  <span class="flex-none rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-800">자동</span>
+                </li>
+                {#if ear_diff_mm !== null}
+                  <li class="mt-1 flex items-center gap-3 border-t border-slate-100 px-3 pt-2">
+                    <span class="flex-1 truncate text-sm font-semibold text-slate-600">좌우 차이</span>
+                    <span
+                      class="flex-none text-sm font-bold tabular-nums"
+                      class:text-amber-600={ear_diff_flagged}
+                      class:text-emerald-600={!ear_diff_flagged}
+                    >
+                      {ear_diff_mm.toFixed(1)} mm{ear_diff_flagged ? ' (큼)' : ''}
+                    </span>
+                  </li>
+                {/if}
+              </ul>
+            </section>
+          {/if}
+        </div>
       </div>
     </div>
   </section>

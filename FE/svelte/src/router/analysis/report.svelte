@@ -3,7 +3,7 @@
   import { Link, navigate } from '@maks11060/svelte5-router'
   import { ArrowLeft, Camera, ChevronRight, Ear, ScanFace, Sparkles } from 'lucide-svelte'
   import { PATH } from '@/config/path'
-  import { selected_customer_obj } from '@/lib/stores/customer'
+  import { selected_customer_obj, selected_visit_obj } from '@/lib/stores/customer'
   import {
     get_session,
     get_face_shape_result,
@@ -12,6 +12,10 @@
   } from '@/lib/stores/capture_session.svelte.js'
   import { compute_evaluations } from '@/lib/measurements/measurement_evaluator.js'
   import { points_to_overlay_line } from '@/lib/measurements/overlay_utils.js'
+  import {
+    EAR_HEIGHT_DIFF_THRESHOLD_MM,
+    WARNING_CODE,
+  } from '@/lib/measurements/thresholds.js'
   import { upload_captures_to_s3, save_face_analysis } from '@/lib/api/analysis.js'
 
   /** @typedef {import('@/lib/measurements/template.js').ViewAngle} ViewAngle */
@@ -45,6 +49,18 @@
       return `${Math.round(item.value_px)} px`
     }
     return '—'
+  }
+
+  /**
+   * 부호 있는 mm 값을 표시 문자열로 변환. null/undefined 면 '—'.
+   * 음수는 U+2212 minus sign 으로 표기 (시각적 일관성).
+   * @param {number | null | undefined} value_mm
+   * @returns {string}
+   */
+  function format_signed_mm(value_mm) {
+    if (value_mm === null || value_mm === undefined) return '—'
+    const sign = value_mm >= 0 ? '' : '−'
+    return `${sign}${Math.abs(value_mm).toFixed(1)} mm`
   }
 
   /**
@@ -93,6 +109,64 @@
           tone: eval_tone_class(ev.tone),
           overlay_arr: [],
         }))
+
+      // 정면 미착용 탭에만 face_shape_result 기반 synthetic row 추가.
+      if (tab.key === 'front_no_glasses' && g_face_shape_result) {
+        const eo = g_face_shape_result.ear_offsets_obj
+        if (eo) {
+          measure_arr.push({
+            label: '우측 귀 높이',
+            item_id: 'right_ear_height_synthetic',
+            value: format_signed_mm(eo.right_y_offset_mm),
+            has_value: eo.right_y_offset_mm !== null,
+            source: 'auto',
+            note: '',
+            tone: 'text-zinc-950',
+            overlay_arr: [],
+          })
+          measure_arr.push({
+            label: '좌측 귀 높이',
+            item_id: 'left_ear_height_synthetic',
+            value: format_signed_mm(eo.left_y_offset_mm),
+            has_value: eo.left_y_offset_mm !== null,
+            source: 'auto',
+            note: '',
+            tone: 'text-zinc-950',
+            overlay_arr: [],
+          })
+
+          // 좌우 차이 평가 — GUIDEBOOK 임계값 4mm.
+          if (eo.right_y_offset_mm !== null && eo.left_y_offset_mm !== null) {
+            const diff = Math.abs(eo.right_y_offset_mm - eo.left_y_offset_mm)
+            const flagged = diff >= EAR_HEIGHT_DIFF_THRESHOLD_MM
+            sub_measure_arr.push({
+              label: '귀 높이 좌우 차',
+              value: flagged
+                ? `${diff.toFixed(1)} mm (좌우 차이 큼)`
+                : `${diff.toFixed(1)} mm`,
+              tone: flagged ? 'text-amber-600' : 'text-emerald-600',
+              overlay_arr: [],
+            })
+          }
+        }
+
+        const a = g_face_shape_result.asymmetry
+        if (a) {
+          const score_tone = a.score >= 80
+            ? 'text-emerald-600'
+            : a.score >= 60
+              ? 'text-slate-600'
+              : a.score >= 40
+                ? 'text-amber-600'
+                : 'text-red-600'
+          sub_measure_arr.push({
+            label: '좌우 비대칭',
+            value: `${a.score}점`,
+            tone: score_tone,
+            overlay_arr: [],
+          })
+        }
+      }
       result[tab.key] = {
         image_caption: tab.image_caption,
         image_src: capture?.object_url ?? null,
@@ -106,12 +180,14 @@
     return result
   })
 
+  // alias 는 customer DB 호환용 — 분류기는 직접 5종 소문자 키를 출력하지만
+  // 기존 DB 에 저장된 대문자(LONG/TRIANGLE 등) 또는 한글 라벨도 정상 매핑되도록 둔다.
   const g_face_shape_meta_obj = {
-    oval: { label: '계란형', aliases: ['계란형', '타원형', 'oval'] },
-    round: { label: '둥근형', aliases: ['둥근형', 'round'] },
-    heart: { label: '하트형', aliases: ['하트형', 'heart'] },
-    square: { label: '사각형', aliases: ['사각형', 'square'] },
-    oblong: { label: '긴형', aliases: ['긴형', '긴 얼굴형', 'oblong'] },
+    oval: { label: '계란형', aliases: ['oval', 'OVAL', '계란형', '타원형'] },
+    round: { label: '둥근형', aliases: ['round', 'ROUND', '둥근형'] },
+    heart: { label: '하트형', aliases: ['heart', 'TRIANGLE', '하트형'] },
+    square: { label: '사각형', aliases: ['square', 'SQUARE', '사각형'] },
+    oblong: { label: '긴형', aliases: ['oblong', 'LONG', '긴형', '긴 얼굴형'] },
   }
 
   // 안경테 카탈로그. 각 프레임 이름과 어울리는 얼굴형 키를 매핑한다.
@@ -257,7 +333,9 @@
     },
     {
       title: '피부톤 분석',
-      value: get_skin_tone_meta($selected_customer_obj?.skin_tone ?? 'WARM').label,
+      value: g_face_shape_result?.skin_tone?.tone
+        ?? $selected_customer_obj?.skin_tone
+        ?? 'NEUTRAL',
     },
     {
       title: '추천 프레임',
@@ -355,13 +433,10 @@
     }
   }
 
-  // sessionStorage 에서 현재 방문 번호를 읽는다 (visit API 가 채워주는 값).
-  // 없으면 null — 호출 측에서 에러 표시.
+  // 선택 방문 store(set_selected_visit 으로 채워짐, sessionStorage 미러됨)에서
+  // 현재 visit_no 를 읽는다. 없거나 숫자 파싱 실패면 null — 호출 측에서 에러 표시.
   function get_visit_no() {
-    if (typeof sessionStorage === 'undefined') return null
-    const raw = sessionStorage.getItem('retinal_visit_no')
-    if (!raw) return null
-    const n = Number(raw)
+    const n = Number($selected_visit_obj?.visit_no)
     return Number.isFinite(n) ? n : null
   }
 
@@ -375,14 +450,16 @@
     }
     g_is_submitting = true
     try {
-      // 1단계: 사진들을 S3 에 업로드해 URL 받기 (BE -95 의 presigned URL 사용).
-      const file_url_map = await upload_captures_to_s3(g_session.captures_obj)
+      // 1단계: 사진들을 S3 에 업로드해 URL 받기.
+      // 임시 비활성화 — BE presigned 인증/소유권 검사 정비 전까지 측정값만 먼저 저장한다.
+      // 활성화 시 아래 3줄 주석을 풀고 그 다음의 임시 빈 값 라인 2개를 제거한다.
+      // const file_url_map = await upload_captures_to_s3(visit_no, g_session.captures_obj)
+      // const main_file = file_url_map.front_no_glasses ?? file_url_map.front_glasses ?? ''
+      // const test_file_arr = Object.values(file_url_map)
+      const main_file = ''
+      const test_file_arr = /** @type {string[]} */ ([])
 
-      // 2단계: 정면(main) 분리 + 나머지 test_file_arr.
-      const main_file = file_url_map.front_no_glasses ?? file_url_map.front_glasses ?? ''
-      const test_file_arr = Object.values(file_url_map)
-
-      // 3단계: 메타 저장.
+      // 2단계: 메타 저장 — BE 가 빈 main_file/test_file_arr 를 허용하므로 단독 저장 가능.
       await save_face_analysis(visit_no, {
         main_file,
         test_file_arr,

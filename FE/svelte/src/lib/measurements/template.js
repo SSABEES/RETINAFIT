@@ -17,14 +17,15 @@
 
 /** @type {MeasurementTemplateEntry[]} */
 export const MEASUREMENT_TEMPLATE = [
-  // 정면 미착용 · MediaPipe 자동 채움 (랜드마크 인덱스 매핑이 있는 4개)
+  // 정면 미착용 · MediaPipe 자동 채움 (랜드마크 인덱스 매핑이 있는 6개 + 단안 PD 2개)
   { item_id: 'pd',              label: 'PD (눈 간격)',     view: 'front_no_glasses', source: 'auto' },
+  { item_id: 'right_pd',        label: '우측 PD (단안)',   view: 'front_no_glasses', source: 'auto' },
+  { item_id: 'left_pd',         label: '좌측 PD (단안)',   view: 'front_no_glasses', source: 'auto' },
   { item_id: 'face_width',      label: '얼굴 너비',         view: 'front_no_glasses', source: 'auto' },
   { item_id: 'face_height',     label: '얼굴 길이',         view: 'front_no_glasses', source: 'auto' },
   { item_id: 'jaw_width',       label: '턱 너비',           view: 'front_no_glasses', source: 'auto' },
-  // 정면 미착용 · 수동
-  { item_id: 'forehead_width',  label: '이마 너비',         view: 'front_no_glasses', source: 'manual' },
-  { item_id: 'cheekbone_width', label: '광대 너비',         view: 'front_no_glasses', source: 'manual' },
+  { item_id: 'forehead_width',  label: '이마 너비',         view: 'front_no_glasses', source: 'auto' },
+  { item_id: 'cheekbone_width', label: '광대 너비',         view: 'front_no_glasses', source: 'auto' },
 
   // 정면 안경 착용 · 수동 (프레임 측정)
   { item_id: 'frame_width',     label: '프레임 전체 너비',  view: 'front_glasses',    source: 'manual' },
@@ -33,16 +34,11 @@ export const MEASUREMENT_TEMPLATE = [
   { item_id: 'lens_height',     label: '렌즈 높이',         view: 'front_glasses',    source: 'manual' },
   { item_id: 'temple_length',   label: '템플 길이',         view: 'front_glasses',    source: 'manual' },
 
-  // 좌측 미착용 · 수동
-  { item_id: 'left_ear_height',         label: '귀 높이',     view: 'left_no_glasses',  source: 'manual' },
-
   // 좌측 안경 착용 · 수동
+  // (귀 높이는 정면 자동 측정으로 일원화 — face_shape_result.ear_offsets_obj 에 보관, 본 템플릿에 미포함)
   { item_id: 'left_temple_angle',       label: '템플 각도',     view: 'left_glasses',     source: 'manual' },
   { item_id: 'left_ear_hook_position',  label: '귀 걸이 위치',  view: 'left_glasses',     source: 'manual' },
   { item_id: 'left_frame_tilt',         label: '프레임 기울기', view: 'left_glasses',     source: 'manual' },
-
-  // 우측 미착용 · 수동
-  { item_id: 'right_ear_height',        label: '귀 높이',     view: 'right_no_glasses', source: 'manual' },
 
   // 우측 안경 착용 · 수동
   { item_id: 'right_temple_angle',      label: '템플 각도',     view: 'right_glasses',    source: 'manual' },
