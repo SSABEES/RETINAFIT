@@ -205,16 +205,6 @@
     get_all_glasses()
       .then((local_glass_arr) => {
         const local_normalized_glass_arr = normalize_glasses_arr(local_glass_arr)
-        // 안경 목록의 2D 이미지 / 3D 파일 S3 경로 디버그 출력
-        console.table(
-          local_normalized_glass_arr.map((local_glasses_obj) => ({
-            glasses_no: local_glasses_obj.glasses_no,
-            brand: local_glasses_obj.brand,
-            model: local_glasses_obj.model,
-            img_url: local_glasses_obj.img_url,
-            glasses_3d_url: local_glasses_obj.glasses_3d_url,
-          })),
-        )
         g_all_glasses_arr = local_normalized_glass_arr
         g_recommended_arr = local_normalized_glass_arr.slice(0, 5)
         g_selected_id = g_recommended_arr[0]?.id ?? null
@@ -249,7 +239,8 @@
     g_selected_id = id
     ref_this_camera?.reset()
 
-    const local_glasses_obj = g_glasses_arr.find((local_item_obj) => local_item_obj.id === id) ?? null
+    const local_glasses_obj =
+      g_glasses_arr.find((local_item_obj) => local_item_obj.id === id) ?? null
     if (local_glasses_obj && g_flutter_bridge_ready && g_flutter_availability === 'SUPPORTED') {
       void launch_flutter_fitting_for_glasses(local_glasses_obj)
     }
@@ -577,7 +568,9 @@
   let g_highlight_camera = $derived(g_guide_step === 2)
   let g_highlight_aside = $derived([1, 3, 4, 5].includes(g_guide_step))
 
-  let g_permission_state = $state(/** @type {'granted' | 'denied' | 'prompt' | 'unsupported'} */ ('prompt'))
+  let g_permission_state = $state(
+    /** @type {'granted' | 'denied' | 'prompt' | 'unsupported'} */ ('prompt'),
+  )
   let g_permission_modal_open = $state(false)
 
   // 모달의 [카메라 허용] 버튼 핸들러: getUserMedia 권한 요청 후 결과 반영.
@@ -725,7 +718,9 @@
         </div>
       {/if}
       {#if g_flutter_bridge_ready}
-        <div class="absolute left-6 top-6 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-xs text-white/85 backdrop-blur-md">
+        <div
+          class="absolute left-6 top-6 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-xs text-white/85 backdrop-blur-md"
+        >
           <p class="font-black">Flutter Bridge</p>
           <p class="mt-1">status: {g_flutter_availability}</p>
           <p class="mt-1">asset: {g_selected_asset_path || 'none'}</p>
@@ -766,7 +761,11 @@
               }`}
             >
               {#if slot}
-                <img src={slot.object_url} alt={SLOT_LABEL_ARR[idx]} class="h-full w-full rounded-2xl object-cover" />
+                <img
+                  src={slot.object_url}
+                  alt={SLOT_LABEL_ARR[idx]}
+                  class="h-full w-full rounded-2xl object-cover"
+                />
                 <button
                   type="button"
                   onclick={() => on_click_reset_slot(idx)}

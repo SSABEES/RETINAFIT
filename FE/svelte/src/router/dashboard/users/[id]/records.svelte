@@ -125,9 +125,7 @@
       navigate(visit_obj.has_final ? PATH.analysisResult : PATH.analysisFaceMeasurement)
     } catch (local_error) {
       g_error_message =
-        local_error instanceof Error
-          ? local_error.message
-          : '리포트 조회 중 오류가 발생했습니다.'
+        local_error instanceof Error ? local_error.message : '리포트 조회 중 오류가 발생했습니다.'
     } finally {
       g_pending_visit_no = null
     }

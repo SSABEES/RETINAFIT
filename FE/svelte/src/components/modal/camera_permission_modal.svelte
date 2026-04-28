@@ -32,7 +32,7 @@
 
 {#if open}
   <div class="fixed inset-0 z-50 grid place-items-center bg-black/55 px-5" role="presentation">
-    <section
+    <div
       class="relative w-full max-w-md rounded-2xl bg-white p-7 text-left shadow-xl"
       role="dialog"
       aria-modal="true"
@@ -52,10 +52,7 @@
         {/if}
       </div>
 
-      <h2
-        id="camera-permission-title"
-        class="mt-5 text-xl font-extrabold text-zinc-950"
-      >
+      <h2 id="camera-permission-title" class="mt-5 text-xl font-extrabold text-zinc-950">
         {g_is_granted ? '카메라 권한이 허용되었습니다' : '카메라 권한이 필요합니다'}
       </h2>
 
@@ -65,11 +62,13 @@
         </p>
       {:else if g_is_denied}
         <p class="mt-3 text-sm font-semibold leading-6 text-slate-600">
-          얼굴 분석과 AR 피팅에 카메라가 필요합니다. 브라우저 주소창의 자물쇠 아이콘에서 카메라 권한을 허용한 뒤 페이지를 새로고침해 주세요.
+          얼굴 분석과 AR 피팅에 카메라가 필요합니다. 브라우저 주소창의 자물쇠 아이콘에서 카메라
+          권한을 허용한 뒤 페이지를 새로고침해 주세요.
         </p>
       {:else}
         <p class="mt-3 text-sm font-semibold leading-6 text-slate-600">
-          얼굴 분석과 AR 피팅에 카메라가 필요합니다. 아래 버튼을 누른 뒤 브라우저 안내에서 허용해 주세요.
+          얼굴 분석과 AR 피팅에 카메라가 필요합니다. 아래 버튼을 누른 뒤 브라우저 안내에서 허용해
+          주세요.
         </p>
       {/if}
 
@@ -93,6 +92,6 @@
           </button>
         {/if}
       </div>
-    </section>
+    </div>
   </div>
 {/if}

@@ -15,7 +15,9 @@
   let g_back_path = $derived(
     $selected_customer_obj?.id ? PATH.userDetail($selected_customer_obj.id) : PATH.users,
   )
-  let g_permission_state = $state(/** @type {'granted' | 'denied' | 'prompt' | 'unsupported'} */ ('prompt'))
+  let g_permission_state = $state(
+    /** @type {'granted' | 'denied' | 'prompt' | 'unsupported'} */ ('prompt'),
+  )
   let g_permission_modal_open = $state(false)
 
   // 뒤로가기 버튼 클릭 시 현재 선택된 고객의 상세 대시보드로 이동한다.
