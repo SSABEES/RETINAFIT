@@ -32,6 +32,19 @@
   display: none;
 }
 
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#app::-webkit-scrollbar,
+.app-frame::-webkit-scrollbar,
+.app-frame-content::-webkit-scrollbar,
+.app-frame-page::-webkit-scrollbar,
+.app-page-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+  background: transparent;
+}
+
 html {
   font-family:
     system-ui,
@@ -45,6 +58,8 @@ html {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 body {
@@ -52,10 +67,14 @@ body {
   min-height: 100svh;
   margin: 0;
   background: #0b0d1a;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 #app {
   min-height: 100svh;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 button,
@@ -131,4 +150,42 @@ a {
 .app-page-scroll {
   height: 100%;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+@media (max-width: 1280px), (max-height: 820px) {
+  :root {
+    --app-frame-width: 1280px;
+    --app-frame-height: 800px;
+  }
+
+  .app-frame-shell {
+    place-items: stretch;
+  }
+
+  .app-frame {
+    width: 100vw;
+    min-height: 100svh;
+    height: auto;
+    max-width: 1280px;
+    margin: 0 auto;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .app-frame::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-frame-content {
+    min-height: 100svh;
+    height: auto;
+  }
+
+  .app-frame-page {
+    min-height: 100svh;
+    height: auto;
+  }
 }

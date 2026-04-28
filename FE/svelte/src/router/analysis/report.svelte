@@ -3,7 +3,7 @@
   import { Link, navigate } from '@maks11060/svelte5-router'
   import { ArrowLeft, Camera, ChevronRight, Ear, ScanFace, Sparkles } from 'lucide-svelte'
   import { PATH } from '@/config/path'
-  import { selected_customer_obj, selected_visit_obj } from '@/lib/stores/customer'
+  import { selected_customer_obj } from '@/lib/stores/customer'
   import {
     get_session,
     get_face_shape_result,
@@ -441,8 +441,25 @@
   // 선택 방문 store(set_selected_visit 으로 채워짐, sessionStorage 미러됨)에서
   // 현재 visit_no 를 읽는다. 없거나 숫자 파싱 실패면 null — 호출 측에서 에러 표시.
   function get_visit_no() {
-    const n = Number($selected_visit_obj?.visit_no)
-    return Number.isFinite(n) ? n : null
+    if (typeof sessionStorage === 'undefined') return null
+    const raw = sessionStorage.getItem('retinal_visit_no')
+    if (raw) {
+      const n = Number(raw)
+      if (Number.isFinite(n)) {
+        return n
+      }
+    }
+
+    const selected_visit_raw = sessionStorage.getItem('retinal_selected_visit_obj')
+    if (!selected_visit_raw) return null
+
+    try {
+      const selected_visit_obj = JSON.parse(selected_visit_raw)
+      const n = Number(selected_visit_obj?.visit_no)
+      return Number.isFinite(n) ? n : null
+    } catch {
+      return null
+    }
   }
 
   async function on_click_submit_onboarding() {

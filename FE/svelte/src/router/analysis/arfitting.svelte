@@ -1,10 +1,10 @@
 <script>
   import { onMount } from 'svelte'
+  import { navigate } from '@maks11060/svelte5-router'
   import { fade, fly } from 'svelte/transition'
   import { cubicOut } from 'svelte/easing'
   import {
     ArrowLeft,
-    Camera,
     Glasses,
     CheckCheck,
     User,
@@ -17,13 +17,31 @@
     Save,
     FileText,
   } from 'lucide-svelte'
+  import CameraView from '@/components/camera/camera_view.svelte'
   import { PATH } from '@/config/path'
   import {
     get_all_glasses,
     request_fitting_presigned_urls,
     confirm_fitting_result,
   } from '@/lib/api/glasses'
+  import {
+    add_virtual_fitting_event_listener,
+    check_virtual_fitting_availability,
+    get_virtual_fitting_asset_path,
+    get_virtual_fitting_model_url,
+    is_flutter_bridge_ready,
+    launch_virtual_fitting,
+    wait_for_flutter_bridge,
+  } from '@/lib/flutter'
   import { selected_visit_obj } from '@/lib/stores/customer'
+
+  /**
+   * @typedef {{
+   *   file_obj: File,
+   *   object_url: string,
+   *   captured_at: number,
+   * }} CaptureSlot
+   */
 
   /* ── 안경 목록 상태 ──────────────────────────────────────── */
   let g_recommended_arr = $state([])
@@ -31,12 +49,24 @@
   let g_selected_id = $state(null)
   let g_capture_slot_arr = $state([null, null, null])
   let g_show_intro = $state(false)
+  let g_is_capturing = $state(false)
+  let g_flutter_bridge_ready = $state(false)
+  let g_flutter_availability = $state('UNKNOWN')
+  let g_flutter_event_text = $state('')
+  let g_flutter_launch_loading = $state(false)
+  /** @type {{ trigger_capture: () => Promise<boolean>, reset: () => void } | null} */
+  let ref_this_camera = $state(null)
 
   const SLOT_LABEL_ARR = ['정면', '측면 좌', '측면 우']
   const MAX_FITTINGS = 5
 
   let g_all_captured = $derived(g_capture_slot_arr.every((s) => s !== null))
   let g_next_slot_idx = $derived(g_capture_slot_arr.findIndex((s) => s === null))
+  let g_camera_pose_target = $derived.by(() => {
+    if (g_next_slot_idx === 1) return 'left_profile'
+    if (g_next_slot_idx === 2) return 'right_profile'
+    return 'front'
+  })
 
   /* ── 다중 피팅 상태 ──────────────────────────────────────── */
   // { glasses_id, brand, model, captures } 형태로 최대 5개 저장
@@ -113,6 +143,22 @@
       result = result.filter((g) => g_filter_obj.category_arr.includes(g.category))
     return result
   })
+  let g_selected_glasses_obj = $derived(
+    g_glasses_arr.find((local_glasses_obj) => local_glasses_obj.id === g_selected_id) ?? null,
+  )
+  let g_selected_asset_path = $derived(
+    g_selected_glasses_obj ? get_virtual_fitting_asset_path(g_selected_glasses_obj) : '',
+  )
+  let g_selected_model_url = $derived(
+    g_selected_glasses_obj ? get_virtual_fitting_model_url(g_selected_glasses_obj) : '',
+  )
+  let g_can_launch_flutter_fitting = $derived(
+    g_flutter_bridge_ready &&
+      g_flutter_availability === 'SUPPORTED' &&
+      Boolean(g_selected_glasses_obj) &&
+      (Boolean(g_selected_asset_path) || Boolean(g_selected_model_url)) &&
+      !g_flutter_launch_loading,
+  )
 
   $effect(() => {
     if (g_glasses_arr.length > 0 && !g_glasses_arr.find((g) => g.id === g_selected_id)) {
@@ -125,9 +171,44 @@
     g_show_intro = true
     setTimeout(() => (g_show_intro = false), 3200)
 
+    g_flutter_bridge_ready = is_flutter_bridge_ready()
+
+    void wait_for_flutter_bridge().then((local_bridge_ready) => {
+      g_flutter_bridge_ready = local_bridge_ready
+
+      if (!local_bridge_ready) {
+        return
+      }
+
+      check_virtual_fitting_availability()
+        .then((local_status_text) => {
+          g_flutter_availability = local_status_text
+        })
+        .catch(() => {
+          g_flutter_availability = 'UNKNOWN'
+        })
+    })
+
+    const local_remove_flutter_listener = add_virtual_fitting_event_listener((local_event_obj) => {
+      const local_event_name = String(local_event_obj?.event ?? 'unknown')
+      const local_data_text = JSON.stringify(local_event_obj?.data ?? {})
+
+      g_flutter_event_text = `${local_event_name}: ${local_data_text}`
+    })
+
     get_all_glasses()
       .then((local_glass_arr) => {
         const local_normalized_glass_arr = normalize_glasses_arr(local_glass_arr)
+        // 안경 목록의 2D 이미지 / 3D 파일 S3 경로 디버그 출력
+        console.table(
+          local_normalized_glass_arr.map((local_glasses_obj) => ({
+            glasses_no: local_glasses_obj.glasses_no,
+            brand: local_glasses_obj.brand,
+            model: local_glasses_obj.model,
+            img_url: local_glasses_obj.img_url,
+            glasses_3d_url: local_glasses_obj.glasses_3d_url,
+          })),
+        )
         g_all_glasses_arr = local_normalized_glass_arr
         g_recommended_arr = local_normalized_glass_arr.slice(0, 5)
         g_selected_id = g_recommended_arr[0]?.id ?? null
@@ -140,6 +221,10 @@
       .finally(() => {
         g_loading = false
       })
+
+    return () => {
+      local_remove_flutter_listener()
+    }
   })
 
   /**
@@ -154,27 +239,102 @@
       )
       return
     }
+    clear_capture_slot_arr()
     g_selected_id = id
-    g_capture_slot_arr = [null, null, null]
+    ref_this_camera?.reset()
+
+    const local_glasses_obj = g_glasses_arr.find((local_item_obj) => local_item_obj.id === id) ?? null
+    if (local_glasses_obj && g_flutter_bridge_ready && g_flutter_availability === 'SUPPORTED') {
+      void launch_flutter_fitting_for_glasses(local_glasses_obj)
+    }
+  }
+
+  function build_flutter_fitting_payload(glasses_obj) {
+    const local_asset_path = get_virtual_fitting_asset_path(glasses_obj)
+    const local_model_url = get_virtual_fitting_model_url(glasses_obj)
+    const local_product_id = glasses_obj?.glasses_no ?? glasses_obj?.id ?? ''
+
+    return {
+      product_id: String(local_product_id),
+      product_name: String(glasses_obj?.model ?? 'unknown'),
+      asset_path: local_asset_path,
+      model_url: local_model_url,
+      cache_key: `glasses-${String(local_product_id)}`,
+    }
+  }
+
+  async function launch_flutter_fitting_for_glasses(glasses_obj) {
+    const local_fitting_payload_obj = build_flutter_fitting_payload(glasses_obj)
+
+    if (!local_fitting_payload_obj.asset_path && !local_fitting_payload_obj.model_url) {
+      throw new Error('선택한 안경의 3D 파일 경로를 찾지 못했습니다.')
+    }
+
+    return launch_virtual_fitting(local_fitting_payload_obj)
   }
 
   /**
    * 현재 화면을 캡쳐하여 다음 빈 슬롯에 추가
    */
-  function on_click_capture() {
-    if (g_next_slot_idx === -1) return
-    const new_arr = [...g_capture_slot_arr]
-    new_arr[g_next_slot_idx] = '__captured__'
-    g_capture_slot_arr = new_arr
+  async function on_click_capture() {
+    if (g_next_slot_idx === -1 || g_is_capturing || !ref_this_camera) return
+
+    g_is_capturing = true
+
+    try {
+      const local_is_captured = await ref_this_camera.trigger_capture()
+
+      if (!local_is_captured) {
+        show_toast('?쇨뎬??媛먯??섏? ?딆븘 珥ъ쁺???섎? ?딆븯?듬땲??')
+      }
+    } finally {
+      g_is_capturing = false
+    }
   }
 
   /**
    * 해당 캡쳐 슬롯의 이미지를 삭제
    */
+  function on_capture_camera(local_capture_obj) {
+    if (g_next_slot_idx === -1) {
+      URL.revokeObjectURL(local_capture_obj.object_url)
+      return
+    }
+
+    const local_file_obj = new File(
+      [local_capture_obj.blob],
+      `arfitting_${String(g_next_slot_idx + 1)}_${String(local_capture_obj.captured_at)}.jpg`,
+      { type: local_capture_obj.blob.type || 'image/jpeg' },
+    )
+
+    const local_capture_slot_obj = {
+      file_obj: local_file_obj,
+      object_url: local_capture_obj.object_url,
+      captured_at: local_capture_obj.captured_at,
+    }
+
+    const local_capture_slot_arr = [...g_capture_slot_arr]
+    local_capture_slot_arr[g_next_slot_idx] = local_capture_slot_obj
+    g_capture_slot_arr = local_capture_slot_arr
+
+    ref_this_camera?.reset()
+  }
+
+  function on_capture_camera_error() {
+    g_is_capturing = false
+    show_toast('移대찓??珥ъ쁺???ㅽ뙣?덉뒿?덈떎.')
+  }
+
   function on_click_reset_slot(idx) {
-    const new_arr = [...g_capture_slot_arr]
-    new_arr[idx] = null
-    g_capture_slot_arr = new_arr
+    const local_capture_slot_obj = g_capture_slot_arr[idx]
+
+    if (local_capture_slot_obj?.object_url) {
+      URL.revokeObjectURL(local_capture_slot_obj.object_url)
+    }
+
+    const local_capture_slot_arr = [...g_capture_slot_arr]
+    local_capture_slot_arr[idx] = null
+    g_capture_slot_arr = local_capture_slot_arr
   }
 
   /**
@@ -182,6 +342,16 @@
    */
   function on_click_remove_saved(idx) {
     g_saved_fittings_arr = g_saved_fittings_arr.filter((_, i) => i !== idx)
+  }
+
+  function clear_capture_slot_arr() {
+    for (const local_capture_slot_obj of g_capture_slot_arr) {
+      if (local_capture_slot_obj?.object_url) {
+        URL.revokeObjectURL(local_capture_slot_obj.object_url)
+      }
+    }
+
+    g_capture_slot_arr = [null, null, null]
   }
 
   let g_submit_loading = $state(false)
@@ -204,9 +374,9 @@
 
       // 2단계: front → left → right 순으로 S3에 PUT 업로드
       // 실제 File이 아닌 슬롯(카메라 미연동)은 더미 파일로 대체
-      const local_file_arr = g_capture_slot_arr.map((f) =>
-        f instanceof File
-          ? f
+      const local_file_arr = g_capture_slot_arr.map((local_capture_slot_obj) =>
+        local_capture_slot_obj?.file_obj instanceof File
+          ? local_capture_slot_obj.file_obj
           : new File([new Blob(['dummy'], { type: 'image/jpeg' })], 'capture.jpg', {
               type: 'image/jpeg',
             }),
@@ -248,7 +418,8 @@
           captures: [...g_capture_slot_arr],
         },
       ]
-      g_capture_slot_arr = [null, null, null]
+      clear_capture_slot_arr()
+      ref_this_camera?.reset()
     } catch (local_err) {
       g_submit_error = local_err instanceof Error ? local_err.message : '저장에 실패했습니다.'
     } finally {
@@ -262,6 +433,52 @@
   function on_click_submit_report() {
     if (!g_can_submit) return
     window.location.href = PATH.analysisResult
+  }
+
+  function on_click_go_back() {
+    if (window.history.length > 1) {
+      window.history.back()
+      return
+    }
+
+    navigate(PATH.analysisLensConsult)
+  }
+
+  /**
+   * 선택한 안경의 native asset 경로를 확인한 뒤 Flutter AR 피팅 화면을 연다.
+   */
+  async function on_click_launch_flutter_fitting() {
+    if (!g_flutter_bridge_ready) {
+      show_toast('Flutter 브리지가 연결되지 않았습니다.')
+      return
+    }
+
+    if (g_flutter_availability !== 'SUPPORTED') {
+      show_toast(`네이티브 AR 사용 불가 상태입니다. (${g_flutter_availability})`)
+      return
+    }
+
+    if (!g_selected_glasses_obj) {
+      show_toast('선택한 안경의 native asset 경로를 찾지 못했습니다.')
+      return
+    }
+
+    g_flutter_launch_loading = true
+
+    try {
+      const local_request_id = await launch_flutter_fitting_for_glasses(g_selected_glasses_obj)
+
+      g_flutter_event_text = `launch_requested: ${local_request_id}`
+      show_toast('Flutter AR 피팅을 실행했습니다.')
+    } catch (local_error) {
+      const local_error_text =
+        local_error instanceof Error ? local_error.message : 'Flutter AR 피팅 실행에 실패했습니다.'
+
+      g_flutter_event_text = `launch_error: ${local_error_text}`
+      show_toast(local_error_text)
+    } finally {
+      g_flutter_launch_loading = false
+    }
   }
 
   /* ── 프레임 필터 모달 ────────────────────────────────────── */
@@ -364,7 +581,7 @@
     <header class="mb-6 flex items-center justify-between">
       <button
         type="button"
-        onclick={() => window.history.back()}
+        onclick={on_click_go_back}
         class="flex items-center gap-2 text-lg font-bold text-slate-500 transition-colors hover:text-slate-800"
       >
         <ArrowLeft size={24} />
@@ -390,10 +607,16 @@
       class:ring-[#AA83B4]={g_highlight_camera}
       class:ring-offset-4={g_highlight_camera}
     >
-      <div
-        class="absolute inset-0 flex items-center justify-center rounded-[2.5rem] border-[16px] border-white/5"
-      >
-        <Camera size={80} strokeWidth={0.5} class="text-white/10" />
+      <div class="absolute inset-0 overflow-hidden rounded-[2.5rem] border-[16px] border-white/5">
+        <CameraView
+          bind:this={ref_this_camera}
+          active={true}
+          pose_target={g_camera_pose_target}
+          capture_mode="manual"
+          show_overlay={false}
+          oncapture={on_capture_camera}
+          oncapture_error={on_capture_camera_error}
+        />
       </div>
 
       {#if g_show_intro}
@@ -415,6 +638,20 @@
 
       {#if g_next_slot_idx !== -1}
         <div class="absolute bottom-10 left-1/2 flex -translate-x-1/2 flex-col items-center gap-4">
+          {#if g_flutter_bridge_ready}
+            <button
+              type="button"
+              onclick={on_click_launch_flutter_fitting}
+              disabled={!g_can_launch_flutter_fitting}
+              class="rounded-full border border-white/20 bg-black/50 px-4 py-2 text-xs font-bold text-white backdrop-blur-md transition hover:bg-black/65 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {#if g_flutter_launch_loading}
+                Flutter AR 실행 중...
+              {:else}
+                Flutter AR 피팅 열기
+              {/if}
+            </button>
+          {/if}
           <p class="rounded-full bg-black/40 px-4 py-1 font-medium text-white/80 backdrop-blur-md">
             {SLOT_LABEL_ARR[g_next_slot_idx]} 각도를 촬영해주세요
           </p>
@@ -432,6 +669,17 @@
               ></div>
             </div>
           </button>
+        </div>
+      {/if}
+      {#if g_flutter_bridge_ready}
+        <div class="absolute left-6 top-6 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-xs text-white/85 backdrop-blur-md">
+          <p class="font-black">Flutter Bridge</p>
+          <p class="mt-1">status: {g_flutter_availability}</p>
+          <p class="mt-1">asset: {g_selected_asset_path || 'none'}</p>
+          <p class="mt-1">model: {g_selected_model_url || 'none'}</p>
+          {#if g_flutter_event_text}
+            <p class="mt-1 max-w-72 break-all text-white/70">{g_flutter_event_text}</p>
+          {/if}
         </div>
       {/if}
     </div>
@@ -465,7 +713,7 @@
               }`}
             >
               {#if slot}
-                <CheckCheck size={32} class="text-[#7B3F8A]" />
+                <img src={slot.object_url} alt={SLOT_LABEL_ARR[idx]} class="h-full w-full rounded-2xl object-cover" />
                 <button
                   type="button"
                   onclick={() => on_click_reset_slot(idx)}

@@ -7,13 +7,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.virtualfitting.arcore.assets.AssetException
-import com.example.virtualfitting.arcore.assets.LocalOnlyAssetResolver
+import com.example.virtualfitting.arcore.assets.DefaultAssetResolver
 import com.example.virtualfitting.arcore.assets.ResolvedAsset
 import com.example.virtualfitting.arcore.contract.ErrorCode
 import com.example.virtualfitting.arcore.contract.VirtualFittingEvent
@@ -84,13 +88,35 @@ fun FaceFittingScreen(
     val requestId = request.session.requestId
     val preset = remember(request.fitting) { request.fitting.toPreset() }
 
-    val resolution = remember(request.asset) {
-        LocalOnlyAssetResolver().resolve(request.asset)
+    val context = LocalContext.current
+    // RemoteModel 은 HTTP 다운로드가 필요하므로 IO 디스패처에서 resolve.
+    // 메인 스레드에서 직접 호출하면 NetworkOnMainThreadException 으로 터진다.
+    val resolution by produceState<Result<ResolvedAsset>?>(
+        initialValue = null,
+        request.asset,
+        context,
+    ) {
+        value = withContext(Dispatchers.IO) {
+            DefaultAssetResolver(context).resolve(request.asset)
+        }
     }
-    val resolved = resolution.getOrNull()
+
+    if (resolution == null) {
+        StatusOverlay(
+            title = "Face Fitting · ${request.product.productName}",
+            faceCount = 0,
+            statusMessage = "Downloading model...",
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 24.dp, start = 16.dp, end = 16.dp),
+        )
+        return
+    }
+
+    val resolved = resolution!!.getOrNull()
 
     if (resolved == null) {
-        val error = resolution.exceptionOrNull()
+        val error = resolution!!.exceptionOrNull()
         val code = (error as? AssetException)?.code ?: ErrorCode.ASSET_URL_INVALID
         emit(
             VirtualFittingEvent.Error(
@@ -178,7 +204,7 @@ fun FaceFittingScreen(
                     emit(VirtualFittingEvent.Started(requestId))
                 }
                 statusMessage = if (modelInstance == null) {
-                    "ARCore ready. Loading sample GLB..."
+                    "ARCore ready. Loading GLB..."
                 } else {
                     "ARCore ready. Point the front camera at a face."
                 }
@@ -264,7 +290,7 @@ fun FaceFittingScreen(
 
                 when {
                     modelInstance == null -> {
-                        statusMessage = "Loading sample GLB from assets..."
+                        statusMessage = "Loading GLB into renderer..."
                     }
                     tracking.isEmpty() -> {
                         if (trackingReported) {
