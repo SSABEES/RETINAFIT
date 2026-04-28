@@ -29,6 +29,10 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh """
+                    cp /home/ubuntu/app/.env.prod ./.env.prod
+                    cp /home/ubuntu/app/BE/.env.prod ./BE/.env.prod
+                    cp /home/ubuntu/app/FE/.env.prod ./FE/.env.prod
+
                     docker compose -f docker-compose.prod.yml down
                     docker compose -f docker-compose.prod.yml up -d
                 """
