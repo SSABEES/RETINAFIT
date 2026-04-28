@@ -1,13 +1,10 @@
 import { apiRequest } from '@/lib/api/client'
-import { get_session_auth_headers } from '@/lib/api/session_auth'
 
 /**
  * 추천 옵션 목록을 조회한다.
  */
 export function get_recommend_option_arr() {
-  return apiRequest('/api/v1/admin/recommend-options', {
-    headers: get_session_auth_headers(),
-  })
+  return apiRequest('/api/v1/admin/recommend-options')
 }
 
 /**
@@ -17,7 +14,6 @@ export function get_recommend_option_arr() {
 export function create_recommend_option(option_obj) {
   return apiRequest('/api/v1/admin/recommend-options', {
     method: 'POST',
-    headers: get_session_auth_headers(),
     body: option_obj,
   })
 }
@@ -29,7 +25,6 @@ export function create_recommend_option(option_obj) {
 export function update_recommend_option(option_obj) {
   return apiRequest(`/api/v1/admin/recommend-options/${option_obj.option_no}`, {
     method: 'PATCH',
-    headers: get_session_auth_headers(),
     body: {
       option_name: option_obj.option_name,
       option_category: option_obj.option_category,
@@ -45,7 +40,6 @@ export function update_recommend_option(option_obj) {
 export function delete_recommend_option(option_obj) {
   return apiRequest(`/api/v1/admin/recommend-options/${option_obj.option_no}`, {
     method: 'DELETE',
-    headers: get_session_auth_headers(),
   })
 }
 
@@ -56,7 +50,6 @@ export function delete_recommend_option(option_obj) {
 export function update_recommend_option_order(option_obj) {
   return apiRequest(`/api/v1/admin/recommend-options/${option_obj.option_no}/order`, {
     method: 'PATCH',
-    headers: get_session_auth_headers(),
     body: {
       display_order: option_obj.display_order,
     },
