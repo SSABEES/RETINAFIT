@@ -28,6 +28,7 @@
     add_virtual_fitting_event_listener,
     check_virtual_fitting_availability,
     get_virtual_fitting_asset_path,
+    get_virtual_fitting_model_url,
     is_flutter_bridge_ready,
     launch_virtual_fitting,
     wait_for_flutter_bridge,
@@ -148,11 +149,14 @@
   let g_selected_asset_path = $derived(
     g_selected_glasses_obj ? get_virtual_fitting_asset_path(g_selected_glasses_obj) : '',
   )
+  let g_selected_model_url = $derived(
+    g_selected_glasses_obj ? get_virtual_fitting_model_url(g_selected_glasses_obj) : '',
+  )
   let g_can_launch_flutter_fitting = $derived(
     g_flutter_bridge_ready &&
       g_flutter_availability === 'SUPPORTED' &&
       Boolean(g_selected_glasses_obj) &&
-      Boolean(g_selected_asset_path) &&
+      (Boolean(g_selected_asset_path) || Boolean(g_selected_model_url)) &&
       !g_flutter_launch_loading,
   )
 
@@ -195,6 +199,16 @@
     get_all_glasses()
       .then((local_glass_arr) => {
         const local_normalized_glass_arr = normalize_glasses_arr(local_glass_arr)
+        // 안경 목록의 2D 이미지 / 3D 파일 S3 경로 디버그 출력
+        console.table(
+          local_normalized_glass_arr.map((local_glasses_obj) => ({
+            glasses_no: local_glasses_obj.glasses_no,
+            brand: local_glasses_obj.brand,
+            model: local_glasses_obj.model,
+            img_url: local_glasses_obj.img_url,
+            glasses_3d_url: local_glasses_obj.glasses_3d_url,
+          })),
+        )
         g_all_glasses_arr = local_normalized_glass_arr
         g_recommended_arr = local_normalized_glass_arr.slice(0, 5)
         g_selected_id = g_recommended_arr[0]?.id ?? null
@@ -228,6 +242,35 @@
     clear_capture_slot_arr()
     g_selected_id = id
     ref_this_camera?.reset()
+
+    const local_glasses_obj = g_glasses_arr.find((local_item_obj) => local_item_obj.id === id) ?? null
+    if (local_glasses_obj && g_flutter_bridge_ready && g_flutter_availability === 'SUPPORTED') {
+      void launch_flutter_fitting_for_glasses(local_glasses_obj)
+    }
+  }
+
+  function build_flutter_fitting_payload(glasses_obj) {
+    const local_asset_path = get_virtual_fitting_asset_path(glasses_obj)
+    const local_model_url = get_virtual_fitting_model_url(glasses_obj)
+    const local_product_id = glasses_obj?.glasses_no ?? glasses_obj?.id ?? ''
+
+    return {
+      product_id: String(local_product_id),
+      product_name: String(glasses_obj?.model ?? 'unknown'),
+      asset_path: local_asset_path,
+      model_url: local_model_url,
+      cache_key: `glasses-${String(local_product_id)}`,
+    }
+  }
+
+  async function launch_flutter_fitting_for_glasses(glasses_obj) {
+    const local_fitting_payload_obj = build_flutter_fitting_payload(glasses_obj)
+
+    if (!local_fitting_payload_obj.asset_path && !local_fitting_payload_obj.model_url) {
+      throw new Error('선택한 안경의 3D 파일 경로를 찾지 못했습니다.')
+    }
+
+    return launch_virtual_fitting(local_fitting_payload_obj)
   }
 
   /**
@@ -415,7 +458,7 @@
       return
     }
 
-    if (!g_selected_glasses_obj || !g_selected_asset_path) {
+    if (!g_selected_glasses_obj) {
       show_toast('선택한 안경의 native asset 경로를 찾지 못했습니다.')
       return
     }
@@ -423,11 +466,7 @@
     g_flutter_launch_loading = true
 
     try {
-      const local_request_id = await launch_virtual_fitting({
-        product_id: g_selected_glasses_obj.glasses_no ?? g_selected_glasses_obj.id,
-        product_name: g_selected_glasses_obj.model ?? 'unknown',
-        asset_path: g_selected_asset_path,
-      })
+      const local_request_id = await launch_flutter_fitting_for_glasses(g_selected_glasses_obj)
 
       g_flutter_event_text = `launch_requested: ${local_request_id}`
       show_toast('Flutter AR 피팅을 실행했습니다.')
@@ -636,7 +675,8 @@
         <div class="absolute left-6 top-6 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-xs text-white/85 backdrop-blur-md">
           <p class="font-black">Flutter Bridge</p>
           <p class="mt-1">status: {g_flutter_availability}</p>
-          <p class="mt-1">asset: {g_selected_asset_path || 'not-mapped'}</p>
+          <p class="mt-1">asset: {g_selected_asset_path || 'none'}</p>
+          <p class="mt-1">model: {g_selected_model_url || 'none'}</p>
           {#if g_flutter_event_text}
             <p class="mt-1 max-w-72 break-all text-white/70">{g_flutter_event_text}</p>
           {/if}

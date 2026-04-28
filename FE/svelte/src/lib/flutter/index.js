@@ -3,6 +3,7 @@ export {
   cancel_virtual_fitting,
   check_virtual_fitting_availability,
   get_virtual_fitting_asset_path,
+  get_virtual_fitting_model_url,
   is_flutter_bridge_ready,
   invoke_flutter_bridge,
   launch_virtual_fitting,

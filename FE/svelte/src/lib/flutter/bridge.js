@@ -103,11 +103,35 @@ export function get_virtual_fitting_asset_path(glasses_obj) {
 }
 
 /**
+ * 안경 정보에서 원격 GLB URL 후보를 추출한다.
+ * @param {Record<string, unknown>} glasses_obj
+ * @returns {string}
+ */
+export function get_virtual_fitting_model_url(glasses_obj) {
+  const local_candidate_arr = [
+    glasses_obj?.glasses_3d_url,
+    glasses_obj?.model_url,
+    glasses_obj?.glb_url,
+  ]
+
+  for (const local_candidate of local_candidate_arr) {
+    const local_value = String(local_candidate ?? '').trim()
+    if (local_value.startsWith('http://') || local_value.startsWith('https://')) {
+      return local_value
+    }
+  }
+
+  return ''
+}
+
+/**
  * 선택한 안경 정보로 네이티브 AR 피팅 화면을 실행한다.
  * @param {{
  *   product_id: string | number,
  *   product_name: string,
- *   asset_path: string,
+ *   asset_path?: string,
+ *   model_url?: string,
+ *   cache_key?: string,
  * }} fitting_obj
  * @returns {Promise<string>}
  */
@@ -117,6 +141,8 @@ export async function launch_virtual_fitting(fitting_obj) {
       productId: String(fitting_obj.product_id ?? ''),
       productName: String(fitting_obj.product_name ?? ''),
       assetPath: String(fitting_obj.asset_path ?? ''),
+      modelUrl: String(fitting_obj.model_url ?? ''),
+      cacheKey: String(fitting_obj.cache_key ?? ''),
     })
   )
 }
