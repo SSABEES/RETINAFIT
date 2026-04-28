@@ -9,6 +9,14 @@ from app.modules.reports.schemas import (
     FinalReportResponse,
 )
 
+from app.common.s3_utils import get_presigned_download_url
+
+def _convert_file_urls(file_arr: list | None) -> list | None:
+    """파일 배열의 key → 조회용 Presigned URL 변환"""
+    if not file_arr:
+        return file_arr
+    return [get_presigned_download_url(key) if key else key for key in file_arr]
+
 
 async def get_interim_report(db: AsyncSession, visit_no: int) -> InterimReportResponse:
     """
@@ -21,7 +29,10 @@ async def get_interim_report(db: AsyncSession, visit_no: int) -> InterimReportRe
             error_code=ErrorCode.VISIT_NOT_FOUND,
             message="방문 정보를 찾을 수 없습니다.",
         )
-    return InterimReportResponse.model_validate(visit)
+    data = InterimReportResponse.model_validate(visit)
+    data.main_file = get_presigned_download_url(data.main_file) if data.main_file else None
+    data.test_file_arr = _convert_file_urls(data.test_file_arr)
+    return data
 
 
 async def create_final_report(
@@ -39,7 +50,9 @@ async def create_final_report(
             error_code=ErrorCode.VISIT_NOT_FOUND,
             message="방문 정보를 찾을 수 없습니다.",
         )
-    return FinalReportResponse.model_validate(visit)
+    data = FinalReportResponse.model_validate(visit)
+    data.vp_file_arr = _convert_file_urls(data.vp_file_arr)
+    return data
 
 
 async def get_final_report(db: AsyncSession, visit_no: int) -> FinalReportResponse:
@@ -53,4 +66,6 @@ async def get_final_report(db: AsyncSession, visit_no: int) -> FinalReportRespon
             error_code=ErrorCode.VISIT_NOT_FOUND,
             message="방문 정보를 찾을 수 없습니다.",
         )
-    return FinalReportResponse.model_validate(visit)
+    data = FinalReportResponse.model_validate(visit)
+    data.vp_file_arr = _convert_file_urls(data.vp_file_arr)
+    return data
