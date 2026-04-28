@@ -2,9 +2,7 @@ import { writable } from 'svelte/store'
 
 const ADMIN_ARR_STORAGE_KEY = 'retinal_admin_arr'
 const SELECTED_ADMIN_STORAGE_KEY = 'retinal_selected_admin_obj'
-const OPT_STORE_ARR_STORAGE_KEY = 'retinal_opt_store_arr'
 const SELECTED_OPT_STORE_STORAGE_KEY = 'retinal_selected_opt_store_obj'
-const LOGIN_MEMBER_ARR_STORAGE_KEY = 'retinal_login_member_arr'
 
 /**
  * @typedef {{
@@ -76,37 +74,9 @@ export const admin_arr = writable(
 export const selected_admin_obj = writable(
   get_storage_json(SELECTED_ADMIN_STORAGE_KEY, empty_admin_obj),
 )
-export const opt_store_arr = writable(
-  get_storage_json(OPT_STORE_ARR_STORAGE_KEY, /** @type {OptStoreObj[]} */ ([])),
-)
 export const selected_opt_store_obj = writable(
   get_storage_json(SELECTED_OPT_STORE_STORAGE_KEY, /** @type {OptStoreObj | null} */ (null)),
 )
-export const login_member_arr = writable(
-  get_storage_json(
-    LOGIN_MEMBER_ARR_STORAGE_KEY,
-    /** @type {Array<Record<string, unknown>>} */ ([]),
-  ),
-)
-
-/**
- * 로그인 응답에서 받은 안경원 목록과 안경사 목록을 저장한다.
- * @param {OptStoreObj[]} opt_store_arr_value
- * @param {Array<Record<string, unknown>>} login_member_arr_value
- */
-export function set_login_select_data(opt_store_arr_value, login_member_arr_value) {
-  opt_store_arr.set(opt_store_arr_value)
-  login_member_arr.set(login_member_arr_value)
-  selected_opt_store_obj.set(null)
-  admin_arr.set([])
-  selected_admin_obj.set(empty_admin_obj)
-
-  set_storage_json(OPT_STORE_ARR_STORAGE_KEY, opt_store_arr_value)
-  set_storage_json(LOGIN_MEMBER_ARR_STORAGE_KEY, login_member_arr_value)
-  sessionStorage.removeItem(SELECTED_OPT_STORE_STORAGE_KEY)
-  sessionStorage.removeItem(ADMIN_ARR_STORAGE_KEY)
-  sessionStorage.removeItem(SELECTED_ADMIN_STORAGE_KEY)
-}
 
 /**
  * 선택한 안경원과 해당 안경원 소속 안경사 목록을 저장한다.
@@ -134,13 +104,9 @@ export function set_selected_admin(admin_obj) {
 export function clear_login_select_data() {
   admin_arr.set([])
   selected_admin_obj.set(empty_admin_obj)
-  opt_store_arr.set([])
   selected_opt_store_obj.set(null)
-  login_member_arr.set([])
 
   sessionStorage.removeItem(ADMIN_ARR_STORAGE_KEY)
   sessionStorage.removeItem(SELECTED_ADMIN_STORAGE_KEY)
-  sessionStorage.removeItem(OPT_STORE_ARR_STORAGE_KEY)
   sessionStorage.removeItem(SELECTED_OPT_STORE_STORAGE_KEY)
-  sessionStorage.removeItem(LOGIN_MEMBER_ARR_STORAGE_KEY)
 }

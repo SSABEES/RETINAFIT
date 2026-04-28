@@ -3,6 +3,7 @@
   import { ChevronDown, LogOut, UserRound } from 'lucide-svelte'
   import { PATH } from '@/config/path'
   import { clear_login_select_data, selected_admin_obj } from '@/lib/stores/admin'
+  import { clear_auto_login_obj } from '@/lib/stores/auto_login'
 
   let ref_admin_dropdown_open = $state(false)
 
@@ -16,11 +17,12 @@
     ref_admin_dropdown_open = false
   }
 
-  // 저장된 로그인 토큰을 삭제하고 로그인 화면으로 이동한다.
+  // 저장된 로그인 토큰과 자동로그인 세션을 삭제하고 로그인 화면으로 이동한다.
   function on_click_logout() {
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('token_no')
     clear_login_select_data()
+    clear_auto_login_obj()
     ref_admin_dropdown_open = false
     navigate(PATH.login)
   }

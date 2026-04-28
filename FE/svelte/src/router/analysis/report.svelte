@@ -437,7 +437,6 @@
 
       // 2단계: 정면(main) 분리 + 나머지 test_file_arr.
       const test_file_arr = []
-      
 
       // 3단계: 메타 저장.
       await save_face_analysis(visit_no, {

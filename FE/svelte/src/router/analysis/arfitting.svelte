@@ -18,7 +18,13 @@
     FileText,
   } from 'lucide-svelte'
   import CameraView from '@/components/camera/camera_view.svelte'
+  import CameraPermissionModal from '@/components/modal/camera_permission_modal.svelte'
   import { PATH } from '@/config/path'
+  import {
+    check_camera_permission_state,
+    request_camera_permission,
+    watch_camera_permission_change,
+  } from '@/lib/capture/permission'
   import {
     get_all_glasses,
     request_fitting_presigned_urls,
@@ -199,16 +205,6 @@
     get_all_glasses()
       .then((local_glass_arr) => {
         const local_normalized_glass_arr = normalize_glasses_arr(local_glass_arr)
-        // 안경 목록의 2D 이미지 / 3D 파일 S3 경로 디버그 출력
-        console.table(
-          local_normalized_glass_arr.map((local_glasses_obj) => ({
-            glasses_no: local_glasses_obj.glasses_no,
-            brand: local_glasses_obj.brand,
-            model: local_glasses_obj.model,
-            img_url: local_glasses_obj.img_url,
-            glasses_3d_url: local_glasses_obj.glasses_3d_url,
-          })),
-        )
         g_all_glasses_arr = local_normalized_glass_arr
         g_recommended_arr = local_normalized_glass_arr.slice(0, 5)
         g_selected_id = g_recommended_arr[0]?.id ?? null
@@ -243,7 +239,8 @@
     g_selected_id = id
     ref_this_camera?.reset()
 
-    const local_glasses_obj = g_glasses_arr.find((local_item_obj) => local_item_obj.id === id) ?? null
+    const local_glasses_obj =
+      g_glasses_arr.find((local_item_obj) => local_item_obj.id === id) ?? null
     if (local_glasses_obj && g_flutter_bridge_ready && g_flutter_availability === 'SUPPORTED') {
       void launch_flutter_fitting_for_glasses(local_glasses_obj)
     }
@@ -570,6 +567,55 @@
 
   let g_highlight_camera = $derived(g_guide_step === 2)
   let g_highlight_aside = $derived([1, 3, 4, 5].includes(g_guide_step))
+
+  let g_permission_state = $state(
+    /** @type {'granted' | 'denied' | 'prompt' | 'unsupported'} */ ('prompt'),
+  )
+  let g_permission_modal_open = $state(false)
+
+  // 모달의 [카메라 허용] 버튼 핸들러: getUserMedia 권한 요청 후 결과 반영.
+  // 허용 성공 시에는 사용자가 [완료]를 눌러 닫도록 모달은 그대로 둔다.
+  async function on_click_allow_camera() {
+    const local_ok = await request_camera_permission()
+    g_permission_state = local_ok ? 'granted' : 'denied'
+  }
+
+  // 모달의 [완료] 버튼 핸들러: 사용자가 직접 모달을 닫는다.
+  function on_click_close_camera_modal() {
+    g_permission_modal_open = false
+  }
+
+  onMount(() => {
+    let local_unwatch = /** @type {(() => void) | null} */ (null)
+    let local_cancelled = false
+
+    ;(async () => {
+      const local_state = await check_camera_permission_state()
+      if (local_cancelled) return
+
+      g_permission_state = local_state
+      if (local_state !== 'granted' && local_state !== 'unsupported') {
+        g_permission_modal_open = true
+      }
+
+      local_unwatch = await watch_camera_permission_change((local_next_state) => {
+        g_permission_state = local_next_state
+        if (local_next_state !== 'granted' && local_next_state !== 'unsupported') {
+          g_permission_modal_open = true
+        }
+      })
+
+      if (local_cancelled) {
+        local_unwatch?.()
+        local_unwatch = null
+      }
+    })()
+
+    return () => {
+      local_cancelled = true
+      local_unwatch?.()
+    }
+  })
 </script>
 
 <main class="app-frame-page flex overflow-hidden bg-[#F8F9FA] text-zinc-900">
@@ -672,7 +718,9 @@
         </div>
       {/if}
       {#if g_flutter_bridge_ready}
-        <div class="absolute left-6 top-6 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-xs text-white/85 backdrop-blur-md">
+        <div
+          class="absolute left-6 top-6 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-xs text-white/85 backdrop-blur-md"
+        >
           <p class="font-black">Flutter Bridge</p>
           <p class="mt-1">status: {g_flutter_availability}</p>
           <p class="mt-1">asset: {g_selected_asset_path || 'none'}</p>
@@ -713,7 +761,11 @@
               }`}
             >
               {#if slot}
-                <img src={slot.object_url} alt={SLOT_LABEL_ARR[idx]} class="h-full w-full rounded-2xl object-cover" />
+                <img
+                  src={slot.object_url}
+                  alt={SLOT_LABEL_ARR[idx]}
+                  class="h-full w-full rounded-2xl object-cover"
+                />
                 <button
                   type="button"
                   onclick={() => on_click_reset_slot(idx)}
@@ -1153,6 +1205,13 @@
     </div>
   </div>
 {/if}
+
+<CameraPermissionModal
+  open={g_permission_modal_open}
+  permission_state={g_permission_state}
+  onallow={on_click_allow_camera}
+  onclose={on_click_close_camera_modal}
+/>
 
 <style>
   .custom-scrollbar::-webkit-scrollbar {
