@@ -28,11 +28,11 @@ export const MEASUREMENT_TEMPLATE = [
   { item_id: 'cheekbone_width', label: '광대 너비',         view: 'front_no_glasses', source: 'auto' },
 
   // 정면 안경 착용 · 수동 (프레임 측정)
-  { item_id: 'frame_width',     label: '프레임 전체 너비',  view: 'front_glasses',    source: 'manual' },
-  { item_id: 'lens_width',      label: '렌즈 너비',         view: 'front_glasses',    source: 'manual' },
-  { item_id: 'bridge_width',    label: '브릿지 너비',       view: 'front_glasses',    source: 'manual' },
-  { item_id: 'lens_height',     label: '렌즈 높이',         view: 'front_glasses',    source: 'manual' },
-  { item_id: 'temple_length',   label: '템플 길이',         view: 'front_glasses',    source: 'manual' },
+  { item_id: 'frame_width', label: '프레임 전체 너비', view: 'front_glasses', source: 'manual' },
+  { item_id: 'lens_width', label: '렌즈 너비', view: 'front_glasses', source: 'manual' },
+  { item_id: 'bridge_width', label: '브릿지 너비', view: 'front_glasses', source: 'manual' },
+  { item_id: 'lens_height', label: '렌즈 높이', view: 'front_glasses', source: 'manual' },
+  { item_id: 'temple_length', label: '템플 길이', view: 'front_glasses', source: 'manual' },
 
   // 좌측 안경 착용 · 수동
   // (귀 높이는 정면 자동 측정으로 일원화 — face_shape_result.ear_offsets_obj 에 보관, 본 템플릿에 미포함)
@@ -41,7 +41,12 @@ export const MEASUREMENT_TEMPLATE = [
   { item_id: 'left_frame_tilt',         label: '프레임 기울기', view: 'left_glasses',     source: 'manual' },
 
   // 우측 안경 착용 · 수동
-  { item_id: 'right_temple_angle',      label: '템플 각도',     view: 'right_glasses',    source: 'manual' },
-  { item_id: 'right_ear_hook_position', label: '귀 걸이 위치',  view: 'right_glasses',    source: 'manual' },
-  { item_id: 'right_frame_tilt',        label: '프레임 기울기', view: 'right_glasses',    source: 'manual' },
+  { item_id: 'right_temple_angle', label: '템플 각도', view: 'right_glasses', source: 'manual' },
+  {
+    item_id: 'right_ear_hook_position',
+    label: '귀 걸이 위치',
+    view: 'right_glasses',
+    source: 'manual',
+  },
+  { item_id: 'right_frame_tilt', label: '프레임 기울기', view: 'right_glasses', source: 'manual' },
 ]

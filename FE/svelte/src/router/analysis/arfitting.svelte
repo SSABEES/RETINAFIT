@@ -18,9 +18,14 @@
     FileText,
   } from 'lucide-svelte'
   import { PATH } from '@/config/path'
-  import { save_fitting_captures, get_all_glasses } from '@/lib/api/glasses'
+  import {
+    get_all_glasses,
+    request_fitting_presigned_urls,
+    confirm_fitting_result,
+  } from '@/lib/api/glasses'
+  import { selected_visit_obj } from '@/lib/stores/customer'
 
-  /* ── 안경 목록 ──────────────────────────────────────── */
+  /* ── 안경 목록 상태 ──────────────────────────────────────── */
   let g_recommended_arr = $state([])
   let g_loading = $state(true)
   let g_selected_id = $state(null)
@@ -33,14 +38,14 @@
   let g_all_captured = $derived(g_capture_slot_arr.every((s) => s !== null))
   let g_next_slot_idx = $derived(g_capture_slot_arr.findIndex((s) => s === null))
 
-  /* ── 다중 피팅 저장 ─────────────────────────────────── */
+  /* ── 다중 피팅 상태 ──────────────────────────────────────── */
   // { glasses_id, brand, model, captures } 형태로 최대 5개 저장
   let g_saved_fittings_arr = $state([])
 
   let g_can_save = $derived(g_all_captured && g_saved_fittings_arr.length < MAX_FITTINGS)
   let g_can_submit = $derived(g_saved_fittings_arr.length > 0)
 
-  // 안경 id별 저장 횟수 맵 (저장 표시 배지에 사용)
+  // 안경 id별 저장 횟수 맵 (목록 카드 배지 표시용)
   let g_saved_count_map = $derived(
     g_saved_fittings_arr.reduce((acc, fit) => {
       acc[fit.glasses_id] = (acc[fit.glasses_id] ?? 0) + 1
@@ -48,12 +53,12 @@
     }, {}),
   )
 
-  /* ── 토스트 알림 ─────────────────────────────────────── */
+  /* ── 토스트 알림 ─────────────────────────────────────────── */
   let g_toast_msg = $state('')
   let g_toast_timer = $state(null)
 
   /**
-   * 토스트 메시지를 띄우고 2.8초 후 자동 제거
+   * 토스트 메시지를 띄우고 2.8초 뒤 자동 제거
    */
   function show_toast(msg) {
     g_toast_msg = msg
@@ -61,26 +66,31 @@
     g_toast_timer = setTimeout(() => (g_toast_msg = ''), 2800)
   }
 
-  /* ── 프레임 필터 ─────────────────────────────────────── */
+  /* ── 프레임 필터 옵션 ────────────────────────────────────── */
   const FRAME_TYPE_OPTIONS = ['풀프레임', '하프프레임', '무프레임']
   const MATERIAL_OPTIONS = ['아세테이트', '메탈', '티타늄', '혼합']
   const CATEGORY_OPTIONS = ['안경', '선글라스', '스포츠']
 
-  const MOCK_ALL_GLASSES = [
-    { id: 'a1', brand: '젠틀몬스터', model: '쿠보 01', price: '289,000', frame_type: '뿔테', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F5EAF7/AA83B4?text=KUBO+01' },
-    { id: 'a2', brand: '레이벤', model: '라운드 메탈', price: '185,000', frame_type: '메탈', frame_style: '풀프레임', material: '메탈', category: '안경', img_url: 'https://placehold.co/340x160/EEF2FF/818CF8?text=Round+Metal' },
-    { id: 'a3', brand: '모스콧', model: '렘토쉬', price: '360,000', frame_type: '아세테이트', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/FEF9EE/F59E0B?text=LEMTOSH' },
-    { id: 'a4', brand: '구찌', model: 'GG0006O', price: '420,000', frame_type: '하프림', frame_style: '하프프레임', material: '메탈', category: '안경', img_url: 'https://placehold.co/340x160/F0FDF4/4ADE80?text=GG0006O' },
-    { id: 'a5', brand: '톰포드', model: 'TF5488-B', price: '380,000', frame_type: '뿔테', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F1F5F9/475569?text=TF5488' },
-    { id: 'a6', brand: '린드버그', model: '에어 티타늄', price: '450,000', frame_type: '무테', frame_style: '무프레임', material: '티타늄', category: '안경', img_url: 'https://placehold.co/340x160/E0F2FE/0284C7?text=Air+Ti' },
-    { id: 'a7', brand: '실루엣', model: 'SPX Full', price: '390,000', frame_type: '무테', frame_style: '무프레임', material: '혼합', category: '안경', img_url: 'https://placehold.co/340x160/FEF3C7/D97706?text=SPX' },
-    { id: 'a8', brand: '오클리', model: 'Frogskins', price: '160,000', frame_type: '뿔테', frame_style: '풀프레임', material: '혼합', category: '선글라스', img_url: 'https://placehold.co/340x160/ECFDF5/059669?text=Frogskins' },
-    { id: 'a9', brand: '레이벤', model: '웨이파러', price: '195,000', frame_type: '아세테이트', frame_style: '풀프레임', material: '아세테이트', category: '선글라스', img_url: 'https://placehold.co/340x160/FFF1F2/E11D48?text=Wayfarer' },
-    { id: 'a10', brand: '나이키', model: 'Veer', price: '120,000', frame_type: '혼합', frame_style: '풀프레임', material: '혼합', category: '스포츠', img_url: 'https://placehold.co/340x160/F0F9FF/0369A1?text=Veer' },
-    { id: 'a11', brand: '프로스펙스', model: 'M-60', price: '89,000', frame_type: '메탈', frame_style: '하프프레임', material: '메탈', category: '스포츠', img_url: 'https://placehold.co/340x160/F5F3FF/7C3AED?text=M-60' },
-    { id: 'a12', brand: '페라가모', model: 'SF2939', price: '280,000', frame_type: '하프림', frame_style: '하프프레임', material: '티타늄', category: '안경', img_url: 'https://placehold.co/340x160/FDF2F8/C026D3?text=SF2939' },
-  ]
+  // 안경 목록 API 응답을 현재 피팅 카드와 필터에서 쓰는 필드 구조로 정규화한다.
+  function normalize_glasses_arr(glass_arr) {
+    return (Array.isArray(glass_arr) ? glass_arr : []).map((local_glass_obj, local_index) => {
+      const local_spec_obj = local_glass_obj.glasses_spec_json ?? {}
 
+      return {
+        id: Number(local_glass_obj.glasses_no ?? local_index + 1),
+        glasses_no: Number(local_glass_obj.glasses_no ?? local_index + 1),
+        brand: String(local_glass_obj.glasses_brand ?? ''),
+        model: String(local_glass_obj.glasses_name ?? ''),
+        price: String(local_spec_obj.price ?? ''),
+        frame_type: String(local_spec_obj.frame_type ?? ''),
+        frame_style: String(local_spec_obj.frame_style ?? ''),
+        material: String(local_spec_obj.material ?? ''),
+        category: String(local_spec_obj.category ?? ''),
+        img_url: String(local_glass_obj.glasses_img_url ?? ''),
+        glasses_3d_url: String(local_glass_obj.glasses_3d_url ?? ''),
+      }
+    })
+  }
   let g_filter_modal_open = $state(false)
   let g_filter_loading = $state(false)
   let g_all_glasses_arr = $state([])
@@ -114,28 +124,34 @@
   onMount(() => {
     g_show_intro = true
     setTimeout(() => (g_show_intro = false), 3200)
-    const mock_recommended = [
-      { id: 'g1', brand: '젠틀몬스터', model: '쿠보 01', price: '289,000', frame_type: '뿔테', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F5EAF7/AA83B4?text=KUBO+01' },
-      { id: 'g2', brand: '레이벤', model: '라운드 메탈', price: '185,000', frame_type: '메탈', frame_style: '풀프레임', material: '메탈', category: '안경', img_url: 'https://placehold.co/340x160/EEF2FF/818CF8?text=Round+Metal' },
-      { id: 'g3', brand: '모스콧', model: '렘토쉬', price: '360,000', frame_type: '아세테이트', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/FEF9EE/F59E0B?text=LEMTOSH' },
-      { id: 'g4', brand: '구찌', model: 'GG0006O', price: '420,000', frame_type: '하프림', frame_style: '하프프레임', material: '메탈', category: '안경', img_url: 'https://placehold.co/340x160/F0FDF4/4ADE80?text=GG0006O' },
-      { id: 'g5', brand: '톰포드', model: 'TF5488-B', price: '380,000', frame_type: '뿔테', frame_style: '풀프레임', material: '아세테이트', category: '안경', img_url: 'https://placehold.co/340x160/F1F5F9/475569?text=TF5488' },
-    ]
-    setTimeout(() => {
-      g_recommended_arr = mock_recommended
-      g_selected_id = mock_recommended[0].id
-      g_loading = false
-    }, 500)
+
+    get_all_glasses()
+      .then((local_glass_arr) => {
+        const local_normalized_glass_arr = normalize_glasses_arr(local_glass_arr)
+        g_all_glasses_arr = local_normalized_glass_arr
+        g_recommended_arr = local_normalized_glass_arr.slice(0, 5)
+        g_selected_id = g_recommended_arr[0]?.id ?? null
+      })
+      .catch(() => {
+        g_all_glasses_arr = []
+        g_recommended_arr = []
+        g_selected_id = null
+      })
+      .finally(() => {
+        g_loading = false
+      })
   })
 
   /**
-   * 안경 선택 시 id를 저장하고 캡처 슬롯 초기화 (미완성 캡처는 버려짐)
-   * 저장 5개 다 찼으면 토스트 경고 후 차단
+   * 안경 선택 시 id를 저장하고 캡쳐 슬롯을 초기화 (미완료 캡쳐는 버려진다)
+   * 이미 5개를 채웠다면 토스트 경고 후 차단
    */
   function on_click_select_glasses(id) {
     if (id === g_selected_id) return
     if (g_saved_fittings_arr.length >= MAX_FITTINGS) {
-      show_toast(`피팅은 최대 ${MAX_FITTINGS}개까지만 저장할 수 있습니다. 저장된 피팅을 취소 후 다시 시도하세요.`)
+      show_toast(
+        `피팅은 최대 ${MAX_FITTINGS}개까지만 저장할 수 있습니다. 저장된 피팅을 취소한 뒤 다시 시도하세요.`,
+      )
       return
     }
     g_selected_id = id
@@ -143,7 +159,7 @@
   }
 
   /**
-   * 현재 화면을 캡처하여 다음 빈 슬롯에 추가
+   * 현재 화면을 캡쳐하여 다음 빈 슬롯에 추가
    */
   function on_click_capture() {
     if (g_next_slot_idx === -1) return
@@ -153,31 +169,12 @@
   }
 
   /**
-   * 해당 캡처 슬롯의 이미지를 삭제
+   * 해당 캡쳐 슬롯의 이미지를 삭제
    */
   function on_click_reset_slot(idx) {
     const new_arr = [...g_capture_slot_arr]
     new_arr[idx] = null
     g_capture_slot_arr = new_arr
-  }
-
-  /**
-   * 3장 완성된 현재 피팅을 저장 목록에 추가하고 슬롯 초기화
-   * 3장 미완성이거나 5개 초과 시 동작하지 않음
-   */
-  function on_click_save_fitting() {
-    if (!g_can_save) return
-    const glasses_info = g_glasses_arr.find((g) => g.id === g_selected_id)
-    g_saved_fittings_arr = [
-      ...g_saved_fittings_arr,
-      {
-        glasses_id: g_selected_id,
-        brand: glasses_info?.brand ?? '',
-        model: glasses_info?.model ?? '',
-        captures: [...g_capture_slot_arr],
-      },
-    ]
-    g_capture_slot_arr = [null, null, null]
   }
 
   /**
@@ -191,35 +188,96 @@
   let g_submit_error = $state('')
 
   /**
-   * 저장된 모든 피팅(3장 완성된 것만)을 서버로 전송하고 리포트 페이지로 이동
+   * 3장 캡쳐된 현재 피팅을 API로 저장. Presigned URL 발급 → S3 업로드 → 백엔드 확정
    */
-  async function on_click_submit_report() {
-    if (!g_can_submit) return
+  async function on_click_save_fitting() {
+    if (!g_can_save || g_submit_loading) return
     g_submit_loading = true
     g_submit_error = ''
     try {
-      await save_fitting_captures(g_saved_fittings_arr)
-      window.location.href = PATH.analysisReport
+      const local_visit_no = $selected_visit_obj?.visit_no
+      const glasses_info = g_glasses_arr.find((g) => g.id === g_selected_id)
+      const local_glasses_no = glasses_info?.glasses_no ?? g_selected_id
+
+      // 1단계: 안경별 Presigned URL 발급 (front/left/right)
+      const local_presigned = await request_fitting_presigned_urls(local_visit_no, local_glasses_no)
+
+      // 2단계: front → left → right 순으로 S3에 PUT 업로드
+      // 실제 File이 아닌 슬롯(카메라 미연동)은 더미 파일로 대체
+      const local_file_arr = g_capture_slot_arr.map((f) =>
+        f instanceof File
+          ? f
+          : new File([new Blob(['dummy'], { type: 'image/jpeg' })], 'capture.jpg', {
+              type: 'image/jpeg',
+            }),
+      )
+      const local_url_arr = [
+        local_presigned.front_url,
+        local_presigned.left_url,
+        local_presigned.right_url,
+      ]
+      await Promise.all(
+        local_url_arr.map((url, idx) =>
+          fetch(url, {
+            method: 'PUT',
+            body: local_file_arr[idx],
+          }).then((res) => {
+            if (!res.ok) throw new Error(`S3 업로드 실패 (${res.status})`)
+          }),
+        ),
+      )
+
+      // 3단계: 업로드된 key 배열로 백엔드에 저장
+      await confirm_fitting_result(local_visit_no, {
+        vp_file_arr: [
+          local_presigned.front_key,
+          local_presigned.left_key,
+          local_presigned.right_key,
+        ],
+        vp_json: { glasses_no: local_glasses_no, fitting_result: {} },
+      })
+
+      // 로컬 저장 목록 업데이트 및 슬롯 초기화
+      g_saved_fittings_arr = [
+        ...g_saved_fittings_arr,
+        {
+          glasses_id: g_selected_id,
+          glasses_no: local_glasses_no,
+          brand: glasses_info?.brand ?? '',
+          model: glasses_info?.model ?? '',
+          captures: [...g_capture_slot_arr],
+        },
+      ]
+      g_capture_slot_arr = [null, null, null]
     } catch (local_err) {
-      g_submit_error = local_err.message ?? '저장에 실패했습니다.'
+      g_submit_error = local_err instanceof Error ? local_err.message : '저장에 실패했습니다.'
+    } finally {
       g_submit_loading = false
     }
   }
 
-  /* ── 프레임 필터 모달 ─────────────────────────────────── */
+  /**
+   * 저장된 피팅이 1개 이상이면 리포트 페이지로 이동
+   */
+  function on_click_submit_report() {
+    if (!g_can_submit) return
+    window.location.href = PATH.analysisResult
+  }
+
+  /* ── 프레임 필터 모달 ────────────────────────────────────── */
 
   /**
-   * 필터 모달 열기 — 전체 안경 목록을 한 번만 fetch
+   * 필터 모달 열기 시 전체 안경 목록을 한 번만 fetch
    */
   async function on_click_open_filter_modal() {
     g_filter_modal_open = true
     if (g_all_glasses_arr.length > 0) return
     g_filter_loading = true
     try {
-      const data = await get_all_glasses()
-      g_all_glasses_arr = data
+      const local_glass_arr = await get_all_glasses()
+      g_all_glasses_arr = normalize_glasses_arr(local_glass_arr)
     } catch {
-      g_all_glasses_arr = MOCK_ALL_GLASSES
+      g_all_glasses_arr = []
     } finally {
       g_filter_loading = false
     }
@@ -230,9 +288,7 @@
    */
   function on_click_toggle_filter(field, value) {
     const arr = g_filter_obj[field]
-    g_filter_obj[field] = arr.includes(value)
-      ? arr.filter((v) => v !== value)
-      : [...arr, value]
+    g_filter_obj[field] = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]
   }
 
   /**
@@ -242,49 +298,58 @@
     g_filter_obj = { frame_type_arr: [], material_arr: [], category_arr: [] }
   }
 
-  /* ── 사용 가이드 투어 ────────────────────────────────── */
+  /* ── 사용 가이드 투어 ────────────────────────────────────── */
   let g_guide_step = $state(0)
 
   const GUIDE_STEP_ARR = [
     null,
     {
-      title: '시착할 안경을 선택하세요',
-      desc: '오른쪽 목록에서 원하는 안경을 선택하세요.\n선택하면 카메라에 AR 피팅이 적용됩니다.',
-      hint: '우측 안경 목록을 확인하세요',
+      title: '착용할 안경을 선택해 주세요',
+      desc: '오른쪽 목록에서 원하는 안경을 선택해 주세요.\n선택하면 카메라 화면에 AR 피팅이 적용됩니다.',
+      hint: '오른쪽 안경 목록을 확인해 주세요.',
       card_style: 'right: 468px; top: 50%; transform: translateY(-50%)',
     },
     {
-      title: '3장을 촬영하세요',
-      desc: '촬영 버튼을 눌러 정면 → 왼쪽 측면 → 오른쪽 측면\n순서로 3장을 찍어주세요.\n3장을 모두 찍어야 피팅 결과를 저장할 수 있습니다.',
-      hint: '위 카메라를 바라보고 촬영하세요',
+      title: '3장을 촬영해 주세요',
+      desc: '촬영 버튼을 눌러 정면, 측면 좌, 측면 우 순서로 3장을 찍어 주세요.\n3장을 모두 찍어야 피팅 결과를 저장할 수 있습니다.',
+      hint: '카메라를 바라보고 촬영해 주세요.',
       card_style: 'left: 40px; bottom: 168px',
     },
     {
-      title: '촬영 상태를 확인하세요',
-      desc: '3개의 슬롯이 모두 채워졌는지 확인하세요.\nX 버튼으로 재촬영할 수 있습니다.\n다른 안경을 선택하면 현재 촬영 중인 사진은 초기화됩니다.',
-      hint: '오른쪽 상단 슬롯을 확인하세요',
+      title: '촬영 상태를 확인해 주세요',
+      desc: '3개의 슬롯이 모두 채워졌는지 확인해 주세요.\nX 버튼으로 다시 촬영할 수 있습니다.\n다른 안경을 선택하면 현재 촬영 중인 사진은 초기화됩니다.',
+      hint: '오른쪽 상단 슬롯을 확인해 주세요.',
       card_style: 'right: 468px; top: 80px',
     },
     {
-      title: '피팅 결과를 저장하세요',
-      desc: '3장이 완료되면 [피팅 결과 저장] 버튼이 활성화됩니다.\n저장 후 다른 안경을 선택해 최대 5개까지 시착할 수 있습니다.\n3장 미완성 상태에서는 저장되지 않습니다.',
-      hint: '오른쪽 하단 왼쪽 버튼을 눌러주세요',
+      title: '피팅 결과를 저장해요',
+      desc: '3장 촬영이 완료되면 [피팅 결과 저장] 버튼이 활성화됩니다.\n저장 후 다른 안경도 최대 5개까지 시도할 수 있습니다.\n3장 미완료 상태에서는 저장되지 않습니다.',
+      hint: '오른쪽 하단 왼쪽 버튼을 눌러 주세요.',
       card_style: 'right: 468px; bottom: 72px',
     },
     {
-      title: '최종 리포트를 확인하세요',
-      desc: '피팅 결과가 1개 이상 저장되면 [최종 분석 리포트 확인] 버튼이 활성화됩니다.\n저장된 안경들을 한 번에 AI가 분석합니다.',
-      hint: '오른쪽 하단 오른쪽 버튼을 눌러주세요',
+      title: '최종 리포트를 확인해 주세요',
+      desc: '피팅 결과가 1개 이상 저장되면 [최종 분석 리포트 확인] 버튼이 활성화됩니다.\n저장한 안경들을 한 번에 AI가 분석합니다.',
+      hint: '오른쪽 하단 오른쪽 버튼을 눌러 주세요.',
       card_style: 'right: 468px; bottom: 72px',
     },
   ]
 
   let g_guide_info = $derived(GUIDE_STEP_ARR[g_guide_step])
 
-  function on_click_guide_open() { g_guide_step = 1 }
-  function on_click_guide_close() { g_guide_step = 0 }
-  function on_click_guide_next() { if (g_guide_step < 5) g_guide_step++; else g_guide_step = 0 }
-  function on_click_guide_prev() { if (g_guide_step > 1) g_guide_step-- }
+  function on_click_guide_open() {
+    g_guide_step = 1
+  }
+  function on_click_guide_close() {
+    g_guide_step = 0
+  }
+  function on_click_guide_next() {
+    if (g_guide_step < 5) g_guide_step++
+    else g_guide_step = 0
+  }
+  function on_click_guide_prev() {
+    if (g_guide_step > 1) g_guide_step--
+  }
 
   let g_highlight_camera = $derived(g_guide_step === 2)
   let g_highlight_aside = $derived([1, 3, 4, 5].includes(g_guide_step))
@@ -342,7 +407,7 @@
           >
             <Glasses size={18} class="shrink-0 text-[#AA83B4]" />
             <span class="whitespace-nowrap text-sm font-semibold text-white/90">
-              원하시는 안경을 선택해 시착해보세요
+              원하시는 안경을 선택해 시감해보세요
             </span>
           </div>
         </div>
@@ -372,12 +437,12 @@
     </div>
   </section>
 
-  <!-- 우측: 캡처 상태 + 추천 안경 + 액션 버튼 -->
+  <!-- 우측: 캡쳐 상태 + 추천 안경 + 액션 버튼 -->
   <aside
     class="relative flex w-[440px] flex-col border-l border-slate-200 bg-white shadow-xl transition-[z-index]"
     class:z-50={g_highlight_aside}
   >
-    <!-- 캡처 슬롯 -->
+    <!-- 캡쳐 슬롯 -->
     <div
       class="p-8 pb-4 transition-all"
       class:ring-4={g_guide_step === 3}
@@ -508,9 +573,14 @@
                   >
                   <p class="truncate text-base font-black text-slate-800">{item.model}</p>
                   <div class="mt-1 flex items-center gap-2">
-                    <span class="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">{item.frame_type}</span>
+                    <span
+                      class="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500"
+                      >{item.frame_type}</span
+                    >
                     {#if saved_count > 0}
-                      <span class="rounded-md bg-[#F5EAF7] px-2 py-0.5 text-[10px] font-bold text-[#7B3F8A]">
+                      <span
+                        class="rounded-md bg-[#F5EAF7] px-2 py-0.5 text-[10px] font-bold text-[#7B3F8A]"
+                      >
                         피팅 저장됨
                       </span>
                     {/if}
@@ -589,30 +659,30 @@
         <!-- 피팅 결과 저장 -->
         <button
           type="button"
-          disabled={!g_can_save}
+          disabled={!g_can_save || g_submit_loading}
           onclick={on_click_save_fitting}
           class="flex h-14 items-center justify-center gap-2 rounded-2xl border-2 border-[#AA83B4] bg-white text-sm font-black text-[#4B0055] shadow-sm transition-all hover:bg-[#F5EAF7] disabled:cursor-not-allowed disabled:opacity-25 disabled:grayscale"
         >
-          <Save size={16} />
-          <span>피팅 결과 저장</span>
+          {#if g_submit_loading}
+            <span
+              class="h-4 w-4 animate-spin rounded-full border-2 border-[#4B0055] border-t-transparent"
+            ></span>
+            <span>저장 중...</span>
+          {:else}
+            <Save size={16} />
+            <span>피팅 결과 저장</span>
+          {/if}
         </button>
 
         <!-- 최종 분석 리포트 -->
         <button
           type="button"
-          disabled={!g_can_submit || g_submit_loading}
+          disabled={!g_can_submit}
           onclick={on_click_submit_report}
           class="flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#4B0055] text-sm font-black text-white shadow-xl transition-all hover:bg-[#320038] disabled:cursor-not-allowed disabled:opacity-25 disabled:grayscale"
         >
-          {#if g_submit_loading}
-            <span
-              class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
-            ></span>
-            <span>저장 중...</span>
-          {:else}
-            <FileText size={16} />
-            <span>리포트 확인</span>
-          {/if}
+          <FileText size={16} />
+          <span>리포트 확인</span>
         </button>
       </div>
     </div>
@@ -664,7 +734,7 @@
           <div>
             <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">테 종류</p>
             <div class="flex flex-wrap gap-2">
-              {#each FRAME_TYPE_OPTIONS as opt}
+              {#each FRAME_TYPE_OPTIONS as opt (opt)}
                 {@const selected = g_filter_obj.frame_type_arr.includes(opt)}
                 <button
                   type="button"
@@ -684,7 +754,7 @@
           <div>
             <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">재질</p>
             <div class="flex flex-wrap gap-2">
-              {#each MATERIAL_OPTIONS as opt}
+              {#each MATERIAL_OPTIONS as opt (opt)}
                 {@const selected = g_filter_obj.material_arr.includes(opt)}
                 <button
                   type="button"
@@ -704,7 +774,7 @@
           <div>
             <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">카테고리</p>
             <div class="flex flex-wrap gap-2">
-              {#each CATEGORY_OPTIONS as opt}
+              {#each CATEGORY_OPTIONS as opt (opt)}
                 {@const selected = g_filter_obj.category_arr.includes(opt)}
                 <button
                   type="button"
@@ -772,9 +842,10 @@
       out:fade={{ duration: 150 }}
     >
       <div class="mb-5 flex gap-1.5">
-        {#each [1, 2, 3, 4, 5] as step_num}
+        {#each [1, 2, 3, 4, 5] as step_num (step_num)}
           <div
-            class="h-1.5 flex-1 rounded-full transition-colors duration-300 {g_guide_step >= step_num
+            class="h-1.5 flex-1 rounded-full transition-colors duration-300 {g_guide_step >=
+            step_num
               ? 'bg-[#AA83B4]'
               : 'bg-slate-100'}"
           ></div>
@@ -785,9 +856,7 @@
       </p>
       <h3 class="mb-3 text-lg font-black leading-snug text-zinc-900">{g_guide_info.title}</h3>
       <p class="whitespace-pre-line text-sm leading-relaxed text-slate-500">{g_guide_info.desc}</p>
-      <div
-        class="mt-4 flex items-center justify-between gap-2 rounded-2xl bg-[#F5EAF7] px-4 py-3"
-      >
+      <div class="mt-4 flex items-center justify-between gap-2 rounded-2xl bg-[#F5EAF7] px-4 py-3">
         <span class="text-xs font-bold text-[#7B3F8A]">{g_guide_info.hint}</span>
         <ChevronRight size={14} class="shrink-0 text-[#AA83B4]" />
       </div>

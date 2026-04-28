@@ -59,9 +59,7 @@
           onclick={on_click_no_glasses}
         >
           <div class="text-lg font-extrabold text-zinc-950">미착용</div>
-          <div class="mt-0.5 text-sm font-semibold text-slate-500">
-            미착용 3장만 촬영
-          </div>
+          <div class="mt-0.5 text-sm font-semibold text-slate-500">미착용 3장만 촬영</div>
         </button>
       </div>
     </div>

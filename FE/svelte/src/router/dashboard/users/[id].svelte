@@ -24,7 +24,7 @@
   let g_is_analysis_completed = $derived(Boolean(g_recent_visit_obj?.test_dt))
 
   let action_card_arr = $derived([
-      {
+    {
       title: '얼굴 분석',
       description: '얼굴형 및 톤 분석',
       href: PATH.analysis,

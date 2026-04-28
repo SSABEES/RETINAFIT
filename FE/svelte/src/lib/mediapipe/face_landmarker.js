@@ -224,15 +224,79 @@ export function draw_face_mesh(canvas, result) {
   const w = canvas.width
   const h = canvas.height
 
-  draw_connections(ctx, landmarks, MpFaceLandmarker.FACE_LANDMARKS_TESSELATION, w, h, MESH_COLOR_TESSELATION, 1)
-  draw_connections(ctx, landmarks, MpFaceLandmarker.FACE_LANDMARKS_FACE_OVAL, w, h, MESH_COLOR_OVAL, 2)
-  draw_connections(ctx, landmarks, MpFaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, w, h, MESH_COLOR_EYE, 2)
-  draw_connections(ctx, landmarks, MpFaceLandmarker.FACE_LANDMARKS_LEFT_EYE, w, h, MESH_COLOR_EYE, 2)
-  draw_connections(ctx, landmarks, MpFaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW, w, h, MESH_COLOR_EYEBROW, 2)
-  draw_connections(ctx, landmarks, MpFaceLandmarker.FACE_LANDMARKS_LEFT_EYEBROW, w, h, MESH_COLOR_EYEBROW, 2)
+  draw_connections(
+    ctx,
+    landmarks,
+    MpFaceLandmarker.FACE_LANDMARKS_TESSELATION,
+    w,
+    h,
+    MESH_COLOR_TESSELATION,
+    1,
+  )
+  draw_connections(
+    ctx,
+    landmarks,
+    MpFaceLandmarker.FACE_LANDMARKS_FACE_OVAL,
+    w,
+    h,
+    MESH_COLOR_OVAL,
+    2,
+  )
+  draw_connections(
+    ctx,
+    landmarks,
+    MpFaceLandmarker.FACE_LANDMARKS_RIGHT_EYE,
+    w,
+    h,
+    MESH_COLOR_EYE,
+    2,
+  )
+  draw_connections(
+    ctx,
+    landmarks,
+    MpFaceLandmarker.FACE_LANDMARKS_LEFT_EYE,
+    w,
+    h,
+    MESH_COLOR_EYE,
+    2,
+  )
+  draw_connections(
+    ctx,
+    landmarks,
+    MpFaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW,
+    w,
+    h,
+    MESH_COLOR_EYEBROW,
+    2,
+  )
+  draw_connections(
+    ctx,
+    landmarks,
+    MpFaceLandmarker.FACE_LANDMARKS_LEFT_EYEBROW,
+    w,
+    h,
+    MESH_COLOR_EYEBROW,
+    2,
+  )
   draw_connections(ctx, landmarks, MpFaceLandmarker.FACE_LANDMARKS_LIPS, w, h, MESH_COLOR_LIP, 2)
-  draw_connections(ctx, landmarks, MpFaceLandmarker.FACE_LANDMARKS_RIGHT_IRIS, w, h, MESH_COLOR_IRIS, 2)
-  draw_connections(ctx, landmarks, MpFaceLandmarker.FACE_LANDMARKS_LEFT_IRIS, w, h, MESH_COLOR_IRIS, 2)
+  draw_connections(
+    ctx,
+    landmarks,
+    MpFaceLandmarker.FACE_LANDMARKS_RIGHT_IRIS,
+    w,
+    h,
+    MESH_COLOR_IRIS,
+    2,
+  )
+  draw_connections(
+    ctx,
+    landmarks,
+    MpFaceLandmarker.FACE_LANDMARKS_LEFT_IRIS,
+    w,
+    h,
+    MESH_COLOR_IRIS,
+    2,
+  )
 }
 
 /**

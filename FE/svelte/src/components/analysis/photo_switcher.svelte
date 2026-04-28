@@ -10,20 +10,16 @@
    *   onview_change?: ((view: ViewAngle) => void) | undefined,
    * }}
    */
-  let {
-    session,
-    view = 'front_no_glasses',
-    onview_change = undefined,
-  } = $props()
+  let { session, view = 'front_no_glasses', onview_change = undefined } = $props()
 
   /** @type {{ id: ViewAngle, label: string }[]} */
   const VIEW_TABS = [
     { id: 'front_no_glasses', label: '정면 (미착용)' },
-    { id: 'front_glasses',    label: '정면 (안경)' },
-    { id: 'left_no_glasses',  label: '좌측 (미착용)' },
-    { id: 'left_glasses',     label: '좌측 (안경)' },
+    { id: 'front_glasses', label: '정면 (안경)' },
+    { id: 'left_no_glasses', label: '좌측 (미착용)' },
+    { id: 'left_glasses', label: '좌측 (안경)' },
     { id: 'right_no_glasses', label: '우측 (미착용)' },
-    { id: 'right_glasses',    label: '우측 (안경)' },
+    { id: 'right_glasses', label: '우측 (안경)' },
   ]
 
   // 해당 캡쳐가 세션에 존재하는 탭만 노출. 3장 모드면 *_no_glasses 3개만,

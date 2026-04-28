@@ -146,7 +146,9 @@
           const local_result_obj = await get_visit_list({
             cust_no: customer_obj.id,
           })
-          const local_visit_arr = Array.isArray(local_result_obj?.visits) ? local_result_obj.visits : []
+          const local_visit_arr = Array.isArray(local_result_obj?.visits)
+            ? local_result_obj.visits
+            : []
           const local_recent_visit_obj = local_visit_arr[0] ?? null
           const local_status_obj = get_analysis_status_obj(local_recent_visit_obj?.test_dt ?? null)
           const local_latest_visit_dt = get_latest_visit_date(
@@ -228,7 +230,10 @@
 
       g_recent_visit_obj = local_recent_visit_obj
 
-      if (customer_obj.status_key === 'analysis_done' || customer_obj.status_key === 'remeasure_recommended') {
+      if (
+        customer_obj.status_key === 'analysis_done' ||
+        customer_obj.status_key === 'remeasure_recommended'
+      ) {
         open_analysis_result_confirm_modal()
         return
       }

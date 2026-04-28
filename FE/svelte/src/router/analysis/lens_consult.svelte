@@ -2,26 +2,99 @@
   import { onMount } from 'svelte'
   import { ArrowLeft, Glasses } from 'lucide-svelte'
   import { PATH } from '@/config/path'
-  import { get_glasses_options, save_lens_requirements } from '@/lib/api/glasses'
+  import { get_recommend_option_arr } from '@/lib/api/admin_recommend_options'
+  import { save_visit_recommend } from '@/lib/api/visit'
 
-  // 서버에서 받아온 선택 옵션 그룹
+  const g_lens_category_meta_arr = [
+    { key: 'lens_type', label: '렌즈 종류' },
+    { key: 'coating', label: '코팅' },
+    { key: 'usage', label: '주 사용 환경' },
+    { key: 'lens_material', label: '렌즈 소재' },
+  ]
+
   let g_option_group_arr = $state([])
   let g_options_loading = $state(true)
   let g_options_error = $state('')
-
-  // 사용자가 선택한 옵션 저장할 객체
+  let g_loading = $state(false)
+  let g_error = $state('')
   let ref_selected_obj = $state({})
 
-  // 마운트 시 옵션 목록을 서버에서 가져와 선택 상태를 초기화
-  onMount(() => {
-    get_glasses_options()
-      .then((local_data) => {
-        g_option_group_arr = local_data
-        const local_init_obj = {}
-        for (const group_obj of local_data) {
-          local_init_obj[group_obj.key] = []
+  // 추천 옵션 응답에서 렌즈 상담 화면에 필요한 카테고리만 추려 버튼 그룹으로 정규화한다.
+  function normalize_lens_option_group_arr(option_arr) {
+    return g_lens_category_meta_arr
+      .map((local_category_meta_obj) => {
+        const local_option_arr = option_arr
+          .filter(
+            (local_option_obj) =>
+              local_option_obj.option_category === local_category_meta_obj.key &&
+              local_option_obj.is_active,
+          )
+          .sort(
+            (local_left_option_obj, local_right_option_obj) =>
+              local_left_option_obj.display_order - local_right_option_obj.display_order,
+          )
+          .map((local_option_obj) => ({
+            id: String(local_option_obj.option_no),
+            label: String(local_option_obj.option_name ?? ''),
+          }))
+
+        return {
+          key: local_category_meta_obj.key,
+          label: local_category_meta_obj.label,
+          options: local_option_arr,
         }
-        ref_selected_obj = local_init_obj
+      })
+      .filter((local_group_obj) => local_group_obj.options.length > 0)
+  }
+
+  // 렌즈 카테고리별 선택 상태를 빈 배열로 초기화한다.
+  function init_selected_obj(option_group_arr) {
+    const local_selected_obj = {}
+
+    for (const local_group_obj of option_group_arr) {
+      local_selected_obj[local_group_obj.key] = []
+    }
+
+    ref_selected_obj = local_selected_obj
+  }
+
+  // 현재 탭 세션에서 방문 번호를 읽어 추천 옵션 저장 대상 방문을 결정한다.
+  function get_visit_no() {
+    if (typeof sessionStorage === 'undefined') {
+      return null
+    }
+
+    const local_visit_no = sessionStorage.getItem('retinal_visit_no')
+    if (local_visit_no) {
+      const local_number = Number(local_visit_no)
+      if (Number.isFinite(local_number)) {
+        return local_number
+      }
+    }
+
+    const local_selected_visit_json = sessionStorage.getItem('retinal_selected_visit_obj')
+    if (!local_selected_visit_json) {
+      return null
+    }
+
+    try {
+      const local_selected_visit_obj = JSON.parse(local_selected_visit_json)
+      const local_number = Number(local_selected_visit_obj?.visit_no)
+      return Number.isFinite(local_number) ? local_number : null
+    } catch {
+      return null
+    }
+  }
+
+  onMount(() => {
+    get_recommend_option_arr()
+      .then((local_option_arr) => {
+        const local_group_arr = normalize_lens_option_group_arr(
+          Array.isArray(local_option_arr) ? local_option_arr : [],
+        )
+
+        g_option_group_arr = local_group_arr
+        init_selected_obj(local_group_arr)
       })
       .catch((local_err) => {
         g_options_error = local_err.message ?? '옵션을 불러오지 못했습니다.'
@@ -31,32 +104,46 @@
       })
   })
 
-  // 해당 옵션이 선택됐는지 확인
-  const is_selected = (key, id) => ref_selected_obj[key]?.includes(id) ?? false
+  const is_selected = (group_key, option_id) =>
+    ref_selected_obj[group_key]?.includes(option_id) ?? false
 
-  // 하나 이상 선택했는지 확인해 저장 버튼 활성화 여부를 결정
-  let g_can_submit = $derived(Object.values(ref_selected_obj).some((arr) => arr.length > 0))
+  let g_can_submit = $derived(
+    Object.values(ref_selected_obj).some(
+      (local_selected_option_arr) => local_selected_option_arr.length > 0,
+    ),
+  )
 
-  // API 요청 상태
-  let g_loading = $state(false)
-  let g_error = $state('')
+  // 옵션 버튼 클릭 시 같은 값은 해제하고, 없던 값은 선택 목록에 추가한다.
+  function on_click_toggle_option(group_key, option_id) {
+    const local_selected_option_arr = ref_selected_obj[group_key] ?? []
 
-  // 옵션 토글 — 이미 선택된 항목이면 해제하고, 없으면 추가하도록
-  function on_click_toggle_option(group_key, opt_id) {
-    const local_arr = ref_selected_obj[group_key]
-    if (local_arr.includes(opt_id)) {
-      ref_selected_obj[group_key] = local_arr.filter((id) => id !== opt_id)
-    } else {
-      ref_selected_obj[group_key] = [...local_arr, opt_id]
+    if (local_selected_option_arr.includes(option_id)) {
+      ref_selected_obj[group_key] = local_selected_option_arr.filter(
+        (local_saved_option_id) => local_saved_option_id !== option_id,
+      )
+      return
     }
+
+    ref_selected_obj[group_key] = [...local_selected_option_arr, option_id]
   }
 
-  // 렌즈 조건 저장 후 AR 피팅 페이지로 이동
+  // 선택한 추천 옵션을 방문 데이터에 저장한 뒤 AR 피팅 화면으로 이동한다.
   async function on_click_submit() {
     g_loading = true
     g_error = ''
+
     try {
-      await save_lens_requirements(ref_selected_obj)
+      const local_visit_no = get_visit_no()
+
+      if (local_visit_no === null) {
+        throw new Error('방문 정보가 없어 추천 옵션을 저장할 수 없습니다.')
+      }
+
+      await save_visit_recommend({
+        visit_no: local_visit_no,
+        opt_recommend_json: ref_selected_obj,
+      })
+
       window.location.href = PATH.analysisArFitting
     } catch (local_err) {
       g_error = local_err.message ?? '조건 저장에 실패했습니다.'
@@ -67,7 +154,7 @@
 
 <main class="app-frame-page overflow-hidden bg-[#F7F8FA] text-zinc-950">
   <header
-    class="grid h-[72px] grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-white px-8"
+    class="grid h-[74px] grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-white px-8"
   >
     <div class="flex justify-start">
       <button
@@ -75,54 +162,65 @@
         type="button"
         onclick={() => window.history.back()}
       >
-        <ArrowLeft size={20} strokeWidth={2.2} aria-hidden="true" />
+        <ArrowLeft size={22} strokeWidth={2.2} aria-hidden="true" />
         <span>뒤로가기</span>
       </button>
     </div>
-    <h1 class="m-0 text-2xl font-extrabold tracking-normal text-zinc-950">렌즈 조건 선택</h1>
+    <h1 class="m-0 text-[30px] font-extrabold tracking-[-0.03em] text-zinc-950">렌즈 조건 선택</h1>
     <div></div>
   </header>
 
-  <section class="h-[calc(100%-72px)] overflow-y-auto">
-    <div class="mx-auto max-w-[800px] px-8 py-10">
-      <!-- 안내 배너 -->
-      <div class="mb-8 rounded-2xl bg-[#F3E8F5] px-7 py-6">
-        <p class="m-0 text-xl font-extrabold text-[#4B0055]">
+  <section
+    class="h-[calc(100%-74px)] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+  >
+    <div class="mx-auto max-w-[1120px] px-8 pb-8 pt-8">
+      <div class="mx-auto mb-8 max-w-[860px] rounded-[24px] bg-[#F3E8F5] px-12 py-7 text-center">
+        <p
+          class="m-0 whitespace-nowrap text-[26px] font-extrabold leading-tight tracking-[-0.02em] text-[#4B0055]"
+        >
           고객에게 맞는 렌즈와 사용 환경을 체크해 주세요.
         </p>
-        <p class="m-0 mt-1 text-sm font-semibold text-[#7B3F8A]">
+        <p class="m-0 mt-2 text-[17px] font-bold text-[#7B3F8A]">
           여러 항목을 중복으로 선택할 수 있습니다.
         </p>
       </div>
 
-      <!-- 옵션 그룹 -->
-      <div class="grid gap-8">
-        {#if g_options_loading}
-          <div class="grid place-items-center py-16">
-            <span
-              class="h-8 w-8 animate-spin rounded-full border-2 border-[#4B0055] border-t-transparent"
-            ></span>
-          </div>
-        {:else if g_options_error}
-          <p class="rounded-xl bg-red-50 px-5 py-4 text-sm font-bold text-red-600" role="alert">
-            {g_options_error}
-          </p>
-        {:else if g_option_group_arr.length === 0}
-          <p class="rounded-xl bg-slate-50 px-5 py-4 text-sm font-bold text-slate-500">
-            선택 가능한 옵션이 없습니다.
-          </p>
-        {:else}
+      {#if g_options_loading}
+        <div class="grid place-items-center py-24">
+          <span
+            class="h-10 w-10 animate-spin rounded-full border-[3px] border-[#4B0055] border-t-transparent"
+          ></span>
+        </div>
+      {:else if g_options_error}
+        <p
+          class="mx-auto max-w-[640px] rounded-2xl bg-red-50 px-6 py-5 text-center text-base font-bold text-red-600"
+          role="alert"
+        >
+          {g_options_error}
+        </p>
+      {:else if g_option_group_arr.length === 0}
+        <p
+          class="mx-auto max-w-[640px] rounded-2xl bg-slate-50 px-6 py-5 text-center text-base font-bold text-slate-500"
+        >
+          선택 가능한 옵션이 없습니다.
+        </p>
+      {:else}
+        <div class="space-y-7">
           {#each g_option_group_arr as group_obj (group_obj.key)}
             <section>
-              <h2 class="m-0 mb-3 text-lg font-extrabold text-zinc-950">{group_obj.label}</h2>
-              <div class="flex flex-wrap gap-3">
+              <h2
+                class="mb-4 text-center text-[22px] font-extrabold tracking-[-0.02em] text-zinc-950"
+              >
+                {group_obj.label}
+              </h2>
+              <div class="mx-auto flex max-w-[760px] flex-wrap justify-center gap-4">
                 {#each group_obj.options as opt_obj (opt_obj.id)}
                   {@const local_active = is_selected(group_obj.key, opt_obj.id)}
                   <button
-                    class={`min-h-[48px] rounded-xl px-6 text-base font-bold transition ${
+                    class={`flex min-h-[68px] w-[176px] items-center justify-center rounded-[18px] border px-6 text-[17px] font-bold transition ${
                       local_active
-                        ? 'bg-[#4B0055] text-white shadow-sm'
-                        : 'border border-[#E5E7EB] bg-white text-slate-700 hover:border-[#4B0055] hover:text-[#4B0055]'
+                        ? 'border-[#1F1F1F] bg-[#4B0055] text-white shadow-[0_10px_24px_rgba(75,0,85,0.18)]'
+                        : 'border-[#E9E1EE] bg-[#F5F1F7] text-slate-600 hover:border-[#4B0055] hover:bg-[#F0E7F4] hover:text-[#4B0055]'
                     }`}
                     type="button"
                     aria-pressed={local_active}
@@ -134,32 +232,36 @@
               </div>
             </section>
           {/each}
-        {/if}
-      </div>
+        </div>
+      {/if}
 
-      <!-- 에러 메시지 -->
       {#if g_error}
-        <p class="mt-6 rounded-xl bg-red-50 px-5 py-4 text-sm font-bold text-red-600" role="alert">
+        <p
+          class="mx-auto mt-8 max-w-[640px] rounded-2xl bg-red-50 px-6 py-5 text-center text-base font-bold text-red-600"
+          role="alert"
+        >
           {g_error}
         </p>
       {/if}
 
-      <!-- 저장 후 AR 피팅으로 이동 버튼 -->
-      <button
-        class="mt-8 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-xl border-0 bg-[#4B0055] text-lg font-extrabold text-white transition hover:bg-[#65006F] disabled:cursor-not-allowed disabled:opacity-50"
-        type="button"
-        disabled={g_loading}
-        onclick={on_click_submit}
-      >
-        {#if g_loading}
-          <span class="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"
-          ></span>
-          <span>저장 중...</span>
-        {:else}
-          <Glasses size={22} aria-hidden="true" />
-          <span>AR피팅 시작하기</span>
-        {/if}
-      </button>
+      <div class="mx-auto mt-8 max-w-[1120px]">
+        <button
+          class="inline-flex min-h-[72px] w-full items-center justify-center gap-3 rounded-[20px] border-0 bg-[#4B0055] px-8 text-[20px] font-extrabold text-white transition hover:bg-[#65006F] disabled:cursor-not-allowed disabled:opacity-50"
+          type="button"
+          disabled={g_loading || !g_can_submit}
+          onclick={on_click_submit}
+        >
+          {#if g_loading}
+            <span
+              class="h-6 w-6 animate-spin rounded-full border-[3px] border-white border-t-transparent"
+            ></span>
+            <span>저장 중...</span>
+          {:else}
+            <Glasses size={25} aria-hidden="true" />
+            <span>AR 피팅으로 이동</span>
+          {/if}
+        </button>
+      </div>
     </div>
   </section>
 </main>

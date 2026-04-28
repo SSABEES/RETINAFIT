@@ -20,19 +20,74 @@
 
 /** @type {Record<number, CategoryRow>} */
 const CATEGORIES = {
-  1: { id: 1, category_name: '라운드프레임', category_type: 'frame_style', description: '둥근 모양의 프레임' },
-  2: { id: 2, category_name: '오버사이즈', category_type: 'frame_style', description: '큰 사이즈의 프레임' },
-  3: { id: 3, category_name: '스퀘어프레임', category_type: 'frame_style', description: '네모난 프레임' },
-  4: { id: 4, category_name: '투톤', category_type: 'frame_style', description: '두 가지 색상의 프레임' },
-  5: { id: 5, category_name: '캣아이', category_type: 'frame_style', description: '고양이 눈 모양의 프레임' },
-  6: { id: 6, category_name: '보스턴', category_type: 'frame_style', description: '보스턴 렌즈 모양' },
-  7: { id: 7, category_name: '서클', category_type: 'frame_style', description: '동그란 완전 원형 프레임' },
+  1: {
+    id: 1,
+    category_name: '라운드프레임',
+    category_type: 'frame_style',
+    description: '둥근 모양의 프레임',
+  },
+  2: {
+    id: 2,
+    category_name: '오버사이즈',
+    category_type: 'frame_style',
+    description: '큰 사이즈의 프레임',
+  },
+  3: {
+    id: 3,
+    category_name: '스퀘어프레임',
+    category_type: 'frame_style',
+    description: '네모난 프레임',
+  },
+  4: {
+    id: 4,
+    category_name: '투톤',
+    category_type: 'frame_style',
+    description: '두 가지 색상의 프레임',
+  },
+  5: {
+    id: 5,
+    category_name: '캣아이',
+    category_type: 'frame_style',
+    description: '고양이 눈 모양의 프레임',
+  },
+  6: {
+    id: 6,
+    category_name: '보스턴',
+    category_type: 'frame_style',
+    description: '보스턴 렌즈 모양',
+  },
+  7: {
+    id: 7,
+    category_name: '서클',
+    category_type: 'frame_style',
+    description: '동그란 완전 원형 프레임',
+  },
   8: { id: 8, category_name: '소형', category_type: 'size_suggestion', description: '작은 사이즈' },
-  9: { id: 9, category_name: '좁은너비', category_type: 'size_suggestion', description: '좁은 너비' },
-  10: { id: 10, category_name: '중간사이즈', category_type: 'size_suggestion', description: '중간 사이즈' },
-  11: { id: 11, category_name: '표준', category_type: 'size_suggestion', description: '표준 사이즈' },
+  9: {
+    id: 9,
+    category_name: '좁은너비',
+    category_type: 'size_suggestion',
+    description: '좁은 너비',
+  },
+  10: {
+    id: 10,
+    category_name: '중간사이즈',
+    category_type: 'size_suggestion',
+    description: '중간 사이즈',
+  },
+  11: {
+    id: 11,
+    category_name: '표준',
+    category_type: 'size_suggestion',
+    description: '표준 사이즈',
+  },
   12: { id: 12, category_name: '대형', category_type: 'size_suggestion', description: '큰 사이즈' },
-  13: { id: 13, category_name: '넓은너비', category_type: 'size_suggestion', description: '넓은 너비' },
+  13: {
+    id: 13,
+    category_name: '넓은너비',
+    category_type: 'size_suggestion',
+    description: '넓은 너비',
+  },
 }
 
 /** @type {Record<FaceShape, Array<[number, number]>>} */
@@ -46,9 +101,18 @@ const FACE_SHAPE_RECS = {
 
 /** @type {Record<PDSize, Array<[number, number]>>} */
 const PD_SIZE_RECS = {
-  NARROW: [[8, 1], [9, 2]],
-  MEDIUM: [[10, 1], [11, 2]],
-  WIDE: [[12, 1], [13, 2]],
+  NARROW: [
+    [8, 1],
+    [9, 2],
+  ],
+  MEDIUM: [
+    [10, 1],
+    [11, 2],
+  ],
+  WIDE: [
+    [12, 1],
+    [13, 2],
+  ],
 }
 
 /**

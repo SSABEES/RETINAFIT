@@ -37,11 +37,11 @@
 
   const VIEW_LABELS = {
     front_no_glasses: '정면 (미착용)',
-    front_glasses:    '정면 (안경)',
-    left_no_glasses:  '좌측 (미착용)',
-    left_glasses:     '좌측 (안경)',
+    front_glasses: '정면 (안경)',
+    left_no_glasses: '좌측 (미착용)',
+    left_glasses: '좌측 (안경)',
     right_no_glasses: '우측 (미착용)',
-    right_glasses:    '우측 (안경)',
+    right_glasses: '우측 (안경)',
   }
 
   const g_session = $derived(get_session())
@@ -71,7 +71,7 @@
 
   // 뷰 변경 시 active 해제 (캔버스의 pending 상태도 measure_canvas 의 effect 가 함께 정리).
   $effect(() => {
-    const _v = g_view
+    g_view
     set_active_item_id(null)
   })
 
@@ -182,11 +182,7 @@
               oncancel={on_cancel}
             />
           </div>
-          <PhotoSwitcher
-            session={g_session}
-            view={g_view}
-            onview_change={on_view_change}
-          />
+          <PhotoSwitcher session={g_session} view={g_view} onview_change={on_view_change} />
         </div>
         <div class="flex min-h-0 flex-col gap-3 overflow-y-auto">
           <MeasurementList

@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte'
-  import { ArrowDown, ArrowUp, ChevronDown, Plus, Save, Trash2 } from 'lucide-svelte'
+  import { ChevronDown, GripVertical, Plus, Save, Trash2 } from 'lucide-svelte'
   import AdminLayout from '@/router/auth/admin/admin_layout.svelte'
   import {
     create_recommend_option,
@@ -20,15 +20,12 @@
    * }} RecommendOptionManagerProps
    */
 
-  /** @type {RecommendOptionManagerProps} */
-  const g_props = $props()
-
   let {
     active_key = 'face',
     page_title = '추천 옵션 설정',
     page_description = '',
     category_meta_arr = [],
-  } = g_props
+  } = /** @type {RecommendOptionManagerProps} */ ($props())
 
   function create_option_form_obj() {
     return {
@@ -44,21 +41,31 @@
   let g_feedback_message = $state('')
   let g_error_message = $state('')
   let g_is_loading = $state(false)
-
-  let g_category_name_map_obj = $derived(
-    Object.fromEntries(category_meta_arr.map((category_meta_obj) => [category_meta_obj.key, category_meta_obj.label])),
-  )
+  let g_toast_message = $state('')
+  let g_toast_variant = $state('success')
+  let g_toast_timer = null
+  let ref_drag_option_no = $state(null)
+  let ref_drag_over_option_no = $state(null)
 
   let g_filtered_option_arr = $derived(
     ref_option_arr
-      .filter((option_obj) => category_meta_arr.some((category_meta_obj) => category_meta_obj.key === option_obj.option_category))
-      .sort((left_option_obj, right_option_obj) => left_option_obj.display_order - right_option_obj.display_order),
+      .filter((option_obj) =>
+        category_meta_arr.some(
+          (category_meta_obj) => category_meta_obj.key === option_obj.option_category,
+        ),
+      )
+      .sort(
+        (left_option_obj, right_option_obj) =>
+          left_option_obj.display_order - right_option_obj.display_order,
+      ),
   )
 
   let g_grouped_option_arr = $derived(
     category_meta_arr.map((category_meta_obj) => ({
       ...category_meta_obj,
-      option_arr: g_filtered_option_arr.filter((option_obj) => option_obj.option_category === category_meta_obj.key),
+      option_arr: g_filtered_option_arr.filter(
+        (option_obj) => option_obj.option_category === category_meta_obj.key,
+      ),
     })),
   )
 
@@ -73,6 +80,21 @@
     }))
   }
 
+  // 저장 결과를 짧은 토스트로 보여주고 자동으로 닫는다.
+  function show_toast(message, variant = 'success') {
+    g_toast_message = message
+    g_toast_variant = variant
+
+    if (g_toast_timer) {
+      clearTimeout(g_toast_timer)
+    }
+
+    g_toast_timer = setTimeout(() => {
+      g_toast_message = ''
+      g_toast_timer = null
+    }, 2200)
+  }
+
   // 추천 옵션 목록을 다시 불러온다.
   async function load_option_arr() {
     g_is_loading = true
@@ -83,7 +105,10 @@
       ref_option_arr = normalize_option_arr(Array.isArray(local_option_arr) ? local_option_arr : [])
     } catch (local_error) {
       g_error_message =
-        local_error instanceof Error ? local_error.message : '추천 옵션 조회 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '추천 옵션 조회 중 오류가 발생했습니다.'
+      show_toast(g_error_message, 'error')
     } finally {
       g_is_loading = false
     }
@@ -143,6 +168,7 @@
 
     if (!local_option_name) {
       g_error_message = '옵션명을 입력해 주세요.'
+      show_toast(g_error_message, 'error')
       return
     }
 
@@ -155,11 +181,15 @@
       })
 
       g_feedback_message = '추천 옵션을 추가했습니다.'
+      show_toast(g_feedback_message)
       reset_option_form()
       await load_option_arr()
     } catch (local_error) {
       g_error_message =
-        local_error instanceof Error ? local_error.message : '추천 옵션 추가 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '추천 옵션 추가 중 오류가 발생했습니다.'
+      show_toast(g_error_message, 'error')
     }
   }
 
@@ -169,6 +199,7 @@
 
     if (!local_option_name) {
       g_error_message = '옵션명은 비워둘 수 없습니다.'
+      show_toast(g_error_message, 'error')
       return
     }
 
@@ -181,10 +212,14 @@
       })
 
       g_feedback_message = '추천 옵션을 수정했습니다.'
+      show_toast(g_feedback_message)
       await load_option_arr()
     } catch (local_error) {
       g_error_message =
-        local_error instanceof Error ? local_error.message : '추천 옵션 수정 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '추천 옵션 수정 중 오류가 발생했습니다.'
+      show_toast(g_error_message, 'error')
     }
   }
 
@@ -196,46 +231,90 @@
       })
 
       g_feedback_message = '추천 옵션을 삭제했습니다.'
+      show_toast(g_feedback_message)
       await load_option_arr()
     } catch (local_error) {
       g_error_message =
-        local_error instanceof Error ? local_error.message : '추천 옵션 삭제 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '추천 옵션 삭제 중 오류가 발생했습니다.'
+      show_toast(g_error_message, 'error')
     }
   }
 
-  // 표시 순서를 위나 아래로 이동시키고 서버 순서를 함께 갱신한다.
-  async function on_click_move_option(option_obj, direction_value) {
-    const local_same_category_option_arr = g_filtered_option_arr.filter(
-      (filtered_option_obj) => filtered_option_obj.option_category === option_obj.option_category,
-    )
-    const local_current_index = local_same_category_option_arr.findIndex(
-      (filtered_option_obj) => filtered_option_obj.option_no === option_obj.option_no,
-    )
-    const local_target_index = local_current_index + direction_value
+  // 드래그를 시작한 옵션 번호를 저장한다.
+  function on_dragstart_option(option_obj) {
+    ref_drag_option_no = option_obj.option_no
+    ref_drag_over_option_no = option_obj.option_no
+  }
 
-    if (local_current_index < 0 || local_target_index < 0 || local_target_index >= local_same_category_option_arr.length) {
+  // 현재 드래그가 올라간 옵션을 표시한다.
+  function on_dragenter_option(option_obj) {
+    ref_drag_over_option_no = option_obj.option_no
+  }
+
+  // 드롭 가능한 영역으로 유지하기 위해 기본 동작을 막는다.
+  function on_dragover_option(local_event, option_obj) {
+    local_event.preventDefault()
+    ref_drag_over_option_no = option_obj.option_no
+  }
+
+  // 드래그 상태를 초기화한다.
+  function reset_drag_option_state() {
+    ref_drag_option_no = null
+    ref_drag_over_option_no = null
+  }
+
+  // 드롭된 위치 기준으로 같은 카테고리 안의 표시 순서를 다시 저장한다.
+  async function on_drop_option(target_option_obj) {
+    const local_drag_option_no = ref_drag_option_no
+
+    if (!local_drag_option_no || local_drag_option_no === target_option_obj.option_no) {
+      reset_drag_option_state()
       return
     }
 
-    const local_target_option_obj = local_same_category_option_arr[local_target_index]
+    const local_same_category_option_arr = g_filtered_option_arr.filter(
+      (filtered_option_obj) =>
+        filtered_option_obj.option_category === target_option_obj.option_category,
+    )
+    const local_drag_index = local_same_category_option_arr.findIndex(
+      (filtered_option_obj) => filtered_option_obj.option_no === local_drag_option_no,
+    )
+    const local_target_index = local_same_category_option_arr.findIndex(
+      (filtered_option_obj) => filtered_option_obj.option_no === target_option_obj.option_no,
+    )
+
+    if (local_drag_index < 0 || local_target_index < 0) {
+      reset_drag_option_state()
+      return
+    }
+
+    const local_reordered_option_arr = [...local_same_category_option_arr]
+    const [local_drag_option_obj] = local_reordered_option_arr.splice(local_drag_index, 1)
+    local_reordered_option_arr.splice(local_target_index, 0, local_drag_option_obj)
 
     try {
-      await Promise.all([
-        update_recommend_option_order({
-          option_no: option_obj.option_no,
-          display_order: local_target_option_obj.display_order,
-        }),
-        update_recommend_option_order({
-          option_no: local_target_option_obj.option_no,
-          display_order: option_obj.display_order,
-        }),
-      ])
+      await Promise.all(
+        local_reordered_option_arr.map((option_obj, option_index) =>
+          update_recommend_option_order({
+            option_no: option_obj.option_no,
+            display_order: option_index,
+          }),
+        ),
+      )
 
       g_feedback_message = '표시 순서를 변경했습니다.'
+      show_toast(g_feedback_message)
       await load_option_arr()
     } catch (local_error) {
       g_error_message =
-        local_error instanceof Error ? local_error.message : '표시 순서 변경 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '표시 순서 변경 중 오류가 발생했습니다.'
+      show_toast(g_error_message, 'error')
+    } finally {
+      reset_drag_option_state()
     }
   }
 
@@ -246,6 +325,18 @@
 
 <AdminLayout {active_key}>
   <section class="grid gap-6">
+    {#if g_toast_message}
+      <div class="pointer-events-none fixed bottom-8 left-1/2 z-50 -translate-x-1/2">
+        <div
+          class={`rounded-2xl px-5 py-3 text-sm font-extrabold text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] ${
+            g_toast_variant === 'error' ? 'bg-[#B42318]' : 'bg-[#4B0055]'
+          }`}
+        >
+          {g_toast_message}
+        </div>
+      </div>
+    {/if}
+
     <div class="flex items-start justify-between gap-6">
       <div>
         <h2 class="m-0 text-2xl font-extrabold text-zinc-950">{page_title}</h2>
@@ -254,18 +345,6 @@
         {/if}
       </div>
     </div>
-
-    {#if g_feedback_message}
-      <p class="rounded-xl border border-emerald-100 bg-emerald-50 px-5 py-3 text-left text-base font-bold text-emerald-700">
-        {g_feedback_message}
-      </p>
-    {/if}
-
-    {#if g_error_message}
-      <p class="rounded-xl border border-red-100 bg-red-50 px-5 py-3 text-left text-base font-bold text-red-700">
-        {g_error_message}
-      </p>
-    {/if}
 
     <form
       class="grid gap-4 rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50 md:grid-cols-[1fr_220px_140px_auto]"
@@ -293,8 +372,10 @@
             onclick={on_click_toggle_option_category_dropdown}
           >
             <span>
-              {category_meta_arr.find((category_meta_obj) => category_meta_obj.key === ref_option_form_obj.option_category)?.label
-                ?? '카테고리 선택'}
+              {category_meta_arr.find(
+                (category_meta_obj) =>
+                  category_meta_obj.key === ref_option_form_obj.option_category,
+              )?.label ?? '카테고리 선택'}
             </span>
             <ChevronDown
               size={18}
@@ -353,13 +434,17 @@
     </form>
 
     {#if g_is_loading}
-      <div class="rounded-2xl border border-slate-200 bg-white px-8 py-10 text-center text-base font-bold text-slate-500 shadow-sm shadow-slate-200/50">
+      <div
+        class="rounded-2xl border border-slate-200 bg-white px-8 py-10 text-center text-base font-bold text-slate-500 shadow-sm shadow-slate-200/50"
+      >
         추천 옵션을 불러오는 중입니다.
       </div>
     {:else}
       <div class="grid gap-6">
         {#each g_grouped_option_arr as category_group_obj (category_group_obj.key)}
-          <section class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50">
+          <section
+            class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
+          >
             <div class="flex items-center justify-between gap-4">
               <div>
                 <h3 class="m-0 text-xl font-extrabold text-zinc-950">{category_group_obj.label}</h3>
@@ -371,12 +456,27 @@
 
             {#if category_group_obj.option_arr.length > 0}
               <div class="mt-6 grid gap-4">
-                {#each category_group_obj.option_arr as option_obj, option_index (option_obj.option_no)}
-                  <article class="grid gap-4 rounded-2xl border border-[#E9E8F0] bg-[#FAFBFC] px-5 py-5 lg:grid-cols-[1fr_140px_auto] lg:items-center">
+                {#each category_group_obj.option_arr as option_obj (option_obj.option_no)}
+                  <article
+                    class={`grid gap-4 rounded-2xl border px-5 py-5 transition lg:grid-cols-[auto_1fr_140px_auto] lg:items-center ${
+                      ref_drag_over_option_no === option_obj.option_no
+                        ? 'border-[#4B0055] bg-[#F8F1F8]'
+                        : 'border-[#E9E8F0] bg-[#FAFBFC]'
+                    }`}
+                    draggable="true"
+                    ondragstart={() => on_dragstart_option(option_obj)}
+                    ondragenter={() => on_dragenter_option(option_obj)}
+                    ondragover={(local_event) => on_dragover_option(local_event, option_obj)}
+                    ondrop={() => on_drop_option(option_obj)}
+                    ondragend={reset_drag_option_state}
+                  >
+                    <div
+                      class="grid place-items-center self-stretch rounded-xl border border-[#EFE7F2] bg-white px-3 text-slate-400"
+                    >
+                      <GripVertical size={18} strokeWidth={2.2} aria-hidden="true" />
+                    </div>
+
                     <div class="grid gap-2">
-                      <p class="m-0 text-xs font-extrabold uppercase tracking-[0.14em] text-slate-400">
-                        {g_category_name_map_obj[option_obj.option_category] ?? option_obj.option_category}
-                      </p>
                       <input
                         class="min-h-12 rounded-xl border border-slate-200 bg-white px-4 text-base font-bold text-zinc-950 outline-none transition focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
                         type="text"
@@ -384,9 +484,10 @@
                       />
                     </div>
 
-                    <label class="grid gap-2 text-sm font-extrabold text-slate-500">
-                      사용 여부
-                      <span class="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4">
+                    <label class="grid text-sm font-extrabold text-slate-500">
+                      <span
+                        class="flex min-h-12 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4"
+                      >
                         <input
                           class="h-4 w-4 accent-[#4B0055]"
                           type="checkbox"
@@ -399,24 +500,6 @@
                     </label>
 
                     <div class="flex flex-wrap items-center justify-end gap-2">
-                      <button
-                        class="grid h-11 w-11 cursor-pointer place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-[#4B0055] hover:text-[#4B0055] disabled:cursor-not-allowed disabled:opacity-40"
-                        type="button"
-                        aria-label={`${option_obj.option_name} 위로 이동`}
-                        disabled={option_index === 0}
-                        onclick={() => on_click_move_option(option_obj, -1)}
-                      >
-                        <ArrowUp size={18} strokeWidth={2.4} aria-hidden="true" />
-                      </button>
-                      <button
-                        class="grid h-11 w-11 cursor-pointer place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-[#4B0055] hover:text-[#4B0055] disabled:cursor-not-allowed disabled:opacity-40"
-                        type="button"
-                        aria-label={`${option_obj.option_name} 아래로 이동`}
-                        disabled={option_index === category_group_obj.option_arr.length - 1}
-                        onclick={() => on_click_move_option(option_obj, 1)}
-                      >
-                        <ArrowDown size={18} strokeWidth={2.4} aria-hidden="true" />
-                      </button>
                       <button
                         class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border-0 bg-[#4B0055] px-4 text-sm font-extrabold text-white transition hover:bg-[#65006F]"
                         type="button"
@@ -438,7 +521,9 @@
                 {/each}
               </div>
             {:else}
-              <div class="mt-6 rounded-2xl border border-dashed border-slate-200 bg-[#FAFBFC] px-6 py-8 text-center text-sm font-bold text-slate-500">
+              <div
+                class="mt-6 rounded-2xl border border-dashed border-slate-200 bg-[#FAFBFC] px-6 py-8 text-center text-sm font-bold text-slate-500"
+              >
                 등록된 추천 옵션이 없습니다.
               </div>
             {/if}

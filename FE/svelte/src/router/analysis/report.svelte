@@ -22,12 +22,54 @@
 
   /** @type {{ key: ViewAngle, label: string, image_caption: string, title: string, measure_title: string, sub_card_title: string }[]} */
   const TAB_DEFS = [
-    { key: 'front_no_glasses', label: '정면 (미착용)',  image_caption: '정면 사진 (미착용)',     title: '정면 얼굴 분석',     measure_title: '얼굴 측정값', sub_card_title: '핏 평가' },
-    { key: 'front_glasses',    label: '정면 (안경 착용)', image_caption: '정면 사진 (안경 착용)',  title: '정면 안경 착용 분석', measure_title: '안경 측정',   sub_card_title: '프레임 핏 분석' },
-    { key: 'left_no_glasses',  label: '왼쪽 측면 (미착용)', image_caption: '왼쪽 측면 사진 (미착용)', title: '왼쪽 측면 분석',    measure_title: '측면 측정',   sub_card_title: '핏 평가' },
-    { key: 'left_glasses',     label: '왼쪽 측면 (안경 착용)', image_caption: '왼쪽 측면 사진 (안경 착용)', title: '왼쪽 측면 안경 착용 분석', measure_title: '측면 프레임 측정', sub_card_title: '핏 평가' },
-    { key: 'right_no_glasses', label: '오른쪽 측면 (미착용)', image_caption: '오른쪽 측면 사진 (미착용)', title: '오른쪽 측면 분석',  measure_title: '측면 측정',   sub_card_title: '핏 평가' },
-    { key: 'right_glasses',    label: '오른쪽 측면 (안경 착용)', image_caption: '오른쪽 측면 사진 (안경 착용)', title: '오른쪽 측면 안경 착용 분석', measure_title: '측면 프레임 측정', sub_card_title: '핏 평가' },
+    {
+      key: 'front_no_glasses',
+      label: '정면 (미착용)',
+      image_caption: '정면 사진 (미착용)',
+      title: '정면 얼굴 분석',
+      measure_title: '얼굴 측정값',
+      sub_card_title: '핏 평가',
+    },
+    {
+      key: 'front_glasses',
+      label: '정면 (안경 착용)',
+      image_caption: '정면 사진 (안경 착용)',
+      title: '정면 안경 착용 분석',
+      measure_title: '안경 측정',
+      sub_card_title: '프레임 핏 분석',
+    },
+    {
+      key: 'left_no_glasses',
+      label: '왼쪽 측면 (미착용)',
+      image_caption: '왼쪽 측면 사진 (미착용)',
+      title: '왼쪽 측면 분석',
+      measure_title: '측면 측정',
+      sub_card_title: '핏 평가',
+    },
+    {
+      key: 'left_glasses',
+      label: '왼쪽 측면 (안경 착용)',
+      image_caption: '왼쪽 측면 사진 (안경 착용)',
+      title: '왼쪽 측면 안경 착용 분석',
+      measure_title: '측면 프레임 측정',
+      sub_card_title: '핏 평가',
+    },
+    {
+      key: 'right_no_glasses',
+      label: '오른쪽 측면 (미착용)',
+      image_caption: '오른쪽 측면 사진 (미착용)',
+      title: '오른쪽 측면 분석',
+      measure_title: '측면 측정',
+      sub_card_title: '핏 평가',
+    },
+    {
+      key: 'right_glasses',
+      label: '오른쪽 측면 (안경 착용)',
+      image_caption: '오른쪽 측면 사진 (안경 착용)',
+      title: '오른쪽 측면 안경 착용 분석',
+      measure_title: '측면 프레임 측정',
+      sub_card_title: '핏 평가',
+    },
   ]
 
   const g_session = $derived(get_session())
@@ -86,9 +128,10 @@
       const capture = g_session.captures_obj[tab.key]
       const items = get_measurement_items(tab.key)
       const measure_arr = items.map((item) => {
-        const overlay_line = capture && item.points
-          ? points_to_overlay_line(item.points, capture.width, capture.height)
-          : null
+        const overlay_line =
+          capture && item.points
+            ? points_to_overlay_line(item.points, capture.width, capture.height)
+            : null
         return {
           label: item.label,
           item_id: item.item_id,
@@ -652,187 +695,187 @@
             </div>
 
             {#if g_active_analysis_obj}
-            <div class="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,520px)_1fr] gap-6">
-              <figure class="m-0 flex min-h-0 flex-col items-center">
-                <div
-                  class="relative aspect-[3/4] max-h-full max-w-full overflow-hidden rounded-lg bg-[var(--retinal-text)] text-slate-500"
-                >
-                  {#if g_active_analysis_obj.image_src}
-                    <img
-                      class="h-full w-full object-cover"
-                      src={g_active_analysis_obj.image_src}
-                      alt={g_active_analysis_obj.image_caption}
-                    />
-                    {#if g_active_overlay_arr}
-                      <svg
-                        class="pointer-events-none absolute inset-0 h-full w-full"
-                        viewBox="0 0 100 100"
-                        preserveAspectRatio="none"
-                        aria-hidden="true"
-                      >
-                        {#each g_active_overlay_arr as shape_obj, shape_index (shape_index)}
-                          {#if shape_obj.type === 'line'}
-                            <line
-                              x1={shape_obj.x1}
-                              y1={shape_obj.y1}
-                              x2={shape_obj.x2}
-                              y2={shape_obj.y2}
-                              stroke="var(--retinal-accent)"
-                              stroke-width="3"
-                              stroke-linecap="round"
-                              vector-effect="non-scaling-stroke"
-                            />
-                          {:else if shape_obj.type === 'circle'}
-                            <circle
-                              cx={shape_obj.cx}
-                              cy={shape_obj.cy}
-                              r={shape_obj.r}
-                              fill="var(--retinal-accent)"
-                              fill-opacity="0.3"
-                              stroke="var(--retinal-accent)"
-                              stroke-width="3"
-                              vector-effect="non-scaling-stroke"
-                            />
-                          {:else if shape_obj.type === 'rect'}
-                            <rect
-                              x={shape_obj.x}
-                              y={shape_obj.y}
-                              width={shape_obj.width}
-                              height={shape_obj.height}
-                              fill="var(--retinal-accent)"
-                              fill-opacity="0.15"
-                              stroke="var(--retinal-accent)"
-                              stroke-width="3"
-                              vector-effect="non-scaling-stroke"
-                            />
-                          {/if}
-                        {/each}
-                      </svg>
-                    {/if}
-                  {:else}
-                    <div class="absolute inset-0 grid place-items-center gap-3 text-slate-500">
-                      <Camera size={48} strokeWidth={1.8} aria-hidden="true" />
-                      <p class="m-0 text-sm font-semibold">사진이 없습니다</p>
-                    </div>
-                  {/if}
-                </div>
-                <figcaption class="mt-2 shrink-0 text-center text-xs font-bold text-slate-500">
-                  {g_active_analysis_obj.image_caption}
-                </figcaption>
-              </figure>
-
-              <div class="grid min-h-0 content-start gap-3">
-                <section>
-                  <h2 class="m-0 text-xl font-extrabold text-zinc-950">
-                    {g_active_analysis_obj.title}
-                  </h2>
-
-                  <div class="mt-2 rounded-lg border border-slate-200 bg-white px-5 py-3">
-                    <div class="mb-2 flex items-center gap-2">
-                      <span class="h-2 w-2 rounded-full bg-[var(--retinal-primary-600)]"></span>
-                      <h3 class="m-0 text-base font-extrabold text-zinc-950">
-                        {g_active_analysis_obj.measure_title}
-                      </h3>
-                    </div>
-
-                    <div class="grid">
-                      {#each g_active_analysis_obj.measure_arr as measure_obj, measure_index (`${measure_obj.label}-${measure_index}`)}
-                        <div
-                          class={`flex min-h-11 w-full items-center justify-between gap-4 rounded-md border-b border-slate-100 px-2 transition last:border-b-0 ${
-                            ref_selected_measure_key === measure_obj.label
-                              ? 'bg-[var(--retinal-soft-purple)]'
-                              : 'hover:bg-slate-50'
-                          }`}
+              <div class="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,520px)_1fr] gap-6">
+                <figure class="m-0 flex min-h-0 flex-col items-center">
+                  <div
+                    class="relative aspect-[3/4] max-h-full max-w-full overflow-hidden rounded-lg bg-[var(--retinal-text)] text-slate-500"
+                  >
+                    {#if g_active_analysis_obj.image_src}
+                      <img
+                        class="h-full w-full object-cover"
+                        src={g_active_analysis_obj.image_src}
+                        alt={g_active_analysis_obj.image_caption}
+                      />
+                      {#if g_active_overlay_arr}
+                        <svg
+                          class="pointer-events-none absolute inset-0 h-full w-full"
+                          viewBox="0 0 100 100"
+                          preserveAspectRatio="none"
+                          aria-hidden="true"
                         >
+                          {#each g_active_overlay_arr as shape_obj, shape_index (shape_index)}
+                            {#if shape_obj.type === 'line'}
+                              <line
+                                x1={shape_obj.x1}
+                                y1={shape_obj.y1}
+                                x2={shape_obj.x2}
+                                y2={shape_obj.y2}
+                                stroke="var(--retinal-accent)"
+                                stroke-width="3"
+                                stroke-linecap="round"
+                                vector-effect="non-scaling-stroke"
+                              />
+                            {:else if shape_obj.type === 'circle'}
+                              <circle
+                                cx={shape_obj.cx}
+                                cy={shape_obj.cy}
+                                r={shape_obj.r}
+                                fill="var(--retinal-accent)"
+                                fill-opacity="0.3"
+                                stroke="var(--retinal-accent)"
+                                stroke-width="3"
+                                vector-effect="non-scaling-stroke"
+                              />
+                            {:else if shape_obj.type === 'rect'}
+                              <rect
+                                x={shape_obj.x}
+                                y={shape_obj.y}
+                                width={shape_obj.width}
+                                height={shape_obj.height}
+                                fill="var(--retinal-accent)"
+                                fill-opacity="0.15"
+                                stroke="var(--retinal-accent)"
+                                stroke-width="3"
+                                vector-effect="non-scaling-stroke"
+                              />
+                            {/if}
+                          {/each}
+                        </svg>
+                      {/if}
+                    {:else}
+                      <div class="absolute inset-0 grid place-items-center gap-3 text-slate-500">
+                        <Camera size={48} strokeWidth={1.8} aria-hidden="true" />
+                        <p class="m-0 text-sm font-semibold">사진이 없습니다</p>
+                      </div>
+                    {/if}
+                  </div>
+                  <figcaption class="mt-2 shrink-0 text-center text-xs font-bold text-slate-500">
+                    {g_active_analysis_obj.image_caption}
+                  </figcaption>
+                </figure>
+
+                <div class="grid min-h-0 content-start gap-3">
+                  <section>
+                    <h2 class="m-0 text-xl font-extrabold text-zinc-950">
+                      {g_active_analysis_obj.title}
+                    </h2>
+
+                    <div class="mt-2 rounded-lg border border-slate-200 bg-white px-5 py-3">
+                      <div class="mb-2 flex items-center gap-2">
+                        <span class="h-2 w-2 rounded-full bg-[var(--retinal-primary-600)]"></span>
+                        <h3 class="m-0 text-base font-extrabold text-zinc-950">
+                          {g_active_analysis_obj.measure_title}
+                        </h3>
+                      </div>
+
+                      <div class="grid">
+                        {#each g_active_analysis_obj.measure_arr as measure_obj, measure_index (`${measure_obj.label}-${measure_index}`)}
+                          <div
+                            class={`flex min-h-11 w-full items-center justify-between gap-4 rounded-md border-b border-slate-100 px-2 transition last:border-b-0 ${
+                              ref_selected_measure_key === measure_obj.label
+                                ? 'bg-[var(--retinal-soft-purple)]'
+                                : 'hover:bg-slate-50'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              class="flex min-w-0 flex-1 cursor-pointer items-center text-left bg-transparent border-0 p-0"
+                              aria-pressed={ref_selected_measure_key === measure_obj.label}
+                              onclick={() => on_click_select_measure(measure_obj.label)}
+                            >
+                              <span class="min-w-0 flex-1 text-sm font-bold text-slate-500">
+                                {measure_obj.label}
+                              </span>
+                            </button>
+                            {#if measure_obj.has_value}
+                              <span
+                                class={`ml-auto flex-none text-right text-base font-extrabold ${measure_obj.tone}`}
+                              >
+                                {measure_obj.value}
+                                {#if measure_obj.note}
+                                  <span class="ml-1 text-xs font-bold">{measure_obj.note}</span>
+                                {/if}
+                              </span>
+                            {:else}
+                              <Link
+                                class="ml-auto inline-flex flex-none items-center gap-1 rounded-md border border-[var(--retinal-primary-600)] bg-white px-2.5 py-1 text-xs font-extrabold text-[var(--retinal-primary-700)] transition hover:bg-[var(--retinal-soft-purple)]"
+                                href={`${PATH.analysisFaceMeasurement}?item=${measure_obj.item_id}`}
+                              >
+                                측정하기
+                                <ChevronRight size={14} strokeWidth={2.5} aria-hidden="true" />
+                              </Link>
+                            {/if}
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+                  </section>
+
+                  {#if g_active_analysis_obj.sub_measure_arr}
+                    <section class="rounded-lg border border-slate-200 bg-white px-5 py-3">
+                      <div class="mb-2 flex items-center gap-2">
+                        <span class="h-2 w-2 rounded-full bg-[var(--retinal-primary-600)]"></span>
+                        <h3 class="m-0 text-base font-extrabold text-zinc-950">
+                          {g_active_analysis_obj.sub_card_title}
+                        </h3>
+                      </div>
+
+                      <div class="grid">
+                        {#each g_active_analysis_obj.sub_measure_arr as measure_obj, measure_index (`${measure_obj.label}-${measure_index}`)}
                           <button
                             type="button"
-                            class="flex min-w-0 flex-1 cursor-pointer items-center text-left bg-transparent border-0 p-0"
+                            class={`flex min-h-11 w-full cursor-pointer items-center justify-between gap-4 rounded-md border-b border-slate-100 px-2 text-left transition last:border-b-0 ${
+                              ref_selected_measure_key === measure_obj.label
+                                ? 'bg-[var(--retinal-soft-purple)]'
+                                : 'hover:bg-slate-50'
+                            }`}
                             aria-pressed={ref_selected_measure_key === measure_obj.label}
                             onclick={() => on_click_select_measure(measure_obj.label)}
                           >
                             <span class="min-w-0 flex-1 text-sm font-bold text-slate-500">
                               {measure_obj.label}
                             </span>
-                          </button>
-                          {#if measure_obj.has_value}
                             <span
                               class={`ml-auto flex-none text-right text-base font-extrabold ${measure_obj.tone}`}
                             >
                               {measure_obj.value}
-                              {#if measure_obj.note}
-                                <span class="ml-1 text-xs font-bold">{measure_obj.note}</span>
-                              {/if}
                             </span>
-                          {:else}
-                            <Link
-                              class="ml-auto inline-flex flex-none items-center gap-1 rounded-md border border-[var(--retinal-primary-600)] bg-white px-2.5 py-1 text-xs font-extrabold text-[var(--retinal-primary-700)] transition hover:bg-[var(--retinal-soft-purple)]"
-                              href={`${PATH.analysisFaceMeasurement}?item=${measure_obj.item_id}`}
-                            >
-                              측정하기
-                              <ChevronRight size={14} strokeWidth={2.5} aria-hidden="true" />
-                            </Link>
-                          {/if}
-                        </div>
-                      {/each}
-                    </div>
-                  </div>
-                </section>
+                          </button>
+                        {/each}
+                      </div>
+                    </section>
+                  {/if}
 
-                {#if g_active_analysis_obj.sub_measure_arr}
-                  <section class="rounded-lg border border-slate-200 bg-white px-5 py-3">
-                    <div class="mb-2 flex items-center gap-2">
-                      <span class="h-2 w-2 rounded-full bg-[var(--retinal-primary-600)]"></span>
-                      <h3 class="m-0 text-base font-extrabold text-zinc-950">
-                        {g_active_analysis_obj.sub_card_title}
-                      </h3>
-                    </div>
-
-                    <div class="grid">
-                      {#each g_active_analysis_obj.sub_measure_arr as measure_obj, measure_index (`${measure_obj.label}-${measure_index}`)}
-                        <button
-                          type="button"
-                          class={`flex min-h-11 w-full cursor-pointer items-center justify-between gap-4 rounded-md border-b border-slate-100 px-2 text-left transition last:border-b-0 ${
-                            ref_selected_measure_key === measure_obj.label
-                              ? 'bg-[var(--retinal-soft-purple)]'
-                              : 'hover:bg-slate-50'
-                          }`}
-                          aria-pressed={ref_selected_measure_key === measure_obj.label}
-                          onclick={() => on_click_select_measure(measure_obj.label)}
-                        >
-                          <span class="min-w-0 flex-1 text-sm font-bold text-slate-500">
-                            {measure_obj.label}
-                          </span>
-                          <span
-                            class={`ml-auto flex-none text-right text-base font-extrabold ${measure_obj.tone}`}
-                          >
-                            {measure_obj.value}
-                          </span>
-                        </button>
-                      {/each}
-                    </div>
-                  </section>
-                {/if}
-
-                {#if g_active_analysis_obj.highlight_value}
-                  <section class="rounded-lg border border-slate-200 bg-white px-5 py-3">
-                    <div class="mb-2 flex items-center gap-2">
-                      <span class="h-2 w-2 rounded-full bg-[var(--retinal-primary-600)]"></span>
-                      <h3 class="m-0 text-base font-extrabold text-zinc-950">
-                        {g_active_analysis_obj.sub_card_title}
-                      </h3>
-                    </div>
-                    <div class="grid place-items-center py-1">
-                      <p class="m-0 text-4xl font-extrabold text-[var(--retinal-primary-600)]">
-                        {g_active_analysis_obj.highlight_value}
-                      </p>
-                      <p class="m-0 mt-2 text-xs font-bold text-slate-600">
-                        {g_active_analysis_obj.highlight_text}
-                      </p>
-                    </div>
-                  </section>
-                {/if}
+                  {#if g_active_analysis_obj.highlight_value}
+                    <section class="rounded-lg border border-slate-200 bg-white px-5 py-3">
+                      <div class="mb-2 flex items-center gap-2">
+                        <span class="h-2 w-2 rounded-full bg-[var(--retinal-primary-600)]"></span>
+                        <h3 class="m-0 text-base font-extrabold text-zinc-950">
+                          {g_active_analysis_obj.sub_card_title}
+                        </h3>
+                      </div>
+                      <div class="grid place-items-center py-1">
+                        <p class="m-0 text-4xl font-extrabold text-[var(--retinal-primary-600)]">
+                          {g_active_analysis_obj.highlight_value}
+                        </p>
+                        <p class="m-0 mt-2 text-xs font-bold text-slate-600">
+                          {g_active_analysis_obj.highlight_text}
+                        </p>
+                      </div>
+                    </section>
+                  {/if}
+                </div>
               </div>
-            </div>
             {:else}
               <p class="mt-4 text-sm font-semibold text-slate-500">분석 데이터를 준비 중입니다.</p>
             {/if}

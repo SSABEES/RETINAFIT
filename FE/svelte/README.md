@@ -133,7 +133,7 @@ export const ROUTE_PATH = {
   userDetail: '/users/:id',
 }
 ```
-
+  
 ## 컴포넌트 작성 규칙
 
 ### 파일명

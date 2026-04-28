@@ -72,12 +72,9 @@
     await add_capture(capture)
   }
 
-  /**
-   * camera_view 의 trigger_capture_internal 이 toBlob 실패 등으로 에러를 던진 경우 호출됨.
-   * 자동 스텝/수동 스텝 모두에 공통으로 사용자 토스트를 노출한다.
-   * @param {unknown} _err
-   */
-  function on_capture_error(_err) {
+  // camera_view 의 trigger_capture_internal 이 toBlob 실패 등으로 에러를 던진 경우 호출됨.
+  // 자동 스텝/수동 스텝 모두에 공통으로 사용자 토스트를 노출한다.
+  function on_capture_error() {
     g_is_capturing = false
     show_toast('촬영에 실패했어요')
   }

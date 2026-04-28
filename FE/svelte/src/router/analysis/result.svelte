@@ -1,14 +1,6 @@
 <script>
   import { Link } from '@maks11060/svelte5-router'
-  import {
-    ArrowLeft,
-    Download,
-    Glasses,
-    Info,
-    Send,
-    Sparkles,
-    UserRound,
-  } from 'lucide-svelte'
+  import { ArrowLeft, Download, Glasses, Info, Send, Sparkles, UserRound } from 'lucide-svelte'
   import { PATH } from '@/config/path'
   import { selected_customer_obj } from '@/lib/stores/customer'
 
@@ -24,18 +16,42 @@
       key: 'with_glasses',
       title: '안경 착용 버전',
       photo_arr: [
-        { label: '정면', tone_class: 'border-[#E8D6FF] bg-[#FAF5FF]', icon_class: 'text-[#8B24F8]' },
-        { label: '좌측', tone_class: 'border-[#E8D6FF] bg-[#FAF5FF]', icon_class: 'text-[#8B24F8]' },
-        { label: '우측', tone_class: 'border-[#E8D6FF] bg-[#FAF5FF]', icon_class: 'text-[#8B24F8]' },
+        {
+          label: '정면',
+          tone_class: 'border-[#E8D6FF] bg-[#FAF5FF]',
+          icon_class: 'text-[#8B24F8]',
+        },
+        {
+          label: '좌측',
+          tone_class: 'border-[#E8D6FF] bg-[#FAF5FF]',
+          icon_class: 'text-[#8B24F8]',
+        },
+        {
+          label: '우측',
+          tone_class: 'border-[#E8D6FF] bg-[#FAF5FF]',
+          icon_class: 'text-[#8B24F8]',
+        },
       ],
     },
     {
       key: 'without_glasses',
       title: '안경 미착용 버전',
       photo_arr: [
-        { label: '정면', tone_class: 'border-[#DDE5EF] bg-[#EEF3F9]', icon_class: 'text-[#8B9BB4]' },
-        { label: '좌측', tone_class: 'border-[#DDE5EF] bg-[#F5F7FB]', icon_class: 'text-[#8391AA]' },
-        { label: '우측', tone_class: 'border-[#DDE5EF] bg-[#F5F7FB]', icon_class: 'text-[#8391AA]' },
+        {
+          label: '정면',
+          tone_class: 'border-[#DDE5EF] bg-[#EEF3F9]',
+          icon_class: 'text-[#8B9BB4]',
+        },
+        {
+          label: '좌측',
+          tone_class: 'border-[#DDE5EF] bg-[#F5F7FB]',
+          icon_class: 'text-[#8391AA]',
+        },
+        {
+          label: '우측',
+          tone_class: 'border-[#DDE5EF] bg-[#F5F7FB]',
+          icon_class: 'text-[#8391AA]',
+        },
       ],
     },
   ]
@@ -480,7 +496,9 @@
               {#each g_face_measure_arr as measure_obj, measure_index (`face-${measure_index}`)}
                 <div
                   class={`grid grid-cols-[1fr_auto] gap-3 px-4 py-3 ${
-                    measure_index === g_face_measure_arr.length - 1 ? '' : 'border-b border-[#EEF2F7]'
+                    measure_index === g_face_measure_arr.length - 1
+                      ? ''
+                      : 'border-b border-[#EEF2F7]'
                   }`}
                 >
                   <span class="text-sm font-bold text-[#98A2B3]">{measure_obj.label}</span>
@@ -521,7 +539,9 @@
             {@const local_selected_option_arr = lens_group_obj.option_arr.filter(
               (option_obj) => option_obj.active,
             )}
-            <section class="grid gap-3 rounded-[14px] bg-[#F8FAFD] px-4 py-4 md:grid-cols-[132px_1fr] md:items-center">
+            <section
+              class="grid gap-3 rounded-[14px] bg-[#F8FAFD] px-4 py-4 md:grid-cols-[132px_1fr] md:items-center"
+            >
               <h3 class="m-0 text-[1.05rem] font-extrabold text-zinc-950">
                 {lens_group_obj.title}
               </h3>
@@ -581,9 +601,9 @@
             </div>
           </article>
 
-            <div class="grid gap-4">
-              <div class="grid gap-4 lg:grid-cols-2">
-                <article class="rounded-[14px] bg-[#F8FAFD] p-4">
+          <div class="grid gap-4">
+            <div class="grid gap-4 lg:grid-cols-2">
+              <article class="rounded-[14px] bg-[#F8FAFD] p-4">
                 <h3 class="m-0 text-sm font-extrabold text-[#30313A]">제품 정보</h3>
                 <div class="mt-4 overflow-hidden rounded-[10px] border border-[#E8EEF6] bg-white">
                   {#each g_selected_glasses_variant_obj.product_arr as product_obj, product_index (`product-${product_index}`)}
@@ -623,11 +643,10 @@
                     </div>
                   {/each}
                 </div>
-                </article>
-              </div>
+              </article>
             </div>
           </div>
-
+        </div>
       </section>
 
       <section class="rounded-[18px] border border-[#E9E8F0] bg-white p-5 shadow-sm shadow-black/8">
@@ -641,7 +660,9 @@
           {#each g_selected_glasses_variant_obj.fit_metric_arr as metric_obj, metric_index (`fit-${metric_index}`)}
             <article class={`rounded-[14px] border p-4 text-center ${metric_obj.tone_class}`}>
               <p class="m-0 text-xs font-extrabold">{metric_obj.label}</p>
-              <p class="mt-3 text-[1.55rem] font-extrabold tracking-[-0.03em]">{metric_obj.value}</p>
+              <p class="mt-3 text-[1.55rem] font-extrabold tracking-[-0.03em]">
+                {metric_obj.value}
+              </p>
             </article>
           {/each}
         </div>
@@ -669,7 +690,9 @@
         <p class="mt-1 text-xs font-bold leading-5 text-[#7B8599]">
           실제 착용감은 개인차가 있을 수 있으며, 전문 안경사의 최종 피팅 조정을 권장합니다.
         </p>
-        <p class="mt-2 text-xs font-bold text-[#A2AABC]">© 2026 RETINA - 실시간 AR 안경 피팅 서비스</p>
+        <p class="mt-2 text-xs font-bold text-[#A2AABC]">
+          © 2026 RETINA - 실시간 AR 안경 피팅 서비스
+        </p>
       </section>
 
       <div class="grid gap-3 md:grid-cols-2">

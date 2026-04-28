@@ -41,3 +41,18 @@ export const create_visit = (param_obj) => {
     },
   })
 }
+
+/**
+ * 안경사 추천 옵션 선택을 방문 데이터에 저장한다.
+ * visit_no 경로에 맞는 visited row 의 opt_recommend_json 을 업데이트한다.
+ * @param {{ visit_no: number | string, opt_recommend_json: Record<string, unknown> }} param_obj
+ */
+export const save_visit_recommend = ({ visit_no, opt_recommend_json }) => {
+  return apiRequest(`/api/v1/visits/${visit_no}/recommend`, {
+    method: 'POST',
+    headers: get_session_auth_headers(),
+    body: {
+      opt_recommend_json,
+    },
+  })
+}
