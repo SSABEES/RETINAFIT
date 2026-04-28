@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/api/client'
+import { get_session_auth_headers } from '@/lib/api/session_auth'
 
 // 전부 다 경로 확정되면 수정 필요
 
@@ -6,7 +7,9 @@ import { apiRequest } from '@/lib/api/client'
  * 렌즈 선택 옵션 조회
  */
 export const get_glasses_options = () => {
-  return apiRequest('/api/v1/glasses/lens')
+  return apiRequest('/api/v1/glasses/lens', {
+    headers: get_session_auth_headers(),
+  })
 }
 
 /**
