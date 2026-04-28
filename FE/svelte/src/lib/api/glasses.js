@@ -2,31 +2,6 @@ import { apiRequest } from '@/lib/api/client'
 import { get_session_auth_headers } from '@/lib/api/session_auth'
 
 /**
- * 렌즈 상담 추천 옵션 조회
- */
-export const get_glasses_options = () => {
-  return apiRequest('/api/v1/glasses/lens')
-}
-
-/**
- * 안경 추천 목록 조회
- */
-export const get_glasses_recommendations = () => {
-  return apiRequest('/glasses/recommendations')
-}
-
-/**
- * 선택한 렌즈 조건을 서버에 저장
- * @param {Record<string, string[]>} selected_obj
- */
-export const save_lens_requirements = (selected_obj) => {
-  return apiRequest('/glasses/requirements', {
-    method: 'POST',
-    body: selected_obj,
-  })
-}
-
-/**
  * 안경 1개에 대한 가상 피팅 이미지 Presigned URL 발급 요청
  * @param {number} visit_no
  * @param {number} glasses_no
