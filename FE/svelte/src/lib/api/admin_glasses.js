@@ -140,9 +140,11 @@ export async function upload_admin_glasses_file(presigned_value, file_obj) {
 }
 
 /**
- * presigned URL 에서 실제 저장 파일 URL 부분만 잘라 등록 API 에 사용할 값으로 만든다.
+ * presigned URL 에서 S3 object key 만 잘라 등록 API 에 보낼 값으로 만든다.
+ * 백엔드가 host prefix 를 다시 붙이기 때문에 host 를 같이 보내면 경로가 중첩된다.
  * @param {string | Record<string, unknown>} presigned_value
  */
 export function get_uploaded_file_url(presigned_value) {
-  return get_presigned_upload_url(presigned_value).split('?')[0]
+  const local_full_url = get_presigned_upload_url(presigned_value).split('?')[0]
+  return new URL(local_full_url).pathname.replace(/^\/+/, '')
 }
