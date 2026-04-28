@@ -8,12 +8,23 @@ from app.modules.glasses.schemas import (
     GlassesUpdate,
     GlassesResponse,
 )
+from app.common.s3_utils import get_file_url
+
+
+def _convert_glasses_urls(glasses) -> GlassesResponse:
+    """안경 이미지 key → 퍼블릭 URL 변환"""
+    data = GlassesResponse.model_validate(glasses)
+    if data.glasses_img_url:
+        data.glasses_img_url = get_file_url(data.glasses_img_url)
+    if data.glasses_3d_url:
+        data.glasses_3d_url = get_file_url(data.glasses_3d_url)
+    return data
 
 
 async def get_glasses_list(db: AsyncSession) -> list[GlassesResponse]:
     """안경 목록 조회"""
     glasses_list = await repository.get_glasses_list(db)
-    return [GlassesResponse.model_validate(g) for g in glasses_list]
+    return [_convert_glasses_urls(g) for g in glasses_list]
 
 
 async def get_glasses(db: AsyncSession, glasses_no: int) -> GlassesResponse:
@@ -24,13 +35,13 @@ async def get_glasses(db: AsyncSession, glasses_no: int) -> GlassesResponse:
             error_code=ErrorCode.NOT_FOUND,
             message="안경 정보를 찾을 수 없습니다.",
         )
-    return GlassesResponse.model_validate(glasses)
+    return _convert_glasses_urls(glasses)
 
 
 async def create_glasses(db: AsyncSession, request: GlassesCreate) -> GlassesResponse:
     """안경 등록"""
     glasses = await repository.create_glasses(db, request.model_dump())
-    return GlassesResponse.model_validate(glasses)
+    return _convert_glasses_urls(glasses)
 
 
 async def update_glasses(db: AsyncSession, glasses_no: int, request: GlassesUpdate) -> GlassesResponse:
@@ -41,7 +52,7 @@ async def update_glasses(db: AsyncSession, glasses_no: int, request: GlassesUpda
             error_code=ErrorCode.NOT_FOUND,
             message="안경 정보를 찾을 수 없습니다.",
         )
-    return GlassesResponse.model_validate(glasses)
+    return _convert_glasses_urls(glasses)
 
 
 async def delete_glasses(db: AsyncSession, glasses_no: int) -> None:
