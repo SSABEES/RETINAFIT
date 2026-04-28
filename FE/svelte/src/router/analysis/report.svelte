@@ -12,7 +12,7 @@
   } from '@/lib/stores/capture_session.svelte.js'
   import { compute_evaluations } from '@/lib/measurements/measurement_evaluator.js'
   import { points_to_overlay_line } from '@/lib/measurements/overlay_utils.js'
-  import { upload_captures_to_s3, save_face_analysis } from '@/lib/api/analysis.js'
+  import { save_face_analysis } from '@/lib/api/analysis.js'
 
   /** @typedef {import('@/lib/measurements/template.js').ViewAngle} ViewAngle */
 
@@ -403,9 +403,23 @@
   function get_visit_no() {
     if (typeof sessionStorage === 'undefined') return null
     const raw = sessionStorage.getItem('retinal_visit_no')
-    if (!raw) return null
-    const n = Number(raw)
-    return Number.isFinite(n) ? n : null
+    if (raw) {
+      const n = Number(raw)
+      if (Number.isFinite(n)) {
+        return n
+      }
+    }
+
+    const selected_visit_raw = sessionStorage.getItem('retinal_selected_visit_obj')
+    if (!selected_visit_raw) return null
+
+    try {
+      const selected_visit_obj = JSON.parse(selected_visit_raw)
+      const n = Number(selected_visit_obj?.visit_no)
+      return Number.isFinite(n) ? n : null
+    } catch {
+      return null
+    }
   }
 
   async function on_click_submit_onboarding() {
@@ -419,11 +433,11 @@
     g_is_submitting = true
     try {
       // 1단계: 사진들을 S3 에 업로드해 URL 받기 (BE -95 의 presigned URL 사용).
-      const file_url_map = await upload_captures_to_s3(g_session.captures_obj)
+      const main_file = ''
 
       // 2단계: 정면(main) 분리 + 나머지 test_file_arr.
-      const main_file = file_url_map.front_no_glasses ?? file_url_map.front_glasses ?? ''
-      const test_file_arr = Object.values(file_url_map)
+      const test_file_arr = []
+      
 
       // 3단계: 메타 저장.
       await save_face_analysis(visit_no, {
