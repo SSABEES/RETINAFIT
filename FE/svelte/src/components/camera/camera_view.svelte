@@ -52,9 +52,8 @@
   // STABILITY_FRAMES: 12Hz × 30 ≈ 2.5초 유지되어야 최종 확정
   // STABILITY_THRESHOLD: 최근 10프레임 face_width/height 표준편차 상한 (640x480 기준 경험값)
   const FRAME_SKIP = 5
-  const STABILITY_FRAMES = 12
-  const STABILITY_THRESHOLD = 16
-  const STABILITY_GRACE_FRAMES = 8
+  const STABILITY_FRAMES = 30
+  const STABILITY_THRESHOLD = 5
 
   /** @type {HTMLVideoElement | null} */
   let ref_this_video_el = $state(null)
@@ -76,15 +75,15 @@
   let g_frame_counter = 0
   let g_already_dispatched = false
   /** @type {ReturnType<typeof setTimeout> | null} */
-  let g_countdown_timeout = null
-  /** @type {AudioContext | null} */
-  let g_audio_context = null
-  /** @type {'head_left' | 'head_right' | 'head_center' | null} */
-  let g_last_guidance_audio_key = null
-  let g_last_guidance_audio_at = 0
+  let g_capture_timeout = null
   /** @type {HTMLAudioElement | null} */
   let g_active_prompt_audio = null
-  let g_is_finishing_capture = $state(false)
+  /** @type {'idle' | 'started' | 'final'} */
+  let g_stability_audio_stage = 'idle'
+  /** @type {'head_left' | 'head_right' | 'head_center' | 'count_three' | 'count_two' | 'count_one' | 'count_click' | null} */
+  let g_last_audio_key = null
+  let g_last_audio_at = 0
+  let g_capture_sequence_token = 0
 
   let g_init_error = $state(/** @type {string | null} */ (null))
   let g_permission_denied = $state(false)
@@ -98,15 +97,12 @@
   /** @type {FaceMeasurements[]} */
   let g_buffer_arr = []
   let g_stable_count = $state(0)
-  let g_countdown_remaining = $state(0)
-  let g_is_face_inside_guide = $state(false)
-  let g_unstable_frame_streak = 0
+  let g_is_landmark_visible = $state(true)
 
   const g_is_stable = $derived(g_stable_count >= STABILITY_FRAMES)
   const g_stability_progress = $derived(
     Math.min(100, Math.round((g_stable_count / STABILITY_FRAMES) * 100)),
   )
-  const g_is_countdown_active = $derived(g_countdown_remaining > 0)
 
   // 정면 포즈 + 자동 모드일 때만 안정화 기반 자동 캡쳐를 작동시킨다.
   const g_is_auto_capture = $derived(pose_target === 'front' && capture_mode === 'auto')
@@ -167,53 +163,42 @@
   })
 
   $effect(() => {
-    if (g_countdown_remaining > 0 || g_is_finishing_capture) {
+    if (!active || !g_is_auto_capture || g_already_dispatched) return
+
+    const can_measure = g_face_detected && g_complete_obj.is_complete && !!g_frontal_obj?.is_frontal
+
+    if (can_measure && g_is_stable) {
+      if (g_stability_audio_stage !== 'final') {
+        g_stability_audio_stage = 'final'
+        void run_auto_capture_sequence()
+      }
       return
     }
 
-    if (g_is_auto_capture && g_is_stable && !g_already_dispatched) {
-      start_auto_capture_countdown()
-      return
+    if (g_capture_timeout !== null) {
+      clearTimeout(g_capture_timeout)
+      g_capture_timeout = null
     }
-
-    cancel_auto_capture_countdown()
+    g_stability_audio_stage = 'idle'
   })
 
   $effect(() => {
-    if (!active || pose_target !== 'front' || g_is_countdown_active) {
-      g_last_guidance_audio_key = null
-      return
-    }
-
-    if (!g_face_detected) {
-      g_last_guidance_audio_key = null
+    if (!active || !g_is_auto_capture || g_already_dispatched || g_stability_audio_stage !== 'idle') {
       return
     }
 
     /** @type {'head_left' | 'head_right' | 'head_center' | null} */
     let next_audio_key = null
-    if (!g_complete_obj.is_complete) {
-      next_audio_key = 'head_center'
-    } else if (g_frontal_obj && !g_frontal_obj.is_frontal && g_frontal_obj.reason === 'yaw') {
-      next_audio_key = g_frontal_obj.yaw > 0 ? 'head_right' : 'head_left'
+
+    if (g_face_detected) {
+      if (!g_complete_obj.is_complete) {
+        next_audio_key = 'head_center'
+      } else if (g_frontal_obj && !g_frontal_obj.is_frontal && g_frontal_obj.reason === 'yaw') {
+        next_audio_key = g_frontal_obj.yaw > 0 ? 'head_right' : 'head_left'
+      }
     }
 
-    if (!next_audio_key) {
-      g_last_guidance_audio_key = null
-      return
-    }
-
-    const now = Date.now()
-
-    if (
-      g_last_guidance_audio_key === next_audio_key &&
-      now - g_last_guidance_audio_at < 1800
-    ) {
-      return
-    }
-
-    g_last_guidance_audio_key = next_audio_key
-    g_last_guidance_audio_at = now
+    if (!next_audio_key) return
     void play_prompt_audio(next_audio_key)
   })
 
@@ -225,14 +210,13 @@
       g_init_error = null
       g_permission_denied = false
       g_already_dispatched = false
-      g_is_finishing_capture = false
+      g_stability_audio_stage = 'idle'
+      g_last_audio_key = null
+      g_capture_sequence_token += 1
       g_buffer_arr = []
       g_stable_count = 0
-      g_countdown_remaining = 0
       g_face_detected = false
       g_measurements_obj = null
-      g_is_face_inside_guide = false
-      g_unstable_frame_streak = 0
 
       const landmarker = await get_video_landmarker()
       if (my_generation !== g_start_generation) return
@@ -280,8 +264,14 @@
   // 이어가지 못하도록 세대 토큰을 증가시킨다.
   function on_stop_camera() {
     g_start_generation++
-    cancel_auto_capture_countdown()
+    if (g_capture_timeout !== null) {
+      clearTimeout(g_capture_timeout)
+      g_capture_timeout = null
+    }
+    g_capture_sequence_token += 1
     stop_prompt_audio()
+    g_stability_audio_stage = 'idle'
+    g_last_audio_key = null
     if (g_raf_id !== null) {
       cancelAnimationFrame(g_raf_id)
       g_raf_id = null
@@ -297,74 +287,51 @@
     clear_video_cache()
   }
 
-  function start_auto_capture_countdown() {
-    if (g_countdown_remaining > 0 || g_already_dispatched) return
+  async function run_auto_capture_sequence() {
+    const my_token = ++g_capture_sequence_token
+    const sequence = ['count_three', 'count_two', 'count_one', 'count_click']
 
-    g_countdown_remaining = 5
-    schedule_next_countdown_tick()
-  }
-
-  function schedule_next_countdown_tick() {
-    if (g_countdown_timeout !== null) {
-      clearTimeout(g_countdown_timeout)
-    }
-
-    g_countdown_timeout = setTimeout(async () => {
-      g_countdown_timeout = null
-
+    for (const file_key of sequence) {
       if (
+        my_token !== g_capture_sequence_token ||
+        !active ||
         !g_is_auto_capture ||
-        g_already_dispatched ||
-        !g_face_detected ||
-        !g_complete_obj.is_complete ||
-        !g_frontal_obj?.is_frontal
+        g_already_dispatched
       ) {
-        cancel_auto_capture_countdown()
         return
       }
 
-      if (g_countdown_remaining <= 0) {
-        g_countdown_remaining = 0
-        await play_prompt_audio('count_click')
-        await play_shutter_sound()
-        const avg = get_average()
-        await trigger_capture_internal(avg)
-        return
-      }
-
-      if (g_countdown_remaining === 2) {
-        await play_prompt_audio('count_two')
-      } else if (g_countdown_remaining === 1) {
-        await play_prompt_audio('count_one')
-        // Keep the final 1-second wait from restarting a new countdown.
-        g_is_finishing_capture = true
-      } else if (g_countdown_remaining === 3) {
-        await play_prompt_audio('count_three')
-      }
-
-      g_countdown_remaining -= 1
-      schedule_next_countdown_tick()
-    }, 1000)
-  }
-
-  function cancel_auto_capture_countdown() {
-    if (g_countdown_timeout !== null) {
-      clearTimeout(g_countdown_timeout)
-      g_countdown_timeout = null
+      await play_prompt_audio(file_key)
     }
 
-    if (g_countdown_remaining > 0) {
-      g_countdown_remaining = 0
+    if (
+      my_token !== g_capture_sequence_token ||
+      !active ||
+      !g_is_auto_capture ||
+      g_already_dispatched
+    ) {
+      return
     }
+
+    const avg = get_average()
+    await trigger_capture_internal(avg)
   }
 
+  /**
+   * @param {'head_left' | 'head_right' | 'head_center' | 'count_three' | 'count_two' | 'count_one' | 'count_click'} file_key
+   */
   async function play_prompt_audio(file_key) {
     if (typeof window === 'undefined') return
+
+    const now = Date.now()
+    if (g_last_audio_key === file_key && now - g_last_audio_at < 1200) return
     if (g_active_prompt_audio && !g_active_prompt_audio.paused && !g_active_prompt_audio.ended) return
 
     const audio = new Audio(`/tts/${file_key}.mp3`)
     audio.preload = 'auto'
     g_active_prompt_audio = audio
+    g_last_audio_key = file_key
+    g_last_audio_at = now
 
     const clear_active_audio = () => {
       if (g_active_prompt_audio === audio) {
@@ -377,9 +344,13 @@
 
     try {
       await audio.play()
+      await new Promise((resolve) => {
+        audio.addEventListener('ended', resolve, { once: true })
+        audio.addEventListener('pause', resolve, { once: true })
+        audio.addEventListener('error', resolve, { once: true })
+      })
     } catch {
       clear_active_audio()
-      // Ignore autoplay failures; visual guidance still remains available.
     }
   }
 
@@ -388,51 +359,6 @@
     g_active_prompt_audio.pause()
     g_active_prompt_audio.currentTime = 0
     g_active_prompt_audio = null
-  }
-
-  async function play_shutter_sound() {
-    if (typeof window === 'undefined') return
-
-    const AudioContextCtor = window.AudioContext ?? window.webkitAudioContext
-    if (!AudioContextCtor) return
-
-    if (!g_audio_context) {
-      g_audio_context = new AudioContextCtor()
-    }
-
-    if (g_audio_context.state === 'suspended') {
-      try {
-        await g_audio_context.resume()
-      } catch {
-        return
-      }
-    }
-
-    const now = g_audio_context.currentTime
-    const gain = g_audio_context.createGain()
-    gain.connect(g_audio_context.destination)
-    gain.gain.setValueAtTime(0.0001, now)
-    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.01)
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16)
-
-    const oscillator_a = g_audio_context.createOscillator()
-    oscillator_a.type = 'triangle'
-    oscillator_a.frequency.setValueAtTime(1800, now)
-    oscillator_a.frequency.exponentialRampToValueAtTime(700, now + 0.08)
-    oscillator_a.connect(gain)
-
-    const oscillator_b = g_audio_context.createOscillator()
-    oscillator_b.type = 'square'
-    oscillator_b.frequency.setValueAtTime(320, now + 0.02)
-    oscillator_b.frequency.exponentialRampToValueAtTime(140, now + 0.12)
-    oscillator_b.connect(gain)
-
-    oscillator_a.start(now)
-    oscillator_b.start(now + 0.015)
-    oscillator_a.stop(now + 0.11)
-    oscillator_b.stop(now + 0.14)
-
-    await new Promise((resolve) => setTimeout(resolve, 140))
   }
 
   /**
@@ -455,13 +381,9 @@
     const w_std = std(recent.map((r) => r.face_width))
     const h_std = std(recent.map((r) => r.face_height))
     if (w_std < STABILITY_THRESHOLD && h_std < STABILITY_THRESHOLD) {
-      g_unstable_frame_streak = 0
       g_stable_count = Math.min(g_stable_count + 1, STABILITY_FRAMES)
     } else {
-      g_unstable_frame_streak += 1
-      if (g_unstable_frame_streak >= STABILITY_GRACE_FRAMES) {
-        g_stable_count = Math.max(0, g_stable_count - 1)
-      }
+      g_stable_count = Math.max(0, g_stable_count - 5)
     }
   }
 
@@ -495,11 +417,6 @@
         g_face_detected = true
         g_complete_obj = check_face_completeness(result)
         g_frontal_obj = check_frontal(result)
-        g_is_face_inside_guide = check_face_inside_guide(
-          result.faceLandmarks[0],
-          ref_this_video_el.videoWidth,
-          ref_this_video_el.videoHeight,
-        )
         const m = compute_measurements(
           result.faceLandmarks[0],
           ref_this_video_el.videoWidth,
@@ -515,26 +432,28 @@
         ) {
           update_stability(m)
         } else {
-          g_unstable_frame_streak += 1
-          if (g_unstable_frame_streak >= STABILITY_GRACE_FRAMES) {
-            g_stable_count = Math.max(0, g_stable_count - 1)
-          }
+          g_buffer_arr = []
+          g_stable_count = 0
         }
       } else {
         g_face_detected = false
         g_frontal_obj = null
         g_complete_obj = { is_complete: true, reason: null }
         g_measurements_obj = null
-        g_is_face_inside_guide = false
         g_buffer_arr = []
         g_stable_count = 0
-        g_unstable_frame_streak = 0
       }
     }
 
     sync_canvas_size()
     if (show_overlay && ref_this_canvas_el) {
-      draw_face_mesh(ref_this_canvas_el, g_last_detection)
+      const ctx = ref_this_canvas_el.getContext('2d')
+      if (ctx) {
+        ctx.clearRect(0, 0, ref_this_canvas_el.width, ref_this_canvas_el.height)
+      }
+      if (g_is_landmark_visible) {
+        draw_face_mesh(ref_this_canvas_el, g_last_detection)
+      }
       draw_guide_ellipse()
     }
 
@@ -555,6 +474,10 @@
   async function trigger_capture_internal(measurements_obj) {
     if (g_already_dispatched) return
     if (!ref_this_video_el || !g_stream) return
+    if (g_capture_timeout !== null) {
+      clearTimeout(g_capture_timeout)
+      g_capture_timeout = null
+    }
     g_already_dispatched = true
     try {
       const { blob, width, height } = await video_to_blob(ref_this_video_el)
@@ -574,7 +497,6 @@
         measurement_points_obj,
         landmarks,
       })
-      g_is_finishing_capture = false
     } catch (err) {
       // 촬영 실패 시 재시도 가능하도록 dispatched 플래그 해제 + 소비자에게 에러 알림.
       g_already_dispatched = false
@@ -628,98 +550,67 @@
    * 단순 타원 대신 계란형(이마는 둥글게, 턱은 좁게) 베지어 곡선으로 현실적 얼굴 실루엣을 근사한다.
    * 해부학적 비율 근사: 얼굴 세로/가로 ≈ 1.32, 광대뼈 라인이 세로 중앙 살짝 아래, 하반부가 상반부보다 길다.
    */
-  function get_guide_geometry(width, height) {
-    const cx = width * 0.5
-    const cy = height * 0.47
-    const face_h = height * 0.6
-    const face_w = face_h * 0.76
-    const top_y = cy - face_h * 0.46
-    const bottom_y = cy + face_h * 0.54
-    const cheek_y = cy + face_h * 0.04
-    const cheek_x = face_w * 0.5
-    const k_upper_out = cheek_x * 1.05
-    const k_upper_vert = (cheek_y - top_y) * 0.55
-    const k_lower_in = cheek_x * 0.45
-    const k_lower_vert = (bottom_y - cheek_y) * 0.55
-
-    return {
-      cx,
-      top_y,
-      bottom_y,
-      cheek_y,
-      cheek_x,
-      k_upper_out,
-      k_upper_vert,
-      k_lower_in,
-      k_lower_vert,
-    }
-  }
-
-  function create_guide_path(width, height) {
-    const path = new Path2D()
-    const { cx, top_y, bottom_y, cheek_y, cheek_x, k_upper_out, k_upper_vert, k_lower_in, k_lower_vert } =
-      get_guide_geometry(width, height)
-
-    path.moveTo(cx, top_y)
-    path.bezierCurveTo(cx + k_upper_out, top_y, cx + cheek_x, cheek_y - k_upper_vert, cx + cheek_x, cheek_y)
-    path.bezierCurveTo(cx + cheek_x, cheek_y + k_lower_vert, cx + k_lower_in, bottom_y, cx, bottom_y)
-    path.bezierCurveTo(cx - k_lower_in, bottom_y, cx - cheek_x, cheek_y + k_lower_vert, cx - cheek_x, cheek_y)
-    path.bezierCurveTo(cx - cheek_x, cheek_y - k_upper_vert, cx - k_upper_out, top_y, cx, top_y)
-    path.closePath()
-
-    return path
-  }
-
-  /**
-   * 가이드 내부 판정은 시각적으로 그리는 동일 베지어 경로를 사용한다.
-   * 핵심 윤곽 랜드마크가 모두 내부에 있어야 안정화를 시작한다.
-   * @param {import('@mediapipe/tasks-vision').NormalizedLandmark[]} landmarks
-   * @param {number} width
-   * @param {number} height
-   */
-  function check_face_inside_guide(landmarks, width, height) {
-    if (!ref_this_canvas_el || !landmarks || landmarks.length < 468 || width === 0 || height === 0) return false
-    const ctx = ref_this_canvas_el.getContext('2d')
-    if (!ctx) return false
-
-    const guide_path = create_guide_path(width, height)
-    const required_indices = [10, 152, 234, 454]
-    const optional_indices = [172, 397, 67, 297]
-    const margin_px = 24
-
-    const is_inside = (index) => {
-      const point = landmarks[index]
-      const x = point.x * width
-      const y = point.y * height
-      return (
-        ctx.isPointInPath(guide_path, x, y) ||
-        ctx.isPointInPath(guide_path, x, y + margin_px) ||
-        ctx.isPointInPath(guide_path, x, y - margin_px)
-      )
-    }
-
-    const required_inside_count = required_indices.filter(is_inside).length
-    const optional_inside_count = optional_indices.filter(is_inside).length
-
-    return required_inside_count >= 3 && optional_inside_count >= 2
-  }
-
   function draw_guide_ellipse() {
     if (!ref_this_canvas_el || ref_this_canvas_el.width === 0) return
     const ctx = ref_this_canvas_el.getContext('2d')
     if (!ctx) return
 
-    const guide_path = create_guide_path(ref_this_canvas_el.width, ref_this_canvas_el.height)
+    const w = ref_this_canvas_el.width
+    const h = ref_this_canvas_el.height
+    const cx = w * 0.5
+    const cy = h * 0.47
+
+    // 얼굴 전체 세로(이마 위~턱 끝). 카메라 프레임 세로의 60% 를 얼굴 영역으로 가정.
+    const face_h = h * 0.6
+    // 광대뼈 너비(최대 가로) — 얼굴 세로의 약 76% 가 일반적 해부학 평균.
+    const face_w = face_h * 0.76
+
+    // 4개 앵커: top(이마), right(광대), bottom(턱), left(광대 대칭)
+    const top_y = cy - face_h * 0.46 // 상반부 46% (이마 위쪽이 하반부보다 살짝 짧음)
+    const bottom_y = cy + face_h * 0.54 // 하반부 54% (턱이 아래로 더 돌출)
+    const cheek_y = cy + face_h * 0.04 // 광대 라인은 중심 살짝 아래
+    const cheek_x = face_w * 0.5
+
+    // 베지어 제어점: 상단은 수평으로 넓게 벌려 둥근 이마, 하단은 좁게 모아 뾰족한 턱.
+    const k_upper_out = cheek_x * 1.05
+    const k_upper_vert = (cheek_y - top_y) * 0.55
+    const k_lower_in = cheek_x * 0.45
+    const k_lower_vert = (bottom_y - cheek_y) * 0.55
 
     ctx.save()
     // 배경 영상에 관계없이 선이 잘 보이도록 약한 드롭섀도.
     ctx.shadowColor = 'rgba(0,0,0,0.55)'
     ctx.shadowBlur = 4
-    ctx.strokeStyle = g_display_guide_color
+    ctx.strokeStyle = g_guide_color
     ctx.lineWidth = 3
-    ctx.setLineDash(g_is_stable || g_is_countdown_active ? [] : [14, 7])
+    ctx.setLineDash([14, 7])
 
-    ctx.stroke(guide_path)
+    ctx.beginPath()
+    ctx.moveTo(cx, top_y)
+    // 이마 → 오른 광대 (둥글게 벌어짐)
+    ctx.bezierCurveTo(
+      cx + k_upper_out,
+      top_y,
+      cx + cheek_x,
+      cheek_y - k_upper_vert,
+      cx + cheek_x,
+      cheek_y,
+    )
+    // 오른 광대 → 턱 (안쪽으로 좁아짐)
+    ctx.bezierCurveTo(cx + cheek_x, cheek_y + k_lower_vert, cx + k_lower_in, bottom_y, cx, bottom_y)
+    // 턱 → 왼 광대 (대칭)
+    ctx.bezierCurveTo(
+      cx - k_lower_in,
+      bottom_y,
+      cx - cheek_x,
+      cheek_y + k_lower_vert,
+      cx - cheek_x,
+      cheek_y,
+    )
+    // 왼 광대 → 이마 (대칭)
+    ctx.bezierCurveTo(cx - cheek_x, cheek_y - k_upper_vert, cx - k_upper_out, top_y, cx, top_y)
+    ctx.closePath()
+    ctx.stroke()
     ctx.restore()
   }
 
@@ -729,12 +620,17 @@
    * 수동 스텝에서 `trigger_capture()` 호출이 다시 수락되도록 재장전된다.
    */
   export function reset() {
-    cancel_auto_capture_countdown()
+    if (g_capture_timeout !== null) {
+      clearTimeout(g_capture_timeout)
+      g_capture_timeout = null
+    }
+    g_capture_sequence_token += 1
+    stop_prompt_audio()
     g_already_dispatched = false
     g_buffer_arr = []
     g_stable_count = 0
-    g_is_face_inside_guide = false
-    g_unstable_frame_streak = 0
+    g_stability_audio_stage = 'idle'
+    g_last_audio_key = null
   }
 
   /**
@@ -754,94 +650,6 @@
   const g_yaw_style = $derived(angle_style(g_frontal_obj?.yaw ?? 0, YAW_THR))
   const g_pitch_style = $derived(angle_style(g_frontal_obj?.pitch ?? 0, PITCH_THR))
   const g_roll_style = $derived(angle_style(g_frontal_obj?.roll ?? 0, ROLL_THR))
-  const g_display_guide_color = $derived.by(() => {
-    if (!g_face_detected) return 'rgba(200,200,200,0.5)'
-    if (!g_complete_obj.is_complete) return 'rgba(244,67,54,0.85)'
-    if (pose_target !== 'front') return 'rgba(255,255,255,0.7)'
-    if (!g_is_face_inside_guide) return 'rgba(255,152,0,0.9)'
-    if (!g_frontal_obj?.is_frontal) return 'rgba(255,193,7,0.85)'
-    if (g_is_stable || g_is_countdown_active) return 'rgba(0,230,118,0.9)'
-    return 'rgba(255,193,7,0.85)'
-  })
-  const g_display_hint_text = $derived.by(() => {
-    if (!g_face_detected) return '얼굴을 가이드 안에 맞춰 주세요'
-    if (!g_complete_obj.is_complete) return '얼굴 전체가 화면 안에 들어오도록 맞춰 주세요'
-    if (pose_target === 'front' && !g_is_face_inside_guide) return '고개를 가이드 안쪽으로 맞춰 주세요'
-    if (pose_target === 'left_profile') return '고개를 왼쪽으로 돌려 주세요'
-    if (pose_target === 'right_profile') return '고개를 오른쪽으로 돌려 주세요'
-    if (!g_frontal_obj) return '정면을 바라봐 주세요'
-    if (g_frontal_obj.is_frontal) {
-      if (g_is_countdown_active) return `${g_countdown_remaining}초 후 촬영`
-      return g_is_stable ? '안정화 완료' : `안정화 중 ${g_stability_progress}%`
-    }
-    if (g_frontal_obj.reason === 'yaw') {
-      return g_frontal_obj.yaw > 0 ? '고개를 오른쪽으로 돌려 주세요' : '고개를 왼쪽으로 돌려 주세요'
-    }
-    if (g_frontal_obj.reason === 'pitch') {
-      return g_frontal_obj.pitch > 0 ? '턱을 내려 주세요' : '턱을 올려 주세요'
-    }
-    if (g_frontal_obj.reason === 'roll') {
-      return g_frontal_obj.roll > 0 ? '오른쪽으로 기울어졌어요' : '왼쪽으로 기울어졌어요'
-    }
-    return '정면을 바라봐 주세요'
-  })
-  const g_display_badge_style = $derived.by(() => {
-    const base = 'background: rgba(0,0,0,0.55);'
-    if (pose_target === 'front' && (g_is_stable || g_is_countdown_active)) {
-      return base + ' border-color: rgba(0,230,118,0.7); color: #69f0ae;'
-    }
-    if (pose_target === 'front' && !g_is_face_inside_guide && g_face_detected) {
-      return base + ' border-color: rgba(255,152,0,0.6); color: #ffb74d;'
-    }
-    if (g_face_detected) {
-      return base + ' border-color: rgba(255,152,0,0.6); color: #ffb74d;'
-    }
-    return base + ' border-color: rgba(255,255,255,0.25); color: #eeeeee;'
-  })
-  const g_ui_text = {
-    width: '\uB108\uBE44',
-    height: '\uB192\uC774',
-    eye_distance: '\uB208\uAC04',
-    nose: '\uCF54',
-    jaw: '\uD131',
-    yaw: '\uC88C\uC6B0',
-    pitch: '\uC0C1\uD558',
-    roll: '\uAE30\uC6B8\uAE30',
-    allow_camera_help:
-      '\uBE0C\uB77C\uC6B0\uC800 \uC8FC\uC18C\uCC3D\uC758 \uC790\uBB3C\uC1E0 \uC544\uC774\uCF58\uC5D0\uC11C \uCE74\uBA54\uB77C \uAD8C\uD55C\uC744 \uD5C8\uC6A9\uD574 \uC8FC\uC138\uC694',
-  }
-  const g_display_hint_text_ko = $derived.by(() => {
-    if (!g_face_detected) return '\uC5BC\uAD74\uC744 \uAC00\uC774\uB4DC \uC548\uC5D0 \uB9DE\uCDB0 \uC8FC\uC138\uC694'
-    if (!g_complete_obj.is_complete) {
-      return '\uC5BC\uAD74 \uC804\uCCB4\uAC00 \uD654\uBA74 \uC548\uC5D0 \uB4E4\uC5B4\uC624\uB3C4\uB85D \uB9DE\uCDB0 \uC8FC\uC138\uC694'
-    }
-    if (pose_target === 'front' && !g_is_face_inside_guide) {
-      return '\uACE0\uAC1C\uB97C \uAC00\uC774\uB4DC \uC548\uCABD\uC73C\uB85C \uB9DE\uCDB0 \uC8FC\uC138\uC694'
-    }
-    if (pose_target === 'left_profile') return '\uACE0\uAC1C\uB97C \uC67C\uCABD\uC73C\uB85C \uB3CC\uB824 \uC8FC\uC138\uC694'
-    if (pose_target === 'right_profile') return '\uACE0\uAC1C\uB97C \uC624\uB978\uCABD\uC73C\uB85C \uB3CC\uB824 \uC8FC\uC138\uC694'
-    if (!g_frontal_obj) return '\uC815\uBA74\uC744 \uBC14\uB77C\uBD10 \uC8FC\uC138\uC694'
-    if (g_frontal_obj.is_frontal) {
-      if (g_is_countdown_active) return `${g_countdown_remaining}\uCD08 \uD6C4 \uCD2C\uC601`
-      return g_is_stable ? '\uC548\uC815\uD654 \uC644\uB8CC' : `\uC548\uC815\uD654 \uC911 ${g_stability_progress}%`
-    }
-    if (g_frontal_obj.reason === 'yaw') {
-      return g_frontal_obj.yaw > 0
-        ? '\uACE0\uAC1C\uB97C \uC624\uB978\uCABD\uC73C\uB85C \uB3CC\uB824 \uC8FC\uC138\uC694'
-        : '\uACE0\uAC1C\uB97C \uC67C\uCABD\uC73C\uB85C \uB3CC\uB824 \uC8FC\uC138\uC694'
-    }
-    if (g_frontal_obj.reason === 'pitch') {
-      return g_frontal_obj.pitch > 0
-        ? '\uD131\uC744 \uB0B4\uB824 \uC8FC\uC138\uC694'
-        : '\uD131\uC744 \uC62C\uB824 \uC8FC\uC138\uC694'
-    }
-    if (g_frontal_obj.reason === 'roll') {
-      return g_frontal_obj.roll > 0
-        ? '\uC624\uB978\uCABD\uC73C\uB85C \uAE30\uC6B8\uC5B4\uC84C\uC5B4\uC694'
-        : '\uC67C\uCABD\uC73C\uB85C \uAE30\uC6B8\uC5B4\uC84C\uC5B4\uC694'
-    }
-    return '\uC815\uBA74\uC744 \uBC14\uB77C\uBD10 \uC8FC\uC138\uC694'
-  })
 </script>
 
 <div class="flex flex-col gap-3">
@@ -859,6 +667,19 @@
   {/if}
 
   <div class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black">
+    {#if active}
+      <button
+        type="button"
+        class="absolute right-2.5 top-2.5 z-20 rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-black/75"
+        on:click={() => {
+          g_is_landmark_visible = !g_is_landmark_visible
+        }}
+        aria-pressed={g_is_landmark_visible}
+      >
+        {g_is_landmark_visible ? '얼굴 랜드마크 끄기' : '얼굴 랜드마크 켜기'}
+      </button>
+    {/if}
+
     <video
       bind:this={ref_this_video_el}
       class="absolute inset-0 h-full w-full object-cover"
@@ -981,9 +802,9 @@
       <div class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2">
         <span
           class="inline-block rounded-full border-[1.5px] px-4 py-2 text-sm font-bold backdrop-blur-sm"
-          style={g_display_badge_style}
+          style={g_badge_style}
         >
-          {g_display_hint_text_ko}
+          {g_hint_text}
         </span>
       </div>
     {/if}
