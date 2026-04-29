@@ -135,7 +135,37 @@ fun FaceFittingScreen(
     val modelLoader = rememberModelLoader(engine)
     val materialLoader = rememberMaterialLoader(engine)
     val cameraStream = rememberARCameraStream(materialLoader)
-    val modelInstance = rememberModelInstance(modelLoader, localAssetPath)
+    // sceneview 4.0.1 의 rememberModelInstance 는 asset 상대경로만 지원 (file:// / 절대경로 미지원).
+    // 따라서 RemoteModel 로 다운로드된 파일 (file://...) 의 경우엔 직접 ByteBuffer 로 읽어서
+    // modelLoader.createModelInstance(buffer) 에 넘긴다. asset 경로면 기존 경로 그대로 사용.
+    val modelInstance: io.github.sceneview.model.ModelInstance? by androidx.compose.runtime.produceState<io.github.sceneview.model.ModelInstance?>(
+        initialValue = null,
+        key1 = modelLoader,
+        key2 = localAssetPath,
+    ) {
+        // 바이트 읽기는 IO, Filament createModelInstance 는 Main 에서.
+        // (Filament Engine 이 채택한 스레드에서만 createModelInstance 호출 가능 — 안 그러면
+        // "This thread has not been adopted" panic → SIGABRT.)
+        value = runCatching {
+            val bytes = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                when {
+                    localAssetPath.startsWith("file://") -> {
+                        java.io.File(localAssetPath.removePrefix("file://")).readBytes()
+                    }
+                    localAssetPath.startsWith("/") -> {
+                        java.io.File(localAssetPath).readBytes()
+                    }
+                    else -> {
+                        // asset 상대경로
+                        context.assets.open(localAssetPath).use { it.readBytes() }
+                    }
+                }
+            }
+            modelLoader.createModelInstance(java.nio.ByteBuffer.wrap(bytes))
+        }.onFailure {
+            Log.e(TAG, "Failed to load model from $localAssetPath", it)
+        }.getOrNull()
+    }
     val arCameraNode = rememberARCameraNode(engine)
 
     // arsceneview AAR 이 번들한 depth-only unlit 재질. 얼굴 메쉬를 이 재질로 그리면 색은 쓰지

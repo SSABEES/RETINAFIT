@@ -115,12 +115,7 @@
         class="w-full max-w-[460px] rounded-[28px] border border-[#EFE7F2] bg-white p-8 shadow-sm shadow-slate-200/50"
       >
         <div class="mb-8 text-left">
-          <p
-            class="m-0 text-sm font-extrabold uppercase tracking-[0.18em] text-[var(--retinal-text-muted)]"
-          >
-            RETINAL ADMIN
-          </p>
-          <h1 class="mt-3 mb-0 text-[1.9rem] font-extrabold tracking-[-0.02em] text-zinc-950">
+          <h1 class="m-0 text-[1.9rem] font-extrabold tracking-[-0.02em] text-zinc-950">
             관리자 로그인
           </h1>
         </div>

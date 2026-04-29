@@ -92,26 +92,11 @@ const CATEGORIES = {
 
 /** @type {Record<FaceShape, Array<[number, number]>>} */
 const FACE_SHAPE_RECS = {
-  ROUND: [
-    [1, 1],
-    [2, 2],
-  ],
-  LONG: [
-    [3, 1],
-    [4, 2],
-  ],
-  OVAL: [
-    [5, 1],
-    [2, 2],
-  ],
-  TRIANGLE: [
-    [6, 1],
-    [1, 2],
-  ],
-  SQUARE: [
-    [1, 1],
-    [7, 2],
-  ],
+  oval: [[5, 1], [2, 2]],
+  round: [[1, 1], [2, 2]],
+  heart: [[6, 1], [1, 2]],
+  square: [[1, 1], [7, 2]],
+  oblong: [[3, 1], [4, 2]],
 }
 
 /** @type {Record<PDSize, Array<[number, number]>>} */
@@ -131,18 +116,33 @@ const PD_SIZE_RECS = {
 }
 
 /**
- * face_width/face_height 비율과 jaw_width/face_width 비율로 얼굴형을 분류한다.
- * @param {Pick<FaceMeasurements, "face_width" | "face_height" | "jaw_width">} m
+ * 얼굴형을 5종 소문자 키로 분류한다.
+ * 모든 비율은 광대 너비(cheekbone_width)를 분모로 정규화 — 얼굴 크기에 무관한 형태 비교.
+ * 임계값은 한국인 안면계측 연구 기준 (Kim et al. PubMed 15262719, JCAD PMC7605391).
+ *
+ * @param {Pick<FaceMeasurements, "face_height" | "cheekbone_width" | "forehead_width" | "jaw_width">} m
  * @returns {FaceShape}
  */
 export function classify_face_shape(m) {
-  const aspect_ratio = m.face_width / m.face_height
-  const jaw_ratio = m.jaw_width / m.face_width
-  if (aspect_ratio > 0.98) return 'OVAL'
-  if (aspect_ratio < 0.75) return 'LONG'
-  if (jaw_ratio < 0.75) return 'TRIANGLE'
-  if (jaw_ratio > 0.88) return 'SQUARE'
-  return 'ROUND'
+  const length_to_cheekbone_ratio   = m.face_height    / m.cheekbone_width
+  const forehead_to_cheekbone_ratio = m.forehead_width / m.cheekbone_width
+  const jaw_to_cheekbone_ratio      = m.jaw_width      / m.cheekbone_width
+
+  // 1. 얼굴이 광대 대비 1.60배 이상 길면 oblong (긴형)
+  if (length_to_cheekbone_ratio >= 1.60) return 'oblong'
+
+  // 2. 이마가 광대보다 5% 이상 넓고 턱이 광대보다 5% 이상 좁으면 heart (하트형)
+  if (forehead_to_cheekbone_ratio > 1.05 && jaw_to_cheekbone_ratio < 0.95) return 'heart'
+
+  // 3. 이마/턱 모두 광대와 5% 이내로 비슷하면 square (사각형)
+  if (Math.abs(forehead_to_cheekbone_ratio - 1) < 0.05 &&
+      Math.abs(jaw_to_cheekbone_ratio - 1) < 0.05) return 'square'
+
+  // 4. 광대 대비 길이가 1.30 미만이면 round (둥근형)
+  if (length_to_cheekbone_ratio < 1.30) return 'round'
+
+  // 5. 기본은 oval (계란형) — 길이 [1.30, 1.60), 폭 비율은 어디에도 안 걸린 일반형
+  return 'oval'
 }
 
 /**

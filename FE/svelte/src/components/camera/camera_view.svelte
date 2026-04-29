@@ -27,6 +27,7 @@
    * @property {number} height
    * @property {FaceMeasurements | null} measurements_obj
    * @property {Record<string, [Point2D, Point2D]> | null} measurement_points_obj
+   * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[] | null} landmarks
    */
 
   /** @type {{
@@ -348,6 +349,7 @@
         captured_at: Date.now(),
         measurements_obj: measurements_obj ?? null,
         measurement_points_obj,
+        landmarks,
       })
     } catch (err) {
       // 촬영 실패 시 재시도 가능하도록 dispatched 플래그 해제 + 소비자에게 에러 알림.

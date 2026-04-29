@@ -62,7 +62,10 @@ export async function invoke_flutter_bridge(method_name, params_obj = {}) {
   }
 
   const local_timeout_promise = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('Flutter bridge request timed out.')), g_bridge_request_timeout_ms)
+    setTimeout(
+      () => reject(new Error('Flutter bridge request timed out.')),
+      g_bridge_request_timeout_ms,
+    )
   })
 
   return Promise.race([local_bridge_obj.invoke(method_name, params_obj), local_timeout_promise])
@@ -167,9 +170,7 @@ export function add_virtual_fitting_event_listener(on_event_receive) {
 
   // WebView 외 환경에서도 같은 인터페이스를 유지하기 위해 DOM CustomEvent 로 표준화한다.
   const local_on_window_event = (local_event) => {
-    on_event_receive(
-      /** @type {CustomEvent<Record<string, unknown>>} */ (local_event).detail ?? {},
-    )
+    on_event_receive(/** @type {CustomEvent<Record<string, unknown>>} */ (local_event).detail ?? {})
   }
 
   window.addEventListener(g_flutter_event_name, local_on_window_event)
