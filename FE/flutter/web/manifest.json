@@ -1,11 +1,11 @@
 {
-    "name": "RETINAL",
-    "short_name": "RETINAL",
+    "name": "RetinaFit",
+    "short_name": "RetinaFit",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "RETINAL web shell",
+    "description": "RetinaFit web shell",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
