@@ -14,6 +14,7 @@ import UserMeasurementPage from '@/router/dashboard/users/[id]/measurement.svelt
 import UserRecordsPage from '@/router/dashboard/users/[id]/records.svelte'
 import SalesPage from '@/router/dashboard/sales.svelte'
 import BranchesPage from '@/router/dashboard/branches.svelte'
+import AdminLoginPage from '@/router/auth/admin/login.svelte'
 import AdminFacePage from '@/router/auth/admin/face.svelte'
 import AdminLensPage from '@/router/auth/admin/lens.svelte'
 import AdminGlassPage from '@/router/auth/admin/glass.svelte'
@@ -33,6 +34,7 @@ export const routes = [
   { path: PATH.users, component: UsersPage },
   { path: PATH.sales, component: SalesPage },
   { path: PATH.branches, component: BranchesPage },
+  { path: PATH.adminLogin, component: AdminLoginPage },
   { path: PATH.admin, component: AdminFacePage },
   { path: PATH.adminFace, component: AdminFacePage },
   { path: PATH.adminLens, component: AdminLensPage },
