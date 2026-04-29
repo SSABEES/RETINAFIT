@@ -2,15 +2,6 @@ from pydantic import BaseModel, field_validator
 from datetime import datetime
 from typing import Optional
 
-
-# ─── 공통 ─────────────────────────────────────────────────────
-
-class TokenHeader(BaseModel):
-    """외부 API 요청에 필요한 토큰 정보"""
-    token: str
-    token_no: str
-
-
 # ─── 고객 검색 ────────────────────────────────────────────────
 
 class CustomerSearchResponse(BaseModel):
@@ -55,37 +46,16 @@ class VisitCreateRequest(BaseModel):
     sex: int
     member_no: int
 
-
 class VisitCreateResponse(BaseModel):
     """방문 생성 응답 - visit_no 반환"""
     visit_no: int
     create_dt: datetime
 
 
-# ─── 방문 이력 조회 ───────────────────────────────────────────
+# ─── 방문 조회/업데이트 공통 응답 ─────────────────────────────
 
-class VisitHistoryItem(BaseModel):
-    """방문 이력 단건"""
-    visit_no: int
-    create_dt: datetime
-    test_dt: Optional[datetime] = None
-    vp_dt: Optional[datetime] = None
-    real_vp_dt: Optional[datetime] = None
-    report_json: Optional[dict] = None  # 리포트 완료 여부 확인용
-
-    model_config = {"from_attributes": True}
-
-
-class VisitHistoryResponse(BaseModel):
-    """고객 방문 이력 목록"""
-    cust_no: int
-    visits: list[VisitHistoryItem]
-
-
-# ─── 방문 단건 조회 ───────────────────────────────────────────
-
-class VisitDetailResponse(BaseModel):
-    """방문 단건 상세 조회"""
+class VisitResponse(BaseModel):
+    """방문 전체 데이터 응답"""
     visit_no: int
     opt_no: int
     cust_no: int
@@ -110,3 +80,26 @@ class VisitDetailResponse(BaseModel):
     update_dt: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class VisitUpdateRequest(BaseModel):
+    """방문 데이터 업데이트 요청 - 변경된 필드만 전달"""
+    main_file: Optional[str] = None
+    test_file_arr: Optional[list] = None
+    test_json: Optional[dict] = None
+    opt_recommend_json: Optional[dict] = None
+    vp_file_arr: Optional[list] = None
+    vp_json: Optional[dict] = None
+    real_vp_json: Optional[dict] = None
+    report_json: Optional[dict] = None
+    test_dt: Optional[datetime] = None
+    vp_dt: Optional[datetime] = None
+    real_vp_dt: Optional[datetime] = None
+
+
+# ─── 방문 이력 조회 ───────────────────────────────────────────
+
+class VisitHistoryResponse(BaseModel):
+    """고객 방문 이력 목록"""
+    cust_no: int
+    visits: list[VisitResponse]

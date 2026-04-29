@@ -6,7 +6,7 @@ from app.common.exceptions import UnauthorizedException
 from app.common.error_codes import ErrorCode
 from app.core.security import verify_admin_token
 
-bearer_scheme = HTTPBearer()
+bearer_scheme = HTTPBearer(auto_error=False)
 
 async def get_token(
     token: Annotated[str | None, Header()] = None,
@@ -37,4 +37,9 @@ async def get_admin_token(
         admin: dict = Depends(get_admin_token)
     ):
     """
+    if not credentials:
+        raise UnauthorizedException(
+            error_code=ErrorCode.UNAUTHORIZED,
+            message="관리자 토큰이 없습니다.",
+        )
     return verify_admin_token(credentials.credentials)
