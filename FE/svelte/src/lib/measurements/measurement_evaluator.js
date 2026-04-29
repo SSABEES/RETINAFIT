@@ -14,9 +14,17 @@
  * @property {string} value_text                평가어 (예: '적정', '주의', '경고')
  * @property {EvaluationTone} tone              표시 색상 톤
  * @property {string[]} depends_on              계산에 사용된 1차 측정 item_id 들
- * @property {'MOCK'} threshold_source          임계값 출처 (현재 모두 MOCK)
+ * @property {'MOCK' | 'GUIDEBOOK'} threshold_source   임계값 출처
+ * @property {string | null} [warning_code]     경고 코드 (가이드북 enum) — 정상이면 null
  * @property {number | null} [raw_value]        원시 계산값 (디버깅/추적용)
  */
+
+import {
+  MONO_PD_DIFF_THRESHOLD_MM,
+  OH_DIFF_THRESHOLD_MM,
+  THRESHOLD_SOURCE,
+  WARNING_CODE,
+} from './thresholds.js'
 
 /**
  * 비율을 받아 적정 범위면 '적정', 좁으면 '주의', 더 좁으면 '경고' 식으로 매핑.
@@ -63,7 +71,7 @@ export function compute_evaluations(measurements_obj) {
       value_text,
       tone,
       depends_on: ['frame_width', 'face_width'],
-      threshold_source: 'MOCK',
+      threshold_source: THRESHOLD_SOURCE.MOCK,
       raw_value: ratio,
     }
   }
@@ -79,7 +87,7 @@ export function compute_evaluations(measurements_obj) {
       value_text: '양호',
       tone: 'emerald',
       depends_on: ['pd', 'bridge_width'],
-      threshold_source: 'MOCK',
+      threshold_source: THRESHOLD_SOURCE.MOCK,
       raw_value: null,
     }
   }
@@ -96,8 +104,52 @@ export function compute_evaluations(measurements_obj) {
       value_text: `1:${ratio.toFixed(2)}${is_ideal ? ' (이상형)' : ''}`,
       tone: is_ideal ? 'emerald' : 'slate',
       depends_on: ['face_width', 'face_height'],
-      threshold_source: 'MOCK',
+      threshold_source: THRESHOLD_SOURCE.MOCK,
       raw_value: ratio,
+    }
+  }
+
+
+  // 단안 PD 좌우 차 — GUIDEBOOK 임계값 2mm.
+  // mm 값이 모두 있어야 평가. value_mm 은 PD 63mm 가정 환산이므로
+  // 환산 비율이 있는 세션(scale 보유)에서만 동작.
+  const right_pd_mm = measurements_obj.right_pd?.value_mm
+  const left_pd_mm = measurements_obj.left_pd?.value_mm
+  if (right_pd_mm !== null && right_pd_mm !== undefined && left_pd_mm !== null && left_pd_mm !== undefined) {
+    const diff = Math.abs(right_pd_mm - left_pd_mm)
+    const flagged = diff >= MONO_PD_DIFF_THRESHOLD_MM
+    result.mono_pd_diff = {
+      key: 'mono_pd_diff',
+      label: '단안 PD 좌우 차',
+      value_text: flagged
+        ? `${diff.toFixed(1)} mm (좌우 차이 큼)`
+        : `${diff.toFixed(1)} mm`,
+      tone: flagged ? 'amber' : 'emerald',
+      depends_on: ['right_pd', 'left_pd'],
+      threshold_source: THRESHOLD_SOURCE.GUIDEBOOK,
+      warning_code: flagged ? WARNING_CODE.MONO_PD_DIFF_HIGH : null,
+      raw_value: diff,
+    }
+  }
+
+  // OH(Optical Height) 좌우 차 — MOCK 임계값 1mm.
+  // 좌·우 OH 가 모두 mm 값으로 들어와 있어야 평가 (scale 보유 + 두 점 측정 완료).
+  const right_oh_mm = measurements_obj.right_oh?.value_mm
+  const left_oh_mm = measurements_obj.left_oh?.value_mm
+  if (right_oh_mm !== null && right_oh_mm !== undefined && left_oh_mm !== null && left_oh_mm !== undefined) {
+    const diff = Math.abs(right_oh_mm - left_oh_mm)
+    const flagged = diff >= OH_DIFF_THRESHOLD_MM
+    result.oh_diff = {
+      key: 'oh_diff',
+      label: 'OH 좌우 차',
+      value_text: flagged
+        ? `${diff.toFixed(1)} mm (좌우 차이 큼)`
+        : `${diff.toFixed(1)} mm`,
+      tone: flagged ? 'amber' : 'emerald',
+      depends_on: ['right_oh', 'left_oh'],
+      threshold_source: THRESHOLD_SOURCE.MOCK,
+      warning_code: flagged ? WARNING_CODE.OH_DIFF_HIGH : null,
+      raw_value: diff,
     }
   }
 

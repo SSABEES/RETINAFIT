@@ -133,7 +133,7 @@ export const ROUTE_PATH = {
   userDetail: '/users/:id',
 }
 ```
-  
+
 ## 컴포넌트 작성 규칙
 
 ### 파일명
@@ -150,7 +150,7 @@ export const ROUTE_PATH = {
 - `users/[id].svelte`
 
 ### 배치 기준
-  
+
 - 여러 페이지에서 재사용하면 `src/components`에 둡니다.
 - 특정 페이지에서만 쓰는 화면 조합 컴포넌트는 해당 `src/router` 하위 폴더에 두는 것을 우선합니다.
 - API, 브리지, 순수 유틸리티는 `src/lib`에 둡니다.

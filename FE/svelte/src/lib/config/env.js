@@ -14,4 +14,3 @@ function get_required_base_url(env_key) {
 }
 
 export const api_base_url = get_required_base_url('VITE_API_BASE_URL')
-export const retina_api_base_url = get_required_base_url('VITE_RETINA_API_BASE_URL')

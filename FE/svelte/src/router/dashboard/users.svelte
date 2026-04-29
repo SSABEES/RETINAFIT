@@ -33,6 +33,11 @@
   let g_is_search_loading = $state(false)
   let g_is_customer_select_loading = $state(false)
 
+  const g_min_search_length = 2
+  const g_search_debounce_ms = 250
+  let g_search_request_id = 0
+  let g_search_debounce_timer = /** @type {ReturnType<typeof setTimeout> | null} */ (null)
+
   // 고객 이름에서 목록 아바타에 사용할 첫 글자를 추출한다.
   function get_initial(name) {
     return name.slice(0, 1)
@@ -186,9 +191,9 @@
     g_confirm_title = '얼굴 분석 이력이 있습니다'
     g_confirm_message = '분석결과와 함께 ar 가상 피팅 진행하시겠습니까?'
     g_confirm_cancel_label = '아니요'
-    g_confirm_confirm_label = '분석 결과 보기'
+    g_confirm_confirm_label = '최근 분석 이력 보기'
     g_confirm_cancel_action = on_click_go_customer_detail
-    g_confirm_confirm_action = on_click_go_analysis_result
+    g_confirm_confirm_action = on_click_go_recent_analysis
     g_visit_confirm_open = true
   }
 
@@ -203,15 +208,15 @@
     navigate(PATH.userDetail(g_visit_target_customer.id))
   }
 
-  // 가장 최근 방문 결과를 세션에 저장하고 결과 페이지로 이동한다.
-  function on_click_go_analysis_result() {
+  // 가장 최근 방문 정보를 세션에 저장하고 중간 리포트(얼굴 측정) 화면으로 이동한다.
+  function on_click_go_recent_analysis() {
     g_visit_confirm_open = false
 
     if (g_recent_visit_obj) {
       set_selected_visit(g_recent_visit_obj)
     }
 
-    navigate(PATH.analysisResult)
+    navigate(PATH.analysisFaceMeasurement)
   }
 
   // 고객 카드를 누르면 실제 방문 이력을 조회해 다음 동작을 결정한다.
@@ -286,22 +291,95 @@
     navigate(PATH.userDetail(g_visit_target_customer.id))
   }
 
-  // 전화번호 검색 입력값에서 숫자만 남긴다.
+  // 입력된 전화번호로 고객을 조회하고 방문 이력으로 분석 상태를 채운다. 디바운스/제출 양쪽에서 호출된다.
+  async function run_phone_search(local_phone) {
+    if (!$selected_opt_store_obj?.opt_no) {
+      g_search_error_message = '선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.'
+      return
+    }
+
+    g_search_request_id += 1
+    const local_request_id = g_search_request_id
+    g_is_search_loading = true
+    g_search_error_message = ''
+
+    try {
+      const local_customer_arr = await search_customer({
+        phone_no: local_phone,
+        opt_no: $selected_opt_store_obj.opt_no,
+      })
+
+      if (local_request_id !== g_search_request_id) {
+        return
+      }
+
+      const local_normalized_arr = normalize_customer_arr(
+        Array.isArray(local_customer_arr) ? local_customer_arr : [],
+      )
+
+      ref_customer_arr = local_normalized_arr
+      customer_arr_store.set(local_normalized_arr)
+
+      const local_enriched_arr = await enrich_customer_arr_with_visit_status(local_normalized_arr)
+
+      if (local_request_id !== g_search_request_id) {
+        return
+      }
+
+      ref_customer_arr = local_enriched_arr
+      customer_arr_store.set(local_enriched_arr)
+    } catch (local_error) {
+      if (local_request_id !== g_search_request_id) {
+        return
+      }
+
+      g_search_error_message =
+        local_error instanceof Error
+          ? local_error.message
+          : '고객 정보 조회 중 오류가 발생했습니다.'
+    } finally {
+      if (local_request_id === g_search_request_id) {
+        g_is_search_loading = false
+      }
+    }
+  }
+
+  // 전화번호 입력값에서 숫자만 남기고 2자리 이상이면 디바운스 후 자동 조회한다.
   function on_input_search_phone(local_event) {
     ref_search_phone = /** @type {HTMLInputElement} */ (local_event.currentTarget).value.replace(
       /[^0-9]/g,
       '',
     )
     g_search_error_message = ''
+
+    if (g_search_debounce_timer !== null) {
+      clearTimeout(g_search_debounce_timer)
+      g_search_debounce_timer = null
+    }
+
+    if (ref_search_phone.length < g_min_search_length) {
+      g_search_request_id += 1
+      g_is_search_loading = false
+      ref_customer_arr = []
+      customer_arr_store.set([])
+      return
+    }
+
+    const local_search_phone = ref_search_phone
+
+    g_search_debounce_timer = setTimeout(() => {
+      g_search_debounce_timer = null
+      run_phone_search(local_search_phone)
+    }, g_search_debounce_ms)
   }
 
-  // 전화번호와 안경원 번호로 고객 목록을 조회하고 분석 상태를 함께 채운다.
+  // 검색 폼 제출 시 디바운스를 건너뛰고 즉시 조회한다.
   async function on_submit_search_customer(local_event) {
     local_event.preventDefault()
 
-    if (!$selected_opt_store_obj?.opt_no) {
-      g_search_error_message = '선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.'
-      return
+    if (g_search_debounce_timer !== null) {
+      clearTimeout(g_search_debounce_timer)
+      g_search_debounce_timer = null
     }
 
     if (!ref_search_phone) {
@@ -309,28 +387,7 @@
       return
     }
 
-    g_is_search_loading = true
-    g_search_error_message = ''
-
-    try {
-      const local_customer_arr = await search_customer({
-        phone_no: ref_search_phone,
-        opt_no: $selected_opt_store_obj.opt_no,
-      })
-      const local_normalized_customer_arr = normalize_customer_arr(
-        Array.isArray(local_customer_arr) ? local_customer_arr : [],
-      )
-
-      ref_customer_arr = await enrich_customer_arr_with_visit_status(local_normalized_customer_arr)
-      customer_arr_store.set(ref_customer_arr)
-    } catch (local_error) {
-      g_search_error_message =
-        local_error instanceof Error
-          ? local_error.message
-          : '고객 정보 조회 중 오류가 발생했습니다.'
-    } finally {
-      g_is_search_loading = false
-    }
+    await run_phone_search(ref_search_phone)
   }
 
   // 신규 고객 등록 모달을 연다.
@@ -412,13 +469,12 @@
             />
             <input
               id="customer-search"
-              class="min-h-[72px] w-full rounded-2xl border border-[#E7E9F0] bg-white pl-[68px] pr-7 text-xl font-semibold text-zinc-900 outline-none transition placeholder:text-slate-400 focus:border-[#9A1BFF] focus:ring-3 focus:ring-[#9A1BFF]/15 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+              class="min-h-[72px] w-full rounded-2xl border border-[#E7E9F0] bg-white pl-[68px] pr-7 text-xl font-semibold text-zinc-900 outline-none transition placeholder:text-slate-400 focus:border-[#9A1BFF] focus:ring-3 focus:ring-[#9A1BFF]/15"
               type="search"
               inputmode="numeric"
               maxlength="11"
               value={ref_search_phone}
               placeholder="전화번호로 검색"
-              disabled={g_is_search_loading}
               oninput={on_input_search_phone}
             />
           </label>

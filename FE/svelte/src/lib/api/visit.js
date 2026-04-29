@@ -56,3 +56,23 @@ export const save_visit_recommend = ({ visit_no, opt_recommend_json }) => {
     },
   })
 }
+
+/**
+ * 중간 리포트(얼굴 측정 사진 + 측정 데이터)를 조회한다.
+ * @param {{ visit_no: number | string }} param_obj
+ */
+export const get_interim_report = ({ visit_no }) => {
+  return apiRequest(`/api/v1/visits/${visit_no}/report/interim`, {
+    headers: get_session_auth_headers(),
+  })
+}
+
+/**
+ * 최종 리포트(report_json + 추천/가상피팅/실제착용 데이터)를 조회한다.
+ * @param {{ visit_no: number | string }} param_obj
+ */
+export const get_final_report = ({ visit_no }) => {
+  return apiRequest(`/api/v1/visits/${visit_no}/report/final`, {
+    headers: get_session_auth_headers(),
+  })
+}

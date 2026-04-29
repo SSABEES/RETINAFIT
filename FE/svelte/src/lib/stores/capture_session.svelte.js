@@ -19,6 +19,7 @@
  * @property {number} height
  * @property {FaceMeasurements | null} measurements_obj
  * @property {Record<string, [Point2D, Point2D]> | null} measurement_points_obj
+ * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[] | null} landmarks
  *
  * @typedef {'select_glasses' | 'capturing' | 'review'} Phase
  *
@@ -26,6 +27,9 @@
  * @property {FaceShape} face_shape
  * @property {FaceMeasurements} measurements
  * @property {string} source_step_id
+ * @property {import('@/lib/mediapipe/face_types.js').AsymmetryResult | null} asymmetry
+ * @property {import('@/lib/mediapipe/face_types.js').SkinToneResult | null} skin_tone
+ * @property {import('@/lib/mediapipe/face_types.js').EarOffsets | null} ear_offsets_obj
  *
  * @typedef {object} ScaleInfo
  * @property {number} mm_per_px              환산 비율: value_mm = value_px * mm_per_px
@@ -47,6 +51,10 @@
 import { untrack } from 'svelte'
 import { get_steps_for_mode } from '@/lib/capture/step_config.js'
 import { classify_face_shape } from '@/lib/mediapipe/classify.js'
+import { compute_ear_offsets } from '@/lib/mediapipe/measurements.js'
+import { detect_keypoints_from_image } from '@/lib/mediapipe/face_detector.js'
+import { compute_asymmetry_score } from '@/lib/mediapipe/asymmetry.js'
+import { compute_skin_tone } from '@/lib/mediapipe/skin_tone.js'
 import { build_initial_measurements, pixel_distance } from '@/lib/measurements/measurement_utils.js'
 import { write_mirror, read_mirror, clear_mirror } from '@/lib/utils/session_storage_mirror.js'
 
@@ -95,35 +103,85 @@ export function set_glasses_mode(mode) {
 }
 
 /**
- * 현재 세션의 정면샷 중 측정값이 유효한 것 하나를 골라 얼굴형을 계산한다.
+ * 현재 세션의 정면샷 중 측정값이 유효한 것 하나를 골라 얼굴형 + 비대칭/피부톤/귀 높이를 계산한다.
  * 맨얼굴 정면을 먼저 시도하고, 안경 정면으로 fallback 한다.
  * 어느 쪽도 유효하지 않으면 null.
- * @returns {FaceShapeResult | null}
+ * 비대칭/피부톤/귀 높이는 산출 실패 시 해당 필드만 null 로 남기고 나머지 결과는 유지.
+ *
+ * @returns {Promise<FaceShapeResult | null>}
  */
-function compute_face_shape_result() {
+async function compute_face_shape_result() {
   for (const step_id of FRONT_STEP_PRIORITY) {
     const capture = g_session.captures_obj[step_id]
-    if (capture?.measurements_obj) {
-      return {
-        face_shape: classify_face_shape(capture.measurements_obj),
-        measurements: capture.measurements_obj,
-        source_step_id: step_id,
+    if (!capture?.measurements_obj) continue
+
+    // 비대칭/피부톤은 capture 시점에 보관한 landmarks 와 blob 픽셀 데이터가 모두 필요.
+    let bitmap = null
+    if (capture.blob) {
+      try {
+        bitmap = await createImageBitmap(capture.blob)
+      } catch (err) {
+        console.warn('[capture_session] createImageBitmap failed', err)
       }
+    }
+
+    let ear_offsets_obj = null
+    if (bitmap) {
+      const kp = await detect_keypoints_from_image(bitmap)
+      if (kp) {
+        const offsets_px = compute_ear_offsets(kp, capture.height)
+        ear_offsets_obj = {
+          right_y_offset_px: offsets_px.right_y_offset_px,
+          left_y_offset_px: offsets_px.left_y_offset_px,
+          right_y_offset_mm: null,
+          left_y_offset_mm: null,
+        }
+      }
+    }
+
+    const asymmetry = capture.landmarks
+      ? compute_asymmetry_score(capture.landmarks)
+      : null
+
+    const skin_tone = (bitmap && capture.landmarks)
+      ? compute_skin_tone(bitmap, capture.landmarks, capture.width, capture.height)
+      : null
+
+    return {
+      face_shape: classify_face_shape(capture.measurements_obj),
+      measurements: capture.measurements_obj,
+      source_step_id: step_id,
+      asymmetry,
+      skin_tone,
+      ear_offsets_obj,
     }
   }
   return null
 }
 
 /**
+ * scale 이 결정된 직후 ear_offsets_obj 의 mm 필드를 채운다.
+ * px 만 가지고 있던 ear_offsets 를 mm_per_px 로 환산.
+ */
+function apply_scale_to_ear_offsets() {
+  const eo = g_session.face_shape_result?.ear_offsets_obj
+  const mm_per_px = g_session.scale?.mm_per_px
+  if (!eo || !mm_per_px) return
+  if (eo.right_y_offset_px !== null) eo.right_y_offset_mm = eo.right_y_offset_px * mm_per_px
+  if (eo.left_y_offset_px !== null) eo.left_y_offset_mm = eo.left_y_offset_px * mm_per_px
+}
+
+/**
  * 현재 스텝에 캡쳐를 기록하고 다음 스텝으로 넘어간다.
- * 마지막 스텝이었으면 얼굴형을 분류하고 phase='review' 로 전환.
+ * 마지막 스텝이었으면 얼굴형/비대칭/피부톤/귀 높이를 계산하고 phase='review' 로 전환.
  * @param {Capture} capture
  */
-export function add_capture(capture) {
+export async function add_capture(capture) {
   g_session.captures_obj[capture.step_id] = capture
   if (g_session.current_step_index + 1 >= g_session.steps_arr.length) {
-    g_session.face_shape_result = compute_face_shape_result()
+    g_session.face_shape_result = await compute_face_shape_result()
     g_session.scale = compute_scale()
+    apply_scale_to_ear_offsets()
     g_session.measurements_obj = build_initial_measurements(
       pick_front_auto_points(),
       g_session.scale?.mm_per_px ?? null,
