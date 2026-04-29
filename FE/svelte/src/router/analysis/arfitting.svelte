@@ -41,6 +41,13 @@
   } from '@/lib/flutter'
   import { selected_visit_obj } from '@/lib/stores/customer'
 
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+  /* ── 안경 목록 ──────────────────────────────────────── */
+  let g_recommended_arr = $state([]) // 추천 목록 (초기 원본)
+=======
+>>>>>>> Stashed changes
   /**
    * @typedef {{
    *   file_obj: File,
@@ -49,8 +56,14 @@
    * }} CaptureSlot
    */
 
+<<<<<<< Updated upstream
   /* ── 안경 목록 상태 ──────────────────────────────────────── */
   let g_recommended_arr = $state([])
+=======
+  /* 안경 목록 상태 */
+  let g_recommended_arr = $state([])
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
   let g_loading = $state(true)
   let g_selected_id = $state(null)
   let g_capture_slot_arr = $state([null, null, null])
@@ -60,8 +73,7 @@
   let g_flutter_availability = $state('UNKNOWN')
   let g_flutter_event_text = $state('')
   let g_flutter_launch_loading = $state(false)
-  // Native AR 다녀온 후 WEB 카메라 stream 이 죽어 있는 경우 재시작 트리거.
-  // active 를 false → true 로 토글하면 camera_view 의 $effect 가 cleanup → re-init 한다.
+  // Native AR 호출 후 웹 카메라 스트림이 끊긴 경우 재시작 트리거
   let g_camera_active = $state(true)
   /** @type {{ trigger_capture: () => Promise<boolean>, reset: () => void } | null} */
   let ref_this_camera = $state(null)
@@ -77,7 +89,14 @@
     return 'front'
   })
 
+<<<<<<< Updated upstream
   /* ── 다중 피팅 상태 ──────────────────────────────────────── */
+=======
+<<<<<<< Updated upstream
+  /* ── 프레임 필터 ─────────────────────────────────────── */
+=======
+  /* 다중 피팅 상태  */
+>>>>>>> Stashed changes
   // { glasses_id, brand, model, captures } 형태로 최대 5개 저장
   let g_saved_fittings_arr = $state([])
 
@@ -92,12 +111,20 @@
     }, {}),
   )
 
+<<<<<<< Updated upstream
   /* ── 토스트 알림 ─────────────────────────────────────────── */
+=======
+  /* 토스트 알림 */
+>>>>>>> Stashed changes
   let g_toast_msg = $state('')
   let g_toast_timer = $state(null)
 
   /**
+<<<<<<< Updated upstream
    * 토스트 메시지를 띄우고 2.8초 뒤 자동 제거
+=======
+   * 메시지를 띄우고 2.8초 뒤 내림
+>>>>>>> Stashed changes
    */
   function show_toast(msg) {
     g_toast_msg = msg
@@ -105,15 +132,166 @@
     g_toast_timer = setTimeout(() => (g_toast_msg = ''), 2800)
   }
 
+<<<<<<< Updated upstream
   /* ── 프레임 필터 옵션 ────────────────────────────────────── */
+=======
+  /* 프레임 필터 옵션 */
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
   const FRAME_TYPE_OPTIONS = ['풀프레임', '하프프레임', '무프레임']
   const MATERIAL_OPTIONS = ['아세테이트', '메탈', '티타늄', '혼합']
   const CATEGORY_OPTIONS = ['안경', '선글라스', '스포츠']
 
+<<<<<<< Updated upstream
   // 안경 목록 API 응답을 현재 피팅 카드와 필터에서 쓰는 필드 구조로 정규화한다.
   function normalize_glasses_arr(glass_arr) {
     return (Array.isArray(glass_arr) ? glass_arr : []).map((local_glass_obj, local_index) => {
       const local_spec_obj = local_glass_obj.glasses_spec_json ?? {}
+=======
+<<<<<<< Updated upstream
+  // 추천 안경 API 연결 필요
+  // API 실패 시 사용하는 폴백 데이터
+  const MOCK_ALL_GLASSES = [
+    {
+      id: 'a1',
+      brand: '젠틀몬스터',
+      model: '쿠보 01',
+      price: '289,000',
+      frame_type: '뿔테',
+      frame_style: '풀프레임',
+      material: '아세테이트',
+      category: '안경',
+      img_url: 'https://placehold.co/340x160/F5EAF7/AA83B4?text=KUBO+01',
+    },
+    {
+      id: 'a2',
+      brand: '레이벤',
+      model: '라운드 메탈',
+      price: '185,000',
+      frame_type: '메탈',
+      frame_style: '풀프레임',
+      material: '메탈',
+      category: '안경',
+      img_url: 'https://placehold.co/340x160/EEF2FF/818CF8?text=Round+Metal',
+    },
+    {
+      id: 'a3',
+      brand: '모스콧',
+      model: '렘토쉬',
+      price: '360,000',
+      frame_type: '아세테이트',
+      frame_style: '풀프레임',
+      material: '아세테이트',
+      category: '안경',
+      img_url: 'https://placehold.co/340x160/FEF9EE/F59E0B?text=LEMTOSH',
+    },
+    {
+      id: 'a4',
+      brand: '구찌',
+      model: 'GG0006O',
+      price: '420,000',
+      frame_type: '하프림',
+      frame_style: '하프프레임',
+      material: '메탈',
+      category: '안경',
+      img_url: 'https://placehold.co/340x160/F0FDF4/4ADE80?text=GG0006O',
+    },
+    {
+      id: 'a5',
+      brand: '톰포드',
+      model: 'TF5488-B',
+      price: '380,000',
+      frame_type: '뿔테',
+      frame_style: '풀프레임',
+      material: '아세테이트',
+      category: '안경',
+      img_url: 'https://placehold.co/340x160/F1F5F9/475569?text=TF5488',
+    },
+    {
+      id: 'a6',
+      brand: '린드버그',
+      model: '에어 티타늄',
+      price: '450,000',
+      frame_type: '무테',
+      frame_style: '무프레임',
+      material: '티타늄',
+      category: '안경',
+      img_url: 'https://placehold.co/340x160/E0F2FE/0284C7?text=Air+Ti',
+    },
+    {
+      id: 'a7',
+      brand: '실루엣',
+      model: 'SPX Full',
+      price: '390,000',
+      frame_type: '무테',
+      frame_style: '무프레임',
+      material: '혼합',
+      category: '안경',
+      img_url: 'https://placehold.co/340x160/FEF3C7/D97706?text=SPX',
+    },
+    {
+      id: 'a8',
+      brand: '오클리',
+      model: 'Frogskins',
+      price: '160,000',
+      frame_type: '뿔테',
+      frame_style: '풀프레임',
+      material: '혼합',
+      category: '선글라스',
+      img_url: 'https://placehold.co/340x160/ECFDF5/059669?text=Frogskins',
+    },
+    {
+      id: 'a9',
+      brand: '레이벤',
+      model: '웨이파러',
+      price: '195,000',
+      frame_type: '아세테이트',
+      frame_style: '풀프레임',
+      material: '아세테이트',
+      category: '선글라스',
+      img_url: 'https://placehold.co/340x160/FFF1F2/E11D48?text=Wayfarer',
+    },
+    {
+      id: 'a10',
+      brand: '나이키',
+      model: 'Veer',
+      price: '120,000',
+      frame_type: '혼합',
+      frame_style: '풀프레임',
+      material: '혼합',
+      category: '스포츠',
+      img_url: 'https://placehold.co/340x160/F0F9FF/0369A1?text=Veer',
+    },
+    {
+      id: 'a11',
+      brand: '프로스펙스',
+      model: 'M-60',
+      price: '89,000',
+      frame_type: '메탈',
+      frame_style: '하프프레임',
+      material: '메탈',
+      category: '스포츠',
+      img_url: 'https://placehold.co/340x160/F5F3FF/7C3AED?text=M-60',
+    },
+    {
+      id: 'a12',
+      brand: '페라가모',
+      model: 'SF2939',
+      price: '280,000',
+      frame_type: '하프림',
+      frame_style: '하프프레임',
+      material: '티타늄',
+      category: '안경',
+      img_url: 'https://placehold.co/340x160/FDF2F8/C026D3?text=SF2939',
+    },
+  ]
+=======
+  // API 응답을 피팅 카드·필터에서 사용하는 필드 구조로 정규화
+  function normalize_glasses_arr(glass_arr) {
+    return (Array.isArray(glass_arr) ? glass_arr : []).map((local_glass_obj, local_index) => {
+      const local_spec_obj = local_glass_obj.glasses_spec_json ?? {}
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 
       return {
         id: Number(local_glass_obj.glasses_no ?? local_index + 1),
@@ -169,8 +347,6 @@
       !g_flutter_launch_loading,
   )
 
-  // 자동 선택 제거 — 사용자가 명시적으로 안경 카드를 클릭해야 g_selected_id 가 설정된다.
-
   onMount(() => {
     g_show_intro = true
     setTimeout(() => (g_show_intro = false), 3200)
@@ -199,8 +375,7 @@
 
       g_flutter_event_text = `${local_event_name}: ${local_data_text}`
 
-      // Native AR 종료 → WEB 카메라 stream 복구.
-      // 토글로 camera_view 의 $effect 가 cleanup → on_start_camera 다시 호출하게 함.
+      // Native AR 종료 → WEB 카메라 stream으로
       if (local_event_name === 'closed') {
         g_camera_active = false
         setTimeout(() => {
@@ -214,7 +389,6 @@
         const local_normalized_glass_arr = normalize_glasses_arr(local_glass_arr)
         g_all_glasses_arr = local_normalized_glass_arr
         g_recommended_arr = local_normalized_glass_arr.slice(0, 5)
-        // 자동 선택 제거 — 사용자가 직접 카드를 클릭해야 한다.
       })
       .catch(() => {
         g_all_glasses_arr = []
@@ -231,8 +405,17 @@
   })
 
   /**
+<<<<<<< Updated upstream
    * 안경 선택 시 id를 저장하고 캡쳐 슬롯을 초기화 (미완료 캡쳐는 버려진다)
    * 이미 5개를 채웠다면 토스트 경고 후 차단
+=======
+<<<<<<< Updated upstream
+   * 안경 선택 시 id를 저장하고 캡처 슬롯을 초기화
+=======
+   * 안경 선택 시 id를 저장하고 캡쳐 슬롯을 초기화
+   * 이미 5개를 채웠다면 토스트 경고 후 차단
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
    */
   function on_click_select_glasses(id) {
     if (g_saved_fittings_arr.length >= MAX_FITTINGS) {
@@ -241,7 +424,7 @@
       )
       return
     }
-    // 다른 안경으로 변경할 때만 캡쳐 슬롯/카메라 리셋. 같은 카드 재클릭은 AR 재진입만 허용.
+    // 다른 안경으로 변경할 때만 캡쳐 슬롯/카메라 리셋함. 같은 카드 재클릭은 AR 재진입만 허용
     if (id !== g_selected_id) {
       clear_capture_slot_arr()
       g_selected_id = id
@@ -291,7 +474,7 @@
       const local_is_captured = await ref_this_camera.trigger_capture()
 
       if (!local_is_captured) {
-        show_toast('?쇨뎬??媛먯??섏? ?딆븘 珥ъ쁺???섎? ?딆븯?듬땲??')
+        show_toast('카메라가 준비되지 않아 캡처하지 못했습니다.')
       }
     } finally {
       g_is_capturing = false
@@ -328,7 +511,7 @@
 
   function on_capture_camera_error() {
     g_is_capturing = false
-    show_toast('移대찓??珥ъ쁺???ㅽ뙣?덉뒿?덈떎.')
+    show_toast('캡처에 실패했습니다.')
   }
 
   function on_click_reset_slot(idx) {
@@ -371,15 +554,29 @@
     g_submit_loading = true
     g_submit_error = ''
     try {
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+      await save_fitting_captures({ glasses_id: g_selected_id, captures: g_capture_slot_arr })
+      window.location.href = PATH.analysisReport
+=======
+>>>>>>> Stashed changes
       const local_visit_no = $selected_visit_obj?.visit_no
       const glasses_info = g_glasses_arr.find((g) => g.id === g_selected_id)
       const local_glasses_no = glasses_info?.glasses_no ?? g_selected_id
 
+<<<<<<< Updated upstream
       // 1단계: 안경별 Presigned URL 발급 (front/left/right)
       const local_presigned = await request_fitting_presigned_urls(local_visit_no, local_glasses_no)
 
       // 2단계: front → left → right 순으로 S3에 PUT 업로드
       // 실제 File이 아닌 슬롯(카메라 미연동)은 더미 파일로 대체
+=======
+      // 안경별 Presigned URL 발급 (front/left/right)
+      const local_presigned = await request_fitting_presigned_urls(local_visit_no, local_glasses_no)
+
+      // front, left, right 순으로 S3에 PUT
+>>>>>>> Stashed changes
       const local_file_arr = g_capture_slot_arr.map((local_capture_slot_obj) =>
         local_capture_slot_obj?.file_obj instanceof File
           ? local_capture_slot_obj.file_obj
@@ -403,7 +600,11 @@
         ),
       )
 
+<<<<<<< Updated upstream
       // 3단계: 업로드된 key 배열로 백엔드에 저장
+=======
+      // 업로드된 key 배열 백엔드로 보내 저장
+>>>>>>> Stashed changes
       await confirm_fitting_result(local_visit_no, {
         vp_file_arr: [
           local_presigned.front_key,
@@ -426,6 +627,10 @@
       ]
       clear_capture_slot_arr()
       ref_this_camera?.reset()
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
     } catch (local_err) {
       g_submit_error = local_err instanceof Error ? local_err.message : '저장에 실패했습니다.'
     } finally {
@@ -451,7 +656,14 @@
   }
 
   /**
+<<<<<<< Updated upstream
    * 선택한 안경의 native asset 경로를 확인한 뒤 Flutter AR 피팅 화면을 연다.
+=======
+<<<<<<< Updated upstream
+   * 필터 모달 열기 — 전체 안경 목록을 한 번만 fetch
+=======
+   * 선택한 안경의 native asset 경로를 확인하고 Flutter AR 피팅 화면 열기
+>>>>>>> Stashed changes
    */
   async function on_click_launch_flutter_fitting() {
     if (!g_flutter_bridge_ready) {
@@ -487,10 +699,18 @@
     }
   }
 
+<<<<<<< Updated upstream
   /* ── 프레임 필터 모달 ────────────────────────────────────── */
 
   /**
    * 필터 모달 열기 시 전체 안경 목록을 한 번만 fetch
+=======
+  /* 프레임 필터 모달 */
+
+  /**
+   * 필터 모달 열기 시 전체 안경 목록을 한 번만 fetch
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
    */
   async function on_click_open_filter_modal() {
     g_filter_modal_open = true
@@ -521,7 +741,15 @@
     g_filter_obj = { frame_type_arr: [], material_arr: [], category_arr: [] }
   }
 
+<<<<<<< Updated upstream
   /* ── 사용 가이드 투어 ────────────────────────────────────── */
+=======
+<<<<<<< Updated upstream
+  /* ── 사용 가이드 투어 ────────────────────────────────── */
+=======
+  /* 사용 가이드 기능 */
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
   let g_guide_step = $state(0)
 
   const GUIDE_STEP_ARR = [
@@ -582,14 +810,13 @@
   )
   let g_permission_modal_open = $state(false)
 
-  // 모달의 [카메라 허용] 버튼 핸들러: getUserMedia 권한 요청 후 결과 반영.
-  // 허용 성공 시에는 사용자가 [완료]를 눌러 닫도록 모달은 그대로 둔다.
+  // 카메라 권한 요청
   async function on_click_allow_camera() {
     const local_ok = await request_camera_permission()
     g_permission_state = local_ok ? 'granted' : 'denied'
   }
 
-  // 모달의 [완료] 버튼 핸들러: 사용자가 직접 모달을 닫는다.
+  // 사용자가 완료를 눌러 모달을 닫음
   function on_click_close_camera_modal() {
     g_permission_modal_open = false
   }
