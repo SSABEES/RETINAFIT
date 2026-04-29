@@ -7,7 +7,8 @@ COPY svelte/package*.json ./
 RUN npm ci
 
 COPY svelte/ .
-RUN npm run build
+RUN npm run build -- --mode prod
+# .env.prod 파일 읽음
 # svelte/dist/ 생성
 
 # ── 2단계: Nginx 서빙 ────────────────────
