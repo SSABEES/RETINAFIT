@@ -46,7 +46,7 @@ async def create_glasses(db: AsyncSession, request: GlassesCreate) -> GlassesRes
 
 async def update_glasses(db: AsyncSession, glasses_no: int, request: GlassesUpdate) -> GlassesResponse:
     """안경 수정"""
-    glasses = await repository.update_glasses(db, glasses_no, request.model_dump(exclude_none=True))
+    glasses = await repository.update_glasses(db, glasses_no, request.model_dump(exclude_unset=True))
     if not glasses:
         raise NotFoundException(
             error_code=ErrorCode.NOT_FOUND,

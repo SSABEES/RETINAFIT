@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, JSON, String
+from sqlalchemy import BigInteger, Column, DateTime, JSON, String
 from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.sql import func
 

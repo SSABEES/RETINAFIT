@@ -6,7 +6,7 @@ from app.modules.auth import service
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/login", response_model=LoginResponse)
+@router.post("/login", response_model=LoginResponse, summary="안경사 로그인")
 async def login(request: LoginRequest):
     """
     안경사 로그인
@@ -16,7 +16,7 @@ async def login(request: LoginRequest):
     """
     return await service.login(request)
 
-@router.post("/logout")
+@router.post("/logout", summary="안경사 & 관리자 로그아웃")
 async def logout():
     """
     로그아웃
@@ -26,7 +26,7 @@ async def logout():
     """
     return {"message": "로그아웃 되었습니다."}
 
-@router.post("/admin/login", response_model=AdminLoginResponse)
+@router.post("/admin/login", response_model=AdminLoginResponse, summary="관리자 로그인")
 async def admin_login(request: AdminLoginRequest):
     """
     관리자 로그인

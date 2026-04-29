@@ -13,7 +13,7 @@ from app.modules.fitting import service
 router = APIRouter(tags=["fitting"])
 
 
-@router.get("/admin/fitting-criteria", response_model=list[FittingCriteriaResponse])
+@router.get("/admin/fitting-criteria", response_model=list[FittingCriteriaResponse], summary="(관리자) 피팅 기준 목록 조회")
 async def get_criterias(
     admin: dict = Depends(get_admin_token),
     db: AsyncSession = Depends(get_db),
@@ -22,7 +22,7 @@ async def get_criterias(
     return await service.get_criterias(db)
 
 
-@router.post("/admin/fitting-criteria", response_model=FittingCriteriaResponse, status_code=201)
+@router.post("/admin/fitting-criteria", response_model=FittingCriteriaResponse, status_code=201, summary="(관리자) 피팅 기준 등록")
 async def create_criteria(
     request: FittingCriteriaCreate,
     admin: dict = Depends(get_admin_token),
@@ -32,7 +32,7 @@ async def create_criteria(
     return await service.create_criteria(db, request)
 
 
-@router.patch("/admin/fitting-criteria/{criteria_no}", response_model=FittingCriteriaResponse)
+@router.patch("/admin/fitting-criteria/{criteria_no}", response_model=FittingCriteriaResponse, summary="(관리자) 피팅 기준 수정")
 async def update_criteria(
     criteria_no: int,
     request: FittingCriteriaUpdate,
@@ -43,7 +43,7 @@ async def update_criteria(
     return await service.update_criteria(db, criteria_no, request)
 
 
-@router.delete("/admin/fitting-criteria/{criteria_no}", status_code=204)
+@router.delete("/admin/fitting-criteria/{criteria_no}", status_code=204, summary="(관리자) 피팅 기준 삭제")
 async def delete_criteria(
     criteria_no: int,
     admin: dict = Depends(get_admin_token),
@@ -53,7 +53,7 @@ async def delete_criteria(
     await service.delete_criteria(db, criteria_no)
 
 # 안경사용 판단 기준 조회
-@router.get("/fitting-criteria", response_model=list[FittingCriteriaResponse])
+@router.get("/fitting-criteria", response_model=list[FittingCriteriaResponse], summary="(안경원) 피팅 기준 목록 조회")
 async def get_criterias_for_optician(
     auth: dict = Depends(get_token),
     db: AsyncSession = Depends(get_db),

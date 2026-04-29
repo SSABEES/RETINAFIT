@@ -35,8 +35,7 @@ async def update_criteria(db: AsyncSession, criteria_no: int, data: dict) -> Fit
     if not criteria:
         return None
     for key, value in data.items():
-        if value is not None:
-            setattr(criteria, key, value)
+        setattr(criteria, key, value)
     await db.commit()
     await db.refresh(criteria)
     return criteria
