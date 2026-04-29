@@ -49,7 +49,6 @@
    * }} CaptureSlot
    */
 
-  /* ── 안경 목록 상태 ──────────────────────────────────────── */
   let g_recommended_arr = $state([])
   let g_loading = $state(true)
   let g_selected_id = $state(null)
@@ -60,8 +59,7 @@
   let g_flutter_availability = $state('UNKNOWN')
   let g_flutter_event_text = $state('')
   let g_flutter_launch_loading = $state(false)
-  // Native AR 다녀온 후 WEB 카메라 stream 이 죽어 있는 경우 재시작 트리거.
-  // active 를 false → true 로 토글하면 camera_view 의 $effect 가 cleanup → re-init 한다.
+  // Native AR 호출 후 웹 카메라 스트림이 끊긴 경우 재시작 트리거
   let g_camera_active = $state(true)
   /** @type {{ trigger_capture: () => Promise<boolean>, reset: () => void } | null} */
   let ref_this_camera = $state(null)
@@ -77,7 +75,6 @@
     return 'front'
   })
 
-  /* ── 다중 피팅 상태 ──────────────────────────────────────── */
   // { glasses_id, brand, model, captures } 형태로 최대 5개 저장
   let g_saved_fittings_arr = $state([])
 
@@ -92,12 +89,11 @@
     }, {}),
   )
 
-  /* ── 토스트 알림 ─────────────────────────────────────────── */
   let g_toast_msg = $state('')
   let g_toast_timer = $state(null)
 
   /**
-   * 토스트 메시지를 띄우고 2.8초 뒤 자동 제거
+   * 메시지를 띄우고 2.8초 뒤 내림
    */
   function show_toast(msg) {
     g_toast_msg = msg
@@ -105,12 +101,11 @@
     g_toast_timer = setTimeout(() => (g_toast_msg = ''), 2800)
   }
 
-  /* ── 프레임 필터 옵션 ────────────────────────────────────── */
   const FRAME_TYPE_OPTIONS = ['풀프레임', '하프프레임', '무프레임']
   const MATERIAL_OPTIONS = ['아세테이트', '메탈', '티타늄', '혼합']
   const CATEGORY_OPTIONS = ['안경', '선글라스', '스포츠']
 
-  // 안경 목록 API 응답을 현재 피팅 카드와 필터에서 쓰는 필드 구조로 정규화한다.
+  // API 응답을 피팅 카드·필터에서 사용하는 필드 구조로 정규화
   function normalize_glasses_arr(glass_arr) {
     return (Array.isArray(glass_arr) ? glass_arr : []).map((local_glass_obj, local_index) => {
       const local_spec_obj = local_glass_obj.glasses_spec_json ?? {}
@@ -169,8 +164,6 @@
       !g_flutter_launch_loading,
   )
 
-  // 자동 선택 제거 — 사용자가 명시적으로 안경 카드를 클릭해야 g_selected_id 가 설정된다.
-
   onMount(() => {
     g_show_intro = true
     setTimeout(() => (g_show_intro = false), 3200)
@@ -199,8 +192,7 @@
 
       g_flutter_event_text = `${local_event_name}: ${local_data_text}`
 
-      // Native AR 종료 → WEB 카메라 stream 복구.
-      // 토글로 camera_view 의 $effect 가 cleanup → on_start_camera 다시 호출하게 함.
+      // Native AR 종료 → WEB 카메라 stream으로
       if (local_event_name === 'closed') {
         g_camera_active = false
         setTimeout(() => {
@@ -214,7 +206,6 @@
         const local_normalized_glass_arr = normalize_glasses_arr(local_glass_arr)
         g_all_glasses_arr = local_normalized_glass_arr
         g_recommended_arr = local_normalized_glass_arr.slice(0, 5)
-        // 자동 선택 제거 — 사용자가 직접 카드를 클릭해야 한다.
       })
       .catch(() => {
         g_all_glasses_arr = []
@@ -231,7 +222,7 @@
   })
 
   /**
-   * 안경 선택 시 id를 저장하고 캡쳐 슬롯을 초기화 (미완료 캡쳐는 버려진다)
+   * 안경 선택 시 id를 저장하고 캡쳐 슬롯을 초기화
    * 이미 5개를 채웠다면 토스트 경고 후 차단
    */
   function on_click_select_glasses(id) {
@@ -291,7 +282,7 @@
       const local_is_captured = await ref_this_camera.trigger_capture()
 
       if (!local_is_captured) {
-        show_toast('?쇨뎬??媛먯??섏? ?딆븘 珥ъ쁺???섎? ?딆븯?듬땲??')
+        show_toast('카메라가 준비되지 않아 캡처하지 못했습니다.')
       }
     } finally {
       g_is_capturing = false
@@ -328,7 +319,7 @@
 
   function on_capture_camera_error() {
     g_is_capturing = false
-    show_toast('移대찓??珥ъ쁺???ㅽ뙣?덉뒿?덈떎.')
+    show_toast('카메라 촬영에 실패했습니다.')
   }
 
   function on_click_reset_slot(idx) {
@@ -375,11 +366,10 @@
       const glasses_info = g_glasses_arr.find((g) => g.id === g_selected_id)
       const local_glasses_no = glasses_info?.glasses_no ?? g_selected_id
 
-      // 1단계: 안경별 Presigned URL 발급 (front/left/right)
+      // 안경별 Presigned URL 발급 (front/left/right)
       const local_presigned = await request_fitting_presigned_urls(local_visit_no, local_glasses_no)
 
-      // 2단계: front → left → right 순으로 S3에 PUT 업로드
-      // 실제 File이 아닌 슬롯(카메라 미연동)은 더미 파일로 대체
+      // front, left, right 순으로 S3에 PUT
       const local_file_arr = g_capture_slot_arr.map((local_capture_slot_obj) =>
         local_capture_slot_obj?.file_obj instanceof File
           ? local_capture_slot_obj.file_obj
@@ -403,7 +393,7 @@
         ),
       )
 
-      // 3단계: 업로드된 key 배열로 백엔드에 저장
+      // 업로드된 key 배열 백엔드로 보내 저장
       await confirm_fitting_result(local_visit_no, {
         vp_file_arr: [
           local_presigned.front_key,
@@ -451,7 +441,7 @@
   }
 
   /**
-   * 선택한 안경의 native asset 경로를 확인한 뒤 Flutter AR 피팅 화면을 연다.
+   * 선택한 안경의 native asset 경로를 확인하고 Flutter AR 피팅 화면 열기
    */
   async function on_click_launch_flutter_fitting() {
     if (!g_flutter_bridge_ready) {
@@ -487,8 +477,6 @@
     }
   }
 
-  /* ── 프레임 필터 모달 ────────────────────────────────────── */
-
   /**
    * 필터 모달 열기 시 전체 안경 목록을 한 번만 fetch
    */
@@ -521,7 +509,6 @@
     g_filter_obj = { frame_type_arr: [], material_arr: [], category_arr: [] }
   }
 
-  /* ── 사용 가이드 투어 ────────────────────────────────────── */
   let g_guide_step = $state(0)
 
   const GUIDE_STEP_ARR = [
@@ -582,14 +569,13 @@
   )
   let g_permission_modal_open = $state(false)
 
-  // 모달의 [카메라 허용] 버튼 핸들러: getUserMedia 권한 요청 후 결과 반영.
-  // 허용 성공 시에는 사용자가 [완료]를 눌러 닫도록 모달은 그대로 둔다.
+  // 카메라 권한 요청
   async function on_click_allow_camera() {
     const local_ok = await request_camera_permission()
     g_permission_state = local_ok ? 'granted' : 'denied'
   }
 
-  // 모달의 [완료] 버튼 핸들러: 사용자가 직접 모달을 닫는다.
+  // 사용자가 완료를 눌러 모달을 닫음
   function on_click_close_camera_modal() {
     g_permission_modal_open = false
   }
