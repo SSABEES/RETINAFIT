@@ -1,12 +1,12 @@
 import { apiRequest } from '@/lib/api/client'
-import { get_session_auth_headers } from '@/lib/api/session_auth'
+import { get_admin_auth_headers } from '@/lib/api/session_auth'
 
 /**
  * 활성화된 안경 목록을 조회한다.
  */
 export function get_admin_glasses_arr() {
   return apiRequest('/api/v1/glasses', {
-    headers: get_session_auth_headers(),
+    headers: get_admin_auth_headers(),
   })
 }
 
@@ -24,7 +24,7 @@ export function get_admin_glasses_arr() {
 export function create_admin_glasses(glasses_obj) {
   return apiRequest('/api/v1/admin/glasses', {
     method: 'POST',
-    headers: get_session_auth_headers(),
+    headers: get_admin_auth_headers(),
     body: glasses_obj,
   })
 }
@@ -44,7 +44,7 @@ export function create_admin_glasses(glasses_obj) {
 export function update_admin_glasses(glasses_obj) {
   return apiRequest(`/api/v1/admin/glasses/${glasses_obj.glasses_no}`, {
     method: 'PATCH',
-    headers: get_session_auth_headers(),
+    headers: get_admin_auth_headers(),
     body: {
       glasses_name: glasses_obj.glasses_name,
       glasses_brand: glasses_obj.glasses_brand,
@@ -63,7 +63,7 @@ export function update_admin_glasses(glasses_obj) {
 export function delete_admin_glasses(glasses_obj) {
   return apiRequest(`/api/v1/admin/glasses/${glasses_obj.glasses_no}`, {
     method: 'DELETE',
-    headers: get_session_auth_headers(),
+    headers: get_admin_auth_headers(),
   })
 }
 
@@ -75,7 +75,7 @@ export function delete_admin_glasses(glasses_obj) {
 export function get_admin_glasses_img_presigned_url() {
   return apiRequest('/api/v1/admin/glasses/files/img', {
     method: 'POST',
-    headers: get_session_auth_headers(),
+    headers: get_admin_auth_headers(),
   })
 }
 
@@ -87,7 +87,7 @@ export function get_admin_glasses_img_presigned_url() {
 export function get_admin_glasses_3d_presigned_url() {
   return apiRequest('/api/v1/admin/glasses/files/3d', {
     method: 'POST',
-    headers: get_session_auth_headers(),
+    headers: get_admin_auth_headers(),
   })
 }
 

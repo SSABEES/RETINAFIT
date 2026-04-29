@@ -13,6 +13,7 @@ export const PATH = {
   sales: '/dashboard/sales',
   branches: '/dashboard/branches',
   admin: '/admin',
+  adminLogin: '/admin/login',
   adminFace: '/admin/face',
   adminLens: '/admin/lens',
   adminGlass: '/admin/glass',

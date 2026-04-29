@@ -31,3 +31,16 @@ class LoginResponse(BaseModel):
     token_no: str
     opt_info: OptInfo               # 안경원 정보
     member_list: list[MemberInfo]   # 안경사 목록
+
+
+# ─── 관리자 로그인 ────────────────────────────────────────────
+
+class AdminLoginRequest(BaseModel):
+    """관리자 로그인 요청"""
+    id: str
+    password: str
+
+
+class AdminLoginResponse(BaseModel):
+    """관리자 로그인 응답"""
+    admin_token: str

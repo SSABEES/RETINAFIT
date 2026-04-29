@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.modules.auth.schemas import LoginRequest, LoginResponse
+from app.modules.auth.schemas import LoginRequest, LoginResponse, AdminLoginRequest, AdminLoginResponse
 from app.modules.auth import service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -25,3 +25,12 @@ async def logout():
     - BE는 200 반환만 함
     """
     return {"message": "로그아웃 되었습니다."}
+
+@router.post("/admin/login", response_model=AdminLoginResponse)
+async def admin_login(request: AdminLoginRequest):
+    """
+    관리자 로그인
+    - .env의 ADMIN_ID, ADMIN_PASSWORD 비교
+    - 일치하면 JWT 발급 (만료 1시간)
+    """
+    return await service.admin_login(request)
