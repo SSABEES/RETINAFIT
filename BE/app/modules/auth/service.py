@@ -1,8 +1,10 @@
 import httpx
 
 from app.core.config import settings
-from app.common.exceptions import ExternalAPIException
-from app.modules.auth.schemas import LoginRequest, LoginResponse, OptInfo, MemberInfo
+from app.common.exceptions import ExternalAPIException, UnauthorizedException
+from app.modules.auth.schemas import LoginRequest, LoginResponse, OptInfo, MemberInfo, AdminLoginRequest, AdminLoginResponse
+from app.common.error_codes import ErrorCode
+from app.core.security import create_admin_token
 
 
 async def login(request: LoginRequest) -> LoginResponse:
@@ -76,3 +78,16 @@ async def login(request: LoginRequest) -> LoginResponse:
             for member in members
         ]
     )
+
+async def admin_login(request: AdminLoginRequest) -> AdminLoginResponse:
+    """
+    관리자 로그인
+    - .env의 ADMIN_ID, ADMIN_PASSWORD 비교
+    - 일치하면 JWT 발급
+    """
+    if request.id != settings.ADMIN_ID or request.password != settings.ADMIN_PASSWORD:
+        raise UnauthorizedException(
+            error_code=ErrorCode.UNAUTHORIZED,
+            message="관리자 아이디 또는 비밀번호가 올바르지 않습니다.",
+        )
+    return AdminLoginResponse(admin_token=create_admin_token())
