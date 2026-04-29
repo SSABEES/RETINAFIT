@@ -1,11 +1,11 @@
 {
-    "name": "retinal_shell",
-    "short_name": "retinal_shell",
+    "name": "RETINAL",
+    "short_name": "RETINAL",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "RETINAL web shell",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
