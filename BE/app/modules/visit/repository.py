@@ -29,3 +29,14 @@ async def get_visits_by_cust(db: AsyncSession, cust_no: int) -> list[Visit]:
         .order_by(Visit.create_dt.desc())
     )
     return result.scalars().all()
+
+async def update_visit(db: AsyncSession, visit_no: int, data: dict) -> Visit | None:
+    """방문 데이터 업데이트 - None이 아닌 필드만 업데이트"""
+    visit = await get_visit(db, visit_no)
+    if not visit:
+        return None
+    for key, value in data.items():
+        setattr(visit, key, value)
+    await db.commit()
+    await db.refresh(visit)
+    return visit

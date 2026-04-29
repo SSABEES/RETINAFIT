@@ -14,6 +14,7 @@ def create_admin_token() -> str:
     """
     expire = datetime.now(timezone.utc) + timedelta(hours=settings.ADMIN_TOKEN_EXPIRE_HOURS)
     payload = {
+        "sub": settings.ADMIN_ID,
         "role": "admin",
         "exp": expire,
     }
