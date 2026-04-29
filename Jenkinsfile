@@ -21,7 +21,8 @@ pipeline {
         // 2단계: Docker 이미지 빌드
         stage('Build') {
             steps {
-                sh 'docker compose -f docker-compose.prod.yml build'
+                sh 'docker compose -f docker-compose.prod.yml build --no-cache fe'
+                sh 'docker compose -f docker-compose.prod.yml build be'
             }
         }
 
