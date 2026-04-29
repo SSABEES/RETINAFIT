@@ -18,6 +18,7 @@
    * @typedef {import("@/lib/mediapipe/face_types.js").FrontalCheck} FrontalCheck
    * @typedef {import("@/lib/mediapipe/face_types.js").CompletenessCheck} CompletenessCheck
    * @typedef {import("@/lib/mediapipe/face_types.js").Point2D} Point2D
+   * @typedef {'head_left' | 'head_right' | 'head_center' | 'count_three' | 'count_two' | 'count_one' | 'count_click'} AudioPromptKey
    *
    * @typedef {object} CaptureResult
    * @property {Blob} blob
@@ -80,7 +81,7 @@
   let g_active_prompt_audio = null
   /** @type {'idle' | 'started' | 'final'} */
   let g_stability_audio_stage = 'idle'
-  /** @type {'head_left' | 'head_right' | 'head_center' | 'count_three' | 'count_two' | 'count_one' | 'count_click' | null} */
+  /** @type {AudioPromptKey | null} */
   let g_last_audio_key = null
   let g_last_audio_at = 0
   let g_capture_sequence_token = 0
@@ -289,6 +290,7 @@
 
   async function run_auto_capture_sequence() {
     const my_token = ++g_capture_sequence_token
+    /** @type {AudioPromptKey[]} */
     const sequence = ['count_three', 'count_two', 'count_one', 'count_click']
 
     for (const file_key of sequence) {
@@ -318,7 +320,7 @@
   }
 
   /**
-   * @param {'head_left' | 'head_right' | 'head_center' | 'count_three' | 'count_two' | 'count_one' | 'count_click'} file_key
+   * @param {AudioPromptKey} file_key
    */
   async function play_prompt_audio(file_key) {
     if (typeof window === 'undefined') return
@@ -394,6 +396,7 @@
   function get_average() {
     const recent = g_buffer_arr.slice(-10)
     if (recent.length === 0) return null
+    /** @param {keyof FaceMeasurements} k */
     const avg = (k) => Math.round(recent.reduce((s, m) => s + m[k], 0) / recent.length)
     return {
       face_width: avg('face_width'),
@@ -402,6 +405,10 @@
       pd_pixels: avg('pd_pixels'),
       nose_width: avg('nose_width'),
       jaw_width: avg('jaw_width'),
+      forehead_width: avg('forehead_width'),
+      cheekbone_width: avg('cheekbone_width'),
+      right_pd_pixels: avg('right_pd_pixels'),
+      left_pd_pixels: avg('left_pd_pixels'),
     }
   }
 
@@ -671,7 +678,7 @@
       <button
         type="button"
         class="absolute right-2.5 top-2.5 z-20 rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-black/75"
-        on:click={() => {
+        onclick={() => {
           g_is_landmark_visible = !g_is_landmark_visible
         }}
         aria-pressed={g_is_landmark_visible}
