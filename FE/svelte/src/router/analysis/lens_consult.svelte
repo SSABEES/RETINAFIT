@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { ArrowLeft, Glasses } from 'lucide-svelte'
   import { PATH } from '@/config/path'
+  import { ensure_session_auth_tokens } from '@/lib/api/session_auth'
   import { get_recommend_option_arr } from '@/lib/api/admin_recommend_options'
   import { save_visit_recommend } from '@/lib/api/visit'
 
@@ -87,6 +88,12 @@
   }
 
   onMount(() => {
+    if (!ensure_session_auth_tokens()) {
+      g_options_error = '로그인 토큰 정보가 없습니다. 다시 로그인해주세요.'
+      g_options_loading = false
+      return
+    }
+
     get_recommend_option_arr()
       .then((local_option_arr) => {
         const local_group_arr = normalize_lens_option_group_arr(
@@ -133,6 +140,10 @@
     g_error = ''
 
     try {
+      if (!ensure_session_auth_tokens()) {
+        throw new Error('로그인 토큰 정보가 없습니다. 다시 로그인해주세요.')
+      }
+
       const local_visit_no = get_visit_no()
 
       if (local_visit_no === null) {

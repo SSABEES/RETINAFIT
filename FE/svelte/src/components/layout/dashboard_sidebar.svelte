@@ -26,7 +26,7 @@
       height="900"
     />
     <div class="text-left">
-      <p class="m-0 text-3xl font-extrabold leading-6">RetinAI</p>
+      <p class="m-0 text-3xl font-extrabold leading-6">RetinaFit</p>
     </div>
   </div>
 

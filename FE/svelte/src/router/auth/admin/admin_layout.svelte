@@ -4,6 +4,7 @@
   import AuthInput from '@/components/input/auth_input.svelte'
   import PasswordInput from '@/components/input/password_input.svelte'
   import { PATH } from '@/config/path'
+  import { ensure_session_auth_tokens } from '@/lib/api/session_auth'
 
   const ADMIN_AUTH_STORAGE_KEY = 'retinal_admin_authenticated'
   // 관리자 자격증명은 .env 의 VITE_ADMIN_ID / VITE_ADMIN_PASSWORD 로 주입한다.
@@ -39,6 +40,7 @@
   // 세션 저장소의 관리자 인증 상태를 읽어서 로그인 화면과 본문 화면을 전환한다.
   onMount(() => {
     if (typeof sessionStorage === 'undefined') return
+    ensure_session_auth_tokens()
     g_is_authenticated = sessionStorage.getItem(ADMIN_AUTH_STORAGE_KEY) === 'true'
   })
 
@@ -73,6 +75,11 @@
 
     if (local_admin_id !== ADMIN_ID || local_admin_password !== ADMIN_PASSWORD) {
       g_auth_error_message = '관리자 계정 정보가 올바르지 않습니다.'
+      return
+    }
+
+    if (!ensure_session_auth_tokens()) {
+      g_auth_error_message = '로그인 토큰 정보가 없습니다. 매장 로그인부터 다시 진행해주세요.'
       return
     }
 
@@ -111,9 +118,7 @@
 {#if !g_is_authenticated}
   <main class="app-frame-page overflow-hidden bg-[var(--retinal-page)] text-[var(--retinal-text)]">
     <section class="grid h-full place-items-center px-8 py-10">
-      <section
-        class="w-full max-w-[460px] rounded-[28px] border border-[#EFE7F2] bg-white p-8 shadow-sm shadow-slate-200/50"
-      >
+      <section class="w-full max-w-[460px] rounded-[28px] border border-[#EFE7F2] bg-white p-8 shadow-sm shadow-slate-200/50">
         <div class="mb-8 text-left">
           <h1 class="m-0 text-[1.9rem] font-extrabold tracking-[-0.02em] text-zinc-950">
             관리자 로그인
@@ -159,25 +164,12 @@
     </section>
   </main>
 {:else}
-  <main
-    class="app-frame-page relative overflow-hidden bg-[var(--retinal-page)] text-[var(--retinal-text)]"
-  >
+  <main class="app-frame-page relative overflow-hidden bg-[var(--retinal-page)] text-[var(--retinal-text)]">
     <div class="absolute top-6 left-8 right-8 z-20 flex items-start justify-between gap-6">
-      <button
-        class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)] hover:bg-[var(--retinal-soft-purple)]"
-        type="button"
-        onclick={on_click_logout_admin}
-      >
-        <LogOut size={18} strokeWidth={2.4} aria-hidden="true" />
-        <span>로그아웃</span>
-      </button>
-
       <div
         class="relative w-[240px] rounded-2xl border border-[var(--retinal-border)] bg-white px-4 py-3 shadow-sm shadow-slate-200/40"
       >
-        <p
-          class="mb-2 block text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--retinal-text-muted)]"
-        >
+        <p class="mb-2 block text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--retinal-text-muted)]">
           현재 페이지
         </p>
 
@@ -188,10 +180,7 @@
           aria-expanded={g_admin_page_dropdown_open}
           onclick={on_click_toggle_admin_page_dropdown}
         >
-          <span
-            >{g_admin_page_arr.find((admin_page_obj) => admin_page_obj.key === active_key)
-              ?.label}</span
-          >
+          <span>{g_admin_page_arr.find((admin_page_obj) => admin_page_obj.key === active_key)?.label}</span>
           <ChevronDown
             size={18}
             strokeWidth={2.4}
@@ -224,6 +213,15 @@
           </div>
         {/if}
       </div>
+
+      <button
+        class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)] hover:bg-[var(--retinal-soft-purple)]"
+        type="button"
+        onclick={on_click_logout_admin}
+      >
+        <LogOut size={18} strokeWidth={2.4} aria-hidden="true" />
+        <span>로그아웃</span>
+      </button>
     </div>
 
     <section class="h-full min-h-0 overflow-y-auto px-8 pt-[138px] pb-4">

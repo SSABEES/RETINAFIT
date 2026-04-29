@@ -1,11 +1,14 @@
 import { apiRequest } from '@/lib/api/client'
+import { get_session_auth_headers } from '@/lib/api/session_auth'
 
 /**
  * 얼굴형 판단 기준 목록을 조회한다.
  * @returns {Promise<Array<{ criteria_no: number, criteria_label: string, range_type: string, lower_bound: number, upper_bound: number, out_of_range_note: string, is_active: boolean }>>}
  */
 export function get_fitting_criteria_arr() {
-  return apiRequest('/api/v1/admin/fitting-criteria')
+  return apiRequest('/api/v1/admin/fitting-criteria', {
+    headers: get_session_auth_headers(),
+  })
 }
 
 /**
@@ -15,6 +18,7 @@ export function get_fitting_criteria_arr() {
 export function create_fitting_criteria(criteria_obj) {
   return apiRequest('/api/v1/admin/fitting-criteria', {
     method: 'POST',
+    headers: get_session_auth_headers(),
     body: criteria_obj,
   })
 }
@@ -26,6 +30,7 @@ export function create_fitting_criteria(criteria_obj) {
 export function update_fitting_criteria(criteria_obj) {
   return apiRequest(`/api/v1/admin/fitting-criteria/${criteria_obj.criteria_no}`, {
     method: 'PATCH',
+    headers: get_session_auth_headers(),
     body: {
       criteria_label: criteria_obj.criteria_label,
       range_type: criteria_obj.range_type,
@@ -44,5 +49,6 @@ export function update_fitting_criteria(criteria_obj) {
 export function delete_fitting_criteria(criteria_obj) {
   return apiRequest(`/api/v1/admin/fitting-criteria/${criteria_obj.criteria_no}`, {
     method: 'DELETE',
+    headers: get_session_auth_headers(),
   })
 }
