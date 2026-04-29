@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 import uuid
 
 from app.modules.auth.dependencies import get_token
-from app.modules.analysis.file_schemas import (
+from app.modules.files.schemas import (
     TestFilePresignedRequest,
     TestFilePresignedResponse,
     VpFilePresignedRequest,
@@ -14,7 +14,7 @@ from app.common.s3_utils import generate_presigned_url, generate_object_key
 file_router = APIRouter(tags=["files"])
 
 
-@file_router.post("/visits/{visit_no}/files/test", response_model=TestFilePresignedResponse)
+@file_router.post("/visits/{visit_no}/files/face-photos", response_model=TestFilePresignedResponse, summary="얼굴 분석 사진 업로드 URL 발급")
 async def get_test_file_presigned_urls(
     visit_no: int,
     request: TestFilePresignedRequest,
@@ -42,7 +42,7 @@ async def get_test_file_presigned_urls(
     )
 
 
-@file_router.post("/visits/{visit_no}/files/vp", response_model=VpFilePresignedResponse)
+@file_router.post("/visits/{visit_no}/files/fitting-photos", response_model=VpFilePresignedResponse, summary="가상 피팅 사진 업로드 URL 발급")
 async def get_vp_file_presigned_urls(
     visit_no: int,
     request: VpFilePresignedRequest,
@@ -69,7 +69,7 @@ async def get_vp_file_presigned_urls(
     )
 
 
-@file_router.post("/visits/{visit_no}/files/real-vp", response_model=RealVpFilePresignedResponse)
+@file_router.post("/visits/{visit_no}/files/real-wearing-photos", response_model=RealVpFilePresignedResponse, summary="실제 착용 사진 업로드 URL 발급")
 async def get_real_vp_file_presigned_urls(
     visit_no: int,
     auth: dict = Depends(get_token),
