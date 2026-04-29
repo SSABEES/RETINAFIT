@@ -14,3 +14,18 @@ export function get_session_auth_headers() {
     'token-no': local_token_no,
   }
 }
+
+/**
+ * 관리자 세션에서 admin_token(JWT)을 읽어 Authorization 헤더로 만든다.
+ */
+export function get_admin_auth_headers() {
+  const local_admin_token = sessionStorage.getItem('admin_token')
+
+  if (!local_admin_token) {
+    throw new Error('관리자 로그인 정보가 없습니다. 다시 로그인해 주세요.')
+  }
+
+  return {
+    Authorization: `Bearer ${local_admin_token}`,
+  }
+}
