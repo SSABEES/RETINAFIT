@@ -2,6 +2,7 @@ export const PATH = {
   home: '/',
   login: '/auth/login',
   opticianSelect: '/auth/optician-select',
+  visitSelect: '/auth/visit-select',
   analysis: '/analysis',
   analysisFaceMeasurement: '/analysis/face-measurement',
   analysisResult: '/analysis/result',

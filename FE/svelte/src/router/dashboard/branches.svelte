@@ -9,7 +9,7 @@
       manager_nm: '박매니저',
       address: '서울시 강남구 테헤란로 123',
       phone: '02-1234-5678',
-      email: 'gangnam@retinai.com',
+      email: 'gangnam@retinafit.com',
     },
     {
       id: 2,
@@ -17,7 +17,7 @@
       manager_nm: '김매니저',
       address: '서울시 마포구 홍익로 456',
       phone: '02-2345-6789',
-      email: 'hongdae@retinai.com',
+      email: 'hongdae@retinafit.com',
     },
   ]
 </script>

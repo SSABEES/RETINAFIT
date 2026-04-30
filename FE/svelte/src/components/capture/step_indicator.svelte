@@ -1,4 +1,6 @@
 <script>
+  import { CircleCheck } from 'lucide-svelte'
+
   /**
    * @typedef {import('@/lib/capture/step_config.js').StepConfig} StepConfig
    */
@@ -10,62 +12,58 @@
    */
   let { steps_arr = [], current_index = 0 } = $props()
 
-  /**
-   * 행 배경/테두리 색상 스타일을 상태에 따라 반환한다.
-   * @param {boolean} is_done
-   * @param {boolean} is_current
-   * @returns {string}
-   */
-  function row_style(is_done, is_current) {
-    if (is_current)
-      return 'border-color: var(--retinal-primary-700); background: var(--retinal-soft-purple);'
-    if (is_done)
-      return 'border-color: var(--retinal-success-700); background: var(--retinal-success-soft);'
-    return 'border-color: var(--retinal-border); background: var(--retinal-surface);'
+  // pose_type 코드 → 한글 각도 라벨 매핑.
+  const POSE_LABEL_OBJ = {
+    front: '정면',
+    left_profile: '좌측',
+    right_profile: '우측',
   }
 
-  /**
-   * 원형 번호 뱃지의 배경/글자색 스타일을 상태에 따라 반환한다.
-   * @param {boolean} is_done
-   * @param {boolean} is_current
-   * @returns {string}
-   */
-  function badge_style(is_done, is_current) {
-    if (is_current) return 'background: var(--retinal-primary-700); color: var(--retinal-surface);'
-    if (is_done) return 'background: var(--retinal-success-700); color: var(--retinal-surface);'
-    return 'background: var(--retinal-border); color: var(--retinal-text-secondary);'
+  // 스텝의 pose_type 에 해당하는 짧은 한글 라벨을 반환한다.
+  function get_angle_label(pose_type) {
+    return POSE_LABEL_OBJ[pose_type] ?? ''
   }
 </script>
 
-<nav class="flex flex-col gap-2" aria-label="촬영 진행도">
+<nav class="flex flex-col gap-0.5 border-b border-[var(--retina-text-200)] pb-2" aria-label="촬영 진행도">
+  <h3 class="m-0 mb-0.5 text-center text-sm font-extrabold text-[var(--retina-text-800)]">
+    촬영 단계
+  </h3>
   {#each steps_arr as step, i (step.step_id)}
     {@const is_done = i < current_index}
     {@const is_current = i === current_index}
+    {@const is_active = is_done || is_current}
     <div
-      class="flex items-center gap-3 rounded-lg border px-3 py-2.5 transition"
-      style={row_style(is_done, is_current)}
+      class={`flex items-center justify-start gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition ${
+        is_current ? 'bg-[var(--retina-primary-100)]' : 'bg-transparent'
+      }`}
       aria-current={is_current ? 'step' : undefined}
     >
       <span
-        class="grid h-7 w-7 flex-none place-items-center rounded-full text-xs font-extrabold tabular-nums"
-        style={badge_style(is_done, is_current)}
+        class={`grid h-6 w-6 flex-none place-items-center rounded-full text-[11px] font-extrabold tabular-nums transition ${
+          is_active
+            ? 'bg-[var(--retina-primary-400)] text-[var(--retina-text-100)]'
+            : 'bg-[var(--retina-text-200)] text-[var(--retina-text-500)]'
+        }`}
         aria-hidden="true"
       >
-        {is_done ? '✓' : i + 1}
+        {i + 1}
       </span>
-      <div class="min-w-0 flex-1">
-        <div
-          class="text-sm font-extrabold"
-          style={is_current
-            ? 'color: var(--retinal-primary-700);'
-            : is_done
-              ? 'color: var(--retinal-success-700);'
-              : 'color: var(--retinal-text);'}
-        >
-          Step {i + 1}
-        </div>
-        <div class="truncate text-xs font-semibold text-slate-500">{step.label}</div>
-      </div>
+      <span
+        class={`text-left text-xs font-bold ${
+          is_active ? 'text-[var(--retina-primary-400)]' : 'text-[var(--retina-text-500)]'
+        }`}
+      >
+        Step {i + 1}. {get_angle_label(step.pose_type)}
+      </span>
+      <CircleCheck
+        size={18}
+        strokeWidth={2}
+        class={`ml-auto flex-none transition ${
+          is_active ? 'text-[var(--retina-primary-400)]' : 'text-[var(--retina-text-300)]'
+        }`}
+        aria-hidden="true"
+      />
     </div>
   {/each}
 </nav>

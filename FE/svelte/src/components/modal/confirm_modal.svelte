@@ -13,6 +13,7 @@
    * @property {(() => void) | undefined} [onconfirm]
    */
 
+  /** @type {ConfirmModalProps} */
   let {
     open = false,
     title = 'Confirm',
@@ -22,7 +23,7 @@
     onclose = undefined,
     oncancel = undefined,
     onconfirm = undefined,
-  } = /** @type {ConfirmModalProps} */ ($props())
+  } = $props()
 
   // 우측 상단 닫기 버튼 클릭 시 현재 화면은 유지한 채 모달만 닫는다.
   function on_click_close() {

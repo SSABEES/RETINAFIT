@@ -39,7 +39,7 @@
   })
 </script>
 
-<div class="flex w-full max-w-xs flex-col items-center gap-7">
+<div class="flex w-full max-w-sm flex-col items-center gap-6">
   <!-- 표시 영역 -->
   <div class="w-full text-center">
     <p class="mb-3 text-sm font-bold tracking-wide text-zinc-500">휴대폰 번호를 입력해주세요.</p>
@@ -91,7 +91,7 @@
       disabled={value.length === 0}
       class="flex h-16 items-center justify-center rounded-2xl border border-white/60 bg-white/40 text-zinc-600 shadow-[0_2px_10px_rgba(75,0,85,0.05)] backdrop-blur-md transition-all duration-150 hover:bg-white/70 hover:text-zinc-900 hover:shadow-[0_4px_14px_rgba(75,0,85,0.08)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
     >
-      <Delete size={22} strokeWidth={2.2} aria-hidden="true" />
+      <Delete size={24} strokeWidth={2.2} aria-hidden="true" />
     </button>
   </div>
 </div>

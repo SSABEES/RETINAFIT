@@ -1,25 +1,37 @@
 @import 'tailwindcss';
 
 :root {
-  --retinal-primary-900: #26002d;
-  --retinal-primary-800: #3d0048;
-  --retinal-primary-700: #4b0055;
-  --retinal-primary-600: #5b006b;
-  --retinal-primary-500: #65006f;
-  --retinal-accent: #9a1bff;
-  --retinal-surface: #ffffff;
-  --retinal-page: #f7f8fa;
-  --retinal-soft-purple: #f5eaf7;
-  --retinal-text: #111827;
-  --retinal-text-secondary: #667085;
-  --retinal-text-muted: #98a2b3;
-  --retinal-border: #e5e7eb;
-  --retinal-success-700: #2e7d32;
-  --retinal-success-soft: #e8f5e9;
-  --retinal-measure-auto: #1f7a3a;
-  --retinal-measure-manual: #ff6f00;
-  --app-frame-width: 1366px;
-  --app-frame-height: 1024px;
+  --retina-primary-100: #FFD8C2;
+  --retina-primary-200: #FFB48F;
+  --retina-primary-300: #F98A4A;
+  --retina-primary-400: #EA6A0F;
+  --retina-primary-500: #C8570C;
+  --retina-primary-600: #9E4309;
+  --retina-primary-700: #6E2E05;
+  --retina-accent: #ffaf86;
+  --retina-text-100: #F1F3F5;
+  --retina-text-200: #E5E7EB;
+  --retina-text-300: #D1D5DB;
+  --retina-text-400: #9CA3AF;
+  --retina-text-500: #6B7280;
+  --retina-text-600: #374151;
+  --retina-text-700: #111827;
+  --retina-text-800: #131928;
+  --retina-surface: #ffffff;
+  --retina-page: #d9dde2;
+  --retina-soft-purple: #f7cdb6;
+  --retina-text: #131928;
+  --retina-text-secondary: #445064;
+  --retina-text-muted: #787f8d;
+  --retina-border: #bcc2cc;
+  --retina-success-700: #2e7d32;
+  --retina-success-soft: #e8f5e9;
+  --retina-measure-auto: #1f7a3a;
+  --retina-measure-manual: #f56b00;
+  --retina-bg-1: #fff3eb;
+  --retina-bg-2: #bcc2cc;
+  --app-frame-width: 1024px;
+  --app-frame-height: 640px;
 }
 
 * {
@@ -52,8 +64,8 @@ html {
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
-  color: #18181b;
-  background: #0b0d1a;
+  color: var(--retina-text);
+  background: #131928;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -66,7 +78,7 @@ body {
   min-width: 320px;
   min-height: 100svh;
   margin: 0;
-  background: #0b0d1a;
+  background: #131928;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -91,10 +103,10 @@ a {
 
 .auth-action-link,
 .auth-action-link a {
-  color: #c77dff !important;
+  color: var(--retina-accent) !important;
   font-weight: 800;
   text-decoration-line: underline !important;
-  text-decoration-color: #c77dff !important;
+  text-decoration-color: var(--retina-accent) !important;
   text-decoration-thickness: 2px;
   text-underline-offset: 4px;
   transition:
@@ -119,7 +131,8 @@ a {
   min-height: 100svh;
   place-items: center;
   overflow: auto;
-  background: radial-gradient(circle at 50% 0%, rgba(154, 27, 255, 0.18), transparent 34%), #0b0d1a;
+  background: radial-gradient(circle at 50% 0%, rgba(255, 138, 69, 0.2), transparent 34%),
+    #131928;
 }
 
 .app-frame {
@@ -128,7 +141,7 @@ a {
   height: min(100svh, var(--app-frame-height));
   flex: none;
   overflow: hidden;
-  background: var(--retinal-page);
+  background: var(--retina-page);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
 }
 
@@ -156,8 +169,8 @@ a {
 
 @media (max-width: 1280px), (max-height: 820px) {
   :root {
-    --app-frame-width: 1280px;
-    --app-frame-height: 800px;
+    --app-frame-width: 1024px;
+    --app-frame-height: 640px;
   }
 
   .app-frame-shell {
@@ -168,7 +181,7 @@ a {
     width: 100vw;
     min-height: 100svh;
     height: auto;
-    max-width: 1280px;
+    max-width: 1024px;
     margin: 0 auto;
     overflow-y: auto;
     scrollbar-width: none;

@@ -17,33 +17,9 @@
 /** @type {StepConfig[]} */
 export const ALL_STEPS = [
   {
-    step_id: 'front_glasses',
-    label: '정면 (안경 착용)',
-    hint: '안경을 쓰고 정면을 바라봐 주세요',
-    pose_type: 'front',
-    wears_glasses: true,
-    capture_mode: 'auto',
-  },
-  {
-    step_id: 'left_glasses',
-    label: '좌측 (안경 착용)',
-    hint: '안경을 쓴 상태로 고개를 왼쪽으로 돌려 주세요',
-    pose_type: 'left_profile',
-    wears_glasses: true,
-    capture_mode: 'manual',
-  },
-  {
-    step_id: 'right_glasses',
-    label: '우측 (안경 착용)',
-    hint: '안경을 쓴 상태로 고개를 오른쪽으로 돌려 주세요',
-    pose_type: 'right_profile',
-    wears_glasses: true,
-    capture_mode: 'manual',
-  },
-  {
     step_id: 'front_no_glasses',
     label: '정면 (안경 미착용)',
-    hint: '안경을 벗고 정면을 바라봐 주세요',
+    hint: '정면을 바라봐 주세요',
     pose_type: 'front',
     wears_glasses: false,
     capture_mode: 'auto',
@@ -51,7 +27,7 @@ export const ALL_STEPS = [
   {
     step_id: 'left_no_glasses',
     label: '좌측 (안경 미착용)',
-    hint: '안경을 벗은 상태로 고개를 왼쪽으로 돌려 주세요',
+    hint: '고개를 왼쪽으로 돌려 주세요',
     pose_type: 'left_profile',
     wears_glasses: false,
     capture_mode: 'manual',
@@ -59,7 +35,7 @@ export const ALL_STEPS = [
   {
     step_id: 'right_no_glasses',
     label: '우측 (안경 미착용)',
-    hint: '안경을 벗은 상태로 고개를 오른쪽으로 돌려 주세요',
+    hint: '오른쪽으로 돌려 주세요',
     pose_type: 'right_profile',
     wears_glasses: false,
     capture_mode: 'manual',

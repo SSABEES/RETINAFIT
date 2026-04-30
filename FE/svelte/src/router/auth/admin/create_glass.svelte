@@ -55,7 +55,7 @@
       </button>
 
       <button
-        class="min-h-12 cursor-pointer rounded-xl border-0 bg-[var(--retinal-primary-700)] px-7 text-base font-extrabold text-white transition hover:bg-[var(--retinal-primary-500)]"
+        class="min-h-12 cursor-pointer rounded-xl border-0 bg-[var(--retina-primary-700)] px-7 text-base font-extrabold text-white transition hover:bg-[var(--retina-primary-500)]"
         type="submit"
         disabled={ref_glass_submit_loading || ref_glass_delete_loading}
       >
@@ -168,7 +168,7 @@
         <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
           제품명
           <input
-            class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
+            class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retina-primary-700)] focus:ring-3 focus:ring-[var(--retina-primary-700)]/12"
             type="text"
             bind:value={ref_glass_form_obj.glasses_name}
             placeholder="예: 쿠보 01"
@@ -179,7 +179,7 @@
         <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
           브랜드명
           <input
-            class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
+            class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retina-primary-700)] focus:ring-3 focus:ring-[var(--retina-primary-700)]/12"
             type="text"
             bind:value={ref_glass_form_obj.glasses_brand}
             placeholder="예: 모스콧"
@@ -193,7 +193,7 @@
 
             <div class="relative">
               <button
-                class="flex min-h-12 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)]/35 hover:bg-white"
+                class="flex min-h-12 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)]/35 hover:bg-white"
                 type="button"
                 onclick={() => on_click_toggle_glass_dropdown(dropdown_obj.key)}
               >
@@ -213,15 +213,15 @@
 
               {#if ref_open_glass_dropdown_key === dropdown_obj.key}
                 <div
-                  class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retinal-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                  class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retina-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
                 >
                   {#each dropdown_obj.option_arr as option_obj (`${dropdown_obj.key}-${get_glass_dropdown_option_value(option_obj)}`)}
                     <button
                       class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                         ref_glass_form_obj[dropdown_obj.key] ===
                         get_glass_dropdown_option_value(option_obj)
-                          ? 'bg-[var(--retinal-soft-purple)] text-[var(--retinal-primary-700)]'
-                          : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retinal-primary-700)]'
+                          ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
+                          : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
                       }`}
                       type="button"
                       onclick={() =>
@@ -242,7 +242,7 @@
         <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
           컬러
           <input
-            class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
+            class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retina-primary-700)] focus:ring-3 focus:ring-[var(--retina-primary-700)]/12"
             type="text"
             bind:value={ref_glass_form_obj.color}
             placeholder="예: 블랙"
@@ -252,7 +252,7 @@
         <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
           모델 코드
           <input
-            class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
+            class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retina-primary-700)] focus:ring-3 focus:ring-[var(--retina-primary-700)]/12"
             type="text"
             bind:value={ref_glass_form_obj.model_code}
             placeholder="예: RB5154"
@@ -263,7 +263,7 @@
           <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
             가격
             <input
-              class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
+              class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retina-primary-700)] focus:ring-3 focus:ring-[var(--retina-primary-700)]/12"
               type="text"
               bind:value={ref_glass_form_obj.price}
               placeholder="예: 159,000원"
@@ -290,7 +290,7 @@
         <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500 md:col-span-2">
           피팅 메모
           <textarea
-            class="min-h-[96px] rounded-xl border border-slate-200 px-4 py-3 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
+            class="min-h-[96px] rounded-xl border border-slate-200 px-4 py-3 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retina-primary-700)] focus:ring-3 focus:ring-[var(--retina-primary-700)]/12"
             bind:value={ref_glass_form_obj.fit_note}
             placeholder="예: 얼굴 너비 대비 안정적인 비율, 장시간 착용 적합"
           ></textarea>
