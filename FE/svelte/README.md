@@ -143,7 +143,7 @@ export const ROUTE_PATH = {
 - 동적 라우트 파일은 `[id].svelte`처럼 파라미터 이름을 대괄호로 표현합니다.
 
 예시:
-
+  
 - `primary_button.svelte`
 - `password_input.svelte`
 - `base_modal.svelte`
