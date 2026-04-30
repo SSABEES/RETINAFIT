@@ -42,7 +42,7 @@
   function create_glass_form() {
     return {
       glasses_name: '',
-      glasses_brand: '',
+      glasses_brand: '레티나',
       glasses_img_url: '',
       glasses_3d_url: '',
       is_active: true,
@@ -163,7 +163,6 @@
 
     try {
       const local_glass_arr = await get_admin_glasses_arr()
-
       ref_glass_list_arr = [...(local_glass_arr ?? [])]
         .map(normalize_admin_glass_obj)
         .sort(
@@ -299,7 +298,7 @@
           : String(glass_obj.temple_length),
       fit_note: glass_obj.fit_note ?? '',
     }
-    ref_glass_saved_message = `${glass_obj.glasses_brand ?? ''} ${glass_obj.glasses_name ?? ''} 정보를 불러왔습니다.`
+    ref_glass_saved_message = ''
     ref_glass_error_message = ''
   }
 
@@ -325,7 +324,9 @@
 
       const local_glass_payload_obj = get_admin_glass_payload_obj()
 
-      if (ref_selected_glasses_no) {
+      const local_is_edit_mode = Boolean(ref_selected_glasses_no)
+
+      if (local_is_edit_mode) {
         await update_admin_glasses({
           glasses_no: ref_selected_glasses_no,
           ...local_glass_payload_obj,
@@ -341,6 +342,10 @@
       ref_glass_3d_file_obj = null
       ref_glass_preview_override_url = ''
       await on_load_admin_glass_arr()
+
+      if (!local_is_edit_mode) {
+        on_click_close_glass_editor()
+      }
     } catch (local_error) {
       ref_glass_error_message =
         local_error instanceof Error ? local_error.message : '안경 저장에 실패했습니다.'
@@ -372,7 +377,7 @@
 
 <AdminLayout active_key="glass">
   {#if !ref_glass_editor_open}
-    <section class="grid gap-6">
+    <section class="grid gap-4">
       <div class="flex items-center justify-between gap-4">
         <h2 class="m-0 text-2xl font-extrabold text-zinc-950">안경 정보</h2>
         <span
@@ -391,7 +396,7 @@
       {/if}
 
       <section
-        class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
+        class="rounded-2xl border border-slate-200 bg-white px-8 py-5 shadow-sm shadow-slate-200/50"
       >
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <button
@@ -457,7 +462,7 @@
       </section>
     </section>
   {:else}
-    <form class="grid gap-6" onsubmit={on_submit_glass_form}>
+    <form class="grid gap-4" onsubmit={on_submit_glass_form}>
       <div class="flex items-start justify-between gap-6">
         <h2 class="m-0 text-2xl font-extrabold text-zinc-950">
           {ref_selected_glasses_no ? '안경 수정' : '안경 추가'}
@@ -517,7 +522,7 @@
       {/if}
 
       <section
-        class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
+        class="rounded-2xl border border-slate-200 bg-white px-8 py-5 shadow-sm shadow-slate-200/50"
       >
         <div class="flex justify-end">
           <div
@@ -549,14 +554,14 @@
           </div>
         </div>
 
-        <div class="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div class="grid content-start gap-2">
+        <div class="mt-3 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div class="grid content-start self-start gap-2">
             <span class="text-sm font-extrabold text-slate-500">안경 대표 이미지 미리보기</span>
 
             <div
               class="overflow-hidden rounded-2xl border border-dashed border-[#D8C6E0] bg-[#FAF7FC]"
             >
-              <div class="aspect-[4/3] bg-[linear-gradient(180deg,#F8F1F8_0%,#F3F4F6_100%)]">
+              <div class="aspect-[5/3] bg-[linear-gradient(180deg,#F8F1F8_0%,#F3F4F6_100%)]">
                 <img
                   src={g_glass_preview_url}
                   alt="안경 대표 이미지 미리보기"
@@ -564,7 +569,7 @@
                 />
               </div>
 
-              <div class="grid gap-4 border-t border-[#E8DAEE] px-4 py-4">
+              <div class="grid gap-3 border-t border-[#E8DAEE] px-4 py-4">
                 <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
                   대표 이미지 파일
                   <input
@@ -600,8 +605,8 @@
             </div>
           </div>
 
-          <div class="grid min-w-0 gap-5 md:grid-cols-2">
-            <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500 md:col-span-2">
+          <div class="grid min-w-0 content-start self-start gap-4 md:grid-cols-2">
+            <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
               제품명
               <input
                 class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
@@ -612,7 +617,7 @@
               />
             </label>
 
-            <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500 md:col-span-2">
+            <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
               브랜드명
               <input
                 class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
@@ -623,7 +628,7 @@
               />
             </label>
 
-            {#each g_glass_dropdown_arr as dropdown_obj (dropdown_obj.key)}
+            {#each g_glass_dropdown_arr.filter((dropdown_obj) => ['category', 'frame_type'].includes(dropdown_obj.key)) as dropdown_obj (dropdown_obj.key)}
               <div class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
                 {dropdown_obj.label}
 
@@ -686,6 +691,7 @@
               />
             </label>
 
+            {#if false}
             <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
               가격
               <input
@@ -711,11 +717,12 @@
                 </div>
               </label>
             {/each}
+            {/if}
 
             <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500 md:col-span-2">
               피팅 메모
               <textarea
-                class="min-h-[120px] rounded-xl border border-slate-200 px-4 py-3 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
+                class="min-h-[96px] rounded-xl border border-slate-200 px-4 py-3 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
                 bind:value={ref_glass_form_obj.fit_note}
                 placeholder="예: 얼굴 너비 대비 안정적인 비율, 장시간 착용 적합"
               ></textarea>

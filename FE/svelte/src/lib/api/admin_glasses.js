@@ -5,7 +5,7 @@ import { get_admin_auth_headers } from '@/lib/api/session_auth'
  * 활성화된 안경 목록을 조회한다.
  */
 export function get_admin_glasses_arr() {
-  return apiRequest('/api/v1/glasses', {
+  return apiRequest('/api/v1/admin/glasses', {
     headers: get_admin_auth_headers(),
   })
 }
@@ -73,7 +73,7 @@ export function delete_admin_glasses(glasses_obj) {
  * @returns {Promise<string | Record<string, unknown>>}
  */
 export function get_admin_glasses_img_presigned_url() {
-  return apiRequest('/api/v1/admin/glasses/files/img', {
+  return apiRequest('/api/v1/admin/glasses/upload?type=img', {
     method: 'POST',
     headers: get_admin_auth_headers(),
   })
@@ -85,7 +85,7 @@ export function get_admin_glasses_img_presigned_url() {
  * @returns {Promise<string | Record<string, unknown>>}
  */
 export function get_admin_glasses_3d_presigned_url() {
-  return apiRequest('/api/v1/admin/glasses/files/3d', {
+  return apiRequest('/api/v1/admin/glasses/upload?type=3d', {
     method: 'POST',
     headers: get_admin_auth_headers(),
   })
