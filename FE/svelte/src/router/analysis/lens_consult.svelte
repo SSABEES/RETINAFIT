@@ -3,7 +3,7 @@
   import { ArrowLeft, Glasses } from 'lucide-svelte'
   import { PATH } from '@/config/path'
   import { ensure_session_auth_tokens } from '@/lib/api/session_auth'
-  import { get_recommend_option_arr } from '@/lib/api/admin_recommend_options'
+  import { get_fitting_criteria_arr } from '@/lib/api/fitting_criteria'
   import { save_visit_recommend } from '@/lib/api/visit'
 
   const g_lens_category_meta_arr = [
@@ -102,7 +102,7 @@
       return
     }
 
-    get_recommend_option_arr()
+    get_fitting_criteria_arr()
       .then((local_option_arr) => {
         const local_group_arr = normalize_lens_option_group_arr(
           Array.isArray(local_option_arr) ? local_option_arr : [],

@@ -56,7 +56,7 @@ function map_step_id_to_slot(step_id) {
  * @throws {Error} BE 가 비-2xx 응답을 줄 때
  */
 export async function request_test_presigned_urls(visit_no, type) {
-  return apiRequest(`/api/v1/visits/${visit_no}/files/test`, {
+  return apiRequest(`/api/v1/visits/${visit_no}/files/face-photos`, {
     method: 'POST',
     headers: get_session_auth_headers(),
     body: { type },
@@ -151,11 +151,11 @@ export async function upload_captures_to_s3(visit_no, captures_obj) {
 }
 
 /**
- * 얼굴 측정 결과를 BE 에 저장한다.
- * BE 스키마: BE/app/modules/analysis/schemas.py 의 FaceAnalysisRequest
+ * 얼굴 측정 결과를 방문 데이터에 PATCH 로 저장한다.
  *  - main_file:    정면 사진 URL (필수, 빈 문자열 허용)
  *  - test_file_arr: 측정 사진 URL 배열 (필수, 빈 배열 허용)
  *  - test_json:    측정값 + 평가 + 메타 dict
+ *  - test_dt:      저장 시각 (자동 추가)
  *
  * @param {number} visit_no  방문 ID (URL path 매개변수)
  * @param {{ main_file: string, test_file_arr: string[], test_json: Record<string, unknown> }} body
@@ -163,9 +163,12 @@ export async function upload_captures_to_s3(visit_no, captures_obj) {
  * @throws {Error} BE 가 비-2xx 응답을 주거나 검증 실패 시
  */
 export async function save_face_analysis(visit_no, body) {
-  return apiRequest(`/api/v1/visits/${visit_no}/face`, {
-    method: 'POST',
+  return apiRequest(`/api/v1/visits/${visit_no}`, {
+    method: 'PATCH',
     headers: get_session_auth_headers(),
-    body,
+    body: {
+      ...body,
+      test_dt: new Date().toISOString(),
+    },
   })
 }
