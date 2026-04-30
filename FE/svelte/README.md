@@ -148,7 +148,7 @@ export const ROUTE_PATH = {
 - `password_input.svelte`
 - `base_modal.svelte`
 - `users/[id].svelte`
-
+ 
 ### 배치 기준
 
 - 여러 페이지에서 재사용하면 `src/components`에 둡니다.
