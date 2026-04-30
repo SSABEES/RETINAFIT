@@ -13,6 +13,12 @@
     update_admin_glasses,
   } from '@/lib/api/admin_glasses'
 
+  /**
+   * @typedef {{ label: string, value: string }} GlassDropdownOption
+   * @typedef {{ key: string, label: string, option_arr: Array<string | GlassDropdownOption> }} GlassDropdown
+   */
+
+  /** @type {GlassDropdown[]} */
   const g_glass_dropdown_arr = [
     { key: 'category', label: '카테고리', option_arr: ['안경', '선글라스', '스포츠'] },
     {
@@ -22,7 +28,7 @@
     },
     {
       key: 'frame_type',
-      label: '프레임 타입',
+      label: '프레임 재질',
       option_arr: ['뿔테', '메탈', '합금테', '무테', '혼합'],
     },
     { key: 'material', label: '소재', option_arr: ['아세테이트', '메탈', '티타늄', '혼합'] },
@@ -37,17 +43,31 @@
   ]
 
   const g_glass_placeholder_image_url = 'https://placehold.co/640x480/F5EAF7/AA83B4?text=GLASS'
+  const g_frame_style_option_arr = [
+    { label: '라운드', value: 'round' },
+    { label: '오벌', value: 'oval' },
+    { label: '스퀘어', value: 'square' },
+    { label: '직사각형', value: 'rectangle' },
+    { label: '보잉', value: 'aviator' },
+    { label: '캣아이', value: 'cat_eye' },
+    { label: '브로우라인', value: 'browline' },
+    { label: '기하학', value: 'geometric' },
+    { label: '오버사이즈', value: 'oversized' },
+    { label: '림리스', value: 'rimless' },
+  ]
+
+  g_glass_dropdown_arr[1].option_arr = g_frame_style_option_arr
 
   // 안경 등록과 수정에 공통으로 쓰는 기본 입력 상태를 만든다.
   function create_glass_form() {
     return {
       glasses_name: '',
-      glasses_brand: '',
+      glasses_brand: '레티나',
       glasses_img_url: '',
       glasses_3d_url: '',
       is_active: true,
       category: '안경',
-      frame_style: '풀프레임',
+      frame_style: 'round',
       frame_type: '뿔테',
       material: '아세테이트',
       color: '',
@@ -75,6 +95,27 @@
     return Number.isFinite(local_number) ? local_number : null
   }
 
+  // 드롭다운 옵션 값을 라벨과 비교 가능한 문자열 값으로 정리한다.
+  function get_glass_dropdown_option_value(option_obj) {
+    return typeof option_obj === 'string' ? option_obj : option_obj.value
+  }
+
+  // 드롭다운 옵션 값을 화면에 보여줄 라벨 문자열로 정리한다.
+  function get_glass_dropdown_option_label(option_obj) {
+    return typeof option_obj === 'string' ? option_obj : option_obj.label
+  }
+
+  // 현재 선택된 드롭다운 값을 화면 표시용 라벨로 변환한다.
+  function get_glass_dropdown_selected_label(dropdown_obj, selected_value) {
+    const local_option_obj = dropdown_obj.option_arr.find(
+      (option_obj) => get_glass_dropdown_option_value(option_obj) === selected_value,
+    )
+
+    return local_option_obj
+      ? get_glass_dropdown_option_label(local_option_obj)
+      : String(selected_value ?? '')
+  }
+
   /**
    * 관리자 안경 API 응답을 현재 화면에서 바로 쓰기 쉬운 형태로 정규화한다.
    * @param {Record<string, any>} glass_obj
@@ -91,7 +132,7 @@
       is_active: Boolean(glass_obj.is_active),
       created_at: glass_obj.created_at ?? '',
       category: local_spec_obj.category ?? '안경',
-      frame_style: local_spec_obj.frame_style ?? '풀프레임',
+      frame_style: local_spec_obj.frame_style ?? 'round',
       frame_type: local_spec_obj.frame_type ?? '뿔테',
       material: local_spec_obj.material ?? '아세테이트',
       color: local_spec_obj.color ?? '',
@@ -163,7 +204,6 @@
 
     try {
       const local_glass_arr = await get_admin_glasses_arr()
-
       ref_glass_list_arr = [...(local_glass_arr ?? [])]
         .map(normalize_admin_glass_obj)
         .sort(
@@ -271,7 +311,7 @@
       glasses_3d_url: glass_obj.glasses_3d_url ?? '',
       is_active: glass_obj.is_active ?? true,
       category: glass_obj.category ?? '안경',
-      frame_style: glass_obj.frame_style ?? '풀프레임',
+      frame_style: glass_obj.frame_style ?? 'round',
       frame_type: glass_obj.frame_type ?? '뿔테',
       material: glass_obj.material ?? '아세테이트',
       color: glass_obj.color ?? '',
@@ -299,7 +339,7 @@
           : String(glass_obj.temple_length),
       fit_note: glass_obj.fit_note ?? '',
     }
-    ref_glass_saved_message = `${glass_obj.glasses_brand ?? ''} ${glass_obj.glasses_name ?? ''} 정보를 불러왔습니다.`
+    ref_glass_saved_message = ''
     ref_glass_error_message = ''
   }
 
@@ -325,7 +365,9 @@
 
       const local_glass_payload_obj = get_admin_glass_payload_obj()
 
-      if (ref_selected_glasses_no) {
+      const local_is_edit_mode = Boolean(ref_selected_glasses_no)
+
+      if (local_is_edit_mode) {
         await update_admin_glasses({
           glasses_no: ref_selected_glasses_no,
           ...local_glass_payload_obj,
@@ -341,6 +383,10 @@
       ref_glass_3d_file_obj = null
       ref_glass_preview_override_url = ''
       await on_load_admin_glass_arr()
+
+      if (!local_is_edit_mode) {
+        on_click_close_glass_editor()
+      }
     } catch (local_error) {
       ref_glass_error_message =
         local_error instanceof Error ? local_error.message : '안경 저장에 실패했습니다.'
@@ -372,7 +418,7 @@
 
 <AdminLayout active_key="glass">
   {#if !ref_glass_editor_open}
-    <section class="grid gap-6">
+    <section class="grid gap-4">
       <div class="flex items-center justify-between gap-4">
         <h2 class="m-0 text-2xl font-extrabold text-zinc-950">안경 정보</h2>
         <span
@@ -391,7 +437,7 @@
       {/if}
 
       <section
-        class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
+        class="rounded-2xl border border-slate-200 bg-white px-8 py-5 shadow-sm shadow-slate-200/50"
       >
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <button
@@ -457,7 +503,7 @@
       </section>
     </section>
   {:else}
-    <form class="grid gap-6" onsubmit={on_submit_glass_form}>
+    <form class="grid gap-4" onsubmit={on_submit_glass_form}>
       <div class="flex items-start justify-between gap-6">
         <h2 class="m-0 text-2xl font-extrabold text-zinc-950">
           {ref_selected_glasses_no ? '안경 수정' : '안경 추가'}
@@ -517,7 +563,7 @@
       {/if}
 
       <section
-        class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
+        class="rounded-2xl border border-slate-200 bg-white px-8 py-5 shadow-sm shadow-slate-200/50"
       >
         <div class="flex justify-end">
           <div
@@ -549,14 +595,14 @@
           </div>
         </div>
 
-        <div class="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div class="grid content-start gap-2">
+        <div class="mt-3 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div class="grid content-start self-start gap-2">
             <span class="text-sm font-extrabold text-slate-500">안경 대표 이미지 미리보기</span>
 
             <div
               class="overflow-hidden rounded-2xl border border-dashed border-[#D8C6E0] bg-[#FAF7FC]"
             >
-              <div class="aspect-[4/3] bg-[linear-gradient(180deg,#F8F1F8_0%,#F3F4F6_100%)]">
+              <div class="aspect-[5/3] bg-[linear-gradient(180deg,#F8F1F8_0%,#F3F4F6_100%)]">
                 <img
                   src={g_glass_preview_url}
                   alt="안경 대표 이미지 미리보기"
@@ -564,7 +610,7 @@
                 />
               </div>
 
-              <div class="grid gap-4 border-t border-[#E8DAEE] px-4 py-4">
+              <div class="grid gap-3 border-t border-[#E8DAEE] px-4 py-4">
                 <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
                   대표 이미지 파일
                   <input
@@ -600,8 +646,8 @@
             </div>
           </div>
 
-          <div class="grid min-w-0 gap-5 md:grid-cols-2">
-            <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500 md:col-span-2">
+          <div class="grid min-w-0 content-start self-start gap-4 md:grid-cols-2">
+            <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
               제품명
               <input
                 class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
@@ -612,7 +658,7 @@
               />
             </label>
 
-            <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500 md:col-span-2">
+            <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
               브랜드명
               <input
                 class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
@@ -623,7 +669,7 @@
               />
             </label>
 
-            {#each g_glass_dropdown_arr as dropdown_obj (dropdown_obj.key)}
+            {#each g_glass_dropdown_arr.filter((dropdown_obj) => ['category', 'frame_style', 'frame_type'].includes(dropdown_obj.key)) as dropdown_obj (dropdown_obj.key)}
               <div class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
                 {dropdown_obj.label}
 
@@ -633,7 +679,12 @@
                     type="button"
                     onclick={() => on_click_toggle_glass_dropdown(dropdown_obj.key)}
                   >
-                    <span>{ref_glass_form_obj[dropdown_obj.key]}</span>
+                    <span>
+                      {get_glass_dropdown_selected_label(
+                        dropdown_obj,
+                        ref_glass_form_obj[dropdown_obj.key],
+                      )}
+                    </span>
                     <ChevronDown
                       size={18}
                       strokeWidth={2.4}
@@ -646,18 +697,22 @@
                     <div
                       class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retinal-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
                     >
-                      {#each dropdown_obj.option_arr as option_name (option_name)}
+                      {#each dropdown_obj.option_arr as option_obj (`${dropdown_obj.key}-${get_glass_dropdown_option_value(option_obj)}`)}
                         <button
                           class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
-                            ref_glass_form_obj[dropdown_obj.key] === option_name
+                            ref_glass_form_obj[dropdown_obj.key] ===
+                            get_glass_dropdown_option_value(option_obj)
                               ? 'bg-[var(--retinal-soft-purple)] text-[var(--retinal-primary-700)]'
                               : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retinal-primary-700)]'
                           }`}
                           type="button"
                           onclick={() =>
-                            on_click_select_glass_dropdown(dropdown_obj.key, option_name)}
+                            on_click_select_glass_dropdown(
+                              dropdown_obj.key,
+                              get_glass_dropdown_option_value(option_obj),
+                            )}
                         >
-                          {option_name}
+                          {get_glass_dropdown_option_label(option_obj)}
                         </button>
                       {/each}
                     </div>
@@ -686,6 +741,7 @@
               />
             </label>
 
+            {#if false}
             <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
               가격
               <input
@@ -711,11 +767,12 @@
                 </div>
               </label>
             {/each}
+            {/if}
 
             <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500 md:col-span-2">
               피팅 메모
               <textarea
-                class="min-h-[120px] rounded-xl border border-slate-200 px-4 py-3 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
+                class="min-h-[96px] rounded-xl border border-slate-200 px-4 py-3 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retinal-primary-700)] focus:ring-3 focus:ring-[var(--retinal-primary-700)]/12"
                 bind:value={ref_glass_form_obj.fit_note}
                 placeholder="예: 얼굴 너비 대비 안정적인 비율, 장시간 착용 적합"
               ></textarea>

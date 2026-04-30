@@ -23,9 +23,9 @@ const WASM_BASE = `${import.meta.env.BASE_URL}mediapipe/wasm`
 const CACHE_TTL_MS = 16 // 16ms ≈ 60fps 한 프레임 — 같은 rAF 틱의 중복 호출 방지
 const FRAME_MARGIN = 0.03
 
-export const YAW_THR = 12
-export const PITCH_THR = 15
-export const ROLL_THR = 10
+export const YAW_THR = 16
+export const PITCH_THR = 18
+export const ROLL_THR = 14
 
 // 얼굴이 프레임 경계 안에 있는지 확인할 때 검사하는 핵심 포인트 인덱스.
 const KEY_INDICES = [10, 152, 234, 454, 33, 263, 133, 362, 1, 61, 291, 172, 397]
