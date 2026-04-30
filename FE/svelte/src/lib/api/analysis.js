@@ -3,14 +3,12 @@
  *
  * 흐름 (온보딩 진행 클릭 시):
  * 1. 사진을 S3 에 업로드해 URL 받기
- *    - BE 가 type='bare' / 'glasses' 별로 3장(front/left/right) presigned PUT URL 묶음 발급
- *    - BE: app/modules/analysis/file_router.py 의 get_test_file_presigned_urls
- * 2. POST /visits/{visit_no}/face 로 메타 + S3 URL 들 저장
- *    - BE: app/modules/analysis/router.py 의 save_face_analysis
+ *    - BE 가 type='bare' 그룹에 front/left/right 3장 presigned PUT URL 묶음 발급
+ * 2. PATCH /visits/{visit_no} 로 메타 + S3 URL 들 저장
  *
  * @typedef {import('@/lib/stores/capture_session.svelte.js').Capture} Capture
  *
- * @typedef {'bare' | 'glasses'} TestFileType
+ * @typedef {'bare'} TestFileType
  * @typedef {'front' | 'left' | 'right'} TestFileSlot
  *
  * @typedef {object} TestFilePresignedResponse
@@ -28,8 +26,7 @@ import { get_session_auth_headers } from '@/lib/api/session_auth'
 
 /**
  * 캡쳐 세션의 step_id 를 BE Test 엔드포인트의 type/slot 매핑으로 변환한다.
- * BE 는 'bare' / 'glasses' 두 그룹에 front/left/right 슬롯만 있다.
- * 해당 매핑이 없는 step_id 는 null 을 반환해 호출 측이 무시할 수 있게 한다.
+ * 미착용 3장(front/left/right) 만 사용한다. 그 외 step_id 는 null.
  *
  * @param {string} step_id
  * @returns {{ type: TestFileType, slot: TestFileSlot } | null}
@@ -39,9 +36,6 @@ function map_step_id_to_slot(step_id) {
     case 'front_no_glasses': return { type: 'bare', slot: 'front' }
     case 'left_no_glasses':  return { type: 'bare', slot: 'left' }
     case 'right_no_glasses': return { type: 'bare', slot: 'right' }
-    case 'front_glasses':    return { type: 'glasses', slot: 'front' }
-    case 'left_glasses':     return { type: 'glasses', slot: 'left' }
-    case 'right_glasses':    return { type: 'glasses', slot: 'right' }
     default: return null
   }
 }
@@ -56,7 +50,7 @@ function map_step_id_to_slot(step_id) {
  * @throws {Error} BE 가 비-2xx 응답을 줄 때
  */
 export async function request_test_presigned_urls(visit_no, type) {
-  return apiRequest(`/api/v1/visits/${visit_no}/files/test`, {
+  return apiRequest(`/api/v1/visits/${visit_no}/files/face-photos`, {
     method: 'POST',
     headers: get_session_auth_headers(),
     body: { type },
@@ -115,7 +109,7 @@ export async function upload_blob_to_s3(upload_url, blob) {
  */
 export async function upload_captures_to_s3(visit_no, captures_obj) {
   /** @type {Record<TestFileType, Array<{ step_id: string, slot: TestFileSlot }>>} */
-  const groups = { bare: [], glasses: [] }
+  const groups = { bare: [] }
   for (const step_id of Object.keys(captures_obj)) {
     const local_mapping = map_step_id_to_slot(step_id)
     if (!local_mapping) continue
@@ -126,7 +120,7 @@ export async function upload_captures_to_s3(visit_no, captures_obj) {
   const file_url_map = {}
 
   /** @type {TestFileType[]} */
-  const types_to_upload = ['bare', 'glasses']
+  const types_to_upload = ['bare']
 
   await Promise.all(
     types_to_upload
@@ -151,11 +145,11 @@ export async function upload_captures_to_s3(visit_no, captures_obj) {
 }
 
 /**
- * 얼굴 측정 결과를 BE 에 저장한다.
- * BE 스키마: BE/app/modules/analysis/schemas.py 의 FaceAnalysisRequest
+ * 얼굴 측정 결과를 방문 데이터에 PATCH 로 저장한다.
  *  - main_file:    정면 사진 URL (필수, 빈 문자열 허용)
  *  - test_file_arr: 측정 사진 URL 배열 (필수, 빈 배열 허용)
  *  - test_json:    측정값 + 평가 + 메타 dict
+ *  - test_dt:      저장 시각 (자동 추가)
  *
  * @param {number} visit_no  방문 ID (URL path 매개변수)
  * @param {{ main_file: string, test_file_arr: string[], test_json: Record<string, unknown> }} body
@@ -163,9 +157,12 @@ export async function upload_captures_to_s3(visit_no, captures_obj) {
  * @throws {Error} BE 가 비-2xx 응답을 주거나 검증 실패 시
  */
 export async function save_face_analysis(visit_no, body) {
-  return apiRequest(`/api/v1/visits/${visit_no}/face`, {
-    method: 'POST',
+  return apiRequest(`/api/v1/visits/${visit_no}`, {
+    method: 'PATCH',
     headers: get_session_auth_headers(),
-    body,
+    body: {
+      ...body,
+      test_dt: new Date().toISOString(),
+    },
   })
 }

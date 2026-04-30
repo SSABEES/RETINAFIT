@@ -3,7 +3,6 @@
   import { navigate } from '@maks11060/svelte5-router'
   import { PATH } from '@/config/path.js'
   import CameraView from '@/components/camera/camera_view.svelte'
-  import GlassesModeModal from '@/components/capture/glasses_mode_modal.svelte'
   import StepIndicator from '@/components/capture/step_indicator.svelte'
   import StepStatusBar from '@/components/capture/step_status_bar.svelte'
   import CaptureThumbnails from '@/components/capture/capture_thumbnails.svelte'
@@ -17,7 +16,6 @@
 
   /**
    * @typedef {import('@/lib/capture/step_config.js').StepConfig} StepConfig
-   * @typedef {import('@/lib/capture/step_config.js').GlassesMode} GlassesMode
    * @typedef {import('@/lib/stores/capture_session.svelte.js').Capture} Capture
    */
 
@@ -42,13 +40,12 @@
     }
   })
 
-  /**
-   * 안경 착용 여부 모달에서 선택된 모드로 캡쳐 플로우 진입.
-   * @param {GlassesMode} mode
-   */
-  function on_select_glasses(mode) {
-    set_glasses_mode(mode)
-  }
+  // 안경 착용 분석은 더 이상 사용하지 않으므로 진입 시 자동으로 미착용 모드로 시작한다.
+  $effect(() => {
+    if (g_session.phase === 'select_glasses') {
+      set_glasses_mode('no_glasses')
+    }
+  })
 
   /**
    * camera_view 가 촬영을 마치면 세션에 저장하고 다음 스텝으로 진행.
@@ -122,8 +119,6 @@
 </script>
 
 <div class="flex flex-col gap-4">
-  <GlassesModeModal open={g_session.phase === 'select_glasses'} onselect={on_select_glasses} />
-
   {#if g_session.phase === 'capturing' && g_current_step}
     <!--
       3컬럼 레이아웃 (좌우 대칭):

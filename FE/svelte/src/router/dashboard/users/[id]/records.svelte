@@ -3,7 +3,7 @@
   import { ArrowLeft, CalendarDays, ChevronRight, Download, FileText } from 'lucide-svelte'
   import DashboardShell from '@/components/layout/dashboard_shell.svelte'
   import { PATH } from '@/config/path'
-  import { get_final_report, get_interim_report, get_visit_list } from '@/lib/api/visit'
+  import { get_visit, get_visit_list } from '@/lib/api/visit'
   import { get_customer_store_by_id, set_selected_visit } from '@/lib/stores/customer'
 
   /** @type {{ id?: string }} */
@@ -109,17 +109,11 @@
     g_error_message = ''
 
     try {
-      const [local_interim_report_obj, local_final_report_obj] = await Promise.all([
-        get_interim_report({ visit_no: visit_obj.visit_no }),
-        visit_obj.has_final
-          ? get_final_report({ visit_no: visit_obj.visit_no }).catch(() => null)
-          : Promise.resolve(null),
-      ])
+      const local_visit_obj = await get_visit({ visit_no: visit_obj.visit_no })
 
       set_selected_visit({
         ...visit_obj.raw_obj,
-        interim_report_obj: local_interim_report_obj,
-        final_report_obj: local_final_report_obj,
+        ...local_visit_obj,
       })
 
       navigate(visit_obj.has_final ? PATH.analysisResult : PATH.analysisFaceMeasurement)
