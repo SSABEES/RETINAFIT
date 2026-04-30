@@ -27,12 +27,16 @@
     category_meta_arr = [],
   } = /** @type {RecommendOptionManagerProps} */ ($props())
 
-  const g_has_category = category_meta_arr.length > 0
+  let g_has_category = $derived(category_meta_arr.length > 0)
+
+  function get_default_option_category() {
+    return category_meta_arr[0]?.key ?? ''
+  }
 
   function create_option_form_obj() {
     return {
       option_name: '',
-      option_category: category_meta_arr[0]?.key ?? '',
+      option_category: get_default_option_category(),
       is_active: true,
     }
   }
