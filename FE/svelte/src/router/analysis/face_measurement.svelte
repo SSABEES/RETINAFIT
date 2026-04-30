@@ -126,11 +126,11 @@
 
 <main class="app-frame-page flex flex-col overflow-hidden bg-[#F7F8FA] text-zinc-950">
   <header
-    class="grid h-[72px] grid-cols-[1fr_auto_1fr] items-center border-b border-[var(--retinal-border)] bg-white px-8"
+    class="grid h-[72px] grid-cols-[1fr_auto_1fr] items-center border-b border-[var(--retina-border)] bg-white px-8"
   >
     <div class="flex justify-start">
       <button
-        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-1 text-base font-bold text-slate-600 transition hover:text-[var(--retinal-primary-700)]"
+        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-1 text-base font-bold text-slate-600 transition hover:text-[var(--retina-primary-700)]"
         type="button"
         onclick={on_click_back}
       >
@@ -141,7 +141,7 @@
     <h1 class="m-0 text-2xl font-extrabold tracking-normal text-zinc-950">얼굴 측정</h1>
     <div class="flex items-center justify-end gap-2">
       <button
-        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-[var(--retinal-border)] bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-[var(--retina-border)] bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
         type="button"
         onclick={on_click_clear_all}
       >
@@ -149,7 +149,7 @@
         <span>측정값 모두 지우기</span>
       </button>
       <button
-        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border-0 bg-[var(--retinal-primary-600)] px-3 text-sm font-bold text-white transition hover:bg-[var(--retinal-primary-700)]"
+        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border-0 bg-[var(--retina-primary-600)] px-3 text-sm font-bold text-white transition hover:bg-[var(--retina-primary-700)]"
         type="button"
         onclick={on_click_view_report}
       >
@@ -157,7 +157,7 @@
         <span>리포트 보기</span>
       </button>
       <button
-        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-[var(--retinal-border)] bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-[var(--retina-border)] bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
         type="button"
         onclick={on_click_restart}
       >
@@ -199,7 +199,7 @@
               : null}
             {@const ear_diff_flagged = ear_diff_mm !== null && ear_diff_mm >= EAR_HEIGHT_DIFF_THRESHOLD_MM}
             <section
-              class="flex flex-col gap-2 rounded-xl border border-[var(--retinal-border)] bg-white px-4 py-4 shadow-sm shadow-slate-200/40"
+              class="flex flex-col gap-2 rounded-xl border border-[var(--retina-border)] bg-white px-4 py-4 shadow-sm shadow-slate-200/40"
               aria-label="자동 산출 귀 높이 (참고)"
             >
               <div class="flex items-baseline justify-between">

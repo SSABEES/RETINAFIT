@@ -66,7 +66,7 @@
   }
 </script>
 
-<main class="app-frame-page overflow-hidden bg-[var(--retinal-page)] text-[var(--retinal-text)]">
+<main class="app-frame-page overflow-hidden bg-[var(--retina-page)] text-[var(--retina-text)]">
   <section class="grid h-full place-items-center px-8 py-10">
     <section
       class="w-full max-w-[460px] rounded-[28px] border border-[#EFE7F2] bg-white p-8 shadow-sm shadow-slate-200/50"
@@ -108,7 +108,7 @@
         {/if}
 
         <button
-          class="min-h-14 cursor-pointer rounded-xl border-0 bg-[var(--retinal-primary-700)] text-lg font-extrabold text-white transition hover:bg-[var(--retinal-primary-500)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-700)]/30 disabled:cursor-not-allowed disabled:opacity-60"
+          class="min-h-14 cursor-pointer rounded-xl border-0 bg-[var(--retina-primary-700)] text-lg font-extrabold text-white transition hover:bg-[var(--retina-primary-500)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-700)]/30 disabled:cursor-not-allowed disabled:opacity-60"
           type="submit"
           disabled={g_is_loading}
         >

@@ -499,14 +499,14 @@
 </script>
 
 <main
-  class="app-frame-page flex h-full flex-col overflow-hidden bg-[var(--retinal-page)] text-[var(--retinal-text)]"
+  class="app-frame-page flex h-full flex-col overflow-hidden bg-[var(--retina-page)] text-[var(--retina-text)]"
 >
   <header
     class="grid h-[72px] shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-white px-8"
   >
     <div class="flex justify-start">
       <Link
-        class="inline-flex min-h-10 items-center gap-2 rounded-lg px-1 text-base font-bold text-slate-600 transition hover:text-[var(--retinal-primary-700)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/20"
+        class="inline-flex min-h-10 items-center gap-2 rounded-lg px-1 text-base font-bold text-slate-600 transition hover:text-[var(--retina-primary-700)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/20"
         href={PATH.analysis}
       >
         <ArrowLeft size={20} strokeWidth={2.4} aria-hidden="true" />
@@ -532,8 +532,8 @@
               <button
                 class={`min-h-11 cursor-pointer rounded-full border px-6 text-base font-extrabold transition ${
                   ref_main_view === main_tab_obj.key
-                    ? 'border-[var(--retinal-primary-600)] bg-[var(--retinal-primary-600)] text-white shadow-lg shadow-purple-950/20'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-[var(--retinal-primary-600)]/40 hover:bg-[var(--retinal-soft-purple)] hover:text-[var(--retinal-primary-700)]'
+                    ? 'border-[var(--retina-primary-600)] bg-[var(--retina-primary-600)] text-white shadow-lg shadow-purple-950/20'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-[var(--retina-primary-600)]/40 hover:bg-[var(--retina-soft-purple)] hover:text-[var(--retina-primary-700)]'
                 }`}
                 type="button"
                 role="tab"
@@ -562,21 +562,21 @@
                       <Sparkles
                         size={21}
                         strokeWidth={2.4}
-                        class="text-[var(--retinal-primary-600)]"
+                        class="text-[var(--retina-primary-600)]"
                         aria-hidden="true"
                       />
                     {:else if summary_obj.title === '얼굴형'}
                       <ScanFace
                         size={21}
                         strokeWidth={2.4}
-                        class="text-[var(--retinal-primary-600)]"
+                        class="text-[var(--retina-primary-600)]"
                         aria-hidden="true"
                       />
                     {:else}
                       <Ear
                         size={21}
                         strokeWidth={2.4}
-                        class="text-[var(--retinal-primary-600)]"
+                        class="text-[var(--retina-primary-600)]"
                         aria-hidden="true"
                       />
                     {/if}
@@ -596,7 +596,7 @@
                       </div>
                       <div class="px-4 py-3 text-center">
                         <p
-                          class="m-0 text-3xl font-extrabold tracking-normal text-[var(--retinal-primary-600)]"
+                          class="m-0 text-3xl font-extrabold tracking-normal text-[var(--retina-primary-600)]"
                         >
                           {summary_obj.value}
                         </p>
@@ -608,12 +608,12 @@
                     >
                       <section class="border-b border-slate-100 pb-5">
                         <div class="mb-3 flex items-center gap-2">
-                          <span class="h-2.5 w-2.5 rounded-full bg-[var(--retinal-primary-600)]"
+                          <span class="h-2.5 w-2.5 rounded-full bg-[var(--retina-primary-600)]"
                           ></span>
                           <h4 class="m-0 text-base font-extrabold text-zinc-950">피부톤 결과</h4>
                         </div>
                         <p
-                          class="m-0 text-4xl font-extrabold tracking-normal text-[var(--retinal-primary-600)]"
+                          class="m-0 text-4xl font-extrabold tracking-normal text-[var(--retina-primary-600)]"
                         >
                           {g_skin_tone_recommendation_obj.label}
                         </p>
@@ -624,7 +624,7 @@
 
                       <section>
                         <div class="mb-3 flex items-center gap-2">
-                          <span class="h-2.5 w-2.5 rounded-full bg-[var(--retinal-primary-600)]"
+                          <span class="h-2.5 w-2.5 rounded-full bg-[var(--retina-primary-600)]"
                           ></span>
                           <h4 class="m-0 text-base font-extrabold text-zinc-950">
                             안경테 컬러 추천
@@ -646,10 +646,10 @@
                     <div class="mt-7 flex flex-wrap gap-2">
                       {#each g_recommended_frame_arr as frame_obj (frame_obj.name)}
                         <span
-                          class={`inline-flex min-h-11 items-center rounded-lg border-2 border-[var(--retinal-primary-600)] px-4 py-2 text-base font-extrabold ${
+                          class={`inline-flex min-h-11 items-center rounded-lg border-2 border-[var(--retina-primary-600)] px-4 py-2 text-base font-extrabold ${
                             frame_obj.priority === 1
-                              ? 'bg-[var(--retinal-primary-600)] text-white'
-                              : 'bg-white text-[var(--retinal-primary-700)]'
+                              ? 'bg-[var(--retina-primary-600)] text-white'
+                              : 'bg-white text-[var(--retina-primary-700)]'
                           }`}
                           aria-label={frame_obj.priority === 1
                             ? `1순위 추천: ${frame_obj.name}`
@@ -673,8 +673,8 @@
                 <button
                   class={`min-h-10 cursor-pointer rounded-full border px-5 text-sm font-extrabold transition ${
                     ref_active_tab === tab_obj.key
-                      ? 'border-[var(--retinal-primary-600)] bg-[var(--retinal-primary-600)] text-white shadow-md shadow-purple-950/20'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-[var(--retinal-primary-600)]/40 hover:bg-[var(--retinal-soft-purple)] hover:text-[var(--retinal-primary-700)]'
+                      ? 'border-[var(--retina-primary-600)] bg-[var(--retina-primary-600)] text-white shadow-md shadow-purple-950/20'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-[var(--retina-primary-600)]/40 hover:bg-[var(--retina-soft-purple)] hover:text-[var(--retina-primary-700)]'
                   }`}
                   type="button"
                   aria-pressed={ref_active_tab === tab_obj.key}
@@ -689,7 +689,7 @@
               <div class="mt-4 grid min-h-0 flex-1 grid-cols-[minmax(0,520px)_1fr] gap-6">
                 <figure class="m-0 flex min-h-0 flex-col items-center">
                   <div
-                    class="relative aspect-[3/4] max-h-full max-w-full overflow-hidden rounded-lg bg-[var(--retinal-text)] text-slate-500"
+                    class="relative aspect-[3/4] max-h-full max-w-full overflow-hidden rounded-lg bg-[var(--retina-text)] text-slate-500"
                   >
                     {#if g_active_analysis_obj.image_src}
                       <img
@@ -711,7 +711,7 @@
                                 y1={shape_obj.y1}
                                 x2={shape_obj.x2}
                                 y2={shape_obj.y2}
-                                stroke="var(--retinal-accent)"
+                                stroke="var(--retina-accent)"
                                 stroke-width="3"
                                 stroke-linecap="round"
                                 vector-effect="non-scaling-stroke"
@@ -721,9 +721,9 @@
                                 cx={shape_obj.cx}
                                 cy={shape_obj.cy}
                                 r={shape_obj.r}
-                                fill="var(--retinal-accent)"
+                                fill="var(--retina-accent)"
                                 fill-opacity="0.3"
-                                stroke="var(--retinal-accent)"
+                                stroke="var(--retina-accent)"
                                 stroke-width="3"
                                 vector-effect="non-scaling-stroke"
                               />
@@ -733,9 +733,9 @@
                                 y={shape_obj.y}
                                 width={shape_obj.width}
                                 height={shape_obj.height}
-                                fill="var(--retinal-accent)"
+                                fill="var(--retina-accent)"
                                 fill-opacity="0.15"
-                                stroke="var(--retinal-accent)"
+                                stroke="var(--retina-accent)"
                                 stroke-width="3"
                                 vector-effect="non-scaling-stroke"
                               />
@@ -763,7 +763,7 @@
 
                     <div class="mt-2 rounded-lg border border-slate-200 bg-white px-5 py-3">
                       <div class="mb-2 flex items-center gap-2">
-                        <span class="h-2 w-2 rounded-full bg-[var(--retinal-primary-600)]"></span>
+                        <span class="h-2 w-2 rounded-full bg-[var(--retina-primary-600)]"></span>
                         <h3 class="m-0 text-base font-extrabold text-zinc-950">
                           {g_active_analysis_obj.measure_title}
                         </h3>
@@ -774,7 +774,7 @@
                           <div
                             class={`flex min-h-11 w-full items-center justify-between gap-4 rounded-md border-b border-slate-100 px-2 transition last:border-b-0 ${
                               ref_selected_measure_key === measure_obj.label
-                                ? 'bg-[var(--retinal-soft-purple)]'
+                                ? 'bg-[var(--retina-soft-purple)]'
                                 : 'hover:bg-slate-50'
                             }`}
                           >
@@ -799,7 +799,7 @@
                               </span>
                             {:else}
                               <Link
-                                class="ml-auto inline-flex flex-none items-center gap-1 rounded-md border border-[var(--retinal-primary-600)] bg-white px-2.5 py-1 text-xs font-extrabold text-[var(--retinal-primary-700)] transition hover:bg-[var(--retinal-soft-purple)]"
+                                class="ml-auto inline-flex flex-none items-center gap-1 rounded-md border border-[var(--retina-primary-600)] bg-white px-2.5 py-1 text-xs font-extrabold text-[var(--retina-primary-700)] transition hover:bg-[var(--retina-soft-purple)]"
                                 href={`${PATH.analysisFaceMeasurement}?item=${measure_obj.item_id}`}
                               >
                                 측정하기
@@ -815,7 +815,7 @@
                   {#if g_active_analysis_obj.sub_measure_arr}
                     <section class="rounded-lg border border-slate-200 bg-white px-5 py-3">
                       <div class="mb-2 flex items-center gap-2">
-                        <span class="h-2 w-2 rounded-full bg-[var(--retinal-primary-600)]"></span>
+                        <span class="h-2 w-2 rounded-full bg-[var(--retina-primary-600)]"></span>
                         <h3 class="m-0 text-base font-extrabold text-zinc-950">
                           {g_active_analysis_obj.sub_card_title}
                         </h3>
@@ -827,7 +827,7 @@
                             type="button"
                             class={`flex min-h-11 w-full cursor-pointer items-center justify-between gap-4 rounded-md border-b border-slate-100 px-2 text-left transition last:border-b-0 ${
                               ref_selected_measure_key === measure_obj.label
-                                ? 'bg-[var(--retinal-soft-purple)]'
+                                ? 'bg-[var(--retina-soft-purple)]'
                                 : 'hover:bg-slate-50'
                             }`}
                             aria-pressed={ref_selected_measure_key === measure_obj.label}
@@ -850,13 +850,13 @@
                   {#if g_active_analysis_obj.highlight_value}
                     <section class="rounded-lg border border-slate-200 bg-white px-5 py-3">
                       <div class="mb-2 flex items-center gap-2">
-                        <span class="h-2 w-2 rounded-full bg-[var(--retinal-primary-600)]"></span>
+                        <span class="h-2 w-2 rounded-full bg-[var(--retina-primary-600)]"></span>
                         <h3 class="m-0 text-base font-extrabold text-zinc-950">
                           {g_active_analysis_obj.sub_card_title}
                         </h3>
                       </div>
                       <div class="grid place-items-center py-1">
-                        <p class="m-0 text-4xl font-extrabold text-[var(--retinal-primary-600)]">
+                        <p class="m-0 text-4xl font-extrabold text-[var(--retina-primary-600)]">
                           {g_active_analysis_obj.highlight_value}
                         </p>
                         <p class="m-0 mt-2 text-xs font-bold text-slate-600">
@@ -882,14 +882,14 @@
         {/if}
         <div class="grid grid-cols-2 gap-4">
           <Link
-            class="grid min-h-16 place-items-center rounded-lg border border-[var(--retinal-border)] bg-white text-lg font-extrabold text-zinc-950 transition hover:border-[var(--retinal-primary-600)] hover:bg-[var(--retinal-soft-purple)] hover:text-[var(--retinal-primary-700)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/20"
+            class="grid min-h-16 place-items-center rounded-lg border border-[var(--retina-border)] bg-white text-lg font-extrabold text-zinc-950 transition hover:border-[var(--retina-primary-600)] hover:bg-[var(--retina-soft-purple)] hover:text-[var(--retina-primary-700)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/20"
             href={PATH.analysis}
           >
             다시 분석하기
           </Link>
           <button
             type="button"
-            class="grid min-h-16 grid-cols-[1fr_auto] items-center rounded-lg border-0 bg-[var(--retinal-primary-600)] px-8 text-center text-lg font-extrabold text-white transition hover:bg-[var(--retinal-primary-500)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/30 disabled:cursor-not-allowed disabled:opacity-60"
+            class="grid min-h-16 grid-cols-[1fr_auto] items-center rounded-lg border-0 bg-[var(--retina-primary-600)] px-8 text-center text-lg font-extrabold text-white transition hover:bg-[var(--retina-primary-500)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/30 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={g_is_submitting}
             onclick={on_click_submit_onboarding}
           >

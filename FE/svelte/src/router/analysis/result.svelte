@@ -336,7 +336,7 @@
   }
 </script>
 
-<main class="app-frame-page overflow-hidden bg-[#F7F8FA] text-[var(--retinal-text)]">
+<main class="app-frame-page overflow-hidden bg-[#F7F8FA] text-[var(--retina-text)]">
   <header
     class="grid h-[72px] grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-white px-8"
   >
@@ -355,7 +355,7 @@
 
     <div class="flex justify-end gap-3">
       <button
-        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-[var(--retinal-primary-700)] bg-[var(--retinal-primary-700)] px-4 text-sm font-extrabold text-white transition hover:bg-[var(--retinal-primary-600)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/30"
+        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-[var(--retina-primary-700)] bg-[var(--retina-primary-700)] px-4 text-sm font-extrabold text-white transition hover:bg-[var(--retina-primary-600)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/30"
         type="button"
         onclick={on_click_download_pdf}
       >
@@ -364,7 +364,7 @@
       </button>
 
       <button
-        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-[var(--retinal-primary-700)] bg-[var(--retinal-soft-purple)] px-4 text-sm font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-600)] hover:bg-[#EEDCF3] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/20"
+        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-[var(--retina-primary-700)] bg-[var(--retina-soft-purple)] px-4 text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-600)] hover:bg-[#EEDCF3] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/20"
         type="button"
         onclick={on_click_send_result}
       >
@@ -415,7 +415,7 @@
             {@const local_is_open = ref_open_photo_group_key_arr.includes(photo_group_obj.key)}
             <section class="rounded-[16px] bg-[#F8FAFD] p-4">
               <button
-                class="flex w-full cursor-pointer items-center justify-between rounded-[12px] border border-[#E8EEF6] bg-white px-4 py-3 text-left transition hover:border-[var(--retinal-primary-600)] hover:bg-[var(--retinal-soft-purple)]"
+                class="flex w-full cursor-pointer items-center justify-between rounded-[12px] border border-[#E8EEF6] bg-white px-4 py-3 text-left transition hover:border-[var(--retina-primary-600)] hover:bg-[var(--retina-soft-purple)]"
                 type="button"
                 onclick={() => on_click_toggle_photo_group(photo_group_obj.key)}
               >
@@ -549,7 +549,7 @@
                 {#if local_selected_option_arr.length > 0}
                   {#each local_selected_option_arr as option_obj, option_index (`${lens_group_obj.title}-${option_index}`)}
                     <span
-                      class="inline-flex min-h-11 items-center rounded-full border border-[var(--retinal-primary-700)] bg-[var(--retinal-soft-purple)] px-4 py-2 text-sm font-extrabold text-[var(--retinal-primary-700)]"
+                      class="inline-flex min-h-11 items-center rounded-full border border-[var(--retina-primary-700)] bg-[var(--retina-soft-purple)] px-4 py-2 text-sm font-extrabold text-[var(--retina-primary-700)]"
                     >
                       {option_obj.label}
                     </span>
@@ -576,8 +576,8 @@
               <button
                 class={`inline-flex min-h-11 cursor-pointer items-center rounded-full border px-5 text-sm font-extrabold transition ${
                   ref_selected_glasses_key === variant_obj.key
-                    ? 'border-[var(--retinal-primary-700)] bg-[var(--retinal-primary-700)] text-white'
-                    : 'border-[var(--retinal-border)] bg-white text-[var(--retinal-primary-700)] hover:border-[var(--retinal-primary-600)] hover:bg-[var(--retinal-soft-purple)]'
+                    ? 'border-[var(--retina-primary-700)] bg-[var(--retina-primary-700)] text-white'
+                    : 'border-[var(--retina-border)] bg-white text-[var(--retina-primary-700)] hover:border-[var(--retina-primary-600)] hover:bg-[var(--retina-soft-purple)]'
                 }`}
                 type="button"
                 onclick={() => on_click_select_glasses(variant_obj.key)}
@@ -697,13 +697,13 @@
 
       <div class="grid gap-3 md:grid-cols-2">
         <Link
-          class="grid min-h-14 place-items-center rounded-[14px] border border-[var(--retinal-border)] bg-white px-6 text-base font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-600)] hover:bg-[var(--retinal-soft-purple)] hover:text-[var(--retinal-primary-700)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/25"
+          class="grid min-h-14 place-items-center rounded-[14px] border border-[var(--retina-border)] bg-white px-6 text-base font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-600)] hover:bg-[var(--retina-soft-purple)] hover:text-[var(--retina-primary-700)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/25"
           href={PATH.analysis}
         >
           고객 페이지로 돌아가기
         </Link>
         <Link
-          class="grid min-h-14 place-items-center rounded-[14px] border border-[var(--retinal-primary-700)] bg-[var(--retinal-primary-700)] px-6 text-base font-extrabold !text-white transition hover:bg-[var(--retinal-primary-600)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-600)]/30"
+          class="grid min-h-14 place-items-center rounded-[14px] border border-[var(--retina-primary-700)] bg-[var(--retina-primary-700)] px-6 text-base font-extrabold !text-white transition hover:bg-[var(--retina-primary-600)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/30"
           href={PATH.users}
         >
           대시보드로 이동
