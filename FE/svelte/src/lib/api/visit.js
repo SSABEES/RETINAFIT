@@ -6,7 +6,7 @@ import { get_session_auth_headers } from '@/lib/api/session_auth'
  * @param {{ cust_no: number | string }} param_obj
  */
 export const get_visit_list = ({ cust_no }) => {
-  return apiRequest(`/api/v1/customers/${cust_no}/visits`, {
+  return apiRequest(`/api/v1/customers/${cust_no}/visit-history`, {
     headers: get_session_auth_headers(),
   })
 }
