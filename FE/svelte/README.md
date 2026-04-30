@@ -147,7 +147,7 @@ export const ROUTE_PATH = {
 - `primary_button.svelte`
 - `password_input.svelte`
 - `base_modal.svelte`
-- `users/[id].svelte`
+- `users/[id].svelte` 
  
 ### 배치 기준
 
