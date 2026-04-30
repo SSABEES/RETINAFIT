@@ -2,6 +2,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.common.s3_utils import get_presigned_download_url
 from app.common.exceptions import ExternalAPIException, NotFoundException
 from app.common.error_codes import ErrorCode
 from app.modules.visit import repository
@@ -10,11 +11,20 @@ from app.modules.visit.schemas import (
     CustomerSearchResponse,
     VisitCreateRequest,
     VisitCreateResponse,
-    VisitDetailResponse,
-    VisitHistoryItem,
+    VisitResponse,
     VisitHistoryResponse,
+    VisitUpdateRequest,
 )
 
+def _convert_visit_urls(visit: VisitResponse) -> VisitResponse:
+    """visit 이미지 key → 조회용 Presigned URL 변환"""
+    if visit.main_file:
+        visit.main_file = get_presigned_download_url(visit.main_file)
+    if visit.test_file_arr:
+        visit.test_file_arr = [get_presigned_download_url(k) for k in visit.test_file_arr]
+    if visit.vp_file_arr:
+        visit.vp_file_arr = [get_presigned_download_url(k) for k in visit.vp_file_arr]
+    return visit
 
 def _check_token_expired(data: dict):
     """토큰 만료 체크 - O_TOKEN이 -1이면 만료"""
@@ -154,7 +164,7 @@ async def get_visit_history(
     visits = await repository.get_visits_by_cust(db, cust_no)
     return VisitHistoryResponse(
         cust_no=cust_no,
-        visits=[VisitHistoryItem.model_validate(v) for v in visits],
+        visits=[_convert_visit_urls(VisitResponse.model_validate(v)) for v in visits],
     )
 
 
@@ -163,7 +173,7 @@ async def get_visit_history(
 async def get_visit(
     db: AsyncSession,
     visit_no: int,
-) -> VisitDetailResponse:
+) -> VisitResponse:
     """방문 단건 상세 조회"""
     visit = await repository.get_visit(db, visit_no)
     if not visit:
@@ -171,4 +181,21 @@ async def get_visit(
             error_code=ErrorCode.VISIT_NOT_FOUND,
             message="방문 정보를 찾을 수 없습니다.",
         )
-    return VisitDetailResponse.model_validate(visit)
+    return _convert_visit_urls(VisitResponse.model_validate(visit))
+
+
+async def update_visit(
+    db: AsyncSession,
+    visit_no: int,
+    request: VisitUpdateRequest,
+) -> VisitResponse:
+    """방문 데이터 업데이트"""
+    visit = await repository.update_visit(
+        db, visit_no, request.model_dump(exclude_unset=True)
+    )
+    if not visit:
+        raise NotFoundException(
+            error_code=ErrorCode.VISIT_NOT_FOUND,
+            message="방문 정보를 찾을 수 없습니다.",
+        )
+    return _convert_visit_urls(VisitResponse.model_validate(visit))

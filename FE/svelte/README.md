@@ -133,7 +133,7 @@ export const ROUTE_PATH = {
   userDetail: '/users/:id',
 }
 ```
-  
+
 ## 컴포넌트 작성 규칙
 
 ### 파일명
@@ -143,12 +143,12 @@ export const ROUTE_PATH = {
 - 동적 라우트 파일은 `[id].svelte`처럼 파라미터 이름을 대괄호로 표현합니다.
 
 예시:
-
+   
 - `primary_button.svelte`
 - `password_input.svelte`
 - `base_modal.svelte`
-- `users/[id].svelte`
-
+- `users/[id].svelte` 
+ 
 ### 배치 기준
 
 - 여러 페이지에서 재사용하면 `src/components`에 둡니다.

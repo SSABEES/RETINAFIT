@@ -35,8 +35,8 @@ services:
     build: ./FE
     env_file:
       - ./FE/.env.prod
-    ports:
-      - "80:80"
+    expose:
+      - "80"
     depends_on:
       - be
     restart: unless-stopped
@@ -46,8 +46,10 @@ services:
     image: nginx:alpine
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - ./infra/nginx.conf:/etc/nginx/nginx.conf
+      - ./INF/nginx.conf:/etc/nginx/nginx.conf
+      - /etc/letsencrypt:/etc/letsencrypt
     depends_on:
       - be
       - fe

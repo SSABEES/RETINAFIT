@@ -18,7 +18,13 @@
     FileText,
   } from 'lucide-svelte'
   import CameraView from '@/components/camera/camera_view.svelte'
+  import CameraPermissionModal from '@/components/modal/camera_permission_modal.svelte'
   import { PATH } from '@/config/path'
+  import {
+    check_camera_permission_state,
+    request_camera_permission,
+    watch_camera_permission_change,
+  } from '@/lib/capture/permission'
   import {
     get_all_glasses,
     request_fitting_presigned_urls,
@@ -43,7 +49,6 @@
    * }} CaptureSlot
    */
 
-  /* ── 안경 목록 상태 ──────────────────────────────────────── */
   let g_recommended_arr = $state([])
   let g_loading = $state(true)
   let g_selected_id = $state(null)
@@ -54,6 +59,8 @@
   let g_flutter_availability = $state('UNKNOWN')
   let g_flutter_event_text = $state('')
   let g_flutter_launch_loading = $state(false)
+  // Native AR 호출 후 웹 카메라 스트림이 끊긴 경우 재시작 트리거
+  let g_camera_active = $state(true)
   /** @type {{ trigger_capture: () => Promise<boolean>, reset: () => void } | null} */
   let ref_this_camera = $state(null)
 
@@ -68,7 +75,6 @@
     return 'front'
   })
 
-  /* ── 다중 피팅 상태 ──────────────────────────────────────── */
   // { glasses_id, brand, model, captures } 형태로 최대 5개 저장
   let g_saved_fittings_arr = $state([])
 
@@ -83,12 +89,11 @@
     }, {}),
   )
 
-  /* ── 토스트 알림 ─────────────────────────────────────────── */
   let g_toast_msg = $state('')
   let g_toast_timer = $state(null)
 
   /**
-   * 토스트 메시지를 띄우고 2.8초 뒤 자동 제거
+   * 메시지를 띄우고 2.8초 뒤 내림
    */
   function show_toast(msg) {
     g_toast_msg = msg
@@ -96,12 +101,11 @@
     g_toast_timer = setTimeout(() => (g_toast_msg = ''), 2800)
   }
 
-  /* ── 프레임 필터 옵션 ────────────────────────────────────── */
   const FRAME_TYPE_OPTIONS = ['풀프레임', '하프프레임', '무프레임']
   const MATERIAL_OPTIONS = ['아세테이트', '메탈', '티타늄', '혼합']
   const CATEGORY_OPTIONS = ['안경', '선글라스', '스포츠']
 
-  // 안경 목록 API 응답을 현재 피팅 카드와 필터에서 쓰는 필드 구조로 정규화한다.
+  // API 응답을 피팅 카드·필터에서 사용하는 필드 구조로 정규화
   function normalize_glasses_arr(glass_arr) {
     return (Array.isArray(glass_arr) ? glass_arr : []).map((local_glass_obj, local_index) => {
       const local_spec_obj = local_glass_obj.glasses_spec_json ?? {}
@@ -160,13 +164,6 @@
       !g_flutter_launch_loading,
   )
 
-  $effect(() => {
-    if (g_glasses_arr.length > 0 && !g_glasses_arr.find((g) => g.id === g_selected_id)) {
-      g_selected_id = g_glasses_arr[0].id
-      g_capture_slot_arr = [null, null, null]
-    }
-  })
-
   onMount(() => {
     g_show_intro = true
     setTimeout(() => (g_show_intro = false), 3200)
@@ -194,24 +191,21 @@
       const local_data_text = JSON.stringify(local_event_obj?.data ?? {})
 
       g_flutter_event_text = `${local_event_name}: ${local_data_text}`
+
+      // Native AR 종료 → WEB 카메라 stream으로
+      if (local_event_name === 'closed') {
+        g_camera_active = false
+        setTimeout(() => {
+          g_camera_active = true
+        }, 200)
+      }
     })
 
     get_all_glasses()
       .then((local_glass_arr) => {
         const local_normalized_glass_arr = normalize_glasses_arr(local_glass_arr)
-        // 안경 목록의 2D 이미지 / 3D 파일 S3 경로 디버그 출력
-        console.table(
-          local_normalized_glass_arr.map((local_glasses_obj) => ({
-            glasses_no: local_glasses_obj.glasses_no,
-            brand: local_glasses_obj.brand,
-            model: local_glasses_obj.model,
-            img_url: local_glasses_obj.img_url,
-            glasses_3d_url: local_glasses_obj.glasses_3d_url,
-          })),
-        )
         g_all_glasses_arr = local_normalized_glass_arr
         g_recommended_arr = local_normalized_glass_arr.slice(0, 5)
-        g_selected_id = g_recommended_arr[0]?.id ?? null
       })
       .catch(() => {
         g_all_glasses_arr = []
@@ -228,22 +222,25 @@
   })
 
   /**
-   * 안경 선택 시 id를 저장하고 캡쳐 슬롯을 초기화 (미완료 캡쳐는 버려진다)
+   * 안경 선택 시 id를 저장하고 캡쳐 슬롯을 초기화
    * 이미 5개를 채웠다면 토스트 경고 후 차단
    */
   function on_click_select_glasses(id) {
-    if (id === g_selected_id) return
     if (g_saved_fittings_arr.length >= MAX_FITTINGS) {
       show_toast(
         `피팅은 최대 ${MAX_FITTINGS}개까지만 저장할 수 있습니다. 저장된 피팅을 취소한 뒤 다시 시도하세요.`,
       )
       return
     }
-    clear_capture_slot_arr()
-    g_selected_id = id
-    ref_this_camera?.reset()
+    // 다른 안경으로 변경할 때만 캡쳐 슬롯/카메라 리셋. 같은 카드 재클릭은 AR 재진입만 허용.
+    if (id !== g_selected_id) {
+      clear_capture_slot_arr()
+      g_selected_id = id
+      ref_this_camera?.reset()
+    }
 
-    const local_glasses_obj = g_glasses_arr.find((local_item_obj) => local_item_obj.id === id) ?? null
+    const local_glasses_obj =
+      g_glasses_arr.find((local_item_obj) => local_item_obj.id === id) ?? null
     if (local_glasses_obj && g_flutter_bridge_ready && g_flutter_availability === 'SUPPORTED') {
       void launch_flutter_fitting_for_glasses(local_glasses_obj)
     }
@@ -285,7 +282,7 @@
       const local_is_captured = await ref_this_camera.trigger_capture()
 
       if (!local_is_captured) {
-        show_toast('?쇨뎬??媛먯??섏? ?딆븘 珥ъ쁺???섎? ?딆븯?듬땲??')
+        show_toast('카메라가 준비되지 않아 캡처하지 못했습니다.')
       }
     } finally {
       g_is_capturing = false
@@ -322,7 +319,7 @@
 
   function on_capture_camera_error() {
     g_is_capturing = false
-    show_toast('移대찓??珥ъ쁺???ㅽ뙣?덉뒿?덈떎.')
+    show_toast('카메라 촬영에 실패했습니다.')
   }
 
   function on_click_reset_slot(idx) {
@@ -369,11 +366,10 @@
       const glasses_info = g_glasses_arr.find((g) => g.id === g_selected_id)
       const local_glasses_no = glasses_info?.glasses_no ?? g_selected_id
 
-      // 1단계: 안경별 Presigned URL 발급 (front/left/right)
+      // 안경별 Presigned URL 발급 (front/left/right)
       const local_presigned = await request_fitting_presigned_urls(local_visit_no, local_glasses_no)
 
-      // 2단계: front → left → right 순으로 S3에 PUT 업로드
-      // 실제 File이 아닌 슬롯(카메라 미연동)은 더미 파일로 대체
+      // front, left, right 순으로 S3에 PUT
       const local_file_arr = g_capture_slot_arr.map((local_capture_slot_obj) =>
         local_capture_slot_obj?.file_obj instanceof File
           ? local_capture_slot_obj.file_obj
@@ -397,7 +393,7 @@
         ),
       )
 
-      // 3단계: 업로드된 key 배열로 백엔드에 저장
+      // 업로드된 key 배열 백엔드로 보내 저장
       await confirm_fitting_result(local_visit_no, {
         vp_file_arr: [
           local_presigned.front_key,
@@ -445,7 +441,7 @@
   }
 
   /**
-   * 선택한 안경의 native asset 경로를 확인한 뒤 Flutter AR 피팅 화면을 연다.
+   * 선택한 안경의 native asset 경로를 확인하고 Flutter AR 피팅 화면 열기
    */
   async function on_click_launch_flutter_fitting() {
     if (!g_flutter_bridge_ready) {
@@ -481,8 +477,6 @@
     }
   }
 
-  /* ── 프레임 필터 모달 ────────────────────────────────────── */
-
   /**
    * 필터 모달 열기 시 전체 안경 목록을 한 번만 fetch
    */
@@ -515,7 +509,6 @@
     g_filter_obj = { frame_type_arr: [], material_arr: [], category_arr: [] }
   }
 
-  /* ── 사용 가이드 투어 ────────────────────────────────────── */
   let g_guide_step = $state(0)
 
   const GUIDE_STEP_ARR = [
@@ -570,6 +563,54 @@
 
   let g_highlight_camera = $derived(g_guide_step === 2)
   let g_highlight_aside = $derived([1, 3, 4, 5].includes(g_guide_step))
+
+  let g_permission_state = $state(
+    /** @type {'granted' | 'denied' | 'prompt' | 'unsupported'} */ ('prompt'),
+  )
+  let g_permission_modal_open = $state(false)
+
+  // 카메라 권한 요청
+  async function on_click_allow_camera() {
+    const local_ok = await request_camera_permission()
+    g_permission_state = local_ok ? 'granted' : 'denied'
+  }
+
+  // 사용자가 완료를 눌러 모달을 닫음
+  function on_click_close_camera_modal() {
+    g_permission_modal_open = false
+  }
+
+  onMount(() => {
+    let local_unwatch = /** @type {(() => void) | null} */ (null)
+    let local_cancelled = false
+
+    ;(async () => {
+      const local_state = await check_camera_permission_state()
+      if (local_cancelled) return
+
+      g_permission_state = local_state
+      if (local_state !== 'granted' && local_state !== 'unsupported') {
+        g_permission_modal_open = true
+      }
+
+      local_unwatch = await watch_camera_permission_change((local_next_state) => {
+        g_permission_state = local_next_state
+        if (local_next_state !== 'granted' && local_next_state !== 'unsupported') {
+          g_permission_modal_open = true
+        }
+      })
+
+      if (local_cancelled) {
+        local_unwatch?.()
+        local_unwatch = null
+      }
+    })()
+
+    return () => {
+      local_cancelled = true
+      local_unwatch?.()
+    }
+  })
 </script>
 
 <main class="app-frame-page flex overflow-hidden bg-[#F8F9FA] text-zinc-900">
@@ -610,7 +651,7 @@
       <div class="absolute inset-0 overflow-hidden rounded-[2.5rem] border-[16px] border-white/5">
         <CameraView
           bind:this={ref_this_camera}
-          active={true}
+          active={g_camera_active}
           pose_target={g_camera_pose_target}
           capture_mode="manual"
           show_overlay={false}
@@ -638,20 +679,8 @@
 
       {#if g_next_slot_idx !== -1}
         <div class="absolute bottom-10 left-1/2 flex -translate-x-1/2 flex-col items-center gap-4">
-          {#if g_flutter_bridge_ready}
-            <button
-              type="button"
-              onclick={on_click_launch_flutter_fitting}
-              disabled={!g_can_launch_flutter_fitting}
-              class="rounded-full border border-white/20 bg-black/50 px-4 py-2 text-xs font-bold text-white backdrop-blur-md transition hover:bg-black/65 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {#if g_flutter_launch_loading}
-                Flutter AR 실행 중...
-              {:else}
-                Flutter AR 피팅 열기
-              {/if}
-            </button>
-          {/if}
+          <!-- "Flutter AR 피팅 열기" 버튼 제거 — 우측 안경 카드 클릭이 AR 트리거로 동작함 -->
+
           <p class="rounded-full bg-black/40 px-4 py-1 font-medium text-white/80 backdrop-blur-md">
             {SLOT_LABEL_ARR[g_next_slot_idx]} 각도를 촬영해주세요
           </p>
@@ -672,7 +701,9 @@
         </div>
       {/if}
       {#if g_flutter_bridge_ready}
-        <div class="absolute left-6 top-6 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-xs text-white/85 backdrop-blur-md">
+        <div
+          class="absolute left-6 top-6 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-xs text-white/85 backdrop-blur-md"
+        >
           <p class="font-black">Flutter Bridge</p>
           <p class="mt-1">status: {g_flutter_availability}</p>
           <p class="mt-1">asset: {g_selected_asset_path || 'none'}</p>
@@ -713,7 +744,11 @@
               }`}
             >
               {#if slot}
-                <img src={slot.object_url} alt={SLOT_LABEL_ARR[idx]} class="h-full w-full rounded-2xl object-cover" />
+                <img
+                  src={slot.object_url}
+                  alt={SLOT_LABEL_ARR[idx]}
+                  class="h-full w-full rounded-2xl object-cover"
+                />
                 <button
                   type="button"
                   onclick={() => on_click_reset_slot(idx)}
@@ -1153,6 +1188,13 @@
     </div>
   </div>
 {/if}
+
+<CameraPermissionModal
+  open={g_permission_modal_open}
+  permission_state={g_permission_state}
+  onallow={on_click_allow_camera}
+  onclose={on_click_close_camera_modal}
+/>
 
 <style>
   .custom-scrollbar::-webkit-scrollbar {

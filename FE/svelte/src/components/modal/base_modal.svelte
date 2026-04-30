@@ -18,7 +18,7 @@
 
 {#if open}
   <div class="fixed inset-0 z-50 grid place-items-center bg-black/45 px-5" role="presentation">
-    <section
+    <div
       class="w-full max-w-sm rounded-lg bg-white p-6 text-left shadow-xl"
       role="dialog"
       aria-modal="true"
@@ -35,6 +35,6 @@
       >
         {closeLabel}
       </button>
-    </section>
+    </div>
   </div>
 {/if}

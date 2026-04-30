@@ -1,7 +1,6 @@
 export const PATH = {
   home: '/',
   login: '/auth/login',
-  storeSelect: '/auth/store-select',
   opticianSelect: '/auth/optician-select',
   analysis: '/analysis',
   analysisFaceMeasurement: '/analysis/face-measurement',
@@ -14,6 +13,7 @@ export const PATH = {
   sales: '/dashboard/sales',
   branches: '/dashboard/branches',
   admin: '/admin',
+  adminLogin: '/admin/login',
   adminFace: '/admin/face',
   adminLens: '/admin/lens',
   adminGlass: '/admin/glass',

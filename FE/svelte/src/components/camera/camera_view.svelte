@@ -18,6 +18,7 @@
    * @typedef {import("@/lib/mediapipe/face_types.js").FrontalCheck} FrontalCheck
    * @typedef {import("@/lib/mediapipe/face_types.js").CompletenessCheck} CompletenessCheck
    * @typedef {import("@/lib/mediapipe/face_types.js").Point2D} Point2D
+   * @typedef {'head_left' | 'head_right' | 'head_center' | 'count_three' | 'count_two' | 'count_one' | 'count_click'} AudioPromptKey
    *
    * @typedef {object} CaptureResult
    * @property {Blob} blob
@@ -27,6 +28,7 @@
    * @property {number} height
    * @property {FaceMeasurements | null} measurements_obj
    * @property {Record<string, [Point2D, Point2D]> | null} measurement_points_obj
+   * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[] | null} landmarks
    */
 
   /** @type {{
@@ -73,6 +75,16 @@
   let g_last_detection = null
   let g_frame_counter = 0
   let g_already_dispatched = false
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let g_capture_timeout = null
+  /** @type {HTMLAudioElement | null} */
+  let g_active_prompt_audio = null
+  /** @type {'idle' | 'started' | 'final'} */
+  let g_stability_audio_stage = 'idle'
+  /** @type {AudioPromptKey | null} */
+  let g_last_audio_key = null
+  let g_last_audio_at = 0
+  let g_capture_sequence_token = 0
 
   let g_init_error = $state(/** @type {string | null} */ (null))
   let g_permission_denied = $state(false)
@@ -86,6 +98,7 @@
   /** @type {FaceMeasurements[]} */
   let g_buffer_arr = []
   let g_stable_count = $state(0)
+  let g_is_landmark_visible = $state(true)
 
   const g_is_stable = $derived(g_stable_count >= STABILITY_FRAMES)
   const g_stability_progress = $derived(
@@ -150,6 +163,46 @@
     }
   })
 
+  $effect(() => {
+    if (!active || !g_is_auto_capture || g_already_dispatched) return
+
+    const can_measure = g_face_detected && g_complete_obj.is_complete && !!g_frontal_obj?.is_frontal
+
+    if (can_measure && g_is_stable) {
+      if (g_stability_audio_stage !== 'final') {
+        g_stability_audio_stage = 'final'
+        void run_auto_capture_sequence()
+      }
+      return
+    }
+
+    if (g_capture_timeout !== null) {
+      clearTimeout(g_capture_timeout)
+      g_capture_timeout = null
+    }
+    g_stability_audio_stage = 'idle'
+  })
+
+  $effect(() => {
+    if (!active || !g_is_auto_capture || g_already_dispatched || g_stability_audio_stage !== 'idle') {
+      return
+    }
+
+    /** @type {'head_left' | 'head_right' | 'head_center' | null} */
+    let next_audio_key = null
+
+    if (g_face_detected) {
+      if (!g_complete_obj.is_complete) {
+        next_audio_key = 'head_center'
+      } else if (g_frontal_obj && !g_frontal_obj.is_frontal && g_frontal_obj.reason === 'yaw') {
+        next_audio_key = g_frontal_obj.yaw > 0 ? 'head_right' : 'head_left'
+      }
+    }
+
+    if (!next_audio_key) return
+    void play_prompt_audio(next_audio_key)
+  })
+
   // 사용자 카메라 권한을 요청하고 MediaPipe 모델을 로드해 rAF 루프를 시작한다.
   // 각 await 지점 뒤에 세대 토큰을 검사해, 중간에 on_stop_camera 가 끼어들면 조용히 빠져나간다.
   async function on_start_camera() {
@@ -158,6 +211,9 @@
       g_init_error = null
       g_permission_denied = false
       g_already_dispatched = false
+      g_stability_audio_stage = 'idle'
+      g_last_audio_key = null
+      g_capture_sequence_token += 1
       g_buffer_arr = []
       g_stable_count = 0
       g_face_detected = false
@@ -209,6 +265,14 @@
   // 이어가지 못하도록 세대 토큰을 증가시킨다.
   function on_stop_camera() {
     g_start_generation++
+    if (g_capture_timeout !== null) {
+      clearTimeout(g_capture_timeout)
+      g_capture_timeout = null
+    }
+    g_capture_sequence_token += 1
+    stop_prompt_audio()
+    g_stability_audio_stage = 'idle'
+    g_last_audio_key = null
     if (g_raf_id !== null) {
       cancelAnimationFrame(g_raf_id)
       g_raf_id = null
@@ -222,6 +286,81 @@
       ref_this_video_el.srcObject = null
     }
     clear_video_cache()
+  }
+
+  async function run_auto_capture_sequence() {
+    const my_token = ++g_capture_sequence_token
+    /** @type {AudioPromptKey[]} */
+    const sequence = ['count_three', 'count_two', 'count_one', 'count_click']
+
+    for (const file_key of sequence) {
+      if (
+        my_token !== g_capture_sequence_token ||
+        !active ||
+        !g_is_auto_capture ||
+        g_already_dispatched
+      ) {
+        return
+      }
+
+      await play_prompt_audio(file_key)
+    }
+
+    if (
+      my_token !== g_capture_sequence_token ||
+      !active ||
+      !g_is_auto_capture ||
+      g_already_dispatched
+    ) {
+      return
+    }
+
+    const avg = get_average()
+    await trigger_capture_internal(avg)
+  }
+
+  /**
+   * @param {AudioPromptKey} file_key
+   */
+  async function play_prompt_audio(file_key) {
+    if (typeof window === 'undefined') return
+
+    const now = Date.now()
+    if (g_last_audio_key === file_key && now - g_last_audio_at < 1200) return
+    if (g_active_prompt_audio && !g_active_prompt_audio.paused && !g_active_prompt_audio.ended) return
+
+    const audio = new Audio(`/tts/${file_key}.mp3`)
+    audio.preload = 'auto'
+    g_active_prompt_audio = audio
+    g_last_audio_key = file_key
+    g_last_audio_at = now
+
+    const clear_active_audio = () => {
+      if (g_active_prompt_audio === audio) {
+        g_active_prompt_audio = null
+      }
+    }
+
+    audio.addEventListener('ended', clear_active_audio, { once: true })
+    audio.addEventListener('pause', clear_active_audio, { once: true })
+
+    try {
+      await audio.play()
+      await new Promise((resolve) => {
+        audio.addEventListener('ended', resolve, { once: true })
+        audio.addEventListener('pause', resolve, { once: true })
+        audio.addEventListener('error', resolve, { once: true })
+      })
+    } catch {
+      clear_active_audio()
+    }
+  }
+
+  function stop_prompt_audio() {
+    if (!g_active_prompt_audio) return
+    g_active_prompt_audio.pause()
+    g_active_prompt_audio.currentTime = 0
+    g_active_prompt_audio = null
   }
 
   /**
@@ -257,6 +396,7 @@
   function get_average() {
     const recent = g_buffer_arr.slice(-10)
     if (recent.length === 0) return null
+    /** @param {keyof FaceMeasurements} k */
     const avg = (k) => Math.round(recent.reduce((s, m) => s + m[k], 0) / recent.length)
     return {
       face_width: avg('face_width'),
@@ -265,6 +405,10 @@
       pd_pixels: avg('pd_pixels'),
       nose_width: avg('nose_width'),
       jaw_width: avg('jaw_width'),
+      forehead_width: avg('forehead_width'),
+      cheekbone_width: avg('cheekbone_width'),
+      right_pd_pixels: avg('right_pd_pixels'),
+      left_pd_pixels: avg('left_pd_pixels'),
     }
   }
 
@@ -310,11 +454,17 @@
 
     sync_canvas_size()
     if (show_overlay && ref_this_canvas_el) {
-      draw_face_mesh(ref_this_canvas_el, g_last_detection)
+      const ctx = ref_this_canvas_el.getContext('2d')
+      if (ctx) {
+        ctx.clearRect(0, 0, ref_this_canvas_el.width, ref_this_canvas_el.height)
+      }
+      if (g_is_landmark_visible) {
+        draw_face_mesh(ref_this_canvas_el, g_last_detection)
+      }
       draw_guide_ellipse()
     }
 
-    if (g_is_auto_capture && g_is_stable && !g_already_dispatched) {
+    if (false && g_is_auto_capture && g_is_stable && !g_already_dispatched) {
       // 정면 + 자동 모드일 때만 안정화 후 자동 캡쳐. measurement 는 평균값을 사용.
       const avg = get_average()
       void trigger_capture_internal(avg)
@@ -331,6 +481,10 @@
   async function trigger_capture_internal(measurements_obj) {
     if (g_already_dispatched) return
     if (!ref_this_video_el || !g_stream) return
+    if (g_capture_timeout !== null) {
+      clearTimeout(g_capture_timeout)
+      g_capture_timeout = null
+    }
     g_already_dispatched = true
     try {
       const { blob, width, height } = await video_to_blob(ref_this_video_el)
@@ -348,6 +502,7 @@
         captured_at: Date.now(),
         measurements_obj: measurements_obj ?? null,
         measurement_points_obj,
+        landmarks,
       })
     } catch (err) {
       // 촬영 실패 시 재시도 가능하도록 dispatched 플래그 해제 + 소비자에게 에러 알림.
@@ -435,7 +590,7 @@
     ctx.shadowBlur = 4
     ctx.strokeStyle = g_guide_color
     ctx.lineWidth = 3
-    ctx.setLineDash(g_is_stable ? [] : [14, 7])
+    ctx.setLineDash([14, 7])
 
     ctx.beginPath()
     ctx.moveTo(cx, top_y)
@@ -472,9 +627,17 @@
    * 수동 스텝에서 `trigger_capture()` 호출이 다시 수락되도록 재장전된다.
    */
   export function reset() {
+    if (g_capture_timeout !== null) {
+      clearTimeout(g_capture_timeout)
+      g_capture_timeout = null
+    }
+    g_capture_sequence_token += 1
+    stop_prompt_audio()
     g_already_dispatched = false
     g_buffer_arr = []
     g_stable_count = 0
+    g_stability_audio_stage = 'idle'
+    g_last_audio_key = null
   }
 
   /**
@@ -511,6 +674,19 @@
   {/if}
 
   <div class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black">
+    {#if active}
+      <button
+        type="button"
+        class="absolute right-2.5 top-2.5 z-20 rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-black/75"
+        onclick={() => {
+          g_is_landmark_visible = !g_is_landmark_visible
+        }}
+        aria-pressed={g_is_landmark_visible}
+      >
+        {g_is_landmark_visible ? '얼굴 랜드마크 끄기' : '얼굴 랜드마크 켜기'}
+      </button>
+    {/if}
+
     <video
       bind:this={ref_this_video_el}
       class="absolute inset-0 h-full w-full object-cover"

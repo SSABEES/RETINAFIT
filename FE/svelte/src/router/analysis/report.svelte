@@ -12,7 +12,15 @@
   } from '@/lib/stores/capture_session.svelte.js'
   import { compute_evaluations } from '@/lib/measurements/measurement_evaluator.js'
   import { points_to_overlay_line } from '@/lib/measurements/overlay_utils.js'
-  import { save_face_analysis } from '@/lib/api/analysis.js'
+  import {
+    EAR_HEIGHT_DIFF_THRESHOLD_MM,
+    WARNING_CODE,
+  } from '@/lib/measurements/thresholds.js'
+  import { upload_captures_to_s3, save_face_analysis } from '@/lib/api/analysis.js'
+  import {
+    get_skin_tone_recommendation,
+    get_frame_styles_for_face_shape,
+  } from '@/lib/recommendations/frame_recommendations.js'
 
   /** @typedef {import('@/lib/measurements/template.js').ViewAngle} ViewAngle */
 
@@ -90,6 +98,18 @@
   }
 
   /**
+   * 부호 있는 mm 값을 표시 문자열로 변환. null/undefined 면 '—'.
+   * 음수는 U+2212 minus sign 으로 표기 (시각적 일관성).
+   * @param {number | null | undefined} value_mm
+   * @returns {string}
+   */
+  function format_signed_mm(value_mm) {
+    if (value_mm === null || value_mm === undefined) return '—'
+    const sign = value_mm >= 0 ? '' : '−'
+    return `${sign}${Math.abs(value_mm).toFixed(1)} mm`
+  }
+
+  /**
    * 평가 톤 → 텍스트 컬러 클래스 매핑.
    * @param {'emerald' | 'amber' | 'red' | 'slate'} tone
    * @returns {string}
@@ -136,6 +156,64 @@
           tone: eval_tone_class(ev.tone),
           overlay_arr: [],
         }))
+
+      // 정면 미착용 탭에만 face_shape_result 기반 synthetic row 추가.
+      if (tab.key === 'front_no_glasses' && g_face_shape_result) {
+        const eo = g_face_shape_result.ear_offsets_obj
+        if (eo) {
+          measure_arr.push({
+            label: '우측 귀 높이',
+            item_id: 'right_ear_height_synthetic',
+            value: format_signed_mm(eo.right_y_offset_mm),
+            has_value: eo.right_y_offset_mm !== null,
+            source: 'auto',
+            note: '',
+            tone: 'text-zinc-950',
+            overlay_arr: [],
+          })
+          measure_arr.push({
+            label: '좌측 귀 높이',
+            item_id: 'left_ear_height_synthetic',
+            value: format_signed_mm(eo.left_y_offset_mm),
+            has_value: eo.left_y_offset_mm !== null,
+            source: 'auto',
+            note: '',
+            tone: 'text-zinc-950',
+            overlay_arr: [],
+          })
+
+          // 좌우 차이 평가 — GUIDEBOOK 임계값 4mm.
+          if (eo.right_y_offset_mm !== null && eo.left_y_offset_mm !== null) {
+            const diff = Math.abs(eo.right_y_offset_mm - eo.left_y_offset_mm)
+            const flagged = diff >= EAR_HEIGHT_DIFF_THRESHOLD_MM
+            sub_measure_arr.push({
+              label: '귀 높이 좌우 차',
+              value: flagged
+                ? `${diff.toFixed(1)} mm (좌우 차이 큼)`
+                : `${diff.toFixed(1)} mm`,
+              tone: flagged ? 'text-amber-600' : 'text-emerald-600',
+              overlay_arr: [],
+            })
+          }
+        }
+
+        const a = g_face_shape_result.asymmetry
+        if (a) {
+          const score_tone = a.score >= 80
+            ? 'text-emerald-600'
+            : a.score >= 60
+              ? 'text-slate-600'
+              : a.score >= 40
+                ? 'text-amber-600'
+                : 'text-red-600'
+          sub_measure_arr.push({
+            label: '좌우 비대칭',
+            value: `${a.score}점`,
+            tone: score_tone,
+            overlay_arr: [],
+          })
+        }
+      }
       result[tab.key] = {
         image_caption: tab.image_caption,
         image_src: capture?.object_url ?? null,
@@ -149,27 +227,15 @@
     return result
   })
 
+  // alias 는 customer DB 호환용 — 분류기는 직접 5종 소문자 키를 출력하지만
+  // 기존 DB 에 저장된 대문자(LONG/TRIANGLE 등) 또는 한글 라벨도 정상 매핑되도록 둔다.
   const g_face_shape_meta_obj = {
-    oval: { label: '계란형', aliases: ['계란형', '타원형', 'oval'] },
-    round: { label: '둥근형', aliases: ['둥근형', 'round'] },
-    heart: { label: '하트형', aliases: ['하트형', 'heart'] },
-    square: { label: '사각형', aliases: ['사각형', 'square'] },
-    oblong: { label: '긴형', aliases: ['긴형', '긴 얼굴형', 'oblong'] },
+    oval: { label: '계란형', aliases: ['oval', 'OVAL', '계란형', '타원형'] },
+    round: { label: '둥근형', aliases: ['round', 'ROUND', '둥근형'] },
+    heart: { label: '하트형', aliases: ['heart', 'TRIANGLE', '하트형'] },
+    square: { label: '사각형', aliases: ['square', 'SQUARE', '사각형'] },
+    oblong: { label: '긴형', aliases: ['oblong', 'LONG', '긴형', '긴 얼굴형'] },
   }
-
-  // 안경테 카탈로그. 각 프레임 이름과 어울리는 얼굴형 키를 매핑한다.
-  const g_frame_catalog_arr = [
-    { name: '라운드', face_shape_key_arr: ['square', 'oblong'] },
-    { name: '오벌', face_shape_key_arr: ['oval', 'round', 'heart', 'square', 'oblong'] },
-    { name: '스퀘어', face_shape_key_arr: ['round', 'oval'] },
-    { name: '직사각형', face_shape_key_arr: ['round', 'oblong'] },
-    { name: '보잉', face_shape_key_arr: ['square', 'heart'] },
-    { name: '캣아이', face_shape_key_arr: ['round', 'square'] },
-    { name: '브로우라인', face_shape_key_arr: ['oval', 'square'] },
-    { name: '기하학', face_shape_key_arr: ['oval', 'round'] },
-    { name: '오버사이즈', face_shape_key_arr: ['oblong', 'oval'] },
-    { name: '림리스', face_shape_key_arr: ['oval', 'round', 'heart', 'square', 'oblong'] },
-  ]
 
   function normalize_face_shape_key(face_shape_value) {
     const local_value = String(face_shape_value ?? '')
@@ -220,53 +286,6 @@
     }[local_gender_key][face_shape_key]
   }
 
-  function get_skin_tone_meta(skin_tone_value) {
-    const local_value = String(skin_tone_value ?? '')
-      .trim()
-      .toUpperCase()
-
-    if (local_value === 'COOL' || local_value.includes('쿨')) {
-      return {
-        label: 'COOL',
-        detail: '차가운 톤',
-        chips: [
-          { label: '실버', tone_class: 'bg-[#A7B0BC]' },
-          { label: '블랙', tone_class: 'bg-[#111827]' },
-          { label: '블루', tone_class: 'bg-[#4A6CF7]' },
-          { label: '퍼플', tone_class: 'bg-[#8B5CF6]' },
-        ],
-      }
-    }
-
-    if (
-      local_value === 'NEUTRAL' ||
-      local_value.includes('뉴트럴') ||
-      local_value.includes('중성')
-    ) {
-      return {
-        label: 'NEUTRAL',
-        detail: '중성 톤',
-        chips: [
-          { label: '모든 색상 가능', tone_class: 'bg-[#64748B]' },
-          { label: '고객 선호 반영', tone_class: 'bg-[#9A1BFF]' },
-          { label: '균형감 있는 색', tone_class: 'bg-[#94A3B8]' },
-          { label: '무난한 선택', tone_class: 'bg-[#C084FC]' },
-        ],
-      }
-    }
-
-    return {
-      label: 'WARM',
-      detail: '따뜻한 톤',
-      chips: [
-        { label: '골드', tone_class: 'bg-[#D4A63F]' },
-        { label: '브라운', tone_class: 'bg-[#8B5E3C]' },
-        { label: '버건디', tone_class: 'bg-[#7A1E3A]' },
-        { label: '토트이즈', tone_class: 'bg-[#B86B2C]' },
-      ],
-    }
-  }
-
   let g_customer_name = $derived(
     $selected_customer_obj?.name
       ? $selected_customer_obj.name.endsWith('님')
@@ -282,10 +301,32 @@
     ),
   )
 
-  // 현재 고객 얼굴형 키에 어울리는 안경테만 카탈로그에서 추출한다.
+  // 현재 고객 얼굴형 키에 어울리는 추천 프레임 형태 — frame_recommendations 모듈 lookup.
   let g_recommended_frame_arr = $derived(
-    g_frame_catalog_arr.filter((frame_obj) =>
-      frame_obj.face_shape_key_arr.includes(g_customer_face_shape_key),
+    get_frame_styles_for_face_shape(g_customer_face_shape_key),
+  )
+
+  // 피부톤 입력값(세션 분류 결과 → 고객 객체 → 'NEUTRAL' 폴백) 을 정규화한 추천 번들.
+  let g_skin_tone_recommendation_obj = $derived(
+    get_skin_tone_recommendation(
+      g_face_shape_result?.skin_tone?.tone
+        ?? $selected_customer_obj?.skin_tone
+        ?? 'NEUTRAL',
+    ),
+  )
+
+  // 얼굴형 카드 사진 — 안경 착용 정면 > 미착용 정면 > 일러스트 폴백 순.
+  // 매장 상담 맥락상 안경 쓴 사진이 있으면 그 쪽을 메인 비주얼로 사용한다.
+  let g_summary_face_photo_src = $derived(
+    g_session.captures_obj.front_glasses?.object_url
+      ?? g_session.captures_obj.front_no_glasses?.object_url
+      ?? null,
+  )
+  // 폴백 일러스트 — 캡쳐 사진이 둘 다 없을 때만 사용.
+  let g_summary_face_illustration_src = $derived(
+    get_face_image_src(
+      g_customer_face_shape_key,
+      normalize_gender_key($selected_customer_obj?.gender),
     ),
   )
 
@@ -293,14 +334,13 @@
     {
       title: '얼굴형',
       value: g_face_shape_meta_obj[g_customer_face_shape_key].label,
-      image_src: get_face_image_src(
-        g_customer_face_shape_key,
-        normalize_gender_key($selected_customer_obj?.gender),
-      ),
+      image_src: g_summary_face_photo_src ?? g_summary_face_illustration_src,
+      is_real_photo: g_summary_face_photo_src !== null,
     },
     {
       title: '피부톤 분석',
-      value: get_skin_tone_meta($selected_customer_obj?.skin_tone ?? 'WARM').label,
+      // 카드 템플릿이 summary_obj.value 로 분기하므로 키를 그대로 노출한다.
+      value: g_skin_tone_recommendation_obj.label,
     },
     {
       title: '추천 프레임',
@@ -398,8 +438,8 @@
     }
   }
 
-  // sessionStorage 에서 현재 방문 번호를 읽는다 (visit API 가 채워주는 값).
-  // 없으면 null — 호출 측에서 에러 표시.
+  // 선택 방문 store(set_selected_visit 으로 채워짐, sessionStorage 미러됨)에서
+  // 현재 visit_no 를 읽는다. 없거나 숫자 파싱 실패면 null — 호출 측에서 에러 표시.
   function get_visit_no() {
     if (typeof sessionStorage === 'undefined') return null
     const raw = sessionStorage.getItem('retinal_visit_no')
@@ -432,14 +472,16 @@
     }
     g_is_submitting = true
     try {
-      // 1단계: 사진들을 S3 에 업로드해 URL 받기 (BE -95 의 presigned URL 사용).
+      // 1단계: 사진들을 S3 에 업로드해 URL 받기.
+      // 임시 비활성화 — BE presigned 인증/소유권 검사 정비 전까지 측정값만 먼저 저장한다.
+      // 활성화 시 아래 3줄 주석을 풀고 그 다음의 임시 빈 값 라인 2개를 제거한다.
+      // const file_url_map = await upload_captures_to_s3(visit_no, g_session.captures_obj)
+      // const main_file = file_url_map.front_no_glasses ?? file_url_map.front_glasses ?? ''
+      // const test_file_arr = Object.values(file_url_map)
       const main_file = ''
+      const test_file_arr = /** @type {string[]} */ ([])
 
-      // 2단계: 정면(main) 분리 + 나머지 test_file_arr.
-      const test_file_arr = []
-      
-
-      // 3단계: 메타 저장.
+      // 2단계: 메타 저장 — BE 가 빈 main_file/test_file_arr 를 허용하므로 단독 저장 가능.
       await save_face_analysis(visit_no, {
         main_file,
         test_file_arr,
@@ -547,7 +589,9 @@
                         <img
                           class="h-full w-full object-cover object-center"
                           src={summary_obj.image_src}
-                          alt={`${summary_obj.value} 얼굴형`}
+                          alt={summary_obj.is_real_photo
+                            ? `${g_customer_name} 정면 사진`
+                            : `${summary_obj.value} 얼굴형 일러스트`}
                         />
                       </div>
                       <div class="px-4 py-3 text-center">
@@ -571,7 +615,10 @@
                         <p
                           class="m-0 text-4xl font-extrabold tracking-normal text-[var(--retinal-primary-600)]"
                         >
-                          {get_skin_tone_meta(summary_obj.value).label}
+                          {g_skin_tone_recommendation_obj.label}
+                        </p>
+                        <p class="m-0 mt-1 text-sm font-bold text-slate-500">
+                          {g_skin_tone_recommendation_obj.detail}
                         </p>
                       </section>
 
@@ -584,7 +631,7 @@
                           </h4>
                         </div>
                         <div class="flex flex-wrap gap-2">
-                          {#each get_skin_tone_meta(summary_obj.value).chips as chip_obj, chip_index (`${chip_obj.label}-${chip_index}`)}
+                          {#each g_skin_tone_recommendation_obj.chip_arr as chip_obj, chip_index (`${chip_obj.label}-${chip_index}`)}
                             <span
                               class={`inline-flex min-h-11 items-center gap-2 rounded-full px-3 py-2 text-sm font-extrabold text-white ${chip_obj.tone_class}`}
                             >
@@ -599,7 +646,14 @@
                     <div class="mt-7 flex flex-wrap gap-2">
                       {#each g_recommended_frame_arr as frame_obj (frame_obj.name)}
                         <span
-                          class="inline-flex min-h-11 items-center rounded-lg bg-[var(--retinal-primary-600)] px-4 py-2 text-base font-extrabold text-white"
+                          class={`inline-flex min-h-11 items-center rounded-lg border-2 border-[var(--retinal-primary-600)] px-4 py-2 text-base font-extrabold ${
+                            frame_obj.priority === 1
+                              ? 'bg-[var(--retinal-primary-600)] text-white'
+                              : 'bg-white text-[var(--retinal-primary-700)]'
+                          }`}
+                          aria-label={frame_obj.priority === 1
+                            ? `1순위 추천: ${frame_obj.name}`
+                            : `2순위 추천: ${frame_obj.name}`}
                         >
                           {frame_obj.name}
                         </span>

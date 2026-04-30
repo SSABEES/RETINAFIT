@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     AWS_REGION: str = "ap-northeast-2"
     S3_BUCKET_NAME: str
 
+    # ─── 관리자 ───────────────────────────────────────────────
+    ADMIN_ID: str
+    ADMIN_PASSWORD: str
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ADMIN_TOKEN_EXPIRE_HOURS: int = 1
+
     @property
     def DATABASE_URL(self) -> str:
         # aiomysql: 비동기 MySQL 드라이버

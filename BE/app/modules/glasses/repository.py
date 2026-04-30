@@ -37,8 +37,7 @@ async def update_glasses(db: AsyncSession, glasses_no: int, data: dict) -> Glass
     if not glasses:
         return None
     for key, value in data.items():
-        if value is not None:
-            setattr(glasses, key, value)
+        setattr(glasses, key, value)
     await db.commit()
     await db.refresh(glasses)
     return glasses

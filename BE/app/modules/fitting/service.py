@@ -24,7 +24,7 @@ async def create_criteria(db: AsyncSession, request: FittingCriteriaCreate) -> F
 
 async def update_criteria(db: AsyncSession, criteria_no: int, request: FittingCriteriaUpdate) -> FittingCriteriaResponse:
     """판단 기준 수정"""
-    criteria = await repository.update_criteria(db, criteria_no, request.model_dump(exclude_none=True))
+    criteria = await repository.update_criteria(db, criteria_no, request.model_dump(exclude_unset=True))
     if not criteria:
         raise NotFoundException(
             error_code=ErrorCode.NOT_FOUND,

@@ -25,6 +25,10 @@ internal object SessionRegistry {
     fun get(requestId: String): Entry? = entries[requestId]
 
     fun release(requestId: String) {
-        entries.remove(requestId)?.dispatcher?.close()
+        // dispatcher.close() 를 즉시 호출하지 않는다. ArEntryActivity.onDestroy 에서
+        // emit(Closed) 가 Handler.post 로 큐에 들어간 직후 release() 가 sync 로 close() 호출하면,
+        // 큐 lambda 가 실행될 때 closed=true 라 Closed 이벤트가 드랍되는 race 가 있었다.
+        // EventDispatcher 는 emit 람다 안에서 Closed/Error 이벤트 전달 후 self-seal 한다.
+        entries.remove(requestId)
     }
 }

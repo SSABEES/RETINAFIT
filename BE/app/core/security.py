@@ -1,22 +1,42 @@
 from datetime import datetime, timedelta, timezone
-
-from jose import jwt
-from passlib.context import CryptContext
+from jose import JWTError, jwt
 
 from app.core.config import settings
-
-password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-def hash_password(password: str) -> str:
-    return password_context.hash(password)
+from app.common.exceptions import UnauthorizedException
+from app.common.error_codes import ErrorCode
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return password_context.verify(plain_password, hashed_password)
+def create_admin_token() -> str:
+    """
+    관리자 JWT 발급
+    - 만료시간: 1시간
+    - payload에 role: admin 포함
+    """
+    expire = datetime.now(timezone.utc) + timedelta(hours=settings.ADMIN_TOKEN_EXPIRE_HOURS)
+    payload = {
+        "sub": settings.ADMIN_ID,
+        "role": "admin",
+        "exp": expire,
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def create_access_token(subject: str, expires_minutes: int = 60) -> str:
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
-    payload = {"sub": subject, "exp": expires_at}
-    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+def verify_admin_token(token: str) -> dict:
+    """
+    관리자 JWT 검증
+    - 만료되거나 유효하지 않으면 401 에러
+    - role이 admin이 아니면 401 에러
+    """
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("role") != "admin":
+            raise UnauthorizedException(
+                error_code=ErrorCode.UNAUTHORIZED,
+                message="관리자 권한이 없습니다.",
+            )
+        return payload
+    except JWTError:
+        raise UnauthorizedException(
+            error_code=ErrorCode.INVALID_TOKEN,
+            message="유효하지 않은 토큰입니다.",
+        )

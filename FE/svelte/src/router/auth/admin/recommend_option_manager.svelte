@@ -27,10 +27,16 @@
     category_meta_arr = [],
   } = /** @type {RecommendOptionManagerProps} */ ($props())
 
+  let g_has_category = $derived(category_meta_arr.length > 0)
+
+  function get_default_option_category() {
+    return category_meta_arr[0]?.key ?? ''
+  }
+
   function create_option_form_obj() {
     return {
       option_name: '',
-      option_category: category_meta_arr[0]?.key ?? '',
+      option_category: get_default_option_category(),
       is_active: true,
     }
   }
@@ -50,9 +56,11 @@
   let g_filtered_option_arr = $derived(
     ref_option_arr
       .filter((option_obj) =>
-        category_meta_arr.some(
-          (category_meta_obj) => category_meta_obj.key === option_obj.option_category,
-        ),
+        g_has_category
+          ? category_meta_arr.some(
+              (category_meta_obj) => category_meta_obj.key === option_obj.option_category,
+            )
+          : true,
       )
       .sort(
         (left_option_obj, right_option_obj) =>
@@ -61,15 +69,22 @@
   )
 
   let g_grouped_option_arr = $derived(
-    category_meta_arr.map((category_meta_obj) => ({
-      ...category_meta_obj,
-      option_arr: g_filtered_option_arr.filter(
-        (option_obj) => option_obj.option_category === category_meta_obj.key,
-      ),
-    })),
+    g_has_category
+      ? category_meta_arr.map((category_meta_obj) => ({
+          ...category_meta_obj,
+          option_arr: g_filtered_option_arr.filter(
+            (option_obj) => option_obj.option_category === category_meta_obj.key,
+          ),
+        }))
+      : [
+          {
+            key: 'all',
+            label: '옵션 목록',
+            option_arr: g_filtered_option_arr,
+          },
+        ],
   )
 
-  // 추천 옵션 응답을 화면에서 바로 수정 가능한 상태 객체로 변환한다.
   function normalize_option_arr(option_arr) {
     return option_arr.map((option_obj) => ({
       option_no: Number(option_obj.option_no ?? 0),
@@ -80,7 +95,6 @@
     }))
   }
 
-  // 저장 결과를 짧은 토스트로 보여주고 자동으로 닫는다.
   function show_toast(message, variant = 'success') {
     g_toast_message = message
     g_toast_variant = variant
@@ -95,7 +109,6 @@
     }, 2200)
   }
 
-  // 추천 옵션 목록을 다시 불러온다.
   async function load_option_arr() {
     g_is_loading = true
     g_error_message = ''
@@ -114,13 +127,11 @@
     }
   }
 
-  // 새 추천 옵션 입력 상태를 초기화한다.
   function reset_option_form() {
     ref_option_form_obj = create_option_form_obj()
     ref_option_category_dropdown_open = false
   }
 
-  // 입력값을 상태에 반영한다.
   function on_input_option_name(local_event) {
     ref_option_form_obj = {
       ...ref_option_form_obj,
@@ -130,12 +141,10 @@
     g_error_message = ''
   }
 
-  // 카테고리 드롭다운을 열고 닫는다.
   function on_click_toggle_option_category_dropdown() {
     ref_option_category_dropdown_open = !ref_option_category_dropdown_open
   }
 
-  // 카테고리를 선택한다.
   function on_click_select_option_category(option_category) {
     ref_option_form_obj = {
       ...ref_option_form_obj,
@@ -146,7 +155,6 @@
     g_error_message = ''
   }
 
-  // 사용 여부를 바꾼다.
   function on_change_option_active(local_event) {
     ref_option_form_obj = {
       ...ref_option_form_obj,
@@ -156,14 +164,13 @@
     g_error_message = ''
   }
 
-  // 새 추천 옵션을 추가한다.
   async function on_submit_create_option(local_event) {
     local_event.preventDefault()
 
     const local_option_name = ref_option_form_obj.option_name.trim()
-    const local_option_category = ref_option_form_obj.option_category
-    const local_group_option_arr = g_filtered_option_arr.filter(
-      (option_obj) => option_obj.option_category === local_option_category,
+    const local_option_category = g_has_category ? ref_option_form_obj.option_category : ''
+    const local_group_option_arr = g_filtered_option_arr.filter((option_obj) =>
+      g_has_category ? option_obj.option_category === local_option_category : true,
     )
 
     if (!local_option_name) {
@@ -193,7 +200,6 @@
     }
   }
 
-  // 저장 버튼 클릭 시 현재 행의 옵션명을 수정한다.
   async function on_click_save_option(option_obj) {
     const local_option_name = option_obj.option_name.trim()
 
@@ -223,7 +229,6 @@
     }
   }
 
-  // 삭제 버튼 클릭 시 추천 옵션을 제거한다.
   async function on_click_delete_option(option_obj) {
     try {
       await delete_recommend_option({
@@ -242,30 +247,25 @@
     }
   }
 
-  // 드래그를 시작한 옵션 번호를 저장한다.
   function on_dragstart_option(option_obj) {
     ref_drag_option_no = option_obj.option_no
     ref_drag_over_option_no = option_obj.option_no
   }
 
-  // 현재 드래그가 올라간 옵션을 표시한다.
   function on_dragenter_option(option_obj) {
     ref_drag_over_option_no = option_obj.option_no
   }
 
-  // 드롭 가능한 영역으로 유지하기 위해 기본 동작을 막는다.
   function on_dragover_option(local_event, option_obj) {
     local_event.preventDefault()
     ref_drag_over_option_no = option_obj.option_no
   }
 
-  // 드래그 상태를 초기화한다.
   function reset_drag_option_state() {
     ref_drag_option_no = null
     ref_drag_over_option_no = null
   }
 
-  // 드롭된 위치 기준으로 같은 카테고리 안의 표시 순서를 다시 저장한다.
   async function on_drop_option(target_option_obj) {
     const local_drag_option_no = ref_drag_option_no
 
@@ -274,14 +274,15 @@
       return
     }
 
-    const local_same_category_option_arr = g_filtered_option_arr.filter(
-      (filtered_option_obj) =>
-        filtered_option_obj.option_category === target_option_obj.option_category,
+    const local_same_group_option_arr = g_filtered_option_arr.filter((filtered_option_obj) =>
+      g_has_category
+        ? filtered_option_obj.option_category === target_option_obj.option_category
+        : true,
     )
-    const local_drag_index = local_same_category_option_arr.findIndex(
+    const local_drag_index = local_same_group_option_arr.findIndex(
       (filtered_option_obj) => filtered_option_obj.option_no === local_drag_option_no,
     )
-    const local_target_index = local_same_category_option_arr.findIndex(
+    const local_target_index = local_same_group_option_arr.findIndex(
       (filtered_option_obj) => filtered_option_obj.option_no === target_option_obj.option_no,
     )
 
@@ -290,7 +291,7 @@
       return
     }
 
-    const local_reordered_option_arr = [...local_same_category_option_arr]
+    const local_reordered_option_arr = [...local_same_group_option_arr]
     const [local_drag_option_obj] = local_reordered_option_arr.splice(local_drag_index, 1)
     local_reordered_option_arr.splice(local_target_index, 0, local_drag_option_obj)
 
@@ -347,7 +348,9 @@
     </div>
 
     <form
-      class="grid gap-4 rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50 md:grid-cols-[1fr_220px_140px_auto]"
+      class={`grid gap-4 rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50 ${
+        g_has_category ? 'md:grid-cols-[1fr_220px_140px_auto]' : 'md:grid-cols-[1fr_140px_auto]'
+      }`}
       onsubmit={on_submit_create_option}
     >
       <label class="grid gap-2 text-sm font-extrabold text-slate-500">
@@ -356,60 +359,62 @@
           class="min-h-12 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
           type="text"
           value={ref_option_form_obj.option_name}
-          placeholder="새 추천 옵션명"
+          placeholder="추천 옵션명"
           oninput={on_input_option_name}
         />
       </label>
 
-      <label class="grid gap-2 text-sm font-extrabold text-slate-500">
-        카테고리
-        <div class="relative">
-          <button
-            class="flex min-h-12 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[#4B0055] transition hover:border-[#4B0055]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/15"
-            type="button"
-            aria-haspopup="listbox"
-            aria-expanded={ref_option_category_dropdown_open}
-            onclick={on_click_toggle_option_category_dropdown}
-          >
-            <span>
-              {category_meta_arr.find(
-                (category_meta_obj) =>
-                  category_meta_obj.key === ref_option_form_obj.option_category,
-              )?.label ?? '카테고리 선택'}
-            </span>
-            <ChevronDown
-              size={18}
-              strokeWidth={2.4}
-              class={`transition ${ref_option_category_dropdown_open ? 'rotate-180' : ''}`}
-              aria-hidden="true"
-            />
-          </button>
-
-          {#if ref_option_category_dropdown_open}
-            <div
-              class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
-              role="listbox"
-              aria-label="추천 옵션 카테고리 목록"
+      {#if g_has_category}
+        <label class="grid gap-2 text-sm font-extrabold text-slate-500">
+          카테고리
+          <div class="relative">
+            <button
+              class="flex min-h-12 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[#4B0055] transition hover:border-[#4B0055]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/15"
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded={ref_option_category_dropdown_open}
+              onclick={on_click_toggle_option_category_dropdown}
             >
-              {#each category_meta_arr as category_meta_obj (category_meta_obj.key)}
-                <button
-                  class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
-                    ref_option_form_obj.option_category === category_meta_obj.key
-                      ? 'bg-[#F5EAF7] text-[#4B0055]'
-                      : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[#4B0055]'
-                  }`}
-                  type="button"
-                  role="option"
-                  aria-selected={ref_option_form_obj.option_category === category_meta_obj.key}
-                  onclick={() => on_click_select_option_category(category_meta_obj.key)}
-                >
-                  {category_meta_obj.label}
-                </button>
-              {/each}
-            </div>
-          {/if}
-        </div>
-      </label>
+              <span>
+                {category_meta_arr.find(
+                  (category_meta_obj) =>
+                    category_meta_obj.key === ref_option_form_obj.option_category,
+                )?.label ?? '카테고리 선택'}
+              </span>
+              <ChevronDown
+                size={18}
+                strokeWidth={2.4}
+                class={`transition ${ref_option_category_dropdown_open ? 'rotate-180' : ''}`}
+                aria-hidden="true"
+              />
+            </button>
+
+            {#if ref_option_category_dropdown_open}
+              <div
+                class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                role="listbox"
+                aria-label="추천 옵션 카테고리 목록"
+              >
+                {#each category_meta_arr as category_meta_obj (category_meta_obj.key)}
+                  <button
+                    class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
+                      ref_option_form_obj.option_category === category_meta_obj.key
+                        ? 'bg-[#F5EAF7] text-[#4B0055]'
+                        : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[#4B0055]'
+                    }`}
+                    type="button"
+                    role="option"
+                    aria-selected={ref_option_form_obj.option_category === category_meta_obj.key}
+                    onclick={() => on_click_select_option_category(category_meta_obj.key)}
+                  >
+                    {category_meta_obj.label}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        </label>
+      {/if}
 
       <label class="grid gap-2 text-sm font-extrabold text-slate-500">
         사용 여부
@@ -420,7 +425,7 @@
             checked={ref_option_form_obj.is_active}
             onchange={on_change_option_active}
           />
-          <span class="text-base font-bold text-zinc-950">활성화</span>
+          <span class="text-base font-bold text-zinc-950">활성</span>
         </span>
       </label>
 
@@ -448,7 +453,7 @@
             <div class="flex items-center justify-between gap-4">
               <div>
                 <h3 class="m-0 text-xl font-extrabold text-zinc-950">{category_group_obj.label}</h3>
-                <p class="mt-2 mb-0 text-sm font-semibold text-slate-500">
+                <p class="mb-0 mt-2 text-sm font-semibold text-slate-500">
                   총 {category_group_obj.option_arr.length}개 옵션
                 </p>
               </div>
@@ -494,7 +499,7 @@
                           bind:checked={option_obj.is_active}
                         />
                         <span class="text-base font-bold text-zinc-950">
-                          {option_obj.is_active ? '활성화' : '비활성화'}
+                          {option_obj.is_active ? '활성' : '비활성화'}
                         </span>
                       </span>
                     </label>

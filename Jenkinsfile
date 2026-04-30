@@ -18,17 +18,33 @@ pipeline {
             }
         }
 
-        // 2단계: Docker 이미지 빌드
+        // 2단계: 환경변수 파일 준비 (빌드 전 .env.prod 복사)
+        stage('Prepare') {
+                steps {
+                    sh """
+                        cp /home/ubuntu/app/.env.prod ./.env.prod
+                        cp /home/ubuntu/app/BE/.env.prod ./BE/.env.prod
+                        cp /home/ubuntu/app/FE/.env.prod ./FE/svelte/.env.prod
+                    """
+                }
+        }
+
+        // 3단계: Docker 이미지 빌드
         stage('Build') {
             steps {
-                sh 'docker compose -f docker-compose.prod.yml build'
+                sh 'docker compose -f docker-compose.prod.yml build --no-cache fe'
+                sh 'docker compose -f docker-compose.prod.yml build be'
             }
         }
 
-        // 3단계: 서버에 배포
+        // 4단계: 서버에 배포
         stage('Deploy') {
             steps {
                 sh """
+                    cp /home/ubuntu/app/.env.prod ./.env.prod
+                    cp /home/ubuntu/app/BE/.env.prod ./BE/.env.prod
+                    cp /home/ubuntu/app/FE/.env.prod ./FE/.env.prod
+
                     docker compose -f docker-compose.prod.yml down
                     docker compose -f docker-compose.prod.yml up -d
                 """
