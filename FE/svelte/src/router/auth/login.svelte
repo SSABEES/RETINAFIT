@@ -209,7 +209,7 @@
         <img
           class="mb-4 h-auto w-[132px] rounded-xl shadow-2xl shadow-black/20 tablet-login-logo"
           src="/icnos.png"
-          alt="Retin AI"
+          alt="RetinaFit"
           width="900"
           height="900"
         />
@@ -284,7 +284,7 @@
     <p
       class="absolute bottom-10 left-1/2 z-10 m-0 -translate-x-1/2 text-base font-medium text-white/42"
     >
-      © 2026 RETINA. All rights reserved.
+      © 2026 Retina. All rights reserved.
     </p>
   </section>
 </main>

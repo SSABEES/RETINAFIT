@@ -691,7 +691,7 @@
           실제 착용감은 개인차가 있을 수 있으며, 전문 안경사의 최종 피팅 조정을 권장합니다.
         </p>
         <p class="mt-2 text-xs font-bold text-[#A2AABC]">
-          © 2026 RETINA - 실시간 AR 안경 피팅 서비스
+          © 2026 Retina - 실시간 AR 안경 피팅 서비스
         </p>
       </section>
 
