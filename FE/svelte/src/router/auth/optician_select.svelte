@@ -45,117 +45,107 @@
   }
 </script>
 
-<main class="app-frame-page overflow-hidden bg-[#11142A] text-white">
+<main
+  class="app-frame-page grid min-h-full grid-rows-[1fr_auto] overflow-hidden bg-[var(--retina-bg-1)] px-6 pt-6 pb-4 text-[var(--retina-text)]"
+>
   <section
-    class="relative grid min-h-full place-items-start justify-items-center px-6 pt-24 pb-12 before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_50%_12%,rgba(154,27,255,0.3),transparent_32%),linear-gradient(135deg,#11142A_0%,#4B0055_45%,#180F2E_100%)] before:content-['']"
-    aria-labelledby="optician-select-title"
+    class="grid w-full max-w-[760px] justify-items-center justify-self-center self-center gap-4"
+    aria-label="안경사 선택"
   >
-    <div class="relative z-10 flex h-full max-h-[820px] w-full max-w-[820px] flex-col items-center">
-      <div class="mb-10 flex flex-col items-center text-center">
-        <img
-          class="mb-5 h-auto w-[148px] rounded-xl shadow-2xl shadow-black/20"
-          src="/icnos.png"
-          alt="RetinaFit"
-          width="900"
-          height="900"
-        />
-        <h1
-          id="optician-select-title"
-          class="m-0 text-3xl font-extrabold tracking-normal text-white"
-        >
-          안경사 선택
-        </h1>
-      </div>
+    <img
+      class="h-auto w-[140px]"
+      src="/logo/LogoHeight.png"
+      alt="RetinaFit"
+      width="16568"
+      height="16568"
+    />
 
-      <section
-        class="min-h-0 w-full rounded-[26px] border border-white/8 bg-white/12 px-8 py-7 shadow-2xl shadow-black/22 backdrop-blur-md"
-        aria-label="안경사 목록"
-      >
-        <div class="mb-5 grid min-h-11 grid-cols-[1fr_auto_1fr] items-center gap-4">
-          <div></div>
+    <section
+      class="min-h-0 w-full rounded-[18px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-6 py-5 shadow-[0_6px_14px_rgba(19,25,40,0.06)]"
+      aria-label="안경사 목록"
+    >
+      <div class="mb-4 grid min-h-10 grid-cols-[1fr_auto_1fr] items-center gap-3">
+        <div></div>
 
-          <div class="min-w-0">
-            {#if $selected_opt_store_obj}
-              <div
-                class="max-w-[260px] truncate rounded-full border border-white/12 bg-white/12 px-4 py-2 text-center text-sm font-extrabold text-white/82"
-              >
-                {$selected_opt_store_obj.name}
-              </div>
-            {/if}
-          </div>
-
-          {#if g_total_page_no > 1}
-            <div class="flex items-center justify-end gap-4">
-              <button
-                class="grid h-11 w-11 cursor-pointer place-items-center rounded-lg border border-white/14 bg-white/10 text-white transition hover:bg-white/16 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-white/60 disabled:cursor-not-allowed disabled:opacity-40"
-                type="button"
-                aria-label="이전 안경사 페이지"
-                disabled={!g_can_prev_page}
-                onclick={on_click_prev_page}
-              >
-                <ChevronLeft size={24} strokeWidth={2.4} aria-hidden="true" />
-              </button>
-
-              <span class="min-w-20 text-center text-sm font-extrabold text-white/82">
-                {g_current_page_no} / {g_total_page_no}
-              </span>
-
-              <button
-                class="grid h-11 w-11 cursor-pointer place-items-center rounded-lg border border-white/14 bg-white/10 text-white transition hover:bg-white/16 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-white/60 disabled:cursor-not-allowed disabled:opacity-40"
-                type="button"
-                aria-label="다음 안경사 페이지"
-                disabled={!g_can_next_page}
-                onclick={on_click_next_page}
-              >
-                <ChevronRight size={24} strokeWidth={2.4} aria-hidden="true" />
-              </button>
+        <div class="min-w-0">
+          {#if $selected_opt_store_obj}
+            <div
+              class="max-w-[240px] truncate rounded-full border border-[var(--retina-primary-200)] bg-[var(--retina-bg-1)] px-3.5 py-1.5 text-center text-xs font-extrabold text-[var(--retina-primary-700)]"
+            >
+              {$selected_opt_store_obj.name}
             </div>
-          {:else}
-            <div></div>
           {/if}
         </div>
 
-        <div class="grid h-[376px] grid-cols-3 grid-rows-2 gap-4">
-          {#each g_visible_admin_arr as optician_obj (optician_obj.id)}
+        {#if g_total_page_no > 1}
+          <div class="flex items-center justify-end gap-3">
             <button
-              class="group grid h-[180px] cursor-pointer grid-rows-[auto_1fr] gap-5 rounded-lg border-2 border-transparent bg-white px-5 py-5 text-left text-zinc-950 shadow-lg shadow-black/10 transition duration-150 ease-out hover:-translate-y-1 hover:border-[#9A1BFF] hover:bg-[#F8F1F8] hover:shadow-2xl hover:shadow-violet-950/30 active:translate-y-0 active:scale-[0.99] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-white/70"
+              class="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-[var(--retina-text-300)] bg-[var(--retina-surface)] text-[var(--retina-text)] transition hover:border-[var(--retina-primary-600)] hover:text-[var(--retina-primary-600)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-40"
               type="button"
-              onclick={() => on_click_select_optician(optician_obj)}
+              aria-label="이전 안경사 페이지"
+              disabled={!g_can_prev_page}
+              onclick={on_click_prev_page}
             >
-              <span class="flex items-start justify-between gap-3">
-                <span
-                  class="grid h-12 w-12 flex-none place-items-center rounded-full bg-[#F5EAF7] text-[#4B0055] transition duration-150 group-hover:bg-[#4B0055] group-hover:text-white group-hover:shadow-lg group-hover:shadow-[#4B0055]/25"
-                >
-                  <UserRound size={25} strokeWidth={2.3} aria-hidden="true" />
-                </span>
-              </span>
-
-              <span class="grid min-w-0 content-end">
-                <span
-                  class="block max-w-full truncate text-xl font-extrabold leading-7 text-zinc-950"
-                >
-                  {optician_obj.name}
-                </span>
-                <span
-                  class="mt-1 block max-w-full truncate text-sm font-bold leading-5 text-slate-500"
-                >
-                  {optician_obj.position}
-                </span>
-              </span>
+              <ChevronLeft size={20} strokeWidth={2.4} aria-hidden="true" />
             </button>
-          {/each}
 
-          {#each g_empty_slot_arr as local_empty_slot (local_empty_slot)}
-            <div class="h-[180px] rounded-lg border-2 border-transparent" aria-hidden="true"></div>
-          {/each}
-        </div>
-      </section>
-    </div>
+            <span class="min-w-16 text-center text-xs font-extrabold text-[var(--retina-text-700)]">
+              {g_current_page_no} / {g_total_page_no}
+            </span>
 
-    <p
-      class="absolute bottom-10 left-1/2 z-10 m-0 -translate-x-1/2 text-base font-medium text-white/42"
-    >
-      © 2026 Retina. All rights reserved.
-    </p>
+            <button
+              class="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-[var(--retina-text-300)] bg-[var(--retina-surface)] text-[var(--retina-text)] transition hover:border-[var(--retina-primary-600)] hover:text-[var(--retina-primary-600)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-40"
+              type="button"
+              aria-label="다음 안경사 페이지"
+              disabled={!g_can_next_page}
+              onclick={on_click_next_page}
+            >
+              <ChevronRight size={20} strokeWidth={2.4} aria-hidden="true" />
+            </button>
+          </div>
+        {:else}
+          <div></div>
+        {/if}
+      </div>
+
+      <div class="grid h-[280px] grid-cols-3 grid-rows-2 gap-3">
+        {#each g_visible_admin_arr as optician_obj (optician_obj.id)}
+          <button
+            class="group grid h-[136px] cursor-pointer grid-rows-[auto_1fr] gap-3 rounded-lg border-2 border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-4 py-3 text-left text-[var(--retina-text)] shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition duration-150 ease-out hover:-translate-y-1 hover:border-[var(--retina-primary-600)] hover:bg-[var(--retina-bg-1)] hover:shadow-[0_10px_22px_rgba(245,107,0,0.18)] active:translate-y-0 active:scale-[0.99] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--retina-primary-600)]/60"
+            type="button"
+            onclick={() => on_click_select_optician(optician_obj)}
+          >
+            <span class="flex items-start justify-between gap-3">
+              <span
+                class="grid h-10 w-10 flex-none place-items-center rounded-full bg-[var(--retina-bg-1)] text-[var(--retina-primary-600)] transition duration-150 group-hover:bg-[var(--retina-primary-600)] group-hover:text-[var(--retina-text-100)] group-hover:shadow-lg group-hover:shadow-[var(--retina-primary-600)]/25"
+              >
+                <UserRound size={22} strokeWidth={2.3} aria-hidden="true" />
+              </span>
+            </span>
+
+            <span class="grid min-w-0 content-end">
+              <span
+                class="block max-w-full truncate text-base font-extrabold leading-6 text-[var(--retina-text)]"
+              >
+                {optician_obj.name}
+              </span>
+              <span
+                class="mt-0.5 block max-w-full truncate text-xs font-bold leading-4 text-[var(--retina-text-500)]"
+              >
+                {optician_obj.position}
+              </span>
+            </span>
+          </button>
+        {/each}
+
+        {#each g_empty_slot_arr as local_empty_slot (local_empty_slot)}
+          <div class="h-[136px] rounded-lg border-2 border-transparent" aria-hidden="true"></div>
+        {/each}
+      </div>
+    </section>
   </section>
+
+  <p class="m-0 justify-self-center text-center text-sm font-medium text-[var(--retina-primary-900)]/80">
+    © 2026 RETINA Co,Ltd. All rights reserved.
+  </p>
 </main>

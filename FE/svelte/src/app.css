@@ -30,8 +30,10 @@
   --retina-success-soft: #e8f5e9;
   --retina-measure-auto: #1f7a3a;
   --retina-measure-manual: #f56b00;
-  --app-frame-width: 1366px;
-  --app-frame-height: 1024px;
+  --retina-bg-1: #fff3eb;
+  --retina-bg-2: #bcc2cc;
+  --app-frame-width: 1024px;
+  --app-frame-height: 640px;
 }
 
 * {
@@ -169,8 +171,8 @@ a {
 
 @media (max-width: 1280px), (max-height: 820px) {
   :root {
-    --app-frame-width: 1280px;
-    --app-frame-height: 800px;
+    --app-frame-width: 1024px;
+    --app-frame-height: 640px;
   }
 
   .app-frame-shell {
@@ -181,7 +183,7 @@ a {
     width: 100vw;
     min-height: 100svh;
     height: auto;
-    max-width: 1280px;
+    max-width: 1024px;
     margin: 0 auto;
     overflow-y: auto;
     scrollbar-width: none;
