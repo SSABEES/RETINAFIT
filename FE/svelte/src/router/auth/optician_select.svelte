@@ -2,7 +2,7 @@
   import { navigate } from '@maks11060/svelte5-router'
   import { ChevronLeft, ChevronRight, UserRound } from 'lucide-svelte'
   import { PATH } from '@/config/path'
-  import { admin_arr, selected_opt_store_obj, set_selected_admin } from '@/lib/stores/admin'
+  import { admin_arr, set_selected_admin } from '@/lib/stores/admin'
 
   const g_page_size = 6
 
@@ -20,10 +20,10 @@
   let g_can_prev_page = $derived(g_current_page_no > 1)
   let g_can_next_page = $derived(g_current_page_no < g_total_page_no)
 
-  // 선택한 안경사를 전역 상태에 저장하고 고객 관리 화면으로 이동한다.
+  // 선택한 안경사를 전역 상태에 저장하고 방문 유형 선택 화면으로 이동한다.
   function on_click_select_optician(optician_obj) {
     set_selected_admin(optician_obj)
-    navigate(PATH.users)
+    navigate(PATH.visitSelect)
   }
 
   // 안경사 목록을 이전 페이지로 이동한다.
@@ -68,13 +68,11 @@
         <div></div>
 
         <div class="min-w-0">
-          {#if $selected_opt_store_obj}
-            <div
-              class="max-w-[240px] truncate rounded-full border border-[var(--retina-primary-200)] bg-[var(--retina-bg-1)] px-3.5 py-1.5 text-center text-xs font-extrabold text-[var(--retina-primary-700)]"
-            >
-              {$selected_opt_store_obj.name}
-            </div>
-          {/if}
+          <div
+            class="max-w-[240px] truncate rounded-full border border-[var(--retina-primary-200)] bg-[var(--retina-bg-1)] px-3.5 py-1.5 text-center text-xs font-extrabold text-[var(--retina-primary-700)]"
+          >
+            레티나안경원 강동점
+          </div>
         </div>
 
         {#if g_total_page_no > 1}

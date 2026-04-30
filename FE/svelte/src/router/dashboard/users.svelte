@@ -1,7 +1,14 @@
 <script>
   import { navigate } from '@maks11060/svelte5-router'
-  import { CalendarDays, Phone, Search, UserPlus } from 'lucide-svelte'
-  import DashboardShell from '@/components/layout/dashboard_shell.svelte'
+  import {
+    ArrowLeft,
+    CalendarDays,
+    LogOut,
+    Phone,
+    Search,
+    UserPlus,
+    UserSearch,
+  } from 'lucide-svelte'
   import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
   import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import { PATH } from '@/config/path'
@@ -12,7 +19,12 @@
     set_selected_customer,
     set_selected_visit,
   } from '@/lib/stores/customer'
-  import { selected_opt_store_obj, selected_admin_obj } from '@/lib/stores/admin'
+  import {
+    clear_login_select_data,
+    selected_admin_obj,
+    selected_opt_store_obj,
+  } from '@/lib/stores/admin'
+  import { clear_auto_login_obj } from '@/lib/stores/auto_login'
 
   const g_six_month_millisecond = 1000 * 60 * 60 * 24 * 30 * 6
 
@@ -407,6 +419,20 @@
     g_visit_confirm_open = false
   }
 
+  // 헤더의 뒤로가기 버튼 — 방문 유형 선택 화면으로 돌아간다.
+  function on_click_back() {
+    navigate(PATH.visitSelect)
+  }
+
+  // 헤더의 로그아웃 버튼 — 토큰/자동로그인/스토어를 비우고 로그인 화면으로 이동한다.
+  function on_click_logout() {
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('token_no')
+    clear_login_select_data()
+    clear_auto_login_obj()
+    navigate(PATH.login)
+  }
+
   // 신규 고객을 등록하고 기본 상태와 함께 목록 앞에 즉시 반영한다.
   async function on_create_customer(customer_obj) {
     if (!$selected_opt_store_obj?.opt_no) {
@@ -455,123 +481,64 @@
   }
 </script>
 
-<DashboardShell active_key="users" title="고객 관리">
-  <section class="px-10 py-12">
-    <div class="mx-auto max-w-[980px]">
-      <form class="mx-auto w-full max-w-[720px]" onsubmit={on_submit_search_customer}>
-        <div class="grid grid-cols-[1fr_auto] gap-3">
-          <label class="relative block" for="customer-search">
-            <Search
-              class="pointer-events-none absolute left-7 top-1/2 -translate-y-1/2 text-slate-400"
-              size={26}
-              strokeWidth={2.2}
-              aria-hidden="true"
-            />
-            <input
-              id="customer-search"
-              class="min-h-[72px] w-full rounded-2xl border border-[#E7E9F0] bg-white pl-[68px] pr-7 text-xl font-semibold text-zinc-900 outline-none transition placeholder:text-slate-400 focus:border-[#9A1BFF] focus:ring-3 focus:ring-[#9A1BFF]/15"
-              type="search"
-              inputmode="numeric"
-              maxlength="11"
-              value={ref_search_phone}
-              placeholder="전화번호로 검색"
-              oninput={on_input_search_phone}
-            />
-          </label>
+<main
+  class="app-frame-page grid min-h-full grid-rows-[auto_1fr] overflow-hidden bg-[var(--retina-surface)] text-[var(--retina-text)]"
+>
+  <header
+    class="flex items-center justify-between border-b border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-6 py-3"
+  >
+    <button
+      class="grid h-9 w-9 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-[var(--retina-text-700)] transition hover:bg-[var(--retina-bg-1)] hover:text-[var(--retina-primary-600)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
+      type="button"
+      aria-label="뒤로가기"
+      onclick={on_click_back}
+    >
+      <ArrowLeft size={22} strokeWidth={2} aria-hidden="true" />
+    </button>
 
-          <button
-            class="min-h-[72px] cursor-pointer rounded-2xl border-0 bg-[#4B0055] px-7 text-lg font-extrabold text-white transition hover:bg-[#65006F] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/30 disabled:cursor-not-allowed disabled:opacity-60"
-            type="submit"
-            disabled={g_is_search_loading}
-          >
-            {g_is_search_loading ? '조회 중' : '조회'}
-          </button>
-        </div>
+    <img
+      class="h-9 w-auto"
+      src="/logo/LogoWide.png"
+      alt="RetinaFit"
+      width="320"
+      height="80"
+    />
 
-        {#if g_search_error_message}
-          <p
-            class="mt-4 rounded-lg bg-red-50 px-5 py-3 text-left text-base font-bold text-red-700"
-            role="alert"
-          >
-            {g_search_error_message}
-          </p>
-        {/if}
-      </form>
+    <button
+      class="grid h-9 w-9 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-[var(--retina-text-700)] transition hover:bg-[var(--retina-bg-1)] hover:text-[var(--retina-primary-600)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
+      type="button"
+      aria-label="로그아웃"
+      onclick={on_click_logout}
+    >
+      <LogOut size={22} strokeWidth={2} aria-hidden="true" />
+    </button>
+  </header>
 
-      <div class="mb-6 mt-9 flex items-center justify-between gap-4">
-        <p class="m-0 text-left text-lg font-bold text-slate-600">
-          총 <span class="text-[#4B0055]">{ref_customer_arr.length}명</span>의 고객
+  <div class="grid min-h-0 grid-cols-2">
+    <section
+      class="min-h-0 border-r border-[var(--retina-text-200)] px-6 py-6"
+      aria-label="고객 조회 키패드 영역"
+    >
+      <!-- 키패드 컴포넌트 자리. 추후 컴포넌트가 들어갈 영역. -->
+    </section>
+
+    <section
+      class="grid min-h-0 place-items-center px-6 py-6"
+      aria-label="고객 조회 결과 영역"
+    >
+      <div class="grid justify-items-center gap-3 text-center">
+        <span
+          class="grid h-[100px] w-[100px] place-items-center rounded-full bg-[var(--retina-bg-1)] text-[var(--retina-primary-600)]/55"
+          aria-hidden="true"
+        >
+          <UserSearch size={42} strokeWidth={1.5} />
+        </span>
+        <p class="m-0 text-sm font-bold text-[var(--retina-text-800)]">
+          ← 먼저 휴대폰 번호로 고객을 조회해주세요.
         </p>
-        <button
-          class="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border-0 bg-[#4B0055] px-6 text-base font-extrabold text-white transition hover:bg-[#65006F] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/30"
-          type="button"
-          onclick={on_click_open_customer_create_modal}
-        >
-          <UserPlus size={21} strokeWidth={2.4} aria-hidden="true" />
-          <span>신규 등록</span>
-        </button>
       </div>
-
-      {#if ref_customer_arr.length > 0}
-        <div class="grid gap-5">
-          {#each ref_customer_arr as customer_obj (customer_obj.id)}
-            <button
-              type="button"
-              class="block w-full rounded-lg outline-none transition hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-[#9A1BFF]/20 disabled:cursor-not-allowed disabled:opacity-70"
-              onclick={() => on_click_select_customer(customer_obj)}
-              aria-label={`${customer_obj.name} 고객 상세로 이동`}
-              disabled={g_is_customer_select_loading}
-            >
-              <article
-                class="grid min-h-[126px] grid-cols-[1fr_auto] items-center rounded-lg border border-[#ECE6EF] bg-white px-7 py-6 text-left shadow-sm shadow-slate-200/50 transition hover:border-[#DCC9E2] hover:shadow-md hover:shadow-slate-200/70"
-              >
-                <div class="flex min-w-0 items-center gap-6">
-                  <div
-                    class="grid h-16 w-16 flex-none place-items-center rounded-full bg-[#F5EAF7] text-2xl font-extrabold text-[#4B0055]"
-                  >
-                    {get_initial(customer_obj.name)}
-                  </div>
-
-                  <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-3">
-                      <h2 class="m-0 text-2xl font-extrabold text-zinc-950">
-                        {customer_obj.name}
-                      </h2>
-                    </div>
-
-                    <div
-                      class="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-lg font-semibold text-slate-500"
-                    >
-                      <span class="inline-flex items-center gap-1">
-                        <Phone size={18} strokeWidth={2.2} aria-hidden="true" />
-                        {customer_obj.phone}
-                      </span>
-                      <span class="inline-flex items-center gap-1">
-                        <CalendarDays size={18} strokeWidth={2.2} aria-hidden="true" />
-                        최근 방문: {customer_obj.last_visit_dt}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  class={`grid min-h-[74px] min-w-[180px] place-items-center rounded-lg px-5 ${customer_obj.status_box_class}`}
-                >
-                  <p class="m-0 text-base font-extrabold">{customer_obj.status}</p>
-                </div>
-              </article>
-            </button>
-          {/each}
-        </div>
-      {:else}
-        <div
-          class="grid min-h-[220px] place-items-center rounded-lg border border-[#ECE6EF] bg-white px-7 py-8 text-center shadow-sm shadow-slate-200/50"
-        >
-          <p class="m-0 text-lg font-extrabold text-slate-500">조회된 고객 정보가 없습니다.</p>
-        </div>
-      {/if}
-    </div>
-  </section>
+    </section>
+  </div>
 
   <CustomerCreateModal
     open={ref_customer_create_modal_open}
@@ -590,4 +557,4 @@
     oncancel={g_confirm_cancel_action}
     onconfirm={g_confirm_confirm_action}
   />
-</DashboardShell>
+</main>
