@@ -6,7 +6,7 @@ import { get_session_auth_headers } from '@/lib/api/session_auth'
  * @param {{ cust_no: number | string }} param_obj
  */
 export const get_visit_list = ({ cust_no }) => {
-  return apiRequest(`/api/v1/customers/${cust_no}/visits`, {
+  return apiRequest(`/api/v1/customers/${cust_no}/visit-history`, {
     headers: get_session_auth_headers(),
   })
 }
@@ -43,13 +43,12 @@ export const create_visit = (param_obj) => {
 }
 
 /**
- * 안경사 추천 옵션 선택을 방문 데이터에 저장한다.
- * visit_no 경로에 맞는 visited row 의 opt_recommend_json 을 업데이트한다.
+ * 안경사 추천 옵션 선택을 방문 데이터에 PATCH 로 저장한다.
  * @param {{ visit_no: number | string, opt_recommend_json: Record<string, unknown> }} param_obj
  */
 export const save_visit_recommend = ({ visit_no, opt_recommend_json }) => {
-  return apiRequest(`/api/v1/visits/${visit_no}/recommend`, {
-    method: 'POST',
+  return apiRequest(`/api/v1/visits/${visit_no}`, {
+    method: 'PATCH',
     headers: get_session_auth_headers(),
     body: {
       opt_recommend_json,
@@ -57,22 +56,3 @@ export const save_visit_recommend = ({ visit_no, opt_recommend_json }) => {
   })
 }
 
-/**
- * 중간 리포트(얼굴 측정 사진 + 측정 데이터)를 조회한다.
- * @param {{ visit_no: number | string }} param_obj
- */
-export const get_interim_report = ({ visit_no }) => {
-  return apiRequest(`/api/v1/visits/${visit_no}/report/interim`, {
-    headers: get_session_auth_headers(),
-  })
-}
-
-/**
- * 최종 리포트(report_json + 추천/가상피팅/실제착용 데이터)를 조회한다.
- * @param {{ visit_no: number | string }} param_obj
- */
-export const get_final_report = ({ visit_no }) => {
-  return apiRequest(`/api/v1/visits/${visit_no}/report/final`, {
-    headers: get_session_auth_headers(),
-  })
-}

@@ -11,7 +11,7 @@ export async function search_customer(search_obj) {
     opt_no: String(search_obj.opt_no),
   })
 
-  return apiRequest(`/api/v1/customers?${local_search_params.toString()}`, {
+  return apiRequest(`/api/v1/customers/search?${local_search_params.toString()}`, {
     headers: get_session_auth_headers(),
   })
 }
@@ -25,7 +25,7 @@ export async function create_customer(customer_obj) {
     opt_no: String(customer_obj.opt_no),
   })
 
-  return apiRequest(`/api/v1/customers?${local_search_params.toString()}`, {
+  return apiRequest(`/api/v1/customers/register?${local_search_params.toString()}`, {
     method: 'POST',
     headers: get_session_auth_headers(),
     body: {

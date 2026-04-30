@@ -3,14 +3,13 @@
   import { ArrowLeft, Glasses } from 'lucide-svelte'
   import { PATH } from '@/config/path'
   import { ensure_session_auth_tokens } from '@/lib/api/session_auth'
-  import { get_recommend_option_arr } from '@/lib/api/admin_recommend_options'
+  import { get_fitting_criteria_arr } from '@/lib/api/fitting_criteria'
   import { save_visit_recommend } from '@/lib/api/visit'
 
-  const g_lens_category_meta_arr = [
-    { key: 'lens_type', label: '렌즈 종류' },
-    { key: 'coating', label: '코팅' },
-    { key: 'usage', label: '주 사용 환경' },
-    { key: 'lens_material', label: '렌즈 소재' },
+  const g_range_type_meta_arr = [
+    { key: 'BELOW', label: '낮음' },
+    { key: 'NORMAL', label: '정상' },
+    { key: 'ABOVE', label: '높음' },
   ]
 
   let g_option_group_arr = $state([])
@@ -28,28 +27,28 @@
     ),
   )
 
-  // 추천 옵션 응답에서 렌즈 상담 화면에 필요한 카테고리만 추려 버튼 그룹으로 정규화한다.
-  function normalize_lens_option_group_arr(option_arr) {
-    return g_lens_category_meta_arr
-      .map((local_category_meta_obj) => {
-        const local_option_arr = option_arr
+  // 피팅 기준 응답을 range_type 별 그룹으로 정규화해 버튼 목록으로 변환한다.
+  function normalize_lens_option_group_arr(criteria_arr) {
+    return g_range_type_meta_arr
+      .map((local_range_meta_obj) => {
+        const local_option_arr = criteria_arr
           .filter(
-            (local_option_obj) =>
-              local_option_obj.option_category === local_category_meta_obj.key &&
-              local_option_obj.is_active,
+            (local_criteria_obj) =>
+              local_criteria_obj.range_type === local_range_meta_obj.key &&
+              local_criteria_obj.is_active,
           )
           .sort(
-            (local_left_option_obj, local_right_option_obj) =>
-              local_left_option_obj.display_order - local_right_option_obj.display_order,
+            (local_left_obj, local_right_obj) =>
+              Number(local_left_obj.criteria_no ?? 0) - Number(local_right_obj.criteria_no ?? 0),
           )
-          .map((local_option_obj) => ({
-            id: String(local_option_obj.option_no),
-            label: String(local_option_obj.option_name ?? ''),
+          .map((local_criteria_obj) => ({
+            id: String(local_criteria_obj.criteria_no),
+            label: String(local_criteria_obj.criteria_label ?? ''),
           }))
 
         return {
-          key: local_category_meta_obj.key,
-          label: local_category_meta_obj.label,
+          key: local_range_meta_obj.key,
+          label: local_range_meta_obj.label,
           options: local_option_arr,
         }
       })
@@ -102,7 +101,7 @@
       return
     }
 
-    get_recommend_option_arr()
+    get_fitting_criteria_arr()
       .then((local_option_arr) => {
         const local_group_arr = normalize_lens_option_group_arr(
           Array.isArray(local_option_arr) ? local_option_arr : [],
