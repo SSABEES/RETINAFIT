@@ -6,7 +6,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import 'native/virtual_fitting.dart';
 
-const String _defaultWebAppUrl = 'http://10.0.2.2:5173';
+const String _defaultWebAppUrl = 'https://k14s107.p.ssafy.io/';
 const String _webAppUrl = String.fromEnvironment(
   'WEB_APP_URL',
   defaultValue: _defaultWebAppUrl,
