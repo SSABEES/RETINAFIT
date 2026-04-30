@@ -20,7 +20,7 @@
   <div class="flex items-center gap-3 px-6 py-6">
     <img
       class="h-11 w-11 rounded-lg bg-white object-cover shadow-lg shadow-black/20"
-      src="/favicon.png"
+      src="/favicon.svg"
       alt="Retin AI"
       width="900"
       height="900"
