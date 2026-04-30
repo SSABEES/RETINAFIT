@@ -51,7 +51,7 @@
 {#if g_is_authenticated}
   <main class="app-frame-page overflow-hidden bg-[var(--retinal-page)] text-[var(--retinal-text)]">
     <section class="h-full min-h-0 overflow-y-auto px-8 py-8">
-      <div class="grid min-h-full w-full gap-8">
+      <div class="grid min-h-full w-full content-start gap-4">
         <div class="flex items-start justify-between gap-6">
           <button
             class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)] hover:bg-[var(--retinal-soft-purple)]"

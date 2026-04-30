@@ -19,6 +19,14 @@
   let g_loading = $state(false)
   let g_error = $state('')
   let ref_selected_obj = $state({})
+  let g_flat_option_arr = $derived(
+    g_option_group_arr.flatMap((group_obj) =>
+      group_obj.options.map((option_obj) => ({
+        ...option_obj,
+        group_key: group_obj.key,
+      })),
+    ),
+  )
 
   // 추천 옵션 응답에서 렌즈 상담 화면에 필요한 카테고리만 추려 버튼 그룹으로 정규화한다.
   function normalize_lens_option_group_arr(option_arr) {
@@ -209,39 +217,28 @@
         >
           {g_options_error}
         </p>
-      {:else if g_option_group_arr.length === 0}
+      {:else if g_flat_option_arr.length === 0}
         <p
           class="mx-auto max-w-[640px] rounded-2xl bg-slate-50 px-6 py-5 text-center text-base font-bold text-slate-500"
         >
           선택 가능한 옵션이 없습니다.
         </p>
       {:else}
-        <div class="space-y-7">
-          {#each g_option_group_arr as group_obj (group_obj.key)}
-            <section>
-              <h2
-                class="mb-4 text-center text-[22px] font-extrabold tracking-[-0.02em] text-zinc-950"
-              >
-                {group_obj.label}
-              </h2>
-              <div class="mx-auto flex max-w-[760px] flex-wrap justify-center gap-4">
-                {#each group_obj.options as opt_obj (opt_obj.id)}
-                  {@const local_active = is_selected(group_obj.key, opt_obj.id)}
-                  <button
-                    class={`flex min-h-[68px] w-[176px] items-center justify-center rounded-[18px] border px-6 text-[17px] font-bold transition ${
-                      local_active
-                        ? 'border-[#1F1F1F] bg-[#4B0055] text-white shadow-[0_10px_24px_rgba(75,0,85,0.18)]'
-                        : 'border-[#E9E1EE] bg-[#F5F1F7] text-slate-600 hover:border-[#4B0055] hover:bg-[#F0E7F4] hover:text-[#4B0055]'
-                    }`}
-                    type="button"
-                    aria-pressed={local_active}
-                    onclick={() => on_click_toggle_option(group_obj.key, opt_obj.id)}
-                  >
-                    {opt_obj.label}
-                  </button>
-                {/each}
-              </div>
-            </section>
+        <div class="mx-auto flex max-w-[760px] flex-wrap justify-center gap-4">
+          {#each g_flat_option_arr as opt_obj (opt_obj.id)}
+            {@const local_active = is_selected(opt_obj.group_key, opt_obj.id)}
+            <button
+              class={`flex min-h-[68px] w-[176px] items-center justify-center rounded-[18px] border px-6 text-[17px] font-bold transition ${
+                local_active
+                  ? 'border-[#1F1F1F] bg-[#4B0055] text-white shadow-[0_10px_24px_rgba(75,0,85,0.18)]'
+                  : 'border-[#E9E1EE] bg-[#F5F1F7] text-slate-600 hover:border-[#4B0055] hover:bg-[#F0E7F4] hover:text-[#4B0055]'
+              }`}
+              type="button"
+              aria-pressed={local_active}
+              onclick={() => on_click_toggle_option(opt_obj.group_key, opt_obj.id)}
+            >
+              {opt_obj.label}
+            </button>
           {/each}
         </div>
       {/if}
