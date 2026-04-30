@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import { navigate } from '@maks11060/svelte5-router'
-  import { ArrowLeft } from 'lucide-svelte'
+  import { ArrowLeft, LogOut } from 'lucide-svelte'
   import CaptureShell from '@/components/capture/capture_shell.svelte'
   import CameraPermissionModal from '@/components/modal/camera_permission_modal.svelte'
   import { PATH } from '@/config/path'
@@ -10,19 +10,26 @@
     request_camera_permission,
     watch_camera_permission_change,
   } from '@/lib/capture/permission'
-  import { selected_customer_obj } from '@/lib/stores/customer'
+  import { clear_login_select_data } from '@/lib/stores/admin'
+  import { clear_auto_login_obj } from '@/lib/stores/auto_login'
 
-  let g_back_path = $derived(
-    $selected_customer_obj?.id ? PATH.userDetail($selected_customer_obj.id) : PATH.users,
-  )
   let g_permission_state = $state(
     /** @type {'granted' | 'denied' | 'prompt' | 'unsupported'} */ ('prompt'),
   )
   let g_permission_modal_open = $state(false)
 
-  // 뒤로가기 버튼 클릭 시 현재 선택된 고객의 상세 대시보드로 이동한다.
+  // 헤더의 뒤로가기 — 고객 조회 화면으로 돌아간다.
   function on_click_go_back() {
-    navigate(g_back_path)
+    navigate(PATH.users)
+  }
+
+  // 헤더의 로그아웃 — 토큰/자동로그인/스토어를 비우고 로그인 화면으로 이동한다.
+  function on_click_logout() {
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('token_no')
+    clear_login_select_data()
+    clear_auto_login_obj()
+    navigate(PATH.login)
   }
 
   // 모달의 [카메라 허용] 버튼 핸들러: getUserMedia 권한 요청 후 결과 반영.
@@ -70,31 +77,40 @@
   })
 </script>
 
-<main class="app-frame-page overflow-hidden bg-[#F7F8FA] text-zinc-950">
+<main
+  class="app-frame-page grid min-h-full grid-rows-[auto_1fr] overflow-hidden bg-[var(--retina-surface)] text-[var(--retina-text)]"
+>
   <header
-    class="grid h-[72px] grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-white px-8"
+    class="flex items-center justify-between border-b border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-6 py-3"
   >
-    <div class="flex justify-start">
-      <button
-        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-1 text-base font-bold text-slate-600 transition hover:text-[#4B0055] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#9A1BFF]/20"
-        type="button"
-        onclick={on_click_go_back}
-      >
-        <ArrowLeft size={20} strokeWidth={2.4} aria-hidden="true" />
-        <span>뒤로가기</span>
-      </button>
-    </div>
+    <button
+      class="grid h-9 w-9 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-[var(--retina-text-700)] transition hover:bg-[var(--retina-bg-1)] hover:text-[var(--retina-primary-600)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
+      type="button"
+      aria-label="뒤로가기"
+      onclick={on_click_go_back}
+    >
+      <ArrowLeft size={22} strokeWidth={2} aria-hidden="true" />
+    </button>
 
-    <h1 class="m-0 text-2xl font-extrabold tracking-normal text-zinc-950">얼굴 분석</h1>
+    <img
+      class="h-9 w-auto"
+      src="/logo/LogoWide_2.png"
+      alt="RetinaFit"
+      width="320"
+      height="80"
+    />
 
-    <div></div>
+    <button
+      class="grid h-9 w-9 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-[var(--retina-text-700)] transition hover:bg-[var(--retina-bg-1)] hover:text-[var(--retina-primary-600)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
+      type="button"
+      aria-label="로그아웃"
+      onclick={on_click_logout}
+    >
+      <LogOut size={22} strokeWidth={2} aria-hidden="true" />
+    </button>
   </header>
 
-  <section class="h-[calc(100%-72px)] overflow-y-auto px-8 py-4">
-    <div class="mx-auto max-w-[1216px]">
-      <CaptureShell />
-    </div>
-  </section>
+  <CaptureShell />
 </main>
 
 <CameraPermissionModal

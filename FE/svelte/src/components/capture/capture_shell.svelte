@@ -118,24 +118,19 @@
   })
 </script>
 
-<div class="flex flex-col gap-4">
+<div class="grid min-h-full grid-cols-12 overflow-hidden">
   {#if g_session.phase === 'capturing' && g_current_step}
     <!--
-      3컬럼 레이아웃 (좌우 대칭):
-      - 좌측 220px: 스텝 리스트 (세로 중앙 정렬)
-      - 중앙 540px: 카메라 뷰 (가로 중앙 고정)
-      - 우측 220px: 스텝 가이드 + 촬영 버튼 + 캡쳐 썸네일 (상단 정렬)
-      좌우 컬럼 폭이 같아 카메라가 페이지 정중앙에 고정된다.
+      Default.png 형태의 9:3 레이아웃:
+      - 좌측 9: 카메라 뷰 (가운데 정렬, 좌측 영역 차지)
+      - 우측 3: 스텝 인디케이터 + 촬영 컨트롤 + 촬영 기록 (흰 배경 패널)
+      - 두 컬럼 사이 세로 보더로 구분
     -->
-    <div class="capture-layout grid justify-center gap-6">
-      <aside class="self-center">
-        <StepIndicator
-          steps_arr={g_session.steps_arr}
-          current_index={g_session.current_step_index}
-        />
-      </aside>
-
-      <section aria-label="실시간 얼굴 분석" class="self-start">
+    <section
+      aria-label="실시간 얼굴 분석"
+      class="col-span-8 grid min-h-0 items-start justify-items-center overflow-hidden border-r border-[var(--retina-text-200)] bg-[var(--retina-bg-2)] px-6 pt-2 pb-2"
+    >
+      <div class="w-full max-w-[420px]">
         <CameraView
           bind:this={ref_this_camera}
           active={true}
@@ -144,17 +139,23 @@
           oncapture={on_capture}
           oncapture_error={on_capture_error}
         />
-      </section>
+      </div>
+    </section>
 
-      <aside class="flex flex-col gap-3 self-start">
-        <StepStatusBar
-          step={g_current_step}
-          is_capturing={g_is_capturing}
-          oncapture_click={on_manual_capture_click}
-        />
-        <CaptureThumbnails />
-      </aside>
-    </div>
+    <aside
+      class="col-span-4 flex min-h-0 flex-col gap-5 overflow-hidden bg-[var(--retina-surface)] px-3 py-4"
+    >
+      <StepIndicator
+        steps_arr={g_session.steps_arr}
+        current_index={g_session.current_step_index}
+      />
+      <StepStatusBar
+        step={g_current_step}
+        is_capturing={g_is_capturing}
+        oncapture_click={on_manual_capture_click}
+      />
+      <CaptureThumbnails />
+    </aside>
   {/if}
 
   {#if g_toast_message}
@@ -167,16 +168,3 @@
     </div>
   {/if}
 </div>
-
-<style>
-  .capture-layout {
-    grid-template-columns: 220px 540px 220px;
-  }
-
-  @media (max-width: 1280px), (max-height: 820px) {
-    .capture-layout {
-      grid-template-columns: 180px minmax(0, 430px) 180px;
-      gap: 1rem;
-    }
-  }
-</style>
