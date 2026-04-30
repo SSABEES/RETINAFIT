@@ -32,7 +32,7 @@
 
     <img
       class="h-9 w-auto"
-      src="/logo/LogoWide.png"
+      src="/logo/LogoWide_2.png"
       alt="RetinaFit"
       width="320"
       height="80"

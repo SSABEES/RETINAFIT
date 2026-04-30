@@ -3,14 +3,17 @@
   import {
     ArrowLeft,
     CalendarDays,
+    ChevronRight,
+    CircleCheck,
     LogOut,
     Phone,
+    Plus,
     Search,
     UserPlus,
     UserSearch,
   } from 'lucide-svelte'
+  import Keypad from '@/components/input/keypad.svelte'
   import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
-  import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import { PATH } from '@/config/path'
   import { create_customer, search_customer } from '@/lib/api/customers'
   import { get_visit_list, create_visit } from '@/lib/api/visit'
@@ -30,25 +33,23 @@
 
   let ref_customer_arr = $state([])
   let ref_customer_create_modal_open = $state(false)
-  let g_visit_confirm_open = $state(false)
   let g_visit_target_customer = $state(/** @type {any} */ (null))
-  let g_recent_visit_obj = $state(/** @type {any} */ (null))
-  let g_confirm_title = $state('이전 방문 기록이 있습니다')
-  let g_confirm_message = $state('이어서 상담을 진행하시겠습니까?')
-  let g_confirm_cancel_label = $state('새로 시작')
-  let g_confirm_confirm_label = $state('이어서 상담')
-  let g_confirm_cancel_action = $state(() => {})
-  let g_confirm_confirm_action = $state(() => {})
   let ref_search_phone = $state('')
+  let ref_consent_agreed = $state(false)
   let g_search_error_message = $state('')
   let g_create_error_message = $state('')
   let g_is_search_loading = $state(false)
   let g_is_customer_select_loading = $state(false)
+  // 조회 버튼을 한 번이라도 클릭해 검색이 끝났는지 여부 (검색결과 없음 안내 분기용).
+  let g_has_searched = $state(false)
 
-  const g_min_search_length = 2
-  const g_search_debounce_ms = 250
+  const g_phone_full_length = 11
+
+  // 조회 버튼은 휴대폰 번호 11자리 모두 입력 + 개인정보 동의가 모두 충족되어야 활성화된다.
+  let is_search_active = $derived(
+    ref_search_phone.length === g_phone_full_length && ref_consent_agreed,
+  )
   let g_search_request_id = 0
-  let g_search_debounce_timer = /** @type {ReturnType<typeof setTimeout> | null} */ (null)
 
   // 고객 이름에서 목록 아바타에 사용할 첫 글자를 추출한다.
   function get_initial(name) {
@@ -198,44 +199,10 @@
     return local_customer_result_arr
   }
 
-  // 결과 확인 모달을 분석 이력 안내용으로 설정한다.
-  function open_analysis_result_confirm_modal() {
-    g_confirm_title = '얼굴 분석 이력이 있습니다'
-    g_confirm_message = '분석결과와 함께 ar 가상 피팅 진행하시겠습니까?'
-    g_confirm_cancel_label = '아니요'
-    g_confirm_confirm_label = '최근 분석 이력 보기'
-    g_confirm_cancel_action = on_click_go_customer_detail
-    g_confirm_confirm_action = on_click_go_recent_analysis
-    g_visit_confirm_open = true
-  }
-
-  // 선택한 고객의 상세 페이지로 이동한다.
-  function on_click_go_customer_detail() {
-    g_visit_confirm_open = false
-
-    if (!g_visit_target_customer?.id) {
-      return
-    }
-
-    navigate(PATH.userDetail(g_visit_target_customer.id))
-  }
-
-  // 가장 최근 방문 정보를 세션에 저장하고 중간 리포트(얼굴 측정) 화면으로 이동한다.
-  function on_click_go_recent_analysis() {
-    g_visit_confirm_open = false
-
-    if (g_recent_visit_obj) {
-      set_selected_visit(g_recent_visit_obj)
-    }
-
-    navigate(PATH.analysisFaceMeasurement)
-  }
-
   // 고객 카드를 누르면 실제 방문 이력을 조회해 다음 동작을 결정한다.
   async function on_click_select_customer(customer_obj) {
     set_selected_customer(customer_obj)
     g_visit_target_customer = customer_obj
-    g_recent_visit_obj = null
     g_is_customer_select_loading = true
 
     try {
@@ -243,20 +210,9 @@
         cust_no: customer_obj.id,
       })
       const local_visit_arr = Array.isArray(local_result_obj?.visits) ? local_result_obj.visits : []
-      const local_recent_visit_obj = local_visit_arr[0] ?? null
-
-      g_recent_visit_obj = local_recent_visit_obj
-
-      if (
-        customer_obj.status_key === 'analysis_done' ||
-        customer_obj.status_key === 'remeasure_recommended'
-      ) {
-        open_analysis_result_confirm_modal()
-        return
-      }
 
       if (local_visit_arr.length > 0) {
-        navigate(PATH.userDetail(customer_obj.id))
+        navigate(PATH.analysis)
         return
       }
 
@@ -268,10 +224,8 @@
     }
   }
 
-  // 신규 방문을 생성하고 고객 상세 화면으로 이동한다.
+  // 신규 방문을 생성하고 얼굴 분석 화면으로 바로 이동한다.
   async function on_start_new_visit() {
-    g_visit_confirm_open = false
-
     try {
       const local_visit_customer_obj = get_visit_customer_payload(g_visit_target_customer)
       const local_result_obj = await create_visit({
@@ -300,7 +254,7 @@
       })
     }
 
-    navigate(PATH.userDetail(g_visit_target_customer.id))
+    navigate(PATH.analysis)
   }
 
   // 입력된 전화번호로 고객을 조회하고 방문 이력으로 분석 상태를 채운다. 디바운스/제출 양쪽에서 호출된다.
@@ -356,50 +310,28 @@
     }
   }
 
-  // 전화번호 입력값에서 숫자만 남기고 2자리 이상이면 디바운스 후 자동 조회한다.
-  function on_input_search_phone(local_event) {
-    ref_search_phone = /** @type {HTMLInputElement} */ (local_event.currentTarget).value.replace(
-      /[^0-9]/g,
-      '',
-    )
+  // 키패드 컴포넌트가 값을 변경할 때 호출된다. 화면에만 반영하고 조회는 버튼 클릭 시 수행한다.
+  function on_change_keypad(local_value) {
+    ref_search_phone = local_value.replace(/[^0-9]/g, '')
     g_search_error_message = ''
-
-    if (g_search_debounce_timer !== null) {
-      clearTimeout(g_search_debounce_timer)
-      g_search_debounce_timer = null
-    }
-
-    if (ref_search_phone.length < g_min_search_length) {
-      g_search_request_id += 1
-      g_is_search_loading = false
-      ref_customer_arr = []
-      customer_arr_store.set([])
-      return
-    }
-
-    const local_search_phone = ref_search_phone
-
-    g_search_debounce_timer = setTimeout(() => {
-      g_search_debounce_timer = null
-      run_phone_search(local_search_phone)
-    }, g_search_debounce_ms)
+    g_has_searched = false
+    ref_customer_arr = []
+    customer_arr_store.set([])
   }
 
-  // 검색 폼 제출 시 디바운스를 건너뛰고 즉시 조회한다.
-  async function on_submit_search_customer(local_event) {
-    local_event.preventDefault()
+  // 개인정보 수집 동의 체크 토글.
+  function on_click_toggle_consent() {
+    ref_consent_agreed = !ref_consent_agreed
+  }
 
-    if (g_search_debounce_timer !== null) {
-      clearTimeout(g_search_debounce_timer)
-      g_search_debounce_timer = null
-    }
-
-    if (!ref_search_phone) {
-      g_search_error_message = '검색할 전화번호를 입력해 주세요.'
+  // 조회 버튼 클릭 시 즉시 고객을 조회한다.
+  async function on_click_search_submit() {
+    if (!is_search_active) {
       return
     }
 
     await run_phone_search(ref_search_phone)
+    g_has_searched = true
   }
 
   // 신규 고객 등록 모달을 연다.
@@ -412,11 +344,6 @@
   function on_click_close_customer_create_modal() {
     g_create_error_message = ''
     ref_customer_create_modal_open = false
-  }
-
-  // 확인 모달을 닫고 고객 목록 화면에 그대로 머문다.
-  function on_click_close_visit_confirm_modal() {
-    g_visit_confirm_open = false
   }
 
   // 헤더의 뒤로가기 버튼 — 방문 유형 선택 화면으로 돌아간다.
@@ -498,7 +425,7 @@
 
     <img
       class="h-9 w-auto"
-      src="/logo/LogoWide.png"
+      src="/logo/LogoWide_2.png"
       alt="RetinaFit"
       width="320"
       height="80"
@@ -516,27 +443,142 @@
 
   <div class="grid min-h-0 grid-cols-2">
     <section
-      class="min-h-0 border-r border-[var(--retina-text-200)] px-6 py-6"
+      class="grid min-h-0 grid-rows-[1fr_auto] gap-4 border-r border-[var(--retina-text-200)] px-6 pt-5 pb-5"
       aria-label="고객 조회 키패드 영역"
     >
-      <!-- 키패드 컴포넌트 자리. 추후 컴포넌트가 들어갈 영역. -->
+      <div class="w-[22rem] self-start justify-self-center">
+        <Keypad value={ref_search_phone} onchange={on_change_keypad} />
+      </div>
+
+      <div class="grid w-[22rem] justify-self-center gap-3">
+        <button
+          class="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-[var(--retina-bg-1)] px-3 py-2.5 text-left text-sm font-bold text-[var(--retina-text-800)] transition hover:bg-[var(--retina-primary-200)]/40 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
+          type="button"
+          aria-pressed={ref_consent_agreed}
+          onclick={on_click_toggle_consent}
+        >
+          <CircleCheck
+            class={`flex-none transition ${
+              ref_consent_agreed
+                ? 'text-[var(--retina-primary-700)]'
+                : 'text-[var(--retina-text-300)]'
+            }`}
+            size={20}
+            strokeWidth={2}
+            aria-hidden="true"
+          />
+          <span>개인정보 수집 및 이용에 동의합니다.</span>
+        </button>
+
+        <button
+          class={`min-h-14 w-full cursor-pointer rounded-md border-0 text-xl font-bold tracking-[0.3em] text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+            is_search_active
+              ? 'bg-[var(--retina-primary-300)] hover:bg-[var(--retina-primary-700)]'
+              : 'bg-[var(--retina-bg-2)]'
+          }`}
+          type="button"
+          onclick={on_click_search_submit}
+          disabled={!is_search_active || g_is_search_loading}
+        >
+          {g_is_search_loading ? '조회 중' : '조 회'}
+        </button>
+      </div>
     </section>
 
     <section
-      class="grid min-h-0 place-items-center px-6 py-6"
+      class="grid min-h-0 place-items-center bg-[var(--retina-text-100)] px-6 py-6"
       aria-label="고객 조회 결과 영역"
     >
-      <div class="grid justify-items-center gap-3 text-center">
-        <span
-          class="grid h-[100px] w-[100px] place-items-center rounded-full bg-[var(--retina-bg-1)] text-[var(--retina-primary-600)]/55"
-          aria-hidden="true"
+      {#if g_search_error_message}
+        <p
+          class="m-0 max-w-[420px] rounded-lg bg-[var(--retina-bg-1)] px-5 py-3 text-center text-sm font-bold text-[var(--retina-primary-700)]"
+          role="alert"
         >
-          <UserSearch size={42} strokeWidth={1.5} />
-        </span>
-        <p class="m-0 text-sm font-bold text-[var(--retina-text-800)]">
-          ← 먼저 휴대폰 번호로 고객을 조회해주세요.
+          {g_search_error_message}
         </p>
-      </div>
+      {:else if g_is_search_loading && ref_customer_arr.length === 0}
+        <p class="m-0 text-sm font-bold text-[var(--retina-text-700)]">조회 중...</p>
+      {:else if ref_customer_arr.length === 0 && g_has_searched}
+        <div class="grid justify-items-center gap-4 text-center">
+          <span
+            class="grid h-[100px] w-[100px] place-items-center rounded-full bg-[var(--retina-bg-1)] text-[var(--retina-primary-600)]/55"
+            aria-hidden="true"
+          >
+            <UserSearch size={42} strokeWidth={1.5} />
+          </span>
+          <p class="m-0 text-sm font-bold text-[var(--retina-text-800)]">검색결과가 없어요</p>
+          <button
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--retina-primary-600)] bg-[var(--retina-surface)] px-4 py-2 text-sm font-bold text-[var(--retina-primary-600)] transition hover:bg-[var(--retina-bg-1)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
+            type="button"
+            onclick={on_click_open_customer_create_modal}
+          >
+            <Plus size={14} strokeWidth={2.6} aria-hidden="true" />
+            <span>신규등록</span>
+          </button>
+        </div>
+      {:else if ref_customer_arr.length === 0}
+        <div class="grid justify-items-center gap-3 text-center">
+          <span
+            class="grid h-[100px] w-[100px] place-items-center rounded-full bg-[var(--retina-bg-1)] text-[var(--retina-primary-600)]/55"
+            aria-hidden="true"
+          >
+            <UserSearch size={42} strokeWidth={1.5} />
+          </span>
+          <p class="m-0 text-sm font-bold text-[var(--retina-text-800)]">
+            ← <br>먼저 휴대폰 번호로 고객을 조회해주세요.
+          </p>
+        </div>
+      {:else}
+        <div class="grid w-full max-w-[520px] gap-4 self-start justify-self-center py-2">
+          <div class="flex items-center justify-between">
+            <p class="m-0 text-sm font-bold text-[var(--retina-text-500)]">
+              총 <span class="text-[var(--retina-text-700)]">{ref_customer_arr.length}명</span>
+            </p>
+            <button
+              class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--retina-primary-600)] bg-[var(--retina-surface)] px-3 py-1.5 text-sm font-bold text-[var(--retina-primary-600)] transition hover:bg-[var(--retina-bg-1)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
+              type="button"
+              onclick={on_click_open_customer_create_modal}
+            >
+              <Plus size={14} strokeWidth={2.6} aria-hidden="true" />
+              <span>신규등록</span>
+            </button>
+          </div>
+
+          <div class="grid auto-rows-min gap-3 overflow-y-auto">
+            {#each ref_customer_arr as customer_obj (customer_obj.id)}
+              <button
+                type="button"
+                class="grid w-full cursor-pointer grid-cols-[1fr_auto] items-center gap-4 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-5 py-4 text-left shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition hover:-translate-y-0.5 hover:border-[var(--retina-primary-600)] hover:shadow-[0_8px_18px_rgba(245,107,0,0.14)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-70"
+                onclick={() => on_click_select_customer(customer_obj)}
+                aria-label={`${customer_obj.name} 고객 상세로 이동`}
+                disabled={g_is_customer_select_loading}
+              >
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2.5">
+                    <span class="truncate text-lg font-extrabold text-[var(--retina-text-800)]">
+                      {customer_obj.name}
+                    </span>
+                    <span class="text-[var(--retina-text-300)]" aria-hidden="true">|</span>
+                    <span class="truncate text-sm font-medium text-[var(--retina-text-700)]">
+                      {customer_obj.phone}
+                    </span>
+                  </div>
+                  <p class="m-0 mt-1.5 text-xs font-medium text-[var(--retina-text-500)]">
+                    최근방문일 : {customer_obj.last_visit_dt}
+                  </p>
+                </div>
+
+                <span
+                  class="inline-flex items-center gap-1 rounded-full border border-[var(--retina-primary-600)] bg-[var(--retina-surface)] px-3.5 py-1.5 text-sm font-bold text-[var(--retina-primary-600)]"
+                >
+                  얼굴분석
+                  <ChevronRight size={14} strokeWidth={2.6} aria-hidden="true" />
+                </span>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {/if}
     </section>
   </div>
 
@@ -545,16 +587,5 @@
     error_message={g_create_error_message}
     onclose={on_click_close_customer_create_modal}
     oncreate={on_create_customer}
-  />
-
-  <ConfirmModal
-    open={g_visit_confirm_open}
-    title={g_confirm_title}
-    message={g_confirm_message}
-    cancelLabel={g_confirm_cancel_label}
-    confirmLabel={g_confirm_confirm_label}
-    onclose={on_click_close_visit_confirm_modal}
-    oncancel={g_confirm_cancel_action}
-    onconfirm={g_confirm_confirm_action}
   />
 </main>

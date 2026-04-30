@@ -53,8 +53,8 @@
     aria-label="안경사 선택"
   >
     <img
-      class="h-auto w-[140px]"
-      src="/logo/LogoHeight.png"
+      class="h-auto w-[180px]"
+      src="/logo/LogoWide_2.png"
       alt="RetinaFit"
       width="16568"
       height="16568"

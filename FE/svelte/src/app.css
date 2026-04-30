@@ -1,23 +1,21 @@
 @import 'tailwindcss';
 
 :root {
-  --retina-primary-100: #f7cdb6;
-  --retina-primary-200: #ffaf86;
-  --retina-primary-300: #ff8a45;
-  --retina-primary-400: #f56b00;
-  --retina-primary-900: #743300;
-  --retina-primary-800: #9f4700;
-  --retina-primary-700: #cd5a00;
-  --retina-primary-600: #f56b00;
-  --retina-primary-500: #ff8a45;
+  --retina-primary-100: #FFD8C2;
+  --retina-primary-200: #FFB48F;
+  --retina-primary-300: #F98A4A;
+  --retina-primary-400: #EA6A0F;
+  --retina-primary-500: #C8570C;
+  --retina-primary-600: #9E4309;
+  --retina-primary-700: #6E2E05;
   --retina-accent: #ffaf86;
-  --retina-text-100: #ffffff;
-  --retina-text-200: #d9dde2;
-  --retina-text-300: #c8ccd2;
-  --retina-text-400: #bcc2cc;
-  --retina-text-500: #9ea6b3;
-  --retina-text-600: #787f8d;
-  --retina-text-700: #445064;
+  --retina-text-100: #F1F3F5;
+  --retina-text-200: #E5E7EB;
+  --retina-text-300: #D1D5DB;
+  --retina-text-400: #9CA3AF;
+  --retina-text-500: #6B7280;
+  --retina-text-600: #374151;
+  --retina-text-700: #111827;
   --retina-text-800: #131928;
   --retina-surface: #ffffff;
   --retina-page: #d9dde2;

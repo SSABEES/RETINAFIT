@@ -1,14 +1,23 @@
 <script>
   import { X } from 'lucide-svelte'
 
-  /** @type {{
-   *   open?: boolean,
-   *   error_message?: string,
-   *   onclose?: (() => void) | undefined,
-   *   oncreate?: ((customer_obj: { name: string, gender: string, birth_dt: string, phone1: string, phone2: string }) => void | Promise<void>) | undefined,
-   * }}
+  /**
+   * @typedef {{ name: string, gender: string, birth_dt: string, phone1: string, phone2: string }} CustomerCreatePayload
+   *
+   * @typedef {object} CustomerCreateModalProps
+   * @property {boolean} [open]
+   * @property {string} [error_message]
+   * @property {(() => void) | undefined} [onclose]
+   * @property {((customer_obj: CustomerCreatePayload) => void | Promise<void>) | undefined} [oncreate]
    */
-  let { open = false, error_message = '', onclose = undefined, oncreate = undefined } = $props()
+
+  /** @type {CustomerCreateModalProps} */
+  let {
+    open = false,
+    error_message = '',
+    onclose = undefined,
+    oncreate = undefined,
+  } = $props()
 
   let ref_name = $state('')
   let ref_gender = $state('0')
@@ -63,12 +72,12 @@
 
 {#if open}
   <div
-    class="fixed inset-0 z-50 grid place-items-center bg-black/45 px-5"
+    class="fixed inset-0 z-50 grid place-items-center bg-black/40 px-5"
     role="presentation"
     onclick={on_click_close}
   >
     <div
-      class="w-full max-w-[480px] overflow-hidden rounded-2xl bg-white text-left shadow-2xl shadow-black/25"
+      class="w-full max-w-[400px] overflow-hidden rounded-[18px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] text-left shadow-[0_12px_30px_rgba(19,25,40,0.18)]"
       role="dialog"
       aria-modal="true"
       aria-labelledby="customer-create-title"
@@ -76,25 +85,35 @@
       onclick={(local_event) => local_event.stopPropagation()}
       onkeydown={(local_event) => local_event.stopPropagation()}
     >
-      <header class="flex min-h-[66px] items-center justify-between bg-[#4B0055] px-7 text-white">
-        <h2 id="customer-create-title" class="m-0 text-2xl font-extrabold">신규 고객 등록</h2>
+      <header
+        class="flex min-h-12 items-center justify-between border-b border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-5 py-2.5"
+      >
+        <h2
+          id="customer-create-title"
+          class="m-0 text-base font-extrabold text-[var(--retina-text-800)]"
+        >
+          신규 고객 등록
+        </h2>
         <button
-          class="grid h-10 w-10 cursor-pointer place-items-center rounded-lg border-0 bg-transparent text-white transition hover:bg-white/12 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70 disabled:cursor-not-allowed disabled:opacity-60"
+          class="grid h-8 w-8 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-[var(--retina-text-700)] transition hover:bg-[var(--retina-bg-1)] hover:text-[var(--retina-primary-600)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
           aria-label="신규 고객 등록 닫기"
           disabled={g_is_submit_loading}
           onclick={on_click_close}
         >
-          <X size={25} strokeWidth={2.4} aria-hidden="true" />
+          <X size={18} strokeWidth={2.4} aria-hidden="true" />
         </button>
       </header>
 
-      <form class="grid gap-5 px-7 py-6" onsubmit={on_submit_customer_create}>
-        <label class="grid gap-2 text-base font-extrabold text-slate-700" for="customer-name">
-          <span>이름 <span class="text-[#D92D20]">*</span></span>
+      <form class="grid gap-3 px-5 py-4" onsubmit={on_submit_customer_create}>
+        <label
+          class="grid gap-1.5 text-xs font-bold text-[var(--retina-text-700)]"
+          for="customer-name"
+        >
+          <span>이름 <span class="text-[#dc2626]">*</span></span>
           <input
             id="customer-name"
-            class="min-h-13 rounded-lg border border-slate-200 px-4 text-lg font-semibold text-zinc-900 outline-none transition placeholder:text-slate-400 focus:border-[#9A1BFF] focus:ring-3 focus:ring-[#9A1BFF]/15 disabled:cursor-not-allowed disabled:bg-slate-50"
+            class="min-h-10 rounded-md border border-[var(--retina-text-300)] bg-[var(--retina-surface)] px-3 text-sm font-semibold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-500)] focus:border-[var(--retina-text-800)] focus:bg-[var(--retina-bg-1)]/40 disabled:cursor-not-allowed disabled:bg-[var(--retina-text-200)]/40"
             type="text"
             maxlength="30"
             bind:value={ref_name}
@@ -104,16 +123,16 @@
           />
         </label>
 
-        <fieldset class="m-0 grid gap-3 border-0 p-0" disabled={g_is_submit_loading}>
-          <legend class="text-base font-extrabold text-slate-700">
-            성별 <span class="text-[#D92D20]">*</span>
+        <fieldset class="m-0 grid gap-1.5 border-0 p-0" disabled={g_is_submit_loading}>
+          <legend class="text-xs font-bold text-[var(--retina-text-700)]">
+            성별 <span class="text-[#dc2626]">*</span>
           </legend>
-          <div class="flex items-center gap-14 px-6">
+          <div class="flex items-center gap-8 px-1 pt-0.5">
             <label
-              class="inline-flex cursor-pointer items-center gap-2 text-base font-bold text-zinc-900"
+              class="inline-flex cursor-pointer items-center gap-1.5 text-sm font-bold text-[var(--retina-text-800)]"
             >
               <input
-                class="h-4 w-4 accent-[#4B0055]"
+                class="h-3.5 w-3.5 accent-[var(--retina-primary-600)]"
                 type="radio"
                 name="customer-gender"
                 value="0"
@@ -122,10 +141,10 @@
               남
             </label>
             <label
-              class="inline-flex cursor-pointer items-center gap-2 text-base font-bold text-zinc-900"
+              class="inline-flex cursor-pointer items-center gap-1.5 text-sm font-bold text-[var(--retina-text-800)]"
             >
               <input
-                class="h-4 w-4 accent-[#4B0055]"
+                class="h-3.5 w-3.5 accent-[var(--retina-primary-600)]"
                 type="radio"
                 name="customer-gender"
                 value="1"
@@ -136,11 +155,14 @@
           </div>
         </fieldset>
 
-        <label class="grid gap-2 text-base font-extrabold text-slate-700" for="customer-birth-dt">
-          <span>생년월일 <span class="text-[#D92D20]">*</span></span>
+        <label
+          class="grid gap-1.5 text-xs font-bold text-[var(--retina-text-700)]"
+          for="customer-birth-dt"
+        >
+          <span>생년월일 <span class="text-[#dc2626]">*</span></span>
           <input
             id="customer-birth-dt"
-            class="min-h-13 rounded-lg border border-slate-200 px-4 text-lg font-semibold text-zinc-900 outline-none transition placeholder:text-slate-400 focus:border-[#9A1BFF] focus:ring-3 focus:ring-[#9A1BFF]/15 disabled:cursor-not-allowed disabled:bg-slate-50"
+            class="min-h-10 rounded-md border border-[var(--retina-text-300)] bg-[var(--retina-surface)] px-3 text-sm font-semibold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-500)] focus:border-[var(--retina-text-800)] focus:bg-[var(--retina-bg-1)]/40 disabled:cursor-not-allowed disabled:bg-[var(--retina-text-200)]/40"
             type="date"
             bind:value={ref_birth_dt}
             disabled={g_is_submit_loading}
@@ -148,11 +170,14 @@
           />
         </label>
 
-        <label class="grid gap-2 text-base font-extrabold text-slate-700" for="customer-phone1">
-          <span>연락처1 <span class="text-[#D92D20]">*</span></span>
+        <label
+          class="grid gap-1.5 text-xs font-bold text-[var(--retina-text-700)]"
+          for="customer-phone1"
+        >
+          <span>연락처1 <span class="text-[#dc2626]">*</span></span>
           <input
             id="customer-phone1"
-            class="min-h-13 rounded-lg border border-slate-200 px-4 text-lg font-semibold text-zinc-900 outline-none transition placeholder:text-slate-400 focus:border-[#9A1BFF] focus:ring-3 focus:ring-[#9A1BFF]/15 disabled:cursor-not-allowed disabled:bg-slate-50"
+            class="min-h-10 rounded-md border border-[var(--retina-text-300)] bg-[var(--retina-surface)] px-3 text-sm font-semibold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-500)] focus:border-[var(--retina-text-800)] focus:bg-[var(--retina-bg-1)]/40 disabled:cursor-not-allowed disabled:bg-[var(--retina-text-200)]/40"
             type="tel"
             inputmode="numeric"
             maxlength="11"
@@ -163,11 +188,14 @@
           />
         </label>
 
-        <label class="grid gap-2 text-base font-extrabold text-slate-700" for="customer-phone2">
+        <label
+          class="grid gap-1.5 text-xs font-bold text-[var(--retina-text-700)]"
+          for="customer-phone2"
+        >
           <span>연락처2</span>
           <input
             id="customer-phone2"
-            class="min-h-13 rounded-lg border border-slate-200 px-4 text-lg font-semibold text-zinc-900 outline-none transition placeholder:text-slate-400 focus:border-[#9A1BFF] focus:ring-3 focus:ring-[#9A1BFF]/15 disabled:cursor-not-allowed disabled:bg-slate-50"
+            class="min-h-10 rounded-md border border-[var(--retina-text-300)] bg-[var(--retina-surface)] px-3 text-sm font-semibold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-500)] focus:border-[var(--retina-text-800)] focus:bg-[var(--retina-bg-1)]/40 disabled:cursor-not-allowed disabled:bg-[var(--retina-text-200)]/40"
             type="tel"
             inputmode="numeric"
             maxlength="11"
@@ -178,14 +206,17 @@
         </label>
 
         {#if error_message}
-          <p class="m-0 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700" role="alert">
+          <p
+            class="m-0 rounded-md bg-[var(--retina-bg-1)] px-3 py-2 text-xs font-bold text-[var(--retina-primary-700)]"
+            role="alert"
+          >
             {error_message}
           </p>
         {/if}
 
-        <div class="mt-2 grid grid-cols-2 gap-3">
+        <div class="mt-1 grid grid-cols-2 gap-2.5">
           <button
-            class="min-h-13 cursor-pointer rounded-lg border border-slate-200 bg-white text-lg font-extrabold text-zinc-900 transition hover:bg-slate-50 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+            class="min-h-10 cursor-pointer rounded-md border border-[var(--retina-text-300)] bg-[var(--retina-surface)] text-sm font-extrabold text-[var(--retina-text-700)] transition hover:bg-[var(--retina-bg-1)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-text-300)]/70 disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             disabled={g_is_submit_loading}
             onclick={on_click_close}
@@ -193,7 +224,7 @@
             취소
           </button>
           <button
-            class="min-h-13 cursor-pointer rounded-lg border-0 bg-[#4B0055] text-lg font-extrabold text-white transition hover:bg-[#65006F] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/30 disabled:cursor-not-allowed disabled:opacity-60"
+            class="min-h-10 cursor-pointer rounded-md border-0 bg-[var(--retina-primary-600)] text-sm font-extrabold text-[var(--retina-text-100)] transition hover:bg-[var(--retina-primary-700)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40 disabled:cursor-not-allowed disabled:opacity-60"
             type="submit"
             disabled={g_is_submit_loading}
           >
