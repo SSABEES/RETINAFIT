@@ -109,10 +109,12 @@
   function normalize_glasses_arr(glass_arr) {
     return (Array.isArray(glass_arr) ? glass_arr : []).map((local_glass_obj, local_index) => {
       const local_spec_obj = local_glass_obj.glasses_spec_json ?? {}
+      const local_raw_no = Number(local_glass_obj.glasses_no)
+      const local_safe_no = Number.isFinite(local_raw_no) ? local_raw_no : local_index + 1
 
       return {
-        id: Number(local_glass_obj.glasses_no ?? local_index + 1),
-        glasses_no: Number(local_glass_obj.glasses_no ?? local_index + 1),
+        id: local_safe_no,
+        glasses_no: local_safe_no,
         brand: String(local_glass_obj.glasses_brand ?? ''),
         model: String(local_glass_obj.glasses_name ?? ''),
         price: String(local_spec_obj.price ?? ''),

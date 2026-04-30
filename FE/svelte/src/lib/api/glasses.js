@@ -8,7 +8,7 @@ import { get_session_auth_headers } from '@/lib/api/session_auth'
  * @returns {Promise<{ glasses_no: number, front_url: string, left_url: string, right_url: string, front_key: string, left_key: string, right_key: string }>}
  */
 export const request_fitting_presigned_urls = (visit_no, glasses_no) => {
-  return apiRequest(`/api/v1/visits/${visit_no}/files/vp`, {
+  return apiRequest(`/api/v1/visits/${visit_no}/files/fitting-photos`, {
     method: 'POST',
     headers: get_session_auth_headers(),
     body: { glasses_no },
@@ -16,15 +16,18 @@ export const request_fitting_presigned_urls = (visit_no, glasses_no) => {
 }
 
 /**
- * S3 업로드 완료 후 가상 피팅 결과를 백엔드에 저장
+ * S3 업로드 완료 후 가상 피팅 결과를 방문 데이터에 PATCH 로 저장
  * @param {number} visit_no
  * @param {{ vp_file_arr: string[], vp_json: { glasses_no: number, fitting_result: object } }} body
  */
 export const confirm_fitting_result = (visit_no, body) => {
-  return apiRequest(`/api/v1/visits/${visit_no}/vp`, {
-    method: 'POST',
+  return apiRequest(`/api/v1/visits/${visit_no}`, {
+    method: 'PATCH',
     headers: get_session_auth_headers(),
-    body,
+    body: {
+      ...body,
+      vp_dt: new Date().toISOString(),
+    },
   })
 }
 
