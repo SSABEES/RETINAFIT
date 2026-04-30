@@ -207,7 +207,7 @@
       .then((local_glass_arr) => {
         const local_normalized_glass_arr = normalize_glasses_arr(local_glass_arr)
         g_all_glasses_arr = local_normalized_glass_arr
-        g_recommended_arr = local_normalized_glass_arr.slice(0, 5)
+        g_recommended_arr = local_normalized_glass_arr.slice(0, 3)
       })
       .catch(() => {
         g_all_glasses_arr = []
