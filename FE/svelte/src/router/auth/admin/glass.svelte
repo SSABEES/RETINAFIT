@@ -13,6 +13,12 @@
     update_admin_glasses,
   } from '@/lib/api/admin_glasses'
 
+  /**
+   * @typedef {{ label: string, value: string }} GlassDropdownOption
+   * @typedef {{ key: string, label: string, option_arr: Array<string | GlassDropdownOption> }} GlassDropdown
+   */
+
+  /** @type {GlassDropdown[]} */
   const g_glass_dropdown_arr = [
     { key: 'category', label: '카테고리', option_arr: ['안경', '선글라스', '스포츠'] },
     {
@@ -22,7 +28,7 @@
     },
     {
       key: 'frame_type',
-      label: '프레임 타입',
+      label: '프레임 재질',
       option_arr: ['뿔테', '메탈', '합금테', '무테', '혼합'],
     },
     { key: 'material', label: '소재', option_arr: ['아세테이트', '메탈', '티타늄', '혼합'] },
@@ -37,6 +43,20 @@
   ]
 
   const g_glass_placeholder_image_url = 'https://placehold.co/640x480/F5EAF7/AA83B4?text=GLASS'
+  const g_frame_style_option_arr = [
+    { label: '라운드', value: 'round' },
+    { label: '오벌', value: 'oval' },
+    { label: '스퀘어', value: 'square' },
+    { label: '직사각형', value: 'rectangle' },
+    { label: '보잉', value: 'aviator' },
+    { label: '캣아이', value: 'cat_eye' },
+    { label: '브로우라인', value: 'browline' },
+    { label: '기하학', value: 'geometric' },
+    { label: '오버사이즈', value: 'oversized' },
+    { label: '림리스', value: 'rimless' },
+  ]
+
+  g_glass_dropdown_arr[1].option_arr = g_frame_style_option_arr
 
   // 안경 등록과 수정에 공통으로 쓰는 기본 입력 상태를 만든다.
   function create_glass_form() {
@@ -47,7 +67,7 @@
       glasses_3d_url: '',
       is_active: true,
       category: '안경',
-      frame_style: '풀프레임',
+      frame_style: 'round',
       frame_type: '뿔테',
       material: '아세테이트',
       color: '',
@@ -75,6 +95,27 @@
     return Number.isFinite(local_number) ? local_number : null
   }
 
+  // 드롭다운 옵션 값을 라벨과 비교 가능한 문자열 값으로 정리한다.
+  function get_glass_dropdown_option_value(option_obj) {
+    return typeof option_obj === 'string' ? option_obj : option_obj.value
+  }
+
+  // 드롭다운 옵션 값을 화면에 보여줄 라벨 문자열로 정리한다.
+  function get_glass_dropdown_option_label(option_obj) {
+    return typeof option_obj === 'string' ? option_obj : option_obj.label
+  }
+
+  // 현재 선택된 드롭다운 값을 화면 표시용 라벨로 변환한다.
+  function get_glass_dropdown_selected_label(dropdown_obj, selected_value) {
+    const local_option_obj = dropdown_obj.option_arr.find(
+      (option_obj) => get_glass_dropdown_option_value(option_obj) === selected_value,
+    )
+
+    return local_option_obj
+      ? get_glass_dropdown_option_label(local_option_obj)
+      : String(selected_value ?? '')
+  }
+
   /**
    * 관리자 안경 API 응답을 현재 화면에서 바로 쓰기 쉬운 형태로 정규화한다.
    * @param {Record<string, any>} glass_obj
@@ -91,7 +132,7 @@
       is_active: Boolean(glass_obj.is_active),
       created_at: glass_obj.created_at ?? '',
       category: local_spec_obj.category ?? '안경',
-      frame_style: local_spec_obj.frame_style ?? '풀프레임',
+      frame_style: local_spec_obj.frame_style ?? 'round',
       frame_type: local_spec_obj.frame_type ?? '뿔테',
       material: local_spec_obj.material ?? '아세테이트',
       color: local_spec_obj.color ?? '',
@@ -270,7 +311,7 @@
       glasses_3d_url: glass_obj.glasses_3d_url ?? '',
       is_active: glass_obj.is_active ?? true,
       category: glass_obj.category ?? '안경',
-      frame_style: glass_obj.frame_style ?? '풀프레임',
+      frame_style: glass_obj.frame_style ?? 'round',
       frame_type: glass_obj.frame_type ?? '뿔테',
       material: glass_obj.material ?? '아세테이트',
       color: glass_obj.color ?? '',
@@ -628,7 +669,7 @@
               />
             </label>
 
-            {#each g_glass_dropdown_arr.filter((dropdown_obj) => ['category', 'frame_type'].includes(dropdown_obj.key)) as dropdown_obj (dropdown_obj.key)}
+            {#each g_glass_dropdown_arr.filter((dropdown_obj) => ['category', 'frame_style', 'frame_type'].includes(dropdown_obj.key)) as dropdown_obj (dropdown_obj.key)}
               <div class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
                 {dropdown_obj.label}
 
@@ -638,7 +679,12 @@
                     type="button"
                     onclick={() => on_click_toggle_glass_dropdown(dropdown_obj.key)}
                   >
-                    <span>{ref_glass_form_obj[dropdown_obj.key]}</span>
+                    <span>
+                      {get_glass_dropdown_selected_label(
+                        dropdown_obj,
+                        ref_glass_form_obj[dropdown_obj.key],
+                      )}
+                    </span>
                     <ChevronDown
                       size={18}
                       strokeWidth={2.4}
@@ -651,18 +697,22 @@
                     <div
                       class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retinal-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
                     >
-                      {#each dropdown_obj.option_arr as option_name (option_name)}
+                      {#each dropdown_obj.option_arr as option_obj (`${dropdown_obj.key}-${get_glass_dropdown_option_value(option_obj)}`)}
                         <button
                           class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
-                            ref_glass_form_obj[dropdown_obj.key] === option_name
+                            ref_glass_form_obj[dropdown_obj.key] ===
+                            get_glass_dropdown_option_value(option_obj)
                               ? 'bg-[var(--retinal-soft-purple)] text-[var(--retinal-primary-700)]'
                               : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retinal-primary-700)]'
                           }`}
                           type="button"
                           onclick={() =>
-                            on_click_select_glass_dropdown(dropdown_obj.key, option_name)}
+                            on_click_select_glass_dropdown(
+                              dropdown_obj.key,
+                              get_glass_dropdown_option_value(option_obj),
+                            )}
                         >
-                          {option_name}
+                          {get_glass_dropdown_option_label(option_obj)}
                         </button>
                       {/each}
                     </div>
