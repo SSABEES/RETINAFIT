@@ -16,6 +16,7 @@
   } from 'lucide-svelte'
   import Header from '@/components/layout/header.svelte'
   import CameraView from '@/components/camera/camera_view.svelte'
+  import { flip_blob_horizontally } from '@/lib/capture/capture_utils.js'
   import CameraPermissionModal from '@/components/modal/camera_permission_modal.svelte'
   import { PATH } from '@/config/path'
   import {
@@ -74,16 +75,28 @@
 
   let g_all_captured = $derived(g_capture_slot_arr.every((s) => s !== null))
   let g_next_slot_idx = $derived(g_capture_slot_arr.findIndex((s) => s === null))
-  let g_camera_pose_target = $derived.by(() => {
-    if (g_next_slot_idx === 1) return 'left_profile'
-    if (g_next_slot_idx === 2) return 'right_profile'
-    return 'front'
-  })
+  let g_camera_pose_target = $derived.by(
+    /** @returns {'left_profile' | 'right_profile' | 'front'} */
+    () => {
+      if (g_next_slot_idx === 1) return 'left_profile'
+      if (g_next_slot_idx === 2) return 'right_profile'
+      return 'front'
+    },
+  )
 
   // { glasses_id, brand, model, captures } 형태로 최대 5개 저장
   let g_saved_fittings_arr = $state([])
 
-  let g_can_save = $derived(g_all_captured && g_saved_fittings_arr.length < MAX_FITTINGS)
+  // 현재 선택한 안경이 이미 저장된 적이 있는지 (있으면 새 캡쳐로 덮어쓰는 모드)
+  let g_is_selected_already_saved = $derived(
+    g_selected_id !== null &&
+      g_saved_fittings_arr.some((local_obj) => local_obj.glasses_id === g_selected_id),
+  )
+
+  let g_can_save = $derived(
+    g_all_captured &&
+      (g_saved_fittings_arr.length < MAX_FITTINGS || g_is_selected_already_saved),
+  )
   let g_can_submit = $derived(g_saved_fittings_arr.length > 0)
 
   // 안경 id별 저장 횟수 맵 (목록 카드 배지 표시용)
@@ -233,7 +246,11 @@
    * 이미 5개를 채웠다면 토스트 경고 후 차단
    */
   function on_click_select_glasses(id) {
-    if (g_saved_fittings_arr.length >= MAX_FITTINGS) {
+    const local_already_saved = g_saved_fittings_arr.some(
+      (local_obj) => local_obj.glasses_id === id,
+    )
+    // 5개를 다 채웠더라도 이미 저장된 안경을 재선택해 사진을 갱신하는 것은 허용한다.
+    if (g_saved_fittings_arr.length >= MAX_FITTINGS && !local_already_saved) {
       show_toast(
         `피팅은 최대 ${MAX_FITTINGS}개까지만 저장할 수 있습니다. 저장된 피팅을 취소한 뒤 다시 시도하세요.`,
       )
@@ -278,10 +295,15 @@
   }
 
   /**
-   * 현재 화면을 캡쳐하여 다음 빈 슬롯에 추가
+   * 현재 화면을 캡쳐하여 다음 빈 슬롯에 추가.
+   * 안경이 선택되지 않은 상태에서는 토스트로 안내하고 차단한다.
    */
   async function on_click_capture() {
     if (g_next_slot_idx === -1 || g_is_capturing || !ref_this_camera) return
+    if (g_selected_id === null) {
+      show_toast('먼저 시도할 안경을 선택해 주세요.')
+      return
+    }
 
     g_is_capturing = true
 
@@ -297,23 +319,37 @@
   }
 
   /**
-   * 해당 캡쳐 슬롯의 이미지를 삭제
+   * 캡쳐 결과를 슬롯에 추가한다.
+   * 카메라 프리뷰가 미러 표시되므로 이 시점에 좌우 반전을 적용해 썸네일/업로드/세션 저장 모두
+   * 미러된 동일 이미지를 사용하게 한다.
    */
-  function on_capture_camera(local_capture_obj) {
+  async function on_capture_camera(local_capture_obj) {
     if (g_next_slot_idx === -1) {
       URL.revokeObjectURL(local_capture_obj.object_url)
       return
     }
 
+    let local_mirrored_blob
+    try {
+      local_mirrored_blob = await flip_blob_horizontally(local_capture_obj.blob)
+    } catch {
+      // 반전 실패 시 원본 사용 (UX 막지 않음)
+      local_mirrored_blob = local_capture_obj.blob
+    }
+
+    // 원본 object_url 은 더 이상 사용하지 않으므로 revoke 하고 미러 blob 의 새 URL 을 만든다.
+    URL.revokeObjectURL(local_capture_obj.object_url)
+    const local_mirrored_object_url = URL.createObjectURL(local_mirrored_blob)
+
     const local_file_obj = new File(
-      [local_capture_obj.blob],
+      [local_mirrored_blob],
       `arfitting_${String(g_next_slot_idx + 1)}_${String(local_capture_obj.captured_at)}.jpg`,
-      { type: local_capture_obj.blob.type || 'image/jpeg' },
+      { type: local_mirrored_blob.type || 'image/jpeg' },
     )
 
     const local_capture_slot_obj = {
       file_obj: local_file_obj,
-      object_url: local_capture_obj.object_url,
+      object_url: local_mirrored_object_url,
       captured_at: local_capture_obj.captured_at,
     }
 
@@ -376,7 +412,7 @@
       // 안경별 Presigned URL 발급 (front/left/right)
       const local_presigned = await request_fitting_presigned_urls(local_visit_no, local_glasses_no)
 
-      // front, left, right 순으로 S3에 PUT
+      // front, left, right 순으로 S3에 PUT (캡쳐 시점에 이미 좌우 반전된 파일이 슬롯에 있음)
       const local_file_arr = g_capture_slot_arr.map((local_capture_slot_obj) =>
         local_capture_slot_obj?.file_obj instanceof File
           ? local_capture_slot_obj.file_obj
@@ -410,17 +446,63 @@
         vp_json: { glasses_no: local_glasses_no, fitting_result: {} },
       })
 
-      // 로컬 저장 목록 업데이트 및 슬롯 초기화
-      g_saved_fittings_arr = [
-        ...g_saved_fittings_arr,
-        {
-          glasses_id: g_selected_id,
-          glasses_no: local_glasses_no,
+      // 로컬 저장 목록 업데이트 (같은 안경이면 기존 항목을 새 캡쳐로 교체, 아니면 append)
+      const local_new_fitting_obj = {
+        glasses_id: g_selected_id,
+        glasses_no: local_glasses_no,
+        brand: glasses_info?.brand ?? '',
+        model: glasses_info?.model ?? '',
+        captures: [...g_capture_slot_arr],
+      }
+      const local_existing_idx = g_saved_fittings_arr.findIndex(
+        (local_obj) => local_obj.glasses_id === g_selected_id,
+      )
+      if (local_existing_idx >= 0) {
+        const local_next_arr = [...g_saved_fittings_arr]
+        local_next_arr[local_existing_idx] = local_new_fitting_obj
+        g_saved_fittings_arr = local_next_arr
+      } else {
+        g_saved_fittings_arr = [...g_saved_fittings_arr, local_new_fitting_obj]
+      }
+
+      // result.svelte 용 sessionStorage 도 동일하게 같은 모델은 교체 정책으로 갱신한다.
+      try {
+        const local_capture_data_url_arr = await Promise.all(
+          local_file_arr.map((local_file_obj) => read_file_as_data_url(local_file_obj)),
+        )
+        const local_persisted_fitting_obj = {
           brand: glasses_info?.brand ?? '',
           model: glasses_info?.model ?? '',
-          captures: [...g_capture_slot_arr],
-        },
-      ]
+          capture_arr: SLOT_LABEL_ARR.map((local_label, local_idx) => ({
+            label: local_label,
+            src: local_capture_data_url_arr[local_idx] ?? '',
+          })),
+        }
+        const local_existing_raw = sessionStorage.getItem('retinal_saved_fittings')
+        const local_existing_arr_raw = local_existing_raw ? JSON.parse(local_existing_raw) : []
+        const local_existing_arr = Array.isArray(local_existing_arr_raw)
+          ? local_existing_arr_raw
+          : []
+        const local_persisted_idx = local_existing_arr.findIndex(
+          (local_obj) =>
+            local_obj?.brand === local_persisted_fitting_obj.brand &&
+            local_obj?.model === local_persisted_fitting_obj.model,
+        )
+        let local_next_persisted_arr
+        if (local_persisted_idx >= 0) {
+          local_next_persisted_arr = [...local_existing_arr]
+          local_next_persisted_arr[local_persisted_idx] = local_persisted_fitting_obj
+        } else {
+          local_next_persisted_arr = [...local_existing_arr, local_persisted_fitting_obj]
+        }
+        sessionStorage.setItem(
+          'retinal_saved_fittings',
+          JSON.stringify(local_next_persisted_arr),
+        )
+      } catch {
+        // 저장 실패해도 본 흐름은 막지 않는다.
+      }
+
       clear_capture_slot_arr()
       ref_this_camera?.reset()
     } catch (local_err) {
@@ -428,6 +510,15 @@
     } finally {
       g_submit_loading = false
     }
+  }
+
+  function read_file_as_data_url(file_obj) {
+    return new Promise((resolve, reject) => {
+      const local_reader = new FileReader()
+      local_reader.onload = () => resolve(String(local_reader.result ?? ''))
+      local_reader.onerror = () => reject(local_reader.error ?? new Error('파일 읽기 실패'))
+      local_reader.readAsDataURL(file_obj)
+    })
   }
 
   /**
@@ -610,7 +701,7 @@
 
       local_unwatch = await watch_camera_permission_change((local_next_state) => {
         g_permission_state = local_next_state
-        if (local_next_state !== 'granted' && local_next_state !== 'unsupported') {
+        if (local_next_state !== 'granted') {
           g_permission_modal_open = true
         }
       })
@@ -682,25 +773,41 @@
         </button>
 
         {#if g_next_slot_idx !== -1}
+          {@const local_capture_disabled = g_selected_id === null}
           <div
             class="absolute bottom-3 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2"
           >
             <p
               class="rounded-full bg-black/40 px-3 py-0.5 text-[11px] font-medium text-white/80 backdrop-blur-md"
             >
-              {SLOT_LABEL_ARR[g_next_slot_idx]} 각도를 촬영해주세요
+              {local_capture_disabled
+                ? '먼저 시도할 안경을 선택해 주세요'
+                : `${SLOT_LABEL_ARR[g_next_slot_idx]} 각도를 촬영해주세요`}
             </p>
             <button
               type="button"
               onclick={on_click_capture}
-              aria-label="{SLOT_LABEL_ARR[g_next_slot_idx]} 촬영"
-              class="group flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-2xl transition-transform hover:scale-110 active:scale-95"
+              disabled={local_capture_disabled}
+              aria-label={local_capture_disabled
+                ? '안경을 먼저 선택해 주세요'
+                : `${SLOT_LABEL_ARR[g_next_slot_idx]} 촬영`}
+              class={`group flex h-14 w-14 items-center justify-center rounded-full shadow-2xl transition-transform ${
+                local_capture_disabled
+                  ? 'cursor-not-allowed bg-white/60'
+                  : 'bg-white hover:scale-110 active:scale-95'
+              }`}
             >
               <div
-                class="flex h-11 w-11 items-center justify-center rounded-full border-[3px] border-white"
+                class={`flex h-11 w-11 items-center justify-center rounded-full border-[3px] ${
+                  local_capture_disabled ? 'border-white/70' : 'border-white'
+                }`}
               >
                 <div
-                  class="h-9 w-9 rounded-full bg-white transition-all group-hover:bg-[var(--retina-primary-100)]"
+                  class={`h-9 w-9 rounded-full transition-all ${
+                    local_capture_disabled
+                      ? 'bg-white/70'
+                      : 'bg-white group-hover:bg-[var(--retina-primary-100)]'
+                  }`}
                 ></div>
               </div>
             </button>

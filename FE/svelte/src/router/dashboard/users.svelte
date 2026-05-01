@@ -238,6 +238,9 @@
 
       // report.svelte 가 우선 조회하는 visit_no 키도 함께 갱신해 둔다.
       sessionStorage.setItem('retinal_visit_no', String(local_visit_no))
+      // 새 방문이므로 직전 방문에서 result.svelte 가 보던 데이터는 제거한다.
+      sessionStorage.removeItem('retinal_lens_selections')
+      sessionStorage.removeItem('retinal_saved_fittings')
 
       navigate(PATH.analysis)
     } catch (local_error) {

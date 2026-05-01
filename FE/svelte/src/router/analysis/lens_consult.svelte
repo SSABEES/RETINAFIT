@@ -200,6 +200,29 @@
         opt_recommend_json: ref_selected_obj,
       })
 
+      // result.svelte 에서 보여주기 위해 선택한 질문/답변 라벨을 sessionStorage 에 저장한다.
+      const local_lens_selection_arr = g_question_arr.map((local_question_obj) => {
+        const local_selected_no_arr =
+          ref_selected_obj[local_question_obj.question_text] ?? []
+        const local_label_arr = local_selected_no_arr
+          .map((local_no) => {
+            const local_answer_obj = local_question_obj.answer_arr.find(
+              (local_obj) => local_obj.option_no === local_no,
+            )
+            return local_answer_obj?.option_name ?? ''
+          })
+          .filter(Boolean)
+
+        return {
+          question_text: local_question_obj.question_text,
+          label_arr: local_label_arr,
+        }
+      })
+      sessionStorage.setItem(
+        'retinal_lens_selections',
+        JSON.stringify(local_lens_selection_arr),
+      )
+
       window.location.href = PATH.analysisArFitting
     } catch (local_err) {
       g_error = local_err.message ?? '조건 저장에 실패했습니다.'

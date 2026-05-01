@@ -12,7 +12,7 @@
   } from '@/lib/stores/capture_session.svelte.js'
   import { clear_login_select_data } from '@/lib/stores/admin'
   import { clear_auto_login_obj } from '@/lib/stores/auto_login'
-  import { save_face_analysis } from '@/lib/api/analysis.js'
+  import { save_face_analysis, upload_captures_to_s3 } from '@/lib/api/analysis.js'
   import {
     get_skin_tone_recommendation,
     get_frame_styles_for_face_shape,
@@ -155,9 +155,19 @@
 
     g_is_submitting = true
     try {
+      // 1) 미착용 정면/좌측/우측 캡쳐를 S3 에 업로드해 object_key 를 받아온다.
+      const local_key_map = await upload_captures_to_s3(visit_no, g_session.captures_obj)
+      const local_front_key = local_key_map.front_no_glasses ?? ''
+      const local_left_key = local_key_map.left_no_glasses ?? ''
+      const local_right_key = local_key_map.right_no_glasses ?? ''
+      const local_test_file_arr = [local_front_key, local_left_key, local_right_key].filter(
+        Boolean,
+      )
+
+      // 2) 받은 키를 main_file / test_file_arr 에 채워 BE PATCH 한다.
       await save_face_analysis(visit_no, {
-        main_file: '',
-        test_file_arr: [],
+        main_file: local_front_key,
+        test_file_arr: local_test_file_arr,
         test_json: build_test_json(),
       })
       navigate(PATH.analysisLensConsult)

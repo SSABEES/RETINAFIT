@@ -13,6 +13,7 @@
     get_current_step,
     reset as reset_session,
   } from '@/lib/stores/capture_session.svelte.js'
+  import { flip_blob_horizontally } from '@/lib/capture/capture_utils.js'
 
   /**
    * @typedef {import('@/lib/capture/step_config.js').StepConfig} StepConfig
@@ -61,16 +62,28 @@
 
   /**
    * camera_view 가 촬영을 마치면 세션에 저장하고 다음 스텝으로 진행.
+   * 썸네일/리뷰 화면용 object_url 만 카메라 프리뷰처럼 좌우 반전하고,
+   * 분석에 쓰이는 raw blob 과 landmarks 좌표계는 변경하지 않는다.
    * @param {CaptureResult} result
    */
   async function on_capture(result) {
     g_is_capturing = false
     if (!g_current_step) return
+
+    let local_display_object_url = result.object_url
+    try {
+      const local_mirrored_blob = await flip_blob_horizontally(result.blob)
+      URL.revokeObjectURL(result.object_url)
+      local_display_object_url = URL.createObjectURL(local_mirrored_blob)
+    } catch {
+      // 반전 실패 시 원본 URL 그대로 사용 (UX 막지 않음)
+    }
+
     /** @type {Capture} */
     const capture = {
       step_id: g_current_step.step_id,
       blob: result.blob,
-      object_url: result.object_url,
+      object_url: local_display_object_url,
       captured_at: result.captured_at,
       width: result.width,
       height: result.height,
