@@ -251,7 +251,7 @@
         {#if g_options_loading}
           <div class="grid place-items-center py-12">
             <span
-              class="h-8 w-8 animate-spin rounded-full border-[3px] border-[#F97316] border-t-transparent"
+              class="h-8 w-8 animate-spin rounded-full border-[3px] border-[var(--retina-primary-300)] border-t-transparent"
               aria-label="옵션 로딩 중"
             ></span>
           </div>
@@ -283,9 +283,9 @@
                   {@const local_progress_pct =
                     local_max_index === 0 ? 100 : (local_value_index / local_max_index) * 100}
                   <div class="mt-3 px-2">
-                    <div class="relative h-4 rounded-full bg-[#FDE6D2]">
+                    <div class="relative h-4 rounded-full bg-[var(--retina-primary-100)]">
                       <div
-                        class="absolute left-0 top-0 h-full rounded-full bg-[#F97316] transition-[width] duration-150"
+                        class="absolute left-0 top-0 h-full rounded-full bg-[var(--retina-primary-300)] transition-[width] duration-150"
                         style={`width: ${local_progress_pct}%`}
                       ></div>
                       <input
@@ -308,7 +308,7 @@
                       {#each question_obj.answer_arr as answer_obj, answer_index (answer_obj.option_no)}
                         <span
                           class={answer_index === local_selected_index
-                            ? 'text-[#F97316]'
+                            ? 'text-[var(--retina-primary-300)]'
                             : 'text-slate-500'}
                         >
                           {answer_obj.option_name}
@@ -323,8 +323,8 @@
                       <button
                         class={`inline-flex min-h-8 cursor-pointer items-center rounded-lg border px-4 text-[12px] font-bold transition ${
                           local_active
-                            ? 'border-[#F97316] bg-white text-[#F97316] shadow-[0_3px_8px_rgba(249,115,22,0.18)]'
-                            : 'border-slate-200 bg-white text-slate-500 hover:border-[#F97316]/60 hover:text-[#F97316]'
+                            ? 'border-[var(--retina-primary-300)] bg-white text-[var(--retina-primary-300)] shadow-[0_3px_8px_rgba(249,115,22,0.18)]'
+                            : 'border-slate-200 bg-white text-slate-500 hover:border-[var(--retina-primary-300)]/60 hover:text-[var(--retina-primary-300)]'
                         }`}
                         type="button"
                         aria-pressed={local_active}
@@ -355,7 +355,7 @@
     <div class="shrink-0 px-7 py-2.5">
       <div class="mx-auto w-full max-w-[820px]">
         <button
-          class="inline-flex min-h-[46px] w-full cursor-pointer items-center justify-center gap-2 rounded-[12px] border-0 bg-[#F97316] px-5 text-[15px] font-extrabold text-white transition hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-60"
+          class="inline-flex min-h-[46px] w-full cursor-pointer items-center justify-center gap-2 rounded-[12px] border-0 bg-[var(--retina-primary-300)] px-5 text-[15px] font-extrabold text-white transition hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
           disabled={g_loading}
           onclick={on_click_submit}

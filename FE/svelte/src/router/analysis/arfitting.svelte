@@ -4,11 +4,8 @@
   import { fade, fly } from 'svelte/transition'
   import { cubicOut } from 'svelte/easing'
   import {
-    ArrowLeft,
     Glasses,
     CheckCheck,
-    User,
-    Sparkles,
     X,
     HelpCircle,
     ChevronRight,
@@ -17,6 +14,7 @@
     Save,
     FileText,
   } from 'lucide-svelte'
+  import Header from '@/components/layout/header.svelte'
   import CameraView from '@/components/camera/camera_view.svelte'
   import CameraPermissionModal from '@/components/modal/camera_permission_modal.svelte'
   import { PATH } from '@/config/path'
@@ -40,6 +38,8 @@
     wait_for_flutter_bridge,
   } from '@/lib/flutter'
   import { selected_visit_obj } from '@/lib/stores/customer'
+  import { clear_login_select_data } from '@/lib/stores/admin'
+  import { clear_auto_login_obj } from '@/lib/stores/auto_login'
 
   /**
    * @typedef {{
@@ -64,7 +64,12 @@
   /** @type {{ trigger_capture: () => Promise<boolean>, reset: () => void } | null} */
   let ref_this_camera = $state(null)
 
-  const SLOT_LABEL_ARR = ['정면', '측면 좌', '측면 우']
+  const SLOT_LABEL_ARR = ['정면', '좌측', '우측']
+  const SLOT_ICON_ARR = [
+    '/icons/face_center.png',
+    '/icons/face_left.png',
+    '/icons/face_right.png',
+  ]
   const MAX_FITTINGS = 5
 
   let g_all_captured = $derived(g_capture_slot_arr.every((s) => s !== null))
@@ -442,6 +447,14 @@
     navigate(PATH.analysisLensConsult)
   }
 
+  function on_click_logout() {
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('token_no')
+    clear_login_select_data()
+    clear_auto_login_obj()
+    navigate(PATH.login)
+  }
+
   /**
    * 선택한 안경의 native asset 경로를 확인하고 Flutter AR 피팅 화면 열기
    */
@@ -615,363 +628,338 @@
   })
 </script>
 
-<main class="app-frame-page flex overflow-hidden bg-[#F8F9FA] text-zinc-900">
-  <!-- 좌측: 카메라 -->
-  <section
-    class="relative flex flex-1 flex-col p-8 transition-[z-index]"
-    class:z-50={g_highlight_camera}
-  >
-    <header class="mb-6 flex items-center justify-between">
-      <button
-        type="button"
-        onclick={on_click_go_back}
-        class="flex items-center gap-2 text-lg font-bold text-slate-500 transition-colors hover:text-slate-800"
-      >
-        <ArrowLeft size={24} />
-        <span>뒤로가기</span>
-      </button>
-      <div class="flex items-center gap-3">
-        <div class="h-2 w-2 animate-pulse rounded-full bg-red-500"></div>
-        <h1 class="text-2xl font-black tracking-tight">AR FITTING</h1>
-      </div>
-      <button
-        type="button"
-        onclick={on_click_guide_open}
-        class="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-500 transition-colors hover:bg-[#F5EAF7] hover:text-[#7B3F8A]"
-      >
-        <HelpCircle size={16} />
-        <span>사용 가이드</span>
-      </button>
-    </header>
+<main class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-zinc-900">
+  <Header onback={on_click_go_back} onlogout={on_click_logout} />
 
-    <div
-      class="relative flex-1 overflow-hidden rounded-[2.5rem] bg-zinc-950 shadow-inner transition-all"
-      class:ring-4={g_highlight_camera}
-      class:ring-[#AA83B4]={g_highlight_camera}
-      class:ring-offset-4={g_highlight_camera}
+  <div class="flex min-h-0 flex-1 overflow-hidden bg-[var(--retina-text-100)]">
+    <!-- 좌측: 카메라 -->
+    <section
+      class="relative flex min-h-0 flex-1 flex-col transition-[z-index]"
+      class:z-50={g_highlight_camera}
     >
-      <div class="absolute inset-0 overflow-hidden rounded-[2.5rem] border-[16px] border-white/5">
-        <CameraView
-          bind:this={ref_this_camera}
-          active={g_camera_active}
-          pose_target={g_camera_pose_target}
-          capture_mode="manual"
-          show_overlay={false}
-          oncapture={on_capture_camera}
-          oncapture_error={on_capture_camera_error}
-        />
-      </div>
-
-      {#if g_show_intro}
-        <div
-          class="absolute left-1/2 top-8 z-10 -translate-x-1/2"
-          in:fly={{ y: -16, duration: 400 }}
-          out:fade={{ duration: 500 }}
-        >
-          <div
-            class="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/60 px-6 py-3.5 shadow-2xl backdrop-blur-md"
-          >
-            <Glasses size={18} class="shrink-0 text-[#AA83B4]" />
-            <span class="whitespace-nowrap text-sm font-semibold text-white/90">
-              원하시는 안경을 선택해 시감해보세요
-            </span>
-          </div>
+      <div
+        class="arfitting-camera-fill relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner transition-all"
+        class:ring-4={g_highlight_camera}
+        class:ring-[var(--retina-primary-200)]={g_highlight_camera}
+        class:ring-offset-4={g_highlight_camera}
+      >
+        <div class="absolute inset-0 overflow-hidden">
+          <CameraView
+            bind:this={ref_this_camera}
+            active={g_camera_active}
+            pose_target={g_camera_pose_target}
+            capture_mode="manual"
+            show_overlay={false}
+            oncapture={on_capture_camera}
+            oncapture_error={on_capture_camera_error}
+          />
         </div>
-      {/if}
 
-      {#if g_next_slot_idx !== -1}
-        <div class="absolute bottom-10 left-1/2 flex -translate-x-1/2 flex-col items-center gap-4">
-          <!-- "Flutter AR 피팅 열기" 버튼 제거 — 우측 안경 카드 클릭이 AR 트리거로 동작함 -->
-
-          <p class="rounded-full bg-black/40 px-4 py-1 font-medium text-white/80 backdrop-blur-md">
-            {SLOT_LABEL_ARR[g_next_slot_idx]} 각도를 촬영해주세요
-          </p>
-          <button
-            type="button"
-            onclick={on_click_capture}
-            aria-label="{SLOT_LABEL_ARR[g_next_slot_idx]} 촬영"
-            class="group flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-2xl transition-transform hover:scale-110 active:scale-95"
+        {#if g_show_intro}
+          <div
+            class="absolute left-1/2 top-3 z-10 -translate-x-1/2"
+            in:fly={{ y: -10, duration: 400 }}
+            out:fade={{ duration: 500 }}
           >
             <div
-              class="flex h-16 w-16 items-center justify-center rounded-full border-4 border-[#4B0055]"
+              class="inline-flex items-center gap-2 rounded-full bg-[var(--retina-primary-300)] px-5 py-2 shadow-[0_4px_12px_rgba(249,115,22,0.35)]"
+            >
+              <Glasses size={14} class="shrink-0 text-white" />
+              <span class="whitespace-nowrap text-[12px] font-bold text-white">
+                현재 시야로 보고
+              </span>
+            </div>
+          </div>
+        {/if}
+
+        <button
+          type="button"
+          onclick={on_click_guide_open}
+          class="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[9px] font-bold text-slate-600 shadow backdrop-blur-md transition-colors hover:bg-white hover:text-[var(--retina-primary-300)]"
+        >
+          <HelpCircle size={10} />
+          <span>사용 가이드</span>
+        </button>
+
+        {#if g_next_slot_idx !== -1}
+          <div
+            class="absolute bottom-3 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2"
+          >
+            <p
+              class="rounded-full bg-black/40 px-3 py-0.5 text-[11px] font-medium text-white/80 backdrop-blur-md"
+            >
+              {SLOT_LABEL_ARR[g_next_slot_idx]} 각도를 촬영해주세요
+            </p>
+            <button
+              type="button"
+              onclick={on_click_capture}
+              aria-label="{SLOT_LABEL_ARR[g_next_slot_idx]} 촬영"
+              class="group flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-2xl transition-transform hover:scale-110 active:scale-95"
             >
               <div
-                class="h-12 w-12 rounded-full bg-[#4B0055] transition-all group-hover:bg-[#7B3F8A]"
-              ></div>
-            </div>
-          </button>
-        </div>
-      {/if}
-      {#if g_flutter_bridge_ready}
-        <div
-          class="absolute left-6 top-6 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-xs text-white/85 backdrop-blur-md"
-        >
-          <p class="font-black">Flutter Bridge</p>
-          <p class="mt-1">status: {g_flutter_availability}</p>
-          <p class="mt-1">asset: {g_selected_asset_path || 'none'}</p>
-          <p class="mt-1">model: {g_selected_model_url || 'none'}</p>
-          {#if g_flutter_event_text}
-            <p class="mt-1 max-w-72 break-all text-white/70">{g_flutter_event_text}</p>
-          {/if}
-        </div>
-      {/if}
-    </div>
-  </section>
-
-  <!-- 우측: 캡쳐 상태 + 추천 안경 + 액션 버튼 -->
-  <aside
-    class="relative flex w-[440px] flex-col border-l border-slate-200 bg-white shadow-xl transition-[z-index]"
-    class:z-50={g_highlight_aside}
-  >
-    <!-- 캡쳐 슬롯 -->
-    <div
-      class="p-8 pb-4 transition-all"
-      class:ring-4={g_guide_step === 3}
-      class:ring-[#AA83B4]={g_guide_step === 3}
-      class:ring-inset={g_guide_step === 3}
-    >
-      <h2 class="mb-5 text-sm font-black uppercase tracking-widest text-slate-400">
-        Capture Status
-      </h2>
-      <div class="grid grid-cols-3 gap-4">
-        {#each g_capture_slot_arr as slot, idx (idx)}
-          <div class="group relative flex flex-col items-center gap-3">
-            <div
-              class={`flex h-[100px] w-full items-center justify-center rounded-2xl border-2 transition-all ${
-                slot
-                  ? 'border-[#AA83B4] bg-[#F5EAF7]'
-                  : idx === g_next_slot_idx
-                    ? 'animate-pulse border-dashed border-slate-300 bg-slate-50'
-                    : 'border-slate-100 bg-slate-50'
-              }`}
-            >
-              {#if slot}
-                <img
-                  src={slot.object_url}
-                  alt={SLOT_LABEL_ARR[idx]}
-                  class="h-full w-full rounded-2xl object-cover"
-                />
-                <button
-                  type="button"
-                  onclick={() => on_click_reset_slot(idx)}
-                  aria-label="다시 촬영"
-                  class="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-400 shadow-md hover:text-red-500"
-                >
-                  <X size={16} />
-                </button>
-              {:else}
-                <User size={32} class="text-slate-200" />
-              {/if}
-            </div>
-            <span class={`text-xs font-bold ${slot ? 'text-[#7B3F8A]' : 'text-slate-400'}`}
-              >{SLOT_LABEL_ARR[idx]}</span
-            >
+                class="flex h-11 w-11 items-center justify-center rounded-full border-[3px] border-white"
+              >
+                <div
+                  class="h-9 w-9 rounded-full bg-white transition-all group-hover:bg-[var(--retina-primary-100)]"
+                ></div>
+              </div>
+            </button>
           </div>
-        {/each}
+        {/if}
+        {#if g_flutter_bridge_ready}
+          <div
+            class="absolute left-3 top-3 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-[10px] text-white/85 backdrop-blur-md"
+          >
+            <p class="font-black">Flutter Bridge</p>
+            <p class="mt-0.5">status: {g_flutter_availability}</p>
+            <p class="mt-0.5">asset: {g_selected_asset_path || 'none'}</p>
+            <p class="mt-0.5">model: {g_selected_model_url || 'none'}</p>
+            {#if g_flutter_event_text}
+              <p class="mt-0.5 max-w-56 break-all text-white/70">{g_flutter_event_text}</p>
+            {/if}
+          </div>
+        {/if}
       </div>
-    </div>
+    </section>
 
-    <hr class="mx-8 my-4 border-slate-100" />
-
-    <!-- 추천 안경 목록 -->
-    <div
-      class="flex min-h-0 flex-1 flex-col px-8 transition-all"
-      class:ring-4={g_guide_step === 1}
-      class:ring-[#AA83B4]={g_guide_step === 1}
-      class:ring-inset={g_guide_step === 1}
+    <!-- 우측: 캡쳐 상태 + 추천 안경 + 액션 버튼 -->
+    <aside
+      class="relative flex w-[300px] flex-col border-l border-slate-200 bg-white transition-[z-index]"
+      class:z-50={g_highlight_aside}
     >
-      <div class="mb-4 flex flex-col gap-1.5">
-        <div class="flex items-center justify-between">
-          <h2 class="text-lg font-black">추천 안경</h2>
+      <!-- 캡쳐 슬롯 -->
+      <div
+        class="px-4 pt-3 pb-2 transition-all"
+        class:ring-4={g_guide_step === 3}
+        class:ring-[var(--retina-primary-200)]={g_guide_step === 3}
+        class:ring-inset={g_guide_step === 3}
+      >
+        <h2 class="mb-2 text-[11px] font-extrabold tracking-wide text-slate-500">촬영 상태</h2>
+        <div class="grid grid-cols-3 gap-2">
+          {#each g_capture_slot_arr as slot, idx (idx)}
+            <div class="group relative flex flex-col items-center gap-1">
+              <div
+                class={`relative flex h-[120px] w-full items-center justify-center rounded-lg border transition-all ${
+                  slot
+                    ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)]'
+                    : idx === g_next_slot_idx
+                      ? 'animate-pulse border-dashed border-slate-300 bg-slate-50'
+                      : 'border-slate-200 bg-slate-50'
+                }`}
+              >
+                {#if slot}
+                  <img
+                    src={slot.object_url}
+                    alt={SLOT_LABEL_ARR[idx]}
+                    class="h-full w-full rounded-lg object-cover"
+                  />
+                  <button
+                    type="button"
+                    onclick={() => on_click_reset_slot(idx)}
+                    aria-label="다시 촬영"
+                    class="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-slate-400 shadow-md hover:text-red-500"
+                  >
+                    <X size={11} />
+                  </button>
+                {:else}
+                  <img
+                    src={SLOT_ICON_ARR[idx]}
+                    alt={`${SLOT_LABEL_ARR[idx]} 안내`}
+                    class="h-[18px] w-[18px] object-contain opacity-70"
+                  />
+                {/if}
+              </div>
+              <span class={`text-[10px] font-bold ${slot ? 'text-[var(--retina-primary-300)]' : 'text-slate-400'}`}
+                >{SLOT_LABEL_ARR[idx]}</span
+              >
+            </div>
+          {/each}
+        </div>
+      </div>
+
+      <hr class="mx-4 my-1 border-slate-200" />
+
+      <!-- 추천 안경 목록 -->
+      <div
+        class="flex min-h-0 flex-1 flex-col px-4 pt-2 transition-all"
+        class:ring-4={g_guide_step === 1}
+        class:ring-[var(--retina-primary-200)]={g_guide_step === 1}
+        class:ring-inset={g_guide_step === 1}
+      >
+        <div class="mb-2 flex items-center justify-between">
+          <h2 class="text-[13px] font-extrabold text-zinc-900">추천 안경</h2>
           <button
             type="button"
             onclick={on_click_open_filter_modal}
-            class="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500 transition-colors hover:bg-[#F5EAF7] hover:text-[#7B3F8A]"
+            class="flex items-center gap-1 rounded-lg border border-[var(--retina-primary-500)] bg-white px-2 py-1 text-[10px] font-bold text-[var(--retina-primary-500)] transition-colors hover:bg-[var(--retina-bg-1)]"
           >
-            <SlidersHorizontal size={13} />
+            <SlidersHorizontal size={11} />
             <span>프레임 변경</span>
             {#if g_active_filter_count > 0}
               <span
-                class="flex h-4 w-4 items-center justify-center rounded-full bg-[#4B0055] text-[9px] font-black text-white"
+                class="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--retina-primary-300)] text-[9px] font-black text-white"
               >
                 {g_active_filter_count}
               </span>
             {/if}
           </button>
         </div>
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-slate-400">{g_glasses_arr.length}개</span>
-          {#if g_active_filter_count > 0}
-            <button
-              type="button"
-              onclick={on_click_reset_filter}
-              class="flex items-center gap-1 text-[11px] font-bold text-slate-400 transition-colors hover:text-red-400"
-            >
-              <RotateCcw size={10} />
-              <span>필터 초기화</span>
-            </button>
-          {/if}
-        </div>
-      </div>
 
-      <div class="min-h-0 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-        {#if g_loading}
-          <div class="flex justify-center py-16">
-            <span
-              class="h-6 w-6 animate-spin rounded-full border-2 border-[#AA83B4] border-t-transparent"
-            ></span>
-          </div>
-        {:else if g_glasses_arr.length === 0}
-          <div class="flex flex-col items-center gap-3 py-16 text-center">
-            <Glasses size={36} class="text-slate-200" />
-            <p class="text-sm font-bold text-slate-400">조건에 맞는 안경이 없습니다</p>
-            <button
-              type="button"
-              onclick={on_click_reset_filter}
-              class="text-xs font-bold text-[#7B3F8A] underline underline-offset-2"
-            >
-              필터 초기화
-            </button>
-          </div>
-        {:else}
-          <div class="flex flex-col gap-4 pb-4">
-            {#each g_glasses_arr as item (item.id)}
-              {@const active = item.id === g_selected_id}
-              {@const saved_count = g_saved_count_map[item.id] ?? 0}
+        <div class="min-h-0 flex-1 overflow-y-auto pr-1 custom-scrollbar">
+          {#if g_loading}
+            <div class="flex justify-center py-10">
+              <span
+                class="h-5 w-5 animate-spin rounded-full border-2 border-[var(--retina-primary-200)] border-t-transparent"
+              ></span>
+            </div>
+          {:else if g_glasses_arr.length === 0}
+            <div class="flex flex-col items-center gap-2 py-10 text-center">
+              <Glasses size={28} class="text-slate-200" />
+              <p class="text-[12px] font-bold text-slate-400">조건에 맞는 안경이 없습니다</p>
               <button
                 type="button"
-                onclick={() => on_click_select_glasses(item.id)}
-                class={`group relative flex items-center gap-5 rounded-[1.5rem] border-2 p-4 text-left transition-all ${
-                  active
-                    ? 'border-[#AA83B4] bg-[#FDF8FF] shadow-md'
-                    : 'border-slate-50 bg-white hover:border-slate-200'
-                }`}
+                onclick={on_click_reset_filter}
+                class="text-[11px] font-bold text-[var(--retina-primary-300)] underline underline-offset-2"
               >
-                <div
-                  class="flex h-24 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white p-2"
-                >
-                  <img src={item.img_url} alt={item.model} class="h-full w-full object-contain" />
-                </div>
-                <div class="flex flex-1 flex-col overflow-hidden">
-                  <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400"
-                    >{item.brand}</span
-                  >
-                  <p class="truncate text-base font-black text-slate-800">{item.model}</p>
-                  <div class="mt-1 flex items-center gap-2">
-                    <span
-                      class="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500"
-                      >{item.frame_type}</span
-                    >
-                    {#if saved_count > 0}
-                      <span
-                        class="rounded-md bg-[#F5EAF7] px-2 py-0.5 text-[10px] font-bold text-[#7B3F8A]"
-                      >
-                        피팅 저장됨
-                      </span>
-                    {/if}
-                  </div>
-                  <div class="mt-2 flex items-center justify-between">
-                    <span class="text-sm font-extrabold text-[#7B3F8A]">₩{item.price}</span>
-                    {#if active}
-                      <div
-                        class="flex animate-bounce items-center gap-1 text-[10px] font-black text-[#AA83B4]"
-                      >
-                        <Sparkles size={12} />
-                        <span>FITTING</span>
-                      </div>
-                    {/if}
-                  </div>
-                </div>
+                필터 초기화
               </button>
-            {/each}
-          </div>
-        {/if}
-      </div>
-    </div>
-
-    <!-- 저장된 피팅 목록 + 액션 버튼 -->
-    <div
-      class="bg-gradient-to-t from-slate-50 to-white p-6 transition-all"
-      class:ring-4={g_guide_step === 4 || g_guide_step === 5}
-      class:ring-[#AA83B4]={g_guide_step === 4 || g_guide_step === 5}
-      class:ring-inset={g_guide_step === 4 || g_guide_step === 5}
-    >
-      <!-- 저장된 피팅 칩 목록 -->
-      {#if g_saved_fittings_arr.length > 0}
-        <div class="mb-4">
-          <div class="mb-2 flex items-center justify-between">
-            <span class="text-[11px] font-black uppercase tracking-widest text-slate-400">
-              저장된 피팅 ({g_saved_fittings_arr.length}/{MAX_FITTINGS})
-            </span>
-            {#if g_saved_fittings_arr.length >= MAX_FITTINGS}
-              <span class="text-[10px] font-bold text-amber-500">최대 개수 도달</span>
-            {/if}
-          </div>
-          <div class="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
-            {#each g_saved_fittings_arr as fit, idx (idx)}
-              <div
-                class="flex shrink-0 items-center gap-1.5 rounded-xl bg-[#F5EAF7] px-3 py-2"
-                in:fly={{ y: 6, duration: 200 }}
-              >
-                <CheckCheck size={11} class="shrink-0 text-[#7B3F8A]" />
-                <span class="max-w-[72px] truncate text-[11px] font-bold text-[#7B3F8A]"
-                  >{fit.model}</span
-                >
+            </div>
+          {:else}
+            <div class="flex flex-col gap-2 pb-2">
+              {#each g_glasses_arr as item (item.id)}
+                {@const active = item.id === g_selected_id}
+                {@const saved_count = g_saved_count_map[item.id] ?? 0}
                 <button
                   type="button"
-                  onclick={() => on_click_remove_saved(idx)}
-                  aria-label="피팅 제거"
-                  class="ml-0.5 shrink-0 text-slate-400 transition-colors hover:text-red-400"
+                  onclick={() => on_click_select_glasses(item.id)}
+                  class={`group relative flex items-center gap-2.5 rounded-xl border p-2 text-left transition-all ${
+                    active
+                      ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)] shadow-sm'
+                      : 'border-slate-200 bg-white hover:border-[var(--retina-primary-100)]'
+                  }`}
                 >
-                  <X size={11} />
+                  <div
+                    class="flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 p-1"
+                  >
+                    <img src={item.img_url} alt={item.model} class="h-full w-full object-contain" />
+                  </div>
+                  <div class="flex flex-1 flex-col overflow-hidden">
+                    {#if active}
+                      <span
+                        class="mb-0.5 inline-flex items-center gap-1 self-start text-[10px] font-extrabold text-[var(--retina-primary-500)]"
+                      >
+                        <span
+                          class="h-3 w-3 shrink-0 bg-[var(--retina-primary-500)]"
+                          style="mask: url('/circle-check-red.png') center/contain no-repeat; -webkit-mask: url('/circle-check-red.png') center/contain no-repeat;"
+                          aria-label="피팅중 체크"
+                        ></span>
+                        피팅중
+                      </span>
+                    {/if}
+                    <p class="truncate text-[12px] font-extrabold text-zinc-900">{item.model}</p>
+                    <span class="truncate text-[10px] font-semibold text-slate-400"
+                      >{item.brand} · {item.frame_type}</span
+                    >
+                    <div class="mt-0.5 flex items-center justify-between gap-1.5">
+                      <span class="text-[11px] font-extrabold text-[var(--retina-primary-300)]"
+                        >₩{item.price}</span
+                      >
+                      {#if !active && saved_count > 0}
+                        <span
+                          class="rounded bg-[var(--retina-bg-1)] px-1.5 py-px text-[9px] font-bold text-[var(--retina-primary-300)]"
+                        >
+                          저장됨
+                        </span>
+                      {/if}
+                    </div>
+                  </div>
                 </button>
-              </div>
-            {/each}
-          </div>
-        </div>
-      {:else}
-        <p class="mb-4 text-[11px] font-semibold text-slate-400">
-          3장 촬영 완료 후 피팅 결과를 저장하세요 (최대 {MAX_FITTINGS}개)
-        </p>
-      {/if}
-
-      {#if g_submit_error}
-        <p class="mb-3 text-xs font-bold text-red-500" role="alert">{g_submit_error}</p>
-      {/if}
-
-      <!-- 액션 버튼 2개 -->
-      <div class="grid grid-cols-2 gap-3">
-        <!-- 피팅 결과 저장 -->
-        <button
-          type="button"
-          disabled={!g_can_save || g_submit_loading}
-          onclick={on_click_save_fitting}
-          class="flex h-14 items-center justify-center gap-2 rounded-2xl border-2 border-[#AA83B4] bg-white text-sm font-black text-[#4B0055] shadow-sm transition-all hover:bg-[#F5EAF7] disabled:cursor-not-allowed disabled:opacity-25 disabled:grayscale"
-        >
-          {#if g_submit_loading}
-            <span
-              class="h-4 w-4 animate-spin rounded-full border-2 border-[#4B0055] border-t-transparent"
-            ></span>
-            <span>저장 중...</span>
-          {:else}
-            <Save size={16} />
-            <span>피팅 결과 저장</span>
+              {/each}
+            </div>
           {/if}
-        </button>
-
-        <!-- 최종 분석 리포트 -->
-        <button
-          type="button"
-          disabled={!g_can_submit}
-          onclick={on_click_submit_report}
-          class="flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#4B0055] text-sm font-black text-white shadow-xl transition-all hover:bg-[#320038] disabled:cursor-not-allowed disabled:opacity-25 disabled:grayscale"
-        >
-          <FileText size={16} />
-          <span>리포트 확인</span>
-        </button>
+        </div>
       </div>
-    </div>
-  </aside>
+
+      <!-- 저장된 피팅 목록 + 액션 버튼 -->
+      <div
+        class="border-t border-slate-100 bg-white px-4 py-3 transition-all"
+        class:ring-4={g_guide_step === 4 || g_guide_step === 5}
+        class:ring-[var(--retina-primary-200)]={g_guide_step === 4 || g_guide_step === 5}
+        class:ring-inset={g_guide_step === 4 || g_guide_step === 5}
+      >
+        {#if g_saved_fittings_arr.length > 0}
+          <div class="mb-2">
+            <div class="mb-1 flex items-center justify-between">
+              <span class="text-[10px] font-extrabold tracking-wide text-slate-500">
+                저장된 피팅 ({g_saved_fittings_arr.length}/{MAX_FITTINGS})
+              </span>
+              {#if g_saved_fittings_arr.length >= MAX_FITTINGS}
+                <span class="text-[10px] font-bold text-amber-500">최대</span>
+              {/if}
+            </div>
+            <div class="flex gap-1 overflow-x-auto pb-0.5 custom-scrollbar">
+              {#each g_saved_fittings_arr as fit, idx (idx)}
+                <div
+                  class="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--retina-bg-1)] px-2 py-1"
+                  in:fly={{ y: 6, duration: 200 }}
+                >
+                  <CheckCheck size={9} class="shrink-0 text-[var(--retina-primary-300)]" />
+                  <span class="max-w-[60px] truncate text-[10px] font-bold text-[var(--retina-primary-300)]"
+                    >{fit.model}</span
+                  >
+                  <button
+                    type="button"
+                    onclick={() => on_click_remove_saved(idx)}
+                    aria-label="피팅 제거"
+                    class="ml-0.5 shrink-0 text-slate-400 transition-colors hover:text-red-400"
+                  >
+                    <X size={9} />
+                  </button>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        {#if g_submit_error}
+          <p class="mb-2 text-[10px] font-bold text-red-500" role="alert">{g_submit_error}</p>
+        {/if}
+
+        <p class="mb-1.5 text-center text-[10px] font-semibold text-slate-500">
+          촬영 완료 후 피팅 결과를 저장하세요.
+        </p>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={!g_can_save || g_submit_loading}
+            onclick={on_click_save_fitting}
+            class="flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-[var(--retina-primary-300)] bg-white py-1.5 text-[12px] font-extrabold text-[var(--retina-primary-300)] shadow-sm transition-all hover:bg-[var(--retina-bg-1)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
+          >
+            {#if g_submit_loading}
+              <span
+                class="h-3 w-3 animate-spin rounded-full border-2 border-[var(--retina-primary-300)] border-t-transparent"
+              ></span>
+              <span>저장 중</span>
+            {:else}
+              <Save size={14} />
+              <span>피팅 결과 저장</span>
+            {/if}
+          </button>
+
+          <button
+            type="button"
+            disabled={!g_can_submit}
+            onclick={on_click_submit_report}
+            class="flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-lg border-0 bg-[var(--retina-primary-300)] py-1.5 text-[12px] font-extrabold text-white shadow-md transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
+          >
+            <FileText size={14} />
+            <span>리포트 확인</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+  </div>
 </main>
 
 <!-- 프레임 필터 드로어 -->
@@ -1011,7 +999,7 @@
       {#if g_filter_loading}
         <div class="flex justify-center py-20">
           <span
-            class="h-6 w-6 animate-spin rounded-full border-2 border-[#AA83B4] border-t-transparent"
+            class="h-6 w-6 animate-spin rounded-full border-2 border-[var(--retina-primary-200)] border-t-transparent"
           ></span>
         </div>
       {:else}
@@ -1026,7 +1014,7 @@
                   onclick={() => on_click_toggle_filter('frame_type_arr', opt)}
                   class={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
                     selected
-                      ? 'bg-[#4B0055] text-white shadow-md'
+                      ? 'bg-[var(--retina-primary-300)] text-white shadow-md'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -1046,7 +1034,7 @@
                   onclick={() => on_click_toggle_filter('material_arr', opt)}
                   class={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
                     selected
-                      ? 'bg-[#4B0055] text-white shadow-md'
+                      ? 'bg-[var(--retina-primary-300)] text-white shadow-md'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -1066,7 +1054,7 @@
                   onclick={() => on_click_toggle_filter('category_arr', opt)}
                   class={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
                     selected
-                      ? 'bg-[#4B0055] text-white shadow-md'
+                      ? 'bg-[var(--retina-primary-300)] text-white shadow-md'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -1082,7 +1070,7 @@
     <div class="shrink-0 border-t border-slate-100 bg-slate-50 px-8 py-6">
       <p class="mb-4 text-sm font-bold text-slate-500">
         {#if g_active_filter_count > 0}
-          <span class="text-[#4B0055]">{g_glasses_arr.length}개</span>의 안경이 검색됩니다
+          <span class="text-[var(--retina-primary-300)]">{g_glasses_arr.length}개</span>의 안경이 검색됩니다
         {:else}
           필터를 선택하면 실시간으로 결과가 반영됩니다
         {/if}
@@ -1100,7 +1088,7 @@
         <button
           type="button"
           onclick={() => (g_filter_modal_open = false)}
-          class="flex flex-[2] items-center justify-center rounded-2xl bg-[#4B0055] py-3.5 text-sm font-black text-white transition-colors hover:bg-[#320038]"
+          class="flex flex-[2] items-center justify-center rounded-2xl bg-[var(--retina-primary-300)] py-3.5 text-sm font-black text-white transition-colors hover:bg-[var(--retina-primary-400)]"
         >
           적용하기
         </button>
@@ -1131,19 +1119,19 @@
           <div
             class="h-1.5 flex-1 rounded-full transition-colors duration-300 {g_guide_step >=
             step_num
-              ? 'bg-[#AA83B4]'
+              ? 'bg-[var(--retina-primary-200)]'
               : 'bg-slate-100'}"
           ></div>
         {/each}
       </div>
-      <p class="mb-1.5 text-xs font-black uppercase tracking-widest text-[#AA83B4]">
+      <p class="mb-1.5 text-xs font-black uppercase tracking-widest text-[var(--retina-primary-300)]">
         Step {g_guide_step} / 5
       </p>
       <h3 class="mb-3 text-lg font-black leading-snug text-zinc-900">{g_guide_info.title}</h3>
       <p class="whitespace-pre-line text-sm leading-relaxed text-slate-500">{g_guide_info.desc}</p>
-      <div class="mt-4 flex items-center justify-between gap-2 rounded-2xl bg-[#F5EAF7] px-4 py-3">
-        <span class="text-xs font-bold text-[#7B3F8A]">{g_guide_info.hint}</span>
-        <ChevronRight size={14} class="shrink-0 text-[#AA83B4]" />
+      <div class="mt-4 flex items-center justify-between gap-2 rounded-2xl bg-[var(--retina-bg-1)] px-4 py-3">
+        <span class="text-xs font-bold text-[var(--retina-primary-300)]">{g_guide_info.hint}</span>
+        <ChevronRight size={14} class="shrink-0 text-[var(--retina-primary-300)]" />
       </div>
       <div class="mt-5 flex items-center justify-between">
         <button
@@ -1166,7 +1154,7 @@
           <button
             type="button"
             onclick={on_click_guide_next}
-            class="rounded-xl bg-[#4B0055] px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-[#320038]"
+            class="rounded-xl bg-[var(--retina-primary-300)] px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-[var(--retina-primary-400)]"
           >
             {g_guide_step < 5 ? '다음' : '시작하기'}
           </button>
@@ -1208,5 +1196,10 @@
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background: #e2e8f0;
     border-radius: 10px;
+  }
+
+  /* CameraView 컴포넌트가 내부에 가진 rounded-lg 모서리 제거 */
+  :global(.arfitting-camera-fill .rounded-lg) {
+    border-radius: 0 !important;
   }
 </style>
