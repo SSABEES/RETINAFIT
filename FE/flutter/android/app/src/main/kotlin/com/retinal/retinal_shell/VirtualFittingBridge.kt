@@ -144,6 +144,13 @@ class VirtualFittingBridge(context: Context) {
                 payload["event"] = "tracking_lost"
                 payload["data"] = emptyMap<String, Any>()
             }
+            is VirtualFittingEvent.Captured -> {
+                payload["event"] = "captured"
+                payload["data"] = mapOf(
+                    "slot" to event.slot,
+                    "image_base64" to event.imageBase64,
+                )
+            }
             is VirtualFittingEvent.Closed -> {
                 payload["event"] = "closed"
                 payload["data"] = mapOf("reason" to event.reason.name)
