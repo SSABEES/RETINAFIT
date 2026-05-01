@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.modules.auth.dependencies import get_admin_token
+from app.modules.auth.dependencies import get_admin_token, get_token
 from app.modules.recommendations.schemas import (
     RecommendOptionCreate,
     RecommendOptionUpdate,
@@ -53,3 +53,13 @@ async def delete_option(
 ):
     """추천 옵션 삭제"""
     await service.delete_option(db, option_no)
+
+
+# 안경사용 추천 옵션 조회
+@router.get("/recommend-options", response_model=list[RecommendOptionResponse], summary="(안경원) 추천 옵션 목록 조회")
+async def get_options_for_optician(
+    auth: dict = Depends(get_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """추천 옵션 목록 조회 (안경사용, 표시 순서대로)"""
+    return await service.get_options(db)
