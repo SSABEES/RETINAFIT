@@ -117,7 +117,7 @@
   // 마지막 캡쳐 완료 → 얼굴 측정 페이지로 이동.
   $effect(() => {
     if (g_session.phase === 'review') {
-      navigate(PATH.analysisFaceMeasurement)
+      navigate(PATH.analysisReport)
     }
   })
 
