@@ -48,6 +48,13 @@ FE/svelte/*.local
 # 모델 파일(.task / .tflite) 은 별도로 public/mediapipe/models/ 에 커밋된다.
 FE/svelte/public/mediapipe/wasm/
 
+# 6DRepNet360 ONNX 자산은 AI/scripts/export_6drepnet360_onnx.py 로 .pth 에서 로컬 생성.
+# 정식 도입 결정 시 Git LFS 로 승격 예정. 절차: docs/sixdrepnet360.md
+FE/svelte/public/models/sixdrepnet360/
+
+# 6DRepNet360 PyTorch 가중치 — OVGU 클라우드에서 로컬 1회 다운로드. 저장소 비대화 방지.
+AI/scripts/*.pth
+
 ################################
 # Local design docs (not pushed)
 ################################
