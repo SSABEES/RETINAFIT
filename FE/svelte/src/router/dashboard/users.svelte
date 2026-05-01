@@ -1,17 +1,16 @@
 <script>
   import { navigate } from '@maks11060/svelte5-router'
   import {
-    ArrowLeft,
     CalendarDays,
     ChevronRight,
     CircleCheck,
-    LogOut,
     Phone,
     Plus,
     Search,
     UserPlus,
     UserSearch,
   } from 'lucide-svelte'
+  import Header from '@/components/layout/header.svelte'
   import Keypad from '@/components/input/keypad.svelte'
   import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
   import { PATH } from '@/config/path'
@@ -40,23 +39,19 @@
   let g_create_error_message = $state('')
   let g_is_search_loading = $state(false)
   let g_is_customer_select_loading = $state(false)
-  // 조회 버튼을 한 번이라도 클릭해 검색이 끝났는지 여부 (검색결과 없음 안내 분기용).
   let g_has_searched = $state(false)
 
   const g_phone_full_length = 11
 
-  // 조회 버튼은 휴대폰 번호 11자리 모두 입력 + 개인정보 동의가 모두 충족되어야 활성화된다.
   let is_search_active = $derived(
     ref_search_phone.length === g_phone_full_length && ref_consent_agreed,
   )
   let g_search_request_id = 0
 
-  // 고객 이름에서 목록 아바타에 사용할 첫 글자를 추출한다.
   function get_initial(name) {
     return name.slice(0, 1)
   }
 
-  // 방문 상태 박스에 사용할 문구와 색상을 반환한다.
   function get_analysis_status_obj(test_dt) {
     if (!test_dt) {
       return {
@@ -91,7 +86,6 @@
     }
   }
 
-  // 후보 날짜 중 가장 최신 날짜를 반환하고, 둘 다 없으면 기본 날짜를 사용한다.
   function get_latest_visit_date(primary_date, secondary_date, fallback_date) {
     const local_primary_time = primary_date ? new Date(primary_date).getTime() : Number.NaN
     const local_secondary_time = secondary_date ? new Date(secondary_date).getTime() : Number.NaN
@@ -111,7 +105,6 @@
     return fallback_date ?? ''
   }
 
-  // 날짜 문자열을 고객 목록에서 읽기 쉬운 형식으로 변환한다.
   function format_visit_dt(date_value) {
     if (!date_value) {
       return '-'
@@ -126,7 +119,6 @@
     return local_date_obj.toLocaleDateString('ko-KR')
   }
 
-  // 화면 고객 데이터를 방문 생성 요청 형식으로 변환한다.
   function get_visit_customer_payload(customer_obj) {
     return {
       cust_no: customer_obj.id,
@@ -138,7 +130,6 @@
     }
   }
 
-  // 고객 검색 응답을 기본 목록 형태로 변환한다.
   function normalize_customer_arr(customer_arr) {
     return customer_arr.map((customer_obj, local_index) => ({
       id: Number(customer_obj.cust_no ?? customer_obj.CUST_NO ?? local_index + 1),
@@ -156,7 +147,6 @@
     }))
   }
 
-  // 최신 방문 이력을 붙여 고객 목록 표시용 상태를 완성한다.
   async function enrich_customer_arr_with_visit_status(customer_arr) {
     const local_customer_result_arr = await Promise.all(
       customer_arr.map(async (customer_obj) => {
@@ -199,65 +189,68 @@
     return local_customer_result_arr
   }
 
-  // 고객 카드를 누르면 실제 방문 이력을 조회해 다음 동작을 결정한다.
+  // 얼굴분석 버튼을 클릭하면 매번 새 방문 정보를 생성한 뒤 분석 화면으로 이동한다.
   async function on_click_select_customer(customer_obj) {
+    if (g_is_customer_select_loading) return
+
     set_selected_customer(customer_obj)
     g_visit_target_customer = customer_obj
     g_is_customer_select_loading = true
+    g_search_error_message = ''
 
     try {
-      const local_result_obj = await get_visit_list({
-        cust_no: customer_obj.id,
-      })
-      const local_visit_arr = Array.isArray(local_result_obj?.visits) ? local_result_obj.visits : []
-
-      if (local_visit_arr.length > 0) {
-        navigate(PATH.analysis)
-        return
-      }
-
-      await on_start_new_visit()
-    } catch {
       await on_start_new_visit()
     } finally {
       g_is_customer_select_loading = false
     }
   }
 
-  // 신규 방문을 생성하고 얼굴 분석 화면으로 바로 이동한다.
   async function on_start_new_visit() {
+    if (!$selected_opt_store_obj?.opt_no) {
+      g_search_error_message = '선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.'
+      return
+    }
+
     try {
       const local_visit_customer_obj = get_visit_customer_payload(g_visit_target_customer)
       const local_result_obj = await create_visit({
-        opt_no: $selected_opt_store_obj?.opt_no ?? 0,
+        opt_no: $selected_opt_store_obj.opt_no,
         member_no: $selected_admin_obj?.member_no ?? 0,
         ...local_visit_customer_obj,
       })
 
+      const local_visit_no = Number(local_result_obj?.visit_no)
+
+      if (!Number.isFinite(local_visit_no)) {
+        g_search_error_message = '방문 정보 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+        return
+      }
+
       set_selected_visit({
         ...local_result_obj,
+        visit_no: local_visit_no,
         test_dt: null,
         vp_dt: null,
         real_vp_dt: null,
         update_dt: null,
         is_new: true,
       })
-    } catch {
-      set_selected_visit({
-        visit_no: null,
-        create_dt: new Date().toISOString(),
-        test_dt: null,
-        vp_dt: null,
-        real_vp_dt: null,
-        update_dt: null,
-        is_new: true,
-      })
-    }
 
-    navigate(PATH.analysis)
+      // report.svelte 가 우선 조회하는 visit_no 키도 함께 갱신해 둔다.
+      sessionStorage.setItem('retinal_visit_no', String(local_visit_no))
+      // 새 방문이므로 직전 방문에서 result.svelte 가 보던 데이터는 제거한다.
+      sessionStorage.removeItem('retinal_lens_selections')
+      sessionStorage.removeItem('retinal_saved_fittings')
+
+      navigate(PATH.analysis)
+    } catch (local_error) {
+      g_search_error_message =
+        local_error instanceof Error
+          ? local_error.message
+          : '방문 정보 생성 중 오류가 발생했습니다.'
+    }
   }
 
-  // 입력된 전화번호로 고객을 조회하고 방문 이력으로 분석 상태를 채운다. 디바운스/제출 양쪽에서 호출된다.
   async function run_phone_search(local_phone) {
     if (!$selected_opt_store_obj?.opt_no) {
       g_search_error_message = '선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.'
@@ -310,7 +303,6 @@
     }
   }
 
-  // 키패드 컴포넌트가 값을 변경할 때 호출된다. 화면에만 반영하고 조회는 버튼 클릭 시 수행한다.
   function on_change_keypad(local_value) {
     ref_search_phone = local_value.replace(/[^0-9]/g, '')
     g_search_error_message = ''
@@ -319,12 +311,10 @@
     customer_arr_store.set([])
   }
 
-  // 개인정보 수집 동의 체크 토글.
   function on_click_toggle_consent() {
     ref_consent_agreed = !ref_consent_agreed
   }
 
-  // 조회 버튼 클릭 시 즉시 고객을 조회한다.
   async function on_click_search_submit() {
     if (!is_search_active) {
       return
@@ -334,24 +324,20 @@
     g_has_searched = true
   }
 
-  // 신규 고객 등록 모달을 연다.
   function on_click_open_customer_create_modal() {
     g_create_error_message = ''
     ref_customer_create_modal_open = true
   }
 
-  // 신규 고객 등록 모달을 닫는다.
   function on_click_close_customer_create_modal() {
     g_create_error_message = ''
     ref_customer_create_modal_open = false
   }
 
-  // 헤더의 뒤로가기 버튼 — 방문 유형 선택 화면으로 돌아간다.
   function on_click_back() {
     navigate(PATH.visitSelect)
   }
 
-  // 헤더의 로그아웃 버튼 — 토큰/자동로그인/스토어를 비우고 로그인 화면으로 이동한다.
   function on_click_logout() {
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('token_no')
@@ -360,7 +346,6 @@
     navigate(PATH.login)
   }
 
-  // 신규 고객을 등록하고 기본 상태와 함께 목록 앞에 즉시 반영한다.
   async function on_create_customer(customer_obj) {
     if (!$selected_opt_store_obj?.opt_no) {
       g_create_error_message = '선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.'
@@ -411,35 +396,7 @@
 <main
   class="app-frame-page grid min-h-full grid-rows-[auto_1fr] overflow-hidden bg-[var(--retina-surface)] text-[var(--retina-text)]"
 >
-  <header
-    class="flex items-center justify-between border-b border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-6 py-3"
-  >
-    <button
-      class="grid h-9 w-9 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-[var(--retina-text-700)] transition hover:bg-[var(--retina-bg-1)] hover:text-[var(--retina-primary-600)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
-      type="button"
-      aria-label="뒤로가기"
-      onclick={on_click_back}
-    >
-      <ArrowLeft size={22} strokeWidth={2} aria-hidden="true" />
-    </button>
-
-    <img
-      class="h-9 w-auto"
-      src="/logo/LogoWide_2.png"
-      alt="RetinaFit"
-      width="320"
-      height="80"
-    />
-
-    <button
-      class="grid h-9 w-9 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-[var(--retina-text-700)] transition hover:bg-[var(--retina-bg-1)] hover:text-[var(--retina-primary-600)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
-      type="button"
-      aria-label="로그아웃"
-      onclick={on_click_logout}
-    >
-      <LogOut size={22} strokeWidth={2} aria-hidden="true" />
-    </button>
-  </header>
+  <Header onback={on_click_back} onlogout={on_click_logout} />
 
   <div class="grid min-h-0 grid-cols-2">
     <section

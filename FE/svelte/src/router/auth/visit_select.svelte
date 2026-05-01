@@ -1,18 +1,17 @@
 <script>
   import { navigate } from '@maks11060/svelte5-router'
-  import { History, LogOut, UserPlus } from 'lucide-svelte'
+  import { History, UserPlus } from 'lucide-svelte'
+  import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
   import { clear_login_select_data } from '@/lib/stores/admin'
   import { clear_auto_login_obj } from '@/lib/stores/auto_login'
 
   const STORE_NAME = '레티나안경원 강동점'
 
-  // 방문 유형(첫 방문/재방문)을 선택하면 일단 대시보드로 이동한다.
   function on_click_select_visit_type() {
     navigate(PATH.users)
   }
 
-  // 로그인 토큰과 자동로그인 세션을 모두 비우고 로그인 화면으로 돌아간다.
   function on_click_logout() {
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('token_no')
@@ -25,28 +24,7 @@
 <main
   class="app-frame-page grid min-h-full grid-rows-[auto_1fr] overflow-hidden bg-[var(--retina-surface)] text-[var(--retina-text)]"
 >
-  <header
-    class="flex items-center justify-between border-b border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-6 py-3"
-  >
-    <span class="w-9" aria-hidden="true"></span>
-
-    <img
-      class="h-9 w-auto"
-      src="/logo/LogoWide_2.png"
-      alt="RetinaFit"
-      width="320"
-      height="80"
-    />
-
-    <button
-      class="grid h-9 w-9 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-[var(--retina-text-700)] transition hover:bg-[var(--retina-bg-1)] hover:text-[var(--retina-primary-600)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
-      type="button"
-      aria-label="로그아웃"
-      onclick={on_click_logout}
-    >
-      <LogOut size={22} strokeWidth={2} aria-hidden="true" />
-    </button>
-  </header>
+  <Header show_back={false} onlogout={on_click_logout} />
 
   <section
     class="grid items-start justify-items-center px-6 pt-6 pb-6"
@@ -104,7 +82,7 @@
               방문한 적 있어요
             </span>
             <span class="block text-sm font-medium text-[var(--retina-text-500)]">
-              재방문 감사해요. 기존 내역을 불러올께요.
+              재방문 감사해요. 기존 내역을 불러올게요.
             </span>
           </span>
         </button>

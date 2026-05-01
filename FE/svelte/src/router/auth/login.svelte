@@ -236,7 +236,7 @@
       <button
         class={`min-h-14 w-full cursor-pointer rounded-[8px] border-0 text-[24px] font-bold tracking-[0.18em] text-[var(--retina-text-100)] transition focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--retina-text-300)]/70 disabled:cursor-not-allowed disabled:opacity-60 ${
           is_active
-            ? 'bg-[var(--retina-primary-600)] hover:bg-[var(--retina-primary-700)]'
+            ? 'bg-[var(--retina-primary-400)] hover:bg-[var(--retina-primary-700)]'
             : 'bg-[var(--retina-bg-2)] hover:bg-[var(--retina-text-600)]'
         }`}
         type="submit"

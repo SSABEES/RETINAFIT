@@ -36,6 +36,7 @@
    *   pose_target?: 'front' | 'left_profile' | 'right_profile',
    *   capture_mode?: 'auto' | 'manual',
    *   show_overlay?: boolean,
+   *   is_landmark_visible?: boolean,
    *   oncapture?: ((c: CaptureResult) => void) | undefined,
    *   oncapture_error?: ((err: unknown) => void) | undefined,
    * }}
@@ -45,6 +46,7 @@
     pose_target = 'front',
     capture_mode = 'auto',
     show_overlay = true,
+    is_landmark_visible = true,
     oncapture = undefined,
     oncapture_error = undefined,
   } = $props()
@@ -98,7 +100,6 @@
   /** @type {FaceMeasurements[]} */
   let g_buffer_arr = []
   let g_stable_count = $state(0)
-  let g_is_landmark_visible = $state(true)
 
   const g_is_stable = $derived(g_stable_count >= STABILITY_FRAMES)
   const g_stability_progress = $derived(
@@ -458,7 +459,7 @@
       if (ctx) {
         ctx.clearRect(0, 0, ref_this_canvas_el.width, ref_this_canvas_el.height)
       }
-      if (g_is_landmark_visible) {
+      if (is_landmark_visible) {
         draw_face_mesh(ref_this_canvas_el, g_last_detection)
       }
       draw_guide_ellipse()
@@ -674,19 +675,6 @@
   {/if}
 
   <div class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black">
-    {#if active}
-      <button
-        type="button"
-        class="absolute right-2.5 top-2.5 z-20 rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-black/75"
-        onclick={() => {
-          g_is_landmark_visible = !g_is_landmark_visible
-        }}
-        aria-pressed={g_is_landmark_visible}
-      >
-        {g_is_landmark_visible ? '얼굴 랜드마크 끄기' : '얼굴 랜드마크 켜기'}
-      </button>
-    {/if}
-
     <video
       bind:this={ref_this_video_el}
       class="absolute inset-0 h-full w-full object-cover"

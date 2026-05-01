@@ -58,7 +58,7 @@
 
   g_glass_dropdown_arr[1].option_arr = g_frame_style_option_arr
 
-  // ??뉕펾 ?源낆쨯????륁젟???⑤벏???곗쨮 ?怨뺣뮉 疫꿸퀡????낆젾 ?怨밴묶??筌띾슢諭??
+  // 안경 등록/수정 폼이 사용할 초기 값 객체를 만든다.
   function create_glass_form() {
     return {
       glasses_name: '',
@@ -83,7 +83,7 @@
   }
 
   /**
-   * ??ъ쁽 ??낆젾揶쏅?????뉕펾 ??쎈읃 ???關????ъ쁽 ?癒?뮉 null嚥??類ｂ봺??뺣뼄.
+   * 사용자 입력값을 안경 측정 값에 맞춰 숫자로 변환한다. 비어 있으면 null 을 반환한다.
    * @param {string | number | null | undefined} input_value
    */
   function get_numeric_or_null(input_value) {
@@ -95,17 +95,30 @@
     return Number.isFinite(local_number) ? local_number : null
   }
 
-  // ??뺚댘??쇱뒲 ????揶쏅?????곌볼????쑨??揶쎛?館釉??얜챷???揶쏅??앮에??類ｂ봺??뺣뼄.
+  /**
+   * 가격 문자열을 천 단위 콤마 + "원" 으로 포맷한다 (예: "159000" → "159,000원").
+   * @param {string | number | null | undefined} price_value
+   */
+  function format_price_label(price_value) {
+    if (price_value === null || price_value === undefined) return ''
+    const local_text = String(price_value).trim()
+    if (!local_text) return ''
+    const local_digits = local_text.replace(/[^0-9]/g, '')
+    if (!local_digits) return local_text
+    return `${Number(local_digits).toLocaleString('ko-KR')}원`
+  }
+
+  // 드롭다운 옵션에서 실제 저장될 value 문자열을 반환한다.
   function get_glass_dropdown_option_value(option_obj) {
     return typeof option_obj === 'string' ? option_obj : option_obj.value
   }
 
-  // ??뺚댘??쇱뒲 ????揶쏅????遺얇늺??癰귣똻肉т빳???곌볼 ?얜챷???以??類ｂ봺??뺣뼄.
+  // 드롭다운 옵션에서 사용자에게 보여줄 label 문자열을 반환한다.
   function get_glass_dropdown_option_label(option_obj) {
     return typeof option_obj === 'string' ? option_obj : option_obj.label
   }
 
-  // ?袁⑹삺 ?醫뤾문????뺚댘??쇱뒲 揶쏅????遺얇늺 ??뽯뻻????곌볼嚥?癰궰??묐립??
+  // 현재 선택된 드롭다운 값에 대응하는 label을 반환한다.
   function get_glass_dropdown_selected_label(dropdown_obj, selected_value) {
     const local_option_obj = dropdown_obj.option_arr.find(
       (option_obj) => get_glass_dropdown_option_value(option_obj) === selected_value,
@@ -116,7 +129,7 @@
       : String(selected_value ?? '')
   }
 
-  // ??뉕펾 筌롫??揶쏅????귐딅뮞??獄쏄퀣? ??곌볼嚥?癰궰??묐립??
+  // 안경 메타 키와 값을 사용자용 라벨로 변환한다.
   function get_glass_meta_label(dropdown_key, selected_value) {
     const local_dropdown_obj = g_glass_dropdown_arr.find(
       (dropdown_obj) => dropdown_obj.key === dropdown_key,
@@ -130,7 +143,7 @@
   }
 
   /**
-   * ?온?귐딆쁽 ??뉕펾 API ?臾먮뼗???袁⑹삺 ?遺얇늺?癒?퐣 獄쏅뗀以??怨뚮┛ ?????類κ묶嚥??類?뇣?酉釉??
+   * 관리자 안경 API 응답을 화면 폼이 사용하는 평면 구조로 정리한다.
    * @param {Record<string, any>} glass_obj
    */
   function normalize_admin_glass_obj(glass_obj) {
@@ -160,7 +173,7 @@
     }
   }
 
-  // ?袁⑹삺 ???怨밴묶???온?귐딆쁽 ??뉕펾 ?源낆쨯/??륁젟 API 獄쏅뗀逾??닌듼쒏에?癰궰??묐립??
+  // 현재 폼 값을 관리자 안경 등록/수정 API 페이로드 형태로 반환한다.
   function get_admin_glass_payload_obj() {
     return {
       glasses_name: ref_glass_form_obj.glasses_name.trim(),
@@ -250,7 +263,7 @@
     return ref_glass_editor_component_promise
   }
 
-  // ?온?귐딆쁽 ??뉕펾 筌뤴뫖以??筌ㅼ뮇???怨밴묶嚥???쇰뻻 鈺곌퀬???뺣뼄.
+  // 관리자 안경 목록을 새로 불러와 최신순으로 정렬한다.
   async function on_load_admin_glass_arr() {
     ref_glass_list_loading = true
     ref_glass_error_message = ''
@@ -273,7 +286,7 @@
     }
   }
 
-  // ?袁⑹삺 ?紐꾩춿 ??깆뱽 ?醫됲뇣 ?源낆쨯 ?怨밴묶嚥???롫즼?깃퀡??
+  // 현재 폼/임시 상태를 초기 값으로 되돌린다.
   function reset_glass_form() {
     ref_selected_glasses_no = null
     ref_open_glass_dropdown_key = ''
@@ -285,14 +298,14 @@
     ref_glass_error_message = ''
   }
 
-  // ??뉕펾 ?곕떽? ?遺얇늺??곗쨮 ?袁れ넎??뺣뼄.
+  // 안경 추가 화면을 연다.
   function on_click_open_glass_create() {
     reset_glass_form()
     ref_glass_editor_open = true
     void ensure_glass_editor_component()
   }
 
-  // ?紐꾩춿 ?遺얇늺????ろ?筌뤴뫖以??遺얇늺??곗쨮 ???툡揶쏄쑬??
+  // 편집 화면을 닫고 폼/파일 상태를 정리한다.
   function on_click_close_glass_editor() {
     ref_glass_editor_open = false
     ref_open_glass_dropdown_key = ''
@@ -303,12 +316,12 @@
     ref_glass_error_message = ''
   }
 
-  // ?뚣끉??? ??뺚댘??쇱뒲???????怨밴묶???袁れ넎??뺣뼄.
+  // 지정된 드롭다운의 열림/닫힘 상태를 토글한다.
   function on_click_toggle_glass_dropdown(dropdown_key) {
     ref_open_glass_dropdown_key = ref_open_glass_dropdown_key === dropdown_key ? '' : dropdown_key
   }
 
-  // ??뺚댘??쇱뒲?癒?퐣 ?⑥쥓??揶쏅??????怨밴묶??獄쏆꼷???뺣뼄.
+  // 드롭다운에서 선택한 값을 폼 또는 필터 상태에 반영한다.
   function on_click_select_glass_dropdown(field_key, option_value) {
     if (field_key === 'list_category_filter') {
       ref_glass_list_category_filter = option_value
@@ -332,19 +345,19 @@
     ref_open_glass_dropdown_key = ''
   }
 
-  // ???????筌왖 ???뵬???醫뤾문??롢늺 ??????沃섎챶?곮퉪?용┛?? ??낆쨮?????怨몄뱽 揶쏄퉮???뺣뼄.
+  // 대표 이미지 파일이 바뀌면 미리보기 URL과 폼 상태를 갱신한다.
   function on_change_glass_img_file(local_event) {
     const local_file_obj = local_event.currentTarget.files?.[0] ?? null
     ref_glass_img_file_obj = local_file_obj
     ref_glass_preview_override_url = local_file_obj ? URL.createObjectURL(local_file_obj) : ''
   }
 
-  // 3D ???뵬???醫뤾문??롢늺 ????????낆쨮??쀫막 ???뵬 ???怨몄뱽 揶쏄퉮???뺣뼄.
+  // 3D 모델 파일이 바뀌면 폼의 파일 객체를 갱신한다.
   function on_change_glass_3d_file(local_event) {
     ref_glass_3d_file_obj = local_event.currentTarget.files?.[0] ?? null
   }
 
-  // ?????뵬????됱몵筌?presigned URL??獄쏆뮄?믦쳸?녿툡 筌욊낯????낆쨮??쀫릭???源낆쨯??URL??筌띾슢諭??
+  // 선택한 파일을 presigned URL로 업로드한 뒤 저장될 URL을 반환한다.
   async function upload_glass_asset_if_needed() {
     let local_glasses_img_url = ref_glass_form_obj.glasses_img_url.trim()
     let local_glasses_3d_url = ref_glass_form_obj.glasses_3d_url.trim()
@@ -367,7 +380,7 @@
     }
   }
 
-  // ?醫뤾문????뉕펾 燁삳?諭??類ｋ궖???紐꾩춿 ??깅퓠 筌?쑴???
+  // 선택한 안경 정보를 폼에 채우고 편집 화면을 연다.
   function on_click_edit_glass(glass_obj) {
     ref_selected_glasses_no = glass_obj.glasses_no
     ref_glass_editor_open = true
@@ -416,7 +429,7 @@
     void ensure_glass_editor_component()
   }
 
-  // ??뉕펾 ?類ｋ궖?????館釉????袁⑹뒄?????뵬 ??낆쨮??? ?믪눘? ??멸땋 ???源낆쨯 ?癒?뮉 ??륁젟????쎈뻬??뺣뼄.
+  // 폼 제출: 필요한 파일을 업로드한 뒤 안경 정보 등록 또는 수정 API를 호출한다.
   async function on_submit_glass_form(local_event) {
     local_event.preventDefault()
 
@@ -468,7 +481,7 @@
     }
   }
 
-  // ?袁⑹삺 ?紐꾩춿 餓λ쵐????뉕펾????쑵??源딆넅??랁?筌뤴뫖以??遺얇늺??곗쨮 ???툡揶쏄쑬??
+  // 현재 폼이 가리키는 안경을 비활성화한 뒤 편집 화면을 닫는다.
   async function on_click_delete_glass() {
     if (!ref_selected_glasses_no) return
 
@@ -702,14 +715,14 @@
               등록된 안경이 없습니다.
             </div>
           {:else}
-            <div class="grid gap-3">
+            <div class="grid gap-2">
               {#each g_filtered_glass_list_arr as glass_obj (glass_obj.glasses_no)}
                 <button
-                  class="grid cursor-pointer grid-cols-[120px_minmax(0,1fr)_auto] items-center gap-6 rounded-2xl border border-slate-200 bg-white px-6 py-5 text-left transition hover:border-[#D8C6E0] hover:shadow-sm"
+                  class="grid cursor-pointer grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2 text-left transition hover:border-[#D8C6E0] hover:shadow-sm"
                   type="button"
                   onclick={() => on_click_edit_glass(glass_obj)}
                 >
-                  <div class="h-28 w-28 overflow-hidden rounded-xl bg-[#F7F1F9]">
+                  <div class="h-14 w-14 overflow-hidden rounded-lg bg-[#F7F1F9]">
                     <img
                       src={glass_obj.glasses_img_url || g_glass_placeholder_image_url}
                       alt={`${glass_obj.glasses_brand} ${glass_obj.glasses_name}`}
@@ -717,48 +730,57 @@
                     />
                   </div>
 
-                  <div class="grid min-w-0 gap-3.5">
-                    <div class="min-w-0">
-                      <p class="m-0 truncate text-xl font-extrabold text-zinc-950">
+                  <div class="grid min-w-0 gap-1">
+                    <div class="flex min-w-0 items-baseline gap-2">
+                      <p class="m-0 truncate text-base font-extrabold text-zinc-950">
                         {glass_obj.glasses_name}
                       </p>
-                      <p class="mb-0 mt-1.5 truncate text-base font-semibold text-slate-500">
+                      <p class="m-0 shrink-0 truncate text-xs font-semibold text-slate-500">
                         {glass_obj.glasses_brand || '브랜드 없음'}
                       </p>
                     </div>
 
-                    <div class="flex flex-wrap gap-2.5">
-                      <span class="rounded-full bg-slate-100 px-3.5 py-1.5 text-sm font-bold text-slate-600">
+                    <div class="flex flex-wrap gap-1.5">
+                      <span
+                        class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600"
+                      >
                         {get_glass_meta_label('category', glass_obj.category)}
                       </span>
-                      <span class="rounded-full bg-slate-100 px-3.5 py-1.5 text-sm font-bold text-slate-600">
+                      <span
+                        class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600"
+                      >
                         {get_glass_meta_label('frame_style', glass_obj.frame_style)}
                       </span>
-                      <span class="rounded-full bg-slate-100 px-3.5 py-1.5 text-sm font-bold text-slate-600">
+                      <span
+                        class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600"
+                      >
                         {get_glass_meta_label('frame_type', glass_obj.frame_type)}
                       </span>
                       {#if glass_obj.model_code}
-                        <span class="rounded-full bg-[#F5EAF7] px-3.5 py-1.5 text-sm font-bold text-[#7B3F8A]">
+                        <span
+                          class="rounded-full bg-[#F5EAF7] px-2 py-0.5 text-[11px] font-bold text-[#7B3F8A]"
+                        >
                           {glass_obj.model_code}
                         </span>
                       {/if}
                       {#if glass_obj.color}
-                        <span class="rounded-full bg-slate-100 px-3.5 py-1.5 text-sm font-bold text-slate-600">
+                        <span
+                          class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600"
+                        >
                           {glass_obj.color}
                         </span>
                       {/if}
                     </div>
-
-                    {#if glass_obj.fit_note}
-                      <p class="m-0 line-clamp-2 text-base font-medium leading-6 text-slate-500">
-                        {glass_obj.fit_note}
-                      </p>
-                    {/if}
                   </div>
 
-                  <div class="grid justify-items-end">
+                  <div class="grid justify-items-end gap-1">
+                    {#if glass_obj.price}
+                      <span class="text-sm font-extrabold text-[var(--retina-primary-700)]">
+                        {format_price_label(glass_obj.price)}
+                      </span>
+                    {/if}
                     <span
-                      class={`rounded-full px-3 py-1.5 text-sm font-extrabold ${
+                      class={`rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
                         glass_obj.is_active
                           ? 'bg-emerald-50 text-emerald-600'
                           : 'bg-rose-50 text-rose-600'

@@ -2,19 +2,19 @@
   import { Camera, CheckCircle2, ShieldAlert } from 'lucide-svelte'
 
   /**
-   * @typedef {object} CameraPermissionModalProps
-   * @property {boolean} [open]
-   * @property {'granted' | 'denied' | 'prompt' | 'unsupported'} [permission_state]
-   * @property {(() => void) | undefined} [onallow]
-   * @property {(() => void) | undefined} [onclose]
+   * @type {{
+   *   open?: boolean,
+   *   permission_state?: 'granted' | 'denied' | 'prompt' | 'unsupported',
+   *   onallow?: (() => void) | undefined,
+   *   onclose?: (() => void) | undefined,
+   * }}
    */
-
   let {
     open = false,
     permission_state = 'prompt',
     onallow = undefined,
     onclose = undefined,
-  } = /** @type {CameraPermissionModalProps} */ ($props())
+  } = $props()
 
   const g_is_granted = $derived(permission_state === 'granted')
   const g_is_denied = $derived(permission_state === 'denied')

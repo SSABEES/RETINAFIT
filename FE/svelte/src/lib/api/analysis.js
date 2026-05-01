@@ -23,6 +23,7 @@
 
 import { apiRequest } from '@/lib/api/client'
 import { get_session_auth_headers } from '@/lib/api/session_auth'
+import { flip_blob_horizontally } from '@/lib/capture/capture_utils.js'
 
 /**
  * 캡쳐 세션의 step_id 를 BE Test 엔드포인트의 type/slot 매핑으로 변환한다.
@@ -58,23 +59,6 @@ export async function request_test_presigned_urls(visit_no, type) {
 }
 
 /**
- * S3 object key 로부터 공개 GET URL 을 조립한다.
- * 환경변수 VITE_S3_PUBLIC_HOST 에
- * 'https://{bucket}.s3.{region}.amazonaws.com' 형식의 호스트를 넣어둔다.
- *
- * @param {string} key
- * @returns {string}
- * @throws {Error} 환경변수가 비어 있을 때
- */
-function build_public_file_url(key) {
-  const host = import.meta.env.VITE_S3_PUBLIC_HOST
-  if (!host || typeof host !== 'string') {
-    throw new Error('VITE_S3_PUBLIC_HOST 가 .env.local 에 설정되지 않았습니다.')
-  }
-  return `${host.replace(/\/+$/, '')}/${key}`
-}
-
-/**
  * Blob 을 presigned URL 로 직접 PUT 한다 (FE → S3 직접 통신).
  * BE 를 거치지 않으므로 BE 대역폭/메모리 부담 없음.
  * Content-Type 은 blob.type 우선, 없으면 image/jpeg 로 강제 지정한다.
@@ -96,15 +80,18 @@ export async function upload_blob_to_s3(upload_url, blob) {
 }
 
 /**
- * 캡쳐들을 BE Test 엔드포인트의 'bare'/'glasses' 그룹으로 분리해
- * presigned 발급 → S3 PUT 까지 수행하고, step_id → 공개 GET URL 매핑을 반환한다.
+ * 캡쳐들을 BE Test 엔드포인트의 'bare' 그룹으로 분리해
+ * presigned 발급 → S3 PUT 까지 수행하고, step_id → S3 object_key 매핑을 반환한다.
+ *
+ * BE Visit 테이블은 main_file/test_file_arr 컬럼에 'object_key' 를 저장하고
+ * 응답 시점에 presigned download URL 로 변환해 주는 구조라, FE 는 키를 그대로 전달한다.
  *
  * Promise.all 로 fan-out 하므로 한 장이라도 실패하면 전체가 reject 된다.
  * 알 수 없는 step_id 는 매핑에서 무시된다 (워크플로우 변경에 강건하게).
  *
  * @param {number | string} visit_no
  * @param {Record<string, Capture>} captures_obj
- * @returns {Promise<Record<string, string>>}  step_id → file_url
+ * @returns {Promise<Record<string, string>>}  step_id → S3 object_key
  * @throws {Error} BE presigned 호출 실패, S3 PUT 실패, 응답 슬롯 누락 등
  */
 export async function upload_captures_to_s3(visit_no, captures_obj) {
@@ -117,7 +104,7 @@ export async function upload_captures_to_s3(visit_no, captures_obj) {
   }
 
   /** @type {Record<string, string>} */
-  const file_url_map = {}
+  const file_key_map = {}
 
   /** @type {TestFileType[]} */
   const types_to_upload = ['bare']
@@ -134,14 +121,16 @@ export async function upload_captures_to_s3(visit_no, captures_obj) {
             if (!upload_url || !object_key) {
               throw new Error(`'${step_id}' presigned 응답 슬롯 누락 (${type}/${slot})`)
             }
-            await upload_blob_to_s3(upload_url, captures_obj[step_id].blob)
-            file_url_map[step_id] = build_public_file_url(object_key)
+            // 카메라 프리뷰가 미러 표시되므로 업로드 시점에 좌우 반전을 적용한다.
+            const local_mirrored_blob = await flip_blob_horizontally(captures_obj[step_id].blob)
+            await upload_blob_to_s3(upload_url, local_mirrored_blob)
+            file_key_map[step_id] = object_key
           }),
         )
       }),
   )
 
-  return file_url_map
+  return file_key_map
 }
 
 /**

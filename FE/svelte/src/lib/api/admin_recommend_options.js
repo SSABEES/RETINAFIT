@@ -51,10 +51,12 @@ export function delete_recommend_option(option_obj) {
 
 /**
  * 추천 옵션 표시 순서를 변경한다.
+ * BE 는 단일 PATCH /admin/recommend-options/{option_no} 만 제공하며, 모든 필드가 Optional 이라
+ * display_order 만 담아 보내면 순서만 갱신된다.
  * @param {{ option_no: number | string, display_order: number }} option_obj
  */
 export function update_recommend_option_order(option_obj) {
-  return apiRequest(`/api/v1/admin/recommend-options/${option_obj.option_no}/order`, {
+  return apiRequest(`/api/v1/admin/recommend-options/${option_obj.option_no}`, {
     method: 'PATCH',
     headers: get_admin_auth_headers(),
     body: {
