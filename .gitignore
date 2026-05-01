@@ -59,6 +59,7 @@ AI/scripts/*.pth
 # Local design docs (not pushed)
 ################################
 FE/svelte/docs/*
+docs/
 
 ################################
 # AI data
