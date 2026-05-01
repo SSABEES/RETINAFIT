@@ -16,9 +16,9 @@
   }
 </script>
 
-<div class="flex flex-col gap-2 pt-2">
-  <div class="text-center text-sm font-extrabold text-[var(--retina-text-800)]">촬영 기록</div>
-  <div class="grid grid-cols-3 gap-2">
+<div class="flex flex-col gap-1.5">
+  <div class="text-center mt-2 text-sm font-extrabold text-[var(--retina-text-800)]">촬영 기록</div>
+  <div class="grid grid-cols-3 gap-1.5">
     {#each g_session.steps_arr as step, i (step.step_id)}
       {@const capture = g_session.captures_obj[step.step_id]}
       {@const placeholder = get_placeholder_obj(step.pose_type)}
@@ -29,16 +29,16 @@
         {#if capture}
           <img src={capture.object_url} alt={step.label} class="h-full w-full object-cover" />
           <span
-            class="absolute left-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-[var(--retina-primary-600)] text-[9px] font-extrabold text-[var(--retina-text-100)]"
+            class="absolute left-1 top-1 grid h-3.5 w-3.5 place-items-center rounded-full bg-[var(--retina-primary-600)] text-[8px] font-extrabold text-[var(--retina-text-100)]"
             aria-hidden="true"
           >
             ✓
           </span>
         {:else}
           <div class="grid h-full w-full place-items-center" aria-hidden="true">
-            <div class="flex flex-col items-center gap-1">
-              <img src={placeholder.icon} alt="" class="h-4 w-auto" />
-              <span class="text-[11px] font-bold text-[var(--retina-text-400)]">
+            <div class="flex flex-col items-center gap-0.5">
+              <img src={placeholder.icon} alt="" class="h-3.5 w-auto" />
+              <span class="text-[10px] font-bold text-[var(--retina-text-400)]">
                 {placeholder.label}
               </span>
             </div>

@@ -17,6 +17,17 @@
   /**
    * @typedef {import('@/lib/capture/step_config.js').StepConfig} StepConfig
    * @typedef {import('@/lib/stores/capture_session.svelte.js').Capture} Capture
+   * @typedef {import('@/lib/mediapipe/face_types.js').FaceMeasurements} FaceMeasurements
+   * @typedef {import('@/lib/mediapipe/face_types.js').Point2D} Point2D
+   * @typedef {object} CaptureResult
+   * @property {Blob} blob
+   * @property {string} object_url
+   * @property {number} captured_at
+   * @property {number} width
+   * @property {number} height
+   * @property {FaceMeasurements | null} measurements_obj
+   * @property {Record<string, [Point2D, Point2D]> | null} measurement_points_obj
+   * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[] | null} landmarks
    */
 
   // 수동 촬영 버튼 잠금 해제 지연: trigger_capture 가 no-op 으로 즉시 반환한 경우를 대비한 fallback.
@@ -31,6 +42,7 @@
   let ref_this_camera = $state(null)
   let g_is_capturing = $state(false)
   let g_toast_message = $state(/** @type {string | null} */ (null))
+  let g_is_landmark_visible = $state(true)
 
   // 세션에서 current_step 이 바뀌면 camera_view 를 재장전해 다음 스텝을 받아들이게 한다.
   $effect(() => {
@@ -49,7 +61,7 @@
 
   /**
    * camera_view 가 촬영을 마치면 세션에 저장하고 다음 스텝으로 진행.
-   * @param {import('@/components/camera/camera_view.svelte').CaptureResult} result
+   * @param {CaptureResult} result
    */
   async function on_capture(result) {
     g_is_capturing = false
@@ -136,6 +148,7 @@
           active={true}
           pose_target={g_current_step.pose_type}
           capture_mode={g_current_step.capture_mode}
+          is_landmark_visible={g_is_landmark_visible}
           oncapture={on_capture}
           oncapture_error={on_capture_error}
         />
@@ -143,8 +156,36 @@
     </section>
 
     <aside
-      class="col-span-4 flex min-h-0 flex-col gap-5 overflow-hidden bg-[var(--retina-surface)] px-3 py-4"
+      class="col-span-4 flex min-h-0 flex-col gap-3 overflow-hidden bg-[var(--retina-surface)] px-3 py-3"
     >
+      <section class="border-b border-[var(--retina-text-200)] pb-3">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="text-[13px] font-extrabold text-[var(--retina-text-800)]">가이드 표시</p>
+          </div>
+          <button
+            type="button"
+            class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
+            class:bg-[var(--retina-primary-300)]={g_is_landmark_visible}
+            class:border-[var(--retina-primary-300)]={g_is_landmark_visible}
+            class:bg-[var(--retina-text-300)]={!g_is_landmark_visible}
+            class:border-[var(--retina-text-300)]={!g_is_landmark_visible}
+            aria-pressed={g_is_landmark_visible}
+            aria-label="얼굴 랜드마크 표시 전환"
+            onclick={() => {
+              g_is_landmark_visible = !g_is_landmark_visible
+            }}
+          >
+            <span
+              class="absolute left-[1px] top-[1px] h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200"
+              class:translate-x-4={g_is_landmark_visible}
+            ></span>
+            <span class="sr-only">
+              {g_is_landmark_visible ? '얼굴 랜드마크 켜짐' : '얼굴 랜드마크 꺼짐'}
+            </span>
+          </button>
+        </div>
+      </section>
       <StepIndicator
         steps_arr={g_session.steps_arr}
         current_index={g_session.current_step_index}
@@ -154,7 +195,9 @@
         is_capturing={g_is_capturing}
         oncapture_click={on_manual_capture_click}
       />
-      <CaptureThumbnails />
+      <div class="min-h-0">
+        <CaptureThumbnails />
+      </div>
     </aside>
   {/if}
 
