@@ -38,6 +38,10 @@ class VirtualFittingChannel {
     String assetPath = '',
     String modelUrl = '',
     String cacheKey = '',
+    int originXPx = 0,
+    int originYPx = 0,
+    int widthPx = 0,
+    int heightPx = 0,
   }) async {
     final result = await _methodChannel.invokeMethod<String>('launch', {
       'productId': productId,
@@ -45,6 +49,10 @@ class VirtualFittingChannel {
       'assetPath': assetPath,
       'modelUrl': modelUrl,
       'cacheKey': cacheKey,
+      'originXPx': originXPx,
+      'originYPx': originYPx,
+      'widthPx': widthPx,
+      'heightPx': heightPx,
     });
     return result ?? '';
   }

@@ -30,12 +30,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -126,14 +129,7 @@ fun FaceFittingScreen(
     }
 
     if (resolution == null) {
-        StatusOverlay(
-            title = "Face Fitting · ${request.product.productName}",
-            faceCount = 0,
-            statusMessage = "Downloading model...",
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 24.dp, start = 16.dp, end = 16.dp),
-        )
+        // 모델 로딩 중에는 별도 안내 오버레이 없이 빈 화면을 잠깐 보여준다.
         return
     }
 
@@ -235,6 +231,8 @@ fun FaceFittingScreen(
     var statusMessage by remember { mutableStateOf("Initializing ARCore...") }
     var trackingReported by remember { mutableStateOf(false) }
     var startedReported by remember { mutableStateOf(false) }
+    // 캡처 직전에 true 로 바꿔서 status overlay / 캡처 버튼이 결과 이미지에 찍히지 않게 한다.
+    var hide_overlay_during_capture by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         ARSceneView(
@@ -397,22 +395,15 @@ fun FaceFittingScreen(
             }
         }
 
-        StatusOverlay(
-            title = "Face Fitting · ${request.product.productName}",
-            faceCount = detectedFaces.size,
-            statusMessage = statusMessage,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 24.dp, start = 16.dp, end = 16.dp),
-        )
-
         CaptureControls(
             requestId = requestId,
             emit = emit,
             onAllCaptured = onClose,
+            on_set_overlay_hidden = { hidden -> hide_overlay_during_capture = hidden },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 24.dp, start = 16.dp, end = 16.dp),
+                .padding(bottom = 24.dp, start = 16.dp, end = 16.dp)
+                .alpha(if (hide_overlay_during_capture) 0f else 1f),
         )
     }
 }
@@ -432,10 +423,12 @@ private fun CaptureControls(
     requestId: String,
     emit: (com.example.virtualfitting.arcore.contract.VirtualFittingEvent) -> Unit,
     onAllCaptured: () -> Unit,
+    on_set_overlay_hidden: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
+    val coroutine_scope = rememberCoroutineScope()
 
     var captured_slot_set by remember { mutableStateOf(setOf<String>()) }
     var capture_in_progress by remember { mutableStateOf(false) }
@@ -475,17 +468,25 @@ private fun CaptureControls(
                     onClick = onClick@{
                         if (capture_in_progress || captured || activity == null) return@onClick
                         capture_in_progress = true
-                        captureWindowToBase64(activity) { base64 ->
-                            capture_in_progress = false
-                            if (base64 != null) {
-                                emit(
-                                    com.example.virtualfitting.arcore.contract.VirtualFittingEvent.Captured(
-                                        requestId = requestId,
-                                        slot = slot_key,
-                                        imageBase64 = base64,
+                        // overlay/캡처 버튼을 잠깐 alpha 0 으로 만들고, recomposition 이 화면에
+                        // 반영된 다음 PixelCopy 를 호출해 결과 이미지에 UI 가 찍히지 않게 한다.
+                        coroutine_scope.launch {
+                            on_set_overlay_hidden(true)
+                            // 두 프레임 정도 (~120ms) 대기. compose draw 가 반영되도록.
+                            delay(120)
+                            captureWindowToBase64(activity) { base64 ->
+                                on_set_overlay_hidden(false)
+                                capture_in_progress = false
+                                if (base64 != null) {
+                                    emit(
+                                        com.example.virtualfitting.arcore.contract.VirtualFittingEvent.Captured(
+                                            requestId = requestId,
+                                            slot = slot_key,
+                                            imageBase64 = base64,
+                                        )
                                     )
-                                )
-                                captured_slot_set = captured_slot_set + slot_key
+                                    captured_slot_set = captured_slot_set + slot_key
+                                }
                             }
                         }
                     },

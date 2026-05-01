@@ -114,6 +114,15 @@
         >
           {g_is_loading ? '로그인 중' : '관리자 로그인'}
         </button>
+
+        <button
+          class="min-h-14 cursor-pointer rounded-xl border border-[var(--retina-primary-700)] bg-white text-lg font-extrabold text-[var(--retina-primary-700)] transition hover:bg-[var(--retina-primary-700)]/5 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-700)]/30 disabled:cursor-not-allowed disabled:opacity-60"
+          type="button"
+          disabled={g_is_loading}
+          onclick={() => navigate(PATH.login)}
+        >
+          서비스 테스트하기
+        </button>
       </form>
     </section>
   </section>

@@ -9,6 +9,7 @@ import com.example.virtualfitting.arcore.contract.SessionRef
 import com.example.virtualfitting.arcore.contract.VirtualFittingEvent
 import com.example.virtualfitting.arcore.contract.VirtualFittingLauncher
 import com.example.virtualfitting.arcore.contract.VirtualFittingRequest
+import com.example.virtualfitting.arcore.contract.WindowLayout
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
@@ -92,6 +93,18 @@ class VirtualFittingBridge(context: Context) {
 
         val productName = call.argument<String>("productName") ?: productId
 
+        // 클라이언트가 측정한 좌측 placeholder 영역 (device px). 값이 모두 0 이상이면
+        // ArEntryActivity 가 그 영역에 정확히 매칭되도록 window 를 배치한다.
+        val originXPx = call.argument<Int>("originXPx") ?: 0
+        val originYPx = call.argument<Int>("originYPx") ?: 0
+        val widthPx = call.argument<Int>("widthPx") ?: 0
+        val heightPx = call.argument<Int>("heightPx") ?: 0
+        val windowLayout = if (widthPx > 0 && heightPx > 0) {
+            WindowLayout(originXPx = originXPx, originYPx = originYPx, widthPx = widthPx, heightPx = heightPx)
+        } else {
+            null
+        }
+
         // 동시 1세션만 지원: 새 launch 가 들어오면 직전 ticket 을 정리.
         currentTicket?.cancel()
 
@@ -100,6 +113,7 @@ class VirtualFittingBridge(context: Context) {
             session = SessionRef(sessionId = "session-shell", requestId = requestId),
             product = ProductRef(productId = productId, productName = productName),
             asset = assetSource,
+            windowLayout = windowLayout,
         )
 
         currentTicket = launcher.launch(request) { event -> sendEvent(event) }

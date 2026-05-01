@@ -51,6 +51,9 @@
   let g_flutter_availability = $state('UNKNOWN')
   let g_flutter_event_text = $state('')
   let g_flutter_launch_loading = $state(false)
+  // native AR 이 정확히 이 placeholder 영역에 매칭되도록 ref 로 측정해 좌표를 전달한다.
+  /** @type {HTMLDivElement | null} */
+  let ref_camera_section_el = $state(null)
 
   const SLOT_LABEL_ARR = ['정면', '좌측', '우측']
   const SLOT_ICON_ARR = [
@@ -309,6 +312,7 @@
     const local_model_url = get_virtual_fitting_model_url(glasses_obj)
     const local_product_id = glasses_obj?.glasses_no ?? glasses_obj?.id ?? ''
 
+    // native AR 은 fullscreen 으로 동작. window 좌표는 보내지 않는다.
     return {
       product_id: String(local_product_id),
       product_name: String(glasses_obj?.model ?? 'unknown'),
@@ -653,6 +657,7 @@
       class:z-50={g_highlight_camera}
     >
       <div
+        bind:this={ref_camera_section_el}
         class="arfitting-camera-fill relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner transition-all"
         class:ring-4={g_highlight_camera}
         class:ring-[var(--retina-primary-200)]={g_highlight_camera}
@@ -668,9 +673,6 @@
                 ? 'AR 피팅 화면을 여는 중...'
                 : 'AR 화면에서 정면 → 좌측 → 우측 순서로 촬영해주세요'}
           </p>
-          {#if g_flutter_event_text}
-            <p class="mt-3 max-w-md break-all text-[10px] text-white/40">{g_flutter_event_text}</p>
-          {/if}
         </div>
 
         {#if g_show_intro}
@@ -699,19 +701,6 @@
           <span>사용 가이드</span>
         </button>
 
-        {#if g_flutter_bridge_ready}
-          <div
-            class="absolute left-3 top-3 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-[10px] text-white/85 backdrop-blur-md"
-          >
-            <p class="font-black">Flutter Bridge</p>
-            <p class="mt-0.5">status: {g_flutter_availability}</p>
-            <p class="mt-0.5">asset: {g_selected_asset_path || 'none'}</p>
-            <p class="mt-0.5">model: {g_selected_model_url || 'none'}</p>
-            {#if g_flutter_event_text}
-              <p class="mt-0.5 max-w-56 break-all text-white/70">{g_flutter_event_text}</p>
-            {/if}
-          </div>
-        {/if}
       </div>
     </section>
 
@@ -742,7 +731,7 @@
                   <img
                     src={slot.object_url}
                     alt={SLOT_LABEL_ARR[idx]}
-                    class="h-full w-full rounded-lg object-cover"
+                    class="h-full w-full rounded-lg object-contain"
                   />
                   <button
                     type="button"
