@@ -189,24 +189,16 @@
     return local_customer_result_arr
   }
 
+  // 얼굴분석 버튼을 클릭하면 매번 새 방문 정보를 생성한 뒤 분석 화면으로 이동한다.
   async function on_click_select_customer(customer_obj) {
+    if (g_is_customer_select_loading) return
+
     set_selected_customer(customer_obj)
     g_visit_target_customer = customer_obj
     g_is_customer_select_loading = true
+    g_search_error_message = ''
 
     try {
-      const local_result_obj = await get_visit_list({
-        cust_no: customer_obj.id,
-      })
-      const local_visit_arr = Array.isArray(local_result_obj?.visits) ? local_result_obj.visits : []
-
-      if (local_visit_arr.length > 0) {
-        navigate(PATH.analysis)
-        return
-      }
-
-      await on_start_new_visit()
-    } catch {
       await on_start_new_visit()
     } finally {
       g_is_customer_select_loading = false
@@ -214,35 +206,46 @@
   }
 
   async function on_start_new_visit() {
+    if (!$selected_opt_store_obj?.opt_no) {
+      g_search_error_message = '선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.'
+      return
+    }
+
     try {
       const local_visit_customer_obj = get_visit_customer_payload(g_visit_target_customer)
       const local_result_obj = await create_visit({
-        opt_no: $selected_opt_store_obj?.opt_no ?? 0,
+        opt_no: $selected_opt_store_obj.opt_no,
         member_no: $selected_admin_obj?.member_no ?? 0,
         ...local_visit_customer_obj,
       })
 
+      const local_visit_no = Number(local_result_obj?.visit_no)
+
+      if (!Number.isFinite(local_visit_no)) {
+        g_search_error_message = '방문 정보 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+        return
+      }
+
       set_selected_visit({
         ...local_result_obj,
+        visit_no: local_visit_no,
         test_dt: null,
         vp_dt: null,
         real_vp_dt: null,
         update_dt: null,
         is_new: true,
       })
-    } catch {
-      set_selected_visit({
-        visit_no: null,
-        create_dt: new Date().toISOString(),
-        test_dt: null,
-        vp_dt: null,
-        real_vp_dt: null,
-        update_dt: null,
-        is_new: true,
-      })
-    }
 
-    navigate(PATH.analysis)
+      // report.svelte 가 우선 조회하는 visit_no 키도 함께 갱신해 둔다.
+      sessionStorage.setItem('retinal_visit_no', String(local_visit_no))
+
+      navigate(PATH.analysis)
+    } catch (local_error) {
+      g_search_error_message =
+        local_error instanceof Error
+          ? local_error.message
+          : '방문 정보 생성 중 오류가 발생했습니다.'
+    }
   }
 
   async function run_phone_search(local_phone) {
