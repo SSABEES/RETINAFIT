@@ -16,12 +16,5 @@
   <div class="grid gap-3">
     <h1 class="m-0">home</h1>
     <Link href={PATH.login}>로그인 페이지로 이동</Link>
-    <Link href={PATH.analysis}>분석 페이지로 이동</Link>
-    <Link href={PATH.analysisResult}>분석 결과 페이지로 이동</Link>
-    <Link href={PATH.analysisReport}>분석 리포트 페이지로 이동</Link>
-    <Link href={PATH.analysisLensConsult}>렌즈 조건 선택 페이지로 이동</Link>
-    <Link href={PATH.analysisArFitting}>AR 피팅 페이지로 이동</Link>
-    <Link href={PATH.users}>유저 페이지로 이동</Link>
-    <Link href={PATH.userDetail(1)}>유저 1 상세 페이지로 이동</Link>
   </div>
 </main>

@@ -259,17 +259,17 @@
           />
         </label>
 
-        {#if false}
-          <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
-            가격
-            <input
-              class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retina-primary-700)] focus:ring-3 focus:ring-[var(--retina-primary-700)]/12"
-              type="text"
-              bind:value={ref_glass_form_obj.price}
-              placeholder="예: 159,000원"
-            />
-          </label>
+        <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+          가격
+          <input
+            class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retina-primary-700)] focus:ring-3 focus:ring-[var(--retina-primary-700)]/12"
+            type="text"
+            bind:value={ref_glass_form_obj.price}
+            placeholder="예: 159,000원"
+          />
+        </label>
 
+        {#if false}
           {#each g_metric_field_arr as metric_obj (metric_obj.key)}
             <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
               {metric_obj.label}
