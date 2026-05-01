@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import 'native/virtual_fitting.dart';
 
@@ -12,9 +15,27 @@ const String _webAppUrl = String.fromEnvironment(
   defaultValue: _defaultWebAppUrl,
 );
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 디버그 빌드에서 chrome://inspect 로 WebView 콘솔을 열 수 있게 한다.
+  if (kDebugMode && WebViewPlatform.instance is AndroidWebViewPlatform) {
+    AndroidWebViewController.enableDebugging(true);
+  }
+  await _ensure_camera_permission();
   runApp(const RetinalShellApp());
+}
+
+// WebView 안의 getUserMedia 가 동작하려면 OS 카메라 권한이 먼저 잡혀 있어야 한다.
+// 영구 거부 상태면 시스템이 재요청 팝업을 막으므로, 호출부가 이를 보고 설정 안내 모달을 띄운다.
+Future<PermissionStatus> _ensure_camera_permission() async {
+  final local_status = await Permission.camera.status;
+  if (local_status.isGranted || local_status.isLimited) {
+    return local_status;
+  }
+  if (local_status.isPermanentlyDenied) {
+    return local_status;
+  }
+  return Permission.camera.request();
 }
 
 class RetinalShellApp extends StatelessWidget {
@@ -41,7 +62,7 @@ class WebShellPage extends StatefulWidget {
   State<WebShellPage> createState() => _WebShellPageState();
 }
 
-class _WebShellPageState extends State<WebShellPage> {
+class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver {
   static const _bridge_channel_name = 'RetinalFlutterBridgeChannel';
   static const _flutter_event_name = 'retinal:flutter_event';
 
@@ -50,10 +71,12 @@ class _WebShellPageState extends State<WebShellPage> {
   String? _loadError;
   String? _lastArEvent;
   StreamSubscription<VirtualFittingEvent>? _arEventSub;
+  bool _settings_dialog_showing = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     _arEventSub = VirtualFittingChannel.events.listen((event) {
       // ignore: avoid_print
@@ -64,10 +87,22 @@ class _WebShellPageState extends State<WebShellPage> {
       }
     });
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_check_camera_permission_and_prompt());
+    });
+
     _controller =
         WebViewController(
-            onPermissionRequest: (request) {
-              request.grant();
+            onPermissionRequest: (request) async {
+              final local_status = await _ensure_camera_permission();
+              if (local_status.isGranted || local_status.isLimited) {
+                request.grant();
+              } else {
+                request.deny();
+                if (local_status.isPermanentlyDenied) {
+                  unawaited(_show_open_settings_dialog());
+                }
+              }
             },
           )
           ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -105,8 +140,58 @@ class _WebShellPageState extends State<WebShellPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _arEventSub?.cancel();
     super.dispose();
+  }
+
+  // 사용자가 시스템 설정에서 권한을 바꾸고 돌아오면 다시 상태를 확인한다.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_check_camera_permission_and_prompt());
+    }
+  }
+
+  Future<void> _check_camera_permission_and_prompt() async {
+    final local_status = await _ensure_camera_permission();
+    if (!mounted) return;
+    if (local_status.isPermanentlyDenied) {
+      await _show_open_settings_dialog();
+    }
+  }
+
+  Future<void> _show_open_settings_dialog() async {
+    if (!mounted || _settings_dialog_showing) return;
+    _settings_dialog_showing = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialog_ctx) => AlertDialog(
+          title: const Text('카메라 권한이 필요합니다'),
+          content: const Text(
+            '안경 가상 피팅과 시선 측정을 위해 카메라 권한이 필요합니다.\n'
+            '설정에서 RetinaFit 앱의 카메라 권한을 허용해주세요.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialog_ctx).pop(),
+              child: const Text('나중에'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                Navigator.of(dialog_ctx).pop();
+                await openAppSettings();
+              },
+              child: const Text('설정 열기'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      _settings_dialog_showing = false;
+    }
   }
 
   // WebView 안의 Svelte 앱이 Promise 기반으로 호출할 Flutter 브리지를 주입한다.
@@ -176,6 +261,10 @@ class _WebShellPageState extends State<WebShellPage> {
             assetPath: local_params_obj['assetPath'] as String? ?? '',
             modelUrl: local_params_obj['modelUrl'] as String? ?? '',
             cacheKey: local_params_obj['cacheKey'] as String? ?? '',
+            originXPx: (local_params_obj['originXPx'] as num? ?? 0).toInt(),
+            originYPx: (local_params_obj['originYPx'] as num? ?? 0).toInt(),
+            widthPx: (local_params_obj['widthPx'] as num? ?? 0).toInt(),
+            heightPx: (local_params_obj['heightPx'] as num? ?? 0).toInt(),
           );
           await _send_bridge_success(
             request_id: local_request_id,

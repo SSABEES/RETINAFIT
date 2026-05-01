@@ -6,6 +6,18 @@ data class VirtualFittingRequest(
     val asset: AssetSource,
     val fitting: FittingConfig = FittingConfig(),
     val ui: UiConfig = UiConfig(),
+    val windowLayout: WindowLayout? = null,
+)
+
+/**
+ * AR Activity 의 window 위치/크기 (device px 기준).
+ * null 이면 기본 동작 (full screen 또는 좌측 패널 fallback).
+ */
+data class WindowLayout(
+    val originXPx: Int,
+    val originYPx: Int,
+    val widthPx: Int,
+    val heightPx: Int,
 )
 
 data class SessionRef(

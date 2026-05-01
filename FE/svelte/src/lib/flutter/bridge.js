@@ -129,12 +129,17 @@ export function get_virtual_fitting_model_url(glasses_obj) {
 
 /**
  * 선택한 안경 정보로 네이티브 AR 피팅 화면을 실행한다.
+ * origin_*_px / *_px 가 모두 양수면 native 가 그 영역에 정확히 매칭되도록 window 를 띄운다.
  * @param {{
  *   product_id: string | number,
  *   product_name: string,
  *   asset_path?: string,
  *   model_url?: string,
  *   cache_key?: string,
+ *   origin_x_px?: number,
+ *   origin_y_px?: number,
+ *   width_px?: number,
+ *   height_px?: number,
  * }} fitting_obj
  * @returns {Promise<string>}
  */
@@ -146,6 +151,10 @@ export async function launch_virtual_fitting(fitting_obj) {
       assetPath: String(fitting_obj.asset_path ?? ''),
       modelUrl: String(fitting_obj.model_url ?? ''),
       cacheKey: String(fitting_obj.cache_key ?? ''),
+      originXPx: Math.max(0, Math.round(Number(fitting_obj.origin_x_px ?? 0))),
+      originYPx: Math.max(0, Math.round(Number(fitting_obj.origin_y_px ?? 0))),
+      widthPx: Math.max(0, Math.round(Number(fitting_obj.width_px ?? 0))),
+      heightPx: Math.max(0, Math.round(Number(fitting_obj.height_px ?? 0))),
     })
   )
 }
