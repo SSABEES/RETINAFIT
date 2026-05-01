@@ -512,6 +512,16 @@
     }
   }
 
+  // 가격 문자열을 천 단위 콤마 + "원" 으로 포맷한다 (예: "159000" → "159,000원").
+  function format_price_label(price_value) {
+    if (price_value === null || price_value === undefined) return ''
+    const local_text = String(price_value).trim()
+    if (!local_text) return ''
+    const local_digits = local_text.replace(/[^0-9]/g, '')
+    if (!local_digits) return local_text
+    return `${Number(local_digits).toLocaleString('ko-KR')}원`
+  }
+
   function read_file_as_data_url(file_obj) {
     return new Promise((resolve, reject) => {
       const local_reader = new FileReader()
@@ -969,7 +979,7 @@
                     >
                     <div class="mt-0.5 flex items-center justify-between gap-1.5">
                       <span class="text-[11px] font-extrabold text-[var(--retina-primary-300)]"
-                        >₩{item.price}</span
+                        >{format_price_label(item.price)}</span
                       >
                       {#if !active && saved_count > 0}
                         <span
