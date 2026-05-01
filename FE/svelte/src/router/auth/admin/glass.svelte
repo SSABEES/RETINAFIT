@@ -495,7 +495,7 @@
       <div class="flex items-center justify-between gap-4">
         <h2 class="m-0 text-2xl font-extrabold text-zinc-950">안경 정보</h2>
         <span
-          class="rounded-full bg-[var(--retinal-soft-purple)] px-3 py-1 text-sm font-extrabold text-[var(--retinal-primary-700)]"
+          class="rounded-full bg-[var(--retina-soft-purple)] px-3 py-1 text-sm font-extrabold text-[var(--retina-primary-700)]"
         >
           총 {ref_glass_list_arr.length}개
         </span>
@@ -518,7 +518,7 @@
               <span class="text-sm font-bold text-slate-500">카테고리</span>
               <div class="relative">
                 <button
-                  class="flex min-h-11 min-w-36 cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)]/35 hover:bg-white"
+                  class="flex min-h-11 min-w-36 cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)]/35 hover:bg-white"
                   type="button"
                   onclick={() => on_click_toggle_glass_dropdown('list_category_filter')}
                 >
@@ -537,13 +537,13 @@
 
                 {#if ref_open_glass_dropdown_key === 'list_category_filter'}
                   <div
-                    class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retinal-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                    class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retina-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
                   >
                     <button
                       class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                         ref_glass_list_category_filter === 'all'
-                          ? 'bg-[var(--retinal-soft-purple)] text-[var(--retinal-primary-700)]'
-                          : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retinal-primary-700)]'
+                          ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
+                          : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
                       }`}
                       type="button"
                       onclick={() => on_click_select_glass_dropdown('list_category_filter', 'all')}
@@ -555,8 +555,8 @@
                       <button
                         class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                           ref_glass_list_category_filter === category_option
-                            ? 'bg-[var(--retinal-soft-purple)] text-[var(--retinal-primary-700)]'
-                            : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retinal-primary-700)]'
+                            ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
+                            : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
                         }`}
                         type="button"
                         onclick={() =>
@@ -572,7 +572,7 @@
               <span class="ml-3 text-sm font-bold text-slate-500">프레임 스타일</span>
               <div class="relative">
                 <button
-                  class="flex min-h-11 min-w-40 cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)]/35 hover:bg-white"
+                  class="flex min-h-11 min-w-40 cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)]/35 hover:bg-white"
                   type="button"
                   onclick={() => on_click_toggle_glass_dropdown('list_frame_style_filter')}
                 >
@@ -591,13 +591,13 @@
 
                 {#if ref_open_glass_dropdown_key === 'list_frame_style_filter'}
                   <div
-                    class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retinal-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                    class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retina-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
                   >
                     <button
                       class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                         ref_glass_list_frame_style_filter === 'all'
-                          ? 'bg-[var(--retinal-soft-purple)] text-[var(--retinal-primary-700)]'
-                          : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retinal-primary-700)]'
+                          ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
+                          : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
                       }`}
                       type="button"
                       onclick={() => on_click_select_glass_dropdown('list_frame_style_filter', 'all')}
@@ -609,8 +609,8 @@
                       <button
                         class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                           ref_glass_list_frame_style_filter === frame_style_option.value
-                            ? 'bg-[var(--retinal-soft-purple)] text-[var(--retinal-primary-700)]'
-                            : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retinal-primary-700)]'
+                            ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
+                            : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
                         }`}
                         type="button"
                         onclick={() =>
@@ -629,7 +629,7 @@
               <span class="ml-3 text-sm font-bold text-slate-500">재질</span>
               <div class="relative">
                 <button
-                  class="flex min-h-11 min-w-36 cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)]/35 hover:bg-white"
+                  class="flex min-h-11 min-w-36 cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)]/35 hover:bg-white"
                   type="button"
                   onclick={() => on_click_toggle_glass_dropdown('list_material_filter')}
                 >
@@ -648,13 +648,13 @@
 
                 {#if ref_open_glass_dropdown_key === 'list_material_filter'}
                   <div
-                    class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retinal-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                    class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retina-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
                   >
                     <button
                       class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                         ref_glass_list_material_filter === 'all'
-                          ? 'bg-[var(--retinal-soft-purple)] text-[var(--retinal-primary-700)]'
-                          : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retinal-primary-700)]'
+                          ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
+                          : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
                       }`}
                       type="button"
                       onclick={() => on_click_select_glass_dropdown('list_material_filter', 'all')}
@@ -666,8 +666,8 @@
                       <button
                         class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                           ref_glass_list_material_filter === material_option
-                            ? 'bg-[var(--retinal-soft-purple)] text-[var(--retinal-primary-700)]'
-                            : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retinal-primary-700)]'
+                            ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
+                            : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
                         }`}
                         type="button"
                         onclick={() =>
@@ -681,7 +681,7 @@
               </div>
             </div>
             <button
-              class="inline-flex min-h-11 cursor-pointer items-center rounded-xl border border-[#D8C6E0] bg-[#FAF7FC] px-4 text-sm font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)] hover:bg-[#F8F1F8]"
+              class="inline-flex min-h-11 cursor-pointer items-center rounded-xl border border-[#D8C6E0] bg-[#FAF7FC] px-4 text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)] hover:bg-[#F8F1F8]"
               type="button"
               onclick={on_click_open_glass_create}
             >
@@ -774,7 +774,7 @@
 
           {#if false}
           <button
-            class="grid aspect-[4/3] cursor-pointer place-items-center rounded-2xl border border-dashed border-[#D8C6E0] bg-[#FAF7FC] text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)] hover:bg-[#F8F1F8]"
+            class="grid aspect-[4/3] cursor-pointer place-items-center rounded-2xl border border-dashed border-[#D8C6E0] bg-[#FAF7FC] text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)] hover:bg-[#F8F1F8]"
             type="button"
             onclick={on_click_open_glass_create}
           >

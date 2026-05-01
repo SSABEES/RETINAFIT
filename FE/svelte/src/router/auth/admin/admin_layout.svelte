@@ -49,12 +49,12 @@
 </script>
 
 {#if g_is_authenticated}
-  <main class="app-frame-page overflow-hidden bg-[var(--retinal-page)] text-[var(--retinal-text)]">
+  <main class="app-frame-page overflow-hidden bg-[var(--retina-page)] text-[var(--retina-text)]">
     <section class="h-full min-h-0 overflow-y-auto px-8 py-8">
       <div class="grid min-h-full w-full content-start gap-4">
         <div class="flex items-start justify-between gap-6">
           <button
-            class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)] hover:bg-[var(--retinal-soft-purple)]"
+            class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)] hover:bg-[var(--retina-soft-purple)]"
             type="button"
             onclick={on_click_logout_admin}
           >
@@ -63,16 +63,16 @@
           </button>
 
           <div
-            class="relative w-[240px] rounded-2xl border border-[var(--retinal-border)] bg-white px-4 py-3 shadow-sm shadow-slate-200/40"
+            class="relative w-[240px] rounded-2xl border border-[var(--retina-border)] bg-white px-4 py-3 shadow-sm shadow-slate-200/40"
           >
             <p
-              class="mb-2 block text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--retinal-text-muted)]"
+              class="mb-2 block text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--retina-text-muted)]"
             >
               현재 페이지
             </p>
 
             <button
-              class="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retinal-primary-700)] transition hover:border-[var(--retinal-primary-700)]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retinal-primary-700)]/15"
+              class="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-700)]/15"
               type="button"
               aria-haspopup="listbox"
               aria-expanded={g_admin_page_dropdown_open}
@@ -91,7 +91,7 @@
 
             {#if g_admin_page_dropdown_open}
               <div
-                class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retinal-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retina-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
                 role="listbox"
                 aria-label="관리자 페이지 목록"
               >
@@ -99,8 +99,8 @@
                   <button
                     class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                       active_key === admin_page_obj.key
-                        ? 'bg-[var(--retinal-soft-purple)] text-[var(--retinal-primary-700)]'
-                        : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retinal-primary-700)]'
+                        ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
+                        : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
                     }`}
                     type="button"
                     role="option"
