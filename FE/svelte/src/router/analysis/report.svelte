@@ -1,8 +1,8 @@
 <script>
   import { onMount } from 'svelte'
   import { navigate } from '@maks11060/svelte5-router'
-  import { ArrowLeft, LogOut } from 'lucide-svelte'
   import { PATH } from '@/config/path'
+  import Header from '@/components/layout/header.svelte'
   import { selected_customer_obj } from '@/lib/stores/customer'
   import {
     get_session,
@@ -86,6 +86,7 @@
   )
 
   function on_click_back() {
+    reset_session()
     navigate(PATH.analysis)
   }
 
@@ -169,37 +170,7 @@
 </script>
 
 <main class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-[var(--retina-text)]">
-  <header class="grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 px-6">
-    <div class="flex justify-start">
-      <button
-        class="grid h-8 w-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
-        type="button"
-        aria-label="뒤로가기"
-        onclick={on_click_back}
-      >
-        <ArrowLeft size={24} strokeWidth={2.2} aria-hidden="true" />
-      </button>
-    </div>
-
-    <img
-      class="h-6 w-auto"
-      src="/logo/LogoWide_2.png"
-      alt="Retina Fit"
-      width="240"
-      height="52"
-    />
-
-    <div class="flex justify-end">
-      <button
-        class="grid h-8 w-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
-        type="button"
-        aria-label="로그아웃"
-        onclick={on_click_logout}
-      >
-        <LogOut size={22} strokeWidth={2.2} aria-hidden="true" />
-      </button>
-    </div>
-  </header>
+  <Header onback={on_click_back} onlogout={on_click_logout} />
 
   <section class="flex min-h-0 flex-1 flex-col overflow-hidden">
     <div class="flex min-h-0 flex-1 flex-col px-7 pt-2.5 pb-1">
