@@ -134,10 +134,10 @@
   {#snippet header_left()}
     <Link
       class="inline-flex min-h-10 items-center gap-2 rounded-lg px-1 text-base font-bold text-slate-600 transition hover:text-[#4B0055] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#9A1BFF]/20"
-      href={PATH.userDetail(id)}
+      href={PATH.users}
     >
       <ArrowLeft size={20} strokeWidth={2.4} aria-hidden="true" />
-      <span>고객 상세</span>
+      <span>고객 목록</span>
     </Link>
   {/snippet}
 

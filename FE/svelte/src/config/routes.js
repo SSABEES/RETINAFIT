@@ -9,7 +9,6 @@ import AnalysisReportPage from '@/router/analysis/report.svelte'
 import AnalysisLensConsultPage from '@/router/analysis/lens_consult.svelte'
 import AnalysisArFittingPage from '@/router/analysis/arfitting.svelte'
 import UsersPage from '@/router/dashboard/users.svelte'
-import UserDetailPage from '@/router/dashboard/users/[id].svelte'
 import UserAnalysisHistoryPage from '@/router/dashboard/users/[id]/analysis_history.svelte'
 import UserMeasurementPage from '@/router/dashboard/users/[id]/measurement.svelte'
 import UserRecordsPage from '@/router/dashboard/users/[id]/records.svelte'
@@ -44,5 +43,4 @@ export const routes = [
   { path: ROUTE_PATH.userMeasurement, component: UserMeasurementPage },
   { path: ROUTE_PATH.userRecords, component: UserRecordsPage },
   { path: ROUTE_PATH.userAnalysisHistory, component: UserAnalysisHistoryPage },
-  { path: ROUTE_PATH.userDetail, component: UserDetailPage },
 ]

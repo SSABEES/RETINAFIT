@@ -31,8 +31,6 @@
     wait_for_flutter_bridge,
   } from '@/lib/flutter'
   import { selected_visit_obj } from '@/lib/stores/customer'
-  import { clear_login_select_data } from '@/lib/stores/admin'
-  import { clear_auto_login_obj } from '@/lib/stores/auto_login'
 
   /**
    * @typedef {{
@@ -505,23 +503,6 @@
     window.location.href = PATH.analysisResult
   }
 
-  function on_click_go_back() {
-    if (window.history.length > 1) {
-      window.history.back()
-      return
-    }
-
-    navigate(PATH.analysisLensConsult)
-  }
-
-  function on_click_logout() {
-    sessionStorage.removeItem('token')
-    sessionStorage.removeItem('token_no')
-    clear_login_select_data()
-    clear_auto_login_obj()
-    navigate(PATH.login)
-  }
-
   /**
    * 선택한 안경의 native asset 경로를 확인하고 Flutter AR 피팅 화면 열기
    */
@@ -648,7 +629,7 @@
 </script>
 
 <main class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-zinc-900">
-  <Header onback={on_click_go_back} onlogout={on_click_logout} />
+  <Header />
 
   <div class="flex min-h-0 flex-1 overflow-hidden bg-[var(--retina-text-100)]">
     <!-- 좌측: 카메라 -->

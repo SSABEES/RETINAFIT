@@ -56,3 +56,15 @@ export const save_visit_recommend = ({ visit_no, opt_recommend_json }) => {
   })
 }
 
+/**
+ * 방문 데이터를 PATCH 로 일괄 업데이트한다 (BE VisitUpdateRequest 기준 변경된 필드만 전달).
+ * @param {{ visit_no: number | string, body: Record<string, unknown> }} param_obj
+ */
+export const update_visit = ({ visit_no, body }) => {
+  return apiRequest(`/api/v1/visits/${visit_no}`, {
+    method: 'PATCH',
+    headers: get_session_auth_headers(),
+    body,
+  })
+}
+
