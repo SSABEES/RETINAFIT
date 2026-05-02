@@ -10,8 +10,6 @@
     hydrate_from_mirror,
     reset as reset_session,
   } from '@/lib/stores/capture_session.svelte.js'
-  import { clear_login_select_data } from '@/lib/stores/admin'
-  import { clear_auto_login_obj } from '@/lib/stores/auto_login'
   import { save_face_analysis, upload_captures_to_s3 } from '@/lib/api/analysis.js'
   import {
     get_skin_tone_recommendation,
@@ -88,14 +86,6 @@
   function on_click_back() {
     reset_session()
     navigate(PATH.analysis)
-  }
-
-  function on_click_logout() {
-    sessionStorage.removeItem('token')
-    sessionStorage.removeItem('token_no')
-    clear_login_select_data()
-    clear_auto_login_obj()
-    navigate(PATH.login)
   }
 
   function on_click_retry() {
@@ -180,7 +170,7 @@
 </script>
 
 <main class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-[var(--retina-text)]">
-  <Header onback={on_click_back} onlogout={on_click_logout} />
+  <Header onback={on_click_back} />
 
   <section class="flex min-h-0 flex-1 flex-col overflow-hidden">
     <div class="flex min-h-0 flex-1 flex-col px-7 pt-2.5 pb-1">

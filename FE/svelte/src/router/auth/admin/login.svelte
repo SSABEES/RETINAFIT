@@ -15,7 +15,7 @@
   onMount(() => {
     if (typeof sessionStorage === 'undefined') return
     if (sessionStorage.getItem('admin_token')) {
-      navigate(PATH.adminFace)
+      navigate(PATH.adminLens)
     }
   })
 
@@ -56,7 +56,7 @@
 
     try {
       await admin_login({ id: local_id, password: local_password })
-      navigate(PATH.adminFace)
+      navigate(PATH.adminLens)
     } catch (local_error) {
       g_error_message =
         local_error instanceof Error ? local_error.message : '관리자 로그인 처리 중 오류가 발생했습니다.'
@@ -113,6 +113,15 @@
           disabled={g_is_loading}
         >
           {g_is_loading ? '로그인 중' : '관리자 로그인'}
+        </button>
+
+        <button
+          class="min-h-14 cursor-pointer rounded-xl border border-[var(--retina-primary-700)] bg-white text-lg font-extrabold text-[var(--retina-primary-700)] transition hover:bg-[var(--retina-primary-700)]/5 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-700)]/30 disabled:cursor-not-allowed disabled:opacity-60"
+          type="button"
+          disabled={g_is_loading}
+          onclick={() => navigate(PATH.login)}
+        >
+          서비스 테스트하기
         </button>
       </form>
     </section>

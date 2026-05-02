@@ -1,0 +1,54 @@
+# Codemagic CI/CD 설정.
+# RetinaFit Flutter 프로젝트의 iOS unsigned IPA 를 빌드해서
+# Sideloadly / AltStore 같은 도구로 iPad 에 사이드로드 할 수 있게 한다.
+#
+# 모노레포 구조: 레포 루트 = S14P31S107, Flutter 앱 = FE/flutter
+# 빌드 결과물: FE/flutter/build/ios/iphoneos/RetinaFit-unsigned.ipa
+#
+# Codemagic UI 에서 빌드 트리거 → artifact 다운로드 → Sideloadly 로 iPad 설치.
+
+workflows:
+  ios-unsigned:
+    name: iOS unsigned IPA (for sideloading)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Flutter & Xcode version
+        script: |
+          flutter --version
+          xcodebuild -version
+
+      - name: Flutter pub get
+        script: |
+          cd FE/flutter
+          flutter pub get
+
+      - name: CocoaPods install
+        script: |
+          cd FE/flutter/ios
+          pod install --repo-update
+
+      - name: Build iOS (no codesign)
+        script: |
+          cd FE/flutter
+          flutter build ios --release --no-codesign
+
+      - name: Package unsigned IPA
+        # flutter build 가 만든 Runner.app 을 Payload/ 디렉터리에 넣고 zip 으로 묶으면
+        # iOS 가 인식하는 .ipa 형식이 된다. Sideloadly 등이 본인 Apple ID 로 재사이닝한다.
+        script: |
+          cd FE/flutter/build/ios/iphoneos
+          rm -rf Payload
+          mkdir Payload
+          cp -r Runner.app Payload/
+          zip -r RetinaFit-unsigned.ipa Payload
+          ls -la *.ipa
+
+    artifacts:
+      - FE/flutter/build/ios/iphoneos/RetinaFit-unsigned.ipa
+      - FE/flutter/build/ios/iphoneos/Runner.app
+      - FE/flutter/build/**/xcodebuild_logs/*.log

@@ -1,21 +1,48 @@
 package com.example.virtualfitting.arcore.rendering
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.graphics.Bitmap
+import android.os.Handler
+import android.os.Looper
+import android.util.Base64
 import android.util.Log
+import android.view.PixelCopy
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import java.io.ByteArrayOutputStream
 import com.example.virtualfitting.arcore.assets.AssetException
 import com.example.virtualfitting.arcore.assets.DefaultAssetResolver
 import com.example.virtualfitting.arcore.assets.ResolvedAsset
@@ -102,14 +129,7 @@ fun FaceFittingScreen(
     }
 
     if (resolution == null) {
-        StatusOverlay(
-            title = "Face Fitting · ${request.product.productName}",
-            faceCount = 0,
-            statusMessage = "Downloading model...",
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 24.dp, start = 16.dp, end = 16.dp),
-        )
+        // 모델 로딩 중에는 별도 안내 오버레이 없이 빈 화면을 잠깐 보여준다.
         return
     }
 
@@ -211,6 +231,8 @@ fun FaceFittingScreen(
     var statusMessage by remember { mutableStateOf("Initializing ARCore...") }
     var trackingReported by remember { mutableStateOf(false) }
     var startedReported by remember { mutableStateOf(false) }
+    // 캡처 직전에 true 로 바꿔서 status overlay / 캡처 버튼이 결과 이미지에 찍히지 않게 한다.
+    var hide_overlay_during_capture by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         ARSceneView(
@@ -373,14 +395,162 @@ fun FaceFittingScreen(
             }
         }
 
-        StatusOverlay(
-            title = "Face Fitting · ${request.product.productName}",
-            faceCount = detectedFaces.size,
-            statusMessage = statusMessage,
+        CaptureControls(
+            requestId = requestId,
+            emit = emit,
+            onAllCaptured = onClose,
+            on_set_overlay_hidden = { hidden -> hide_overlay_during_capture = hidden },
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 24.dp, start = 16.dp, end = 16.dp),
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 24.dp, start = 16.dp, end = 16.dp)
+                .alpha(if (hide_overlay_during_capture) 0f else 1f),
         )
+    }
+}
+
+private val CAPTURE_SLOT_ARR = listOf(
+    "front" to "정면",
+    "left" to "좌측",
+    "right" to "우측",
+)
+
+/**
+ * 하단 캡처 컨트롤러. 정면/좌/우 3장을 native 에서 직접 PixelCopy 로 캡처해
+ * VirtualFittingEvent.Captured 로 전송하고, 3장이 모두 끝나면 자동으로 닫힌다.
+ */
+@Composable
+private fun CaptureControls(
+    requestId: String,
+    emit: (com.example.virtualfitting.arcore.contract.VirtualFittingEvent) -> Unit,
+    onAllCaptured: () -> Unit,
+    on_set_overlay_hidden: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
+    val coroutine_scope = rememberCoroutineScope()
+
+    var captured_slot_set by remember { mutableStateOf(setOf<String>()) }
+    var capture_in_progress by remember { mutableStateOf(false) }
+
+    // 모든 슬롯이 채워지면 짧게 대기 후 Activity 종료. 마지막 emit 이 dispatcher 에 도달할
+    // 시간을 주기 위해 약간의 delay 를 둔다.
+    LaunchedEffect(captured_slot_set.size) {
+        if (captured_slot_set.size >= CAPTURE_SLOT_ARR.size) {
+            delay(400)
+            onAllCaptured()
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color(0xCC1F1F1F), RoundedCornerShape(16.dp))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = if (captured_slot_set.size >= CAPTURE_SLOT_ARR.size) {
+                "촬영 완료. 잠시 후 닫힙니다..."
+            } else {
+                "정면 → 좌측 → 우측 순서로 촬영해주세요"
+            },
+            color = Color.White,
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            CAPTURE_SLOT_ARR.forEach { (slot_key, slot_label) ->
+                val captured = slot_key in captured_slot_set
+                Button(
+                    onClick = onClick@{
+                        if (capture_in_progress || captured || activity == null) return@onClick
+                        capture_in_progress = true
+                        // overlay/캡처 버튼을 잠깐 alpha 0 으로 만들고, recomposition 이 화면에
+                        // 반영된 다음 PixelCopy 를 호출해 결과 이미지에 UI 가 찍히지 않게 한다.
+                        coroutine_scope.launch {
+                            on_set_overlay_hidden(true)
+                            // 두 프레임 정도 (~120ms) 대기. compose draw 가 반영되도록.
+                            delay(120)
+                            captureWindowToBase64(activity) { base64 ->
+                                on_set_overlay_hidden(false)
+                                capture_in_progress = false
+                                if (base64 != null) {
+                                    emit(
+                                        com.example.virtualfitting.arcore.contract.VirtualFittingEvent.Captured(
+                                            requestId = requestId,
+                                            slot = slot_key,
+                                            imageBase64 = base64,
+                                        )
+                                    )
+                                    captured_slot_set = captured_slot_set + slot_key
+                                }
+                            }
+                        }
+                    },
+                    enabled = !captured && !capture_in_progress,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (captured) Color(0xFF4CAF50) else Color(0xFFF97316),
+                        disabledContainerColor = Color(0xFF4CAF50),
+                    ),
+                ) {
+                    Text(if (captured) "$slot_label ✓" else slot_label)
+                }
+            }
+        }
+    }
+}
+
+/** Compose 내부에서 받는 Context 가 ContextWrapper 일 수 있어 Activity 까지 언랩한다. */
+private fun Context.findActivity(): Activity? {
+    var ctx: Context = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
+
+/**
+ * Activity 의 Window 전체를 PixelCopy 로 비트맵에 복사하고 JPEG base64 로 인코딩한다.
+ * ARCore + Filament 가 hardware accelerated 로 그리므로 View.draw 로는 픽셀이 안 잡힌다.
+ */
+private fun captureWindowToBase64(activity: Activity, callback: (String?) -> Unit) {
+    val window = activity.window
+    val decor_view = window.decorView
+    val width = decor_view.width
+    val height = decor_view.height
+    if (width <= 0 || height <= 0) {
+        Log.w("FaceFittingScreen", "captureWindowToBase64: invalid view size $width x $height")
+        callback(null)
+        return
+    }
+
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val handler = Handler(Looper.getMainLooper())
+    try {
+        PixelCopy.request(window, bitmap, { result ->
+            try {
+                if (result == PixelCopy.SUCCESS) {
+                    val baos = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 85, baos)
+                    val base64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+                    callback(base64)
+                } else {
+                    Log.w("FaceFittingScreen", "PixelCopy failed: $result")
+                    callback(null)
+                }
+            } finally {
+                bitmap.recycle()
+            }
+        }, handler)
+    } catch (t: Throwable) {
+        Log.e("FaceFittingScreen", "PixelCopy.request threw", t)
+        bitmap.recycle()
+        callback(null)
     }
 }
 

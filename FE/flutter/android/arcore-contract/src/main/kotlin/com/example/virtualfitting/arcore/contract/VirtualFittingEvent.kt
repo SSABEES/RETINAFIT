@@ -29,6 +29,12 @@ sealed interface VirtualFittingEvent {
         override val requestId: String,
     ) : VirtualFittingEvent
 
+    data class Captured(
+        override val requestId: String,
+        val slot: String,
+        val imageBase64: String,
+    ) : VirtualFittingEvent
+
     data class Closed(
         override val requestId: String,
         val reason: CloseReason,
