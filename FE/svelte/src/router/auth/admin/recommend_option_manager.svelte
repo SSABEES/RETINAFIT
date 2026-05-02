@@ -21,7 +21,7 @@
    */
 
   let {
-    active_key = 'face',
+    active_key = 'lens',
     page_title = '추천 옵션 설정',
     page_description = '',
     category_meta_arr = [],

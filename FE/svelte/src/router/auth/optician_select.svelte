@@ -2,7 +2,7 @@
   import { navigate } from '@maks11060/svelte5-router'
   import { ChevronLeft, ChevronRight, UserRound } from 'lucide-svelte'
   import { PATH } from '@/config/path'
-  import { admin_arr, set_selected_admin } from '@/lib/stores/admin'
+  import { admin_arr, selected_opt_store_obj, set_selected_admin } from '@/lib/stores/admin'
 
   const g_page_size = 6
 
@@ -71,7 +71,7 @@
           <div
             class="max-w-[240px] truncate rounded-full border border-[var(--retina-primary-200)] bg-[var(--retina-bg-1)] px-3.5 py-1.5 text-center text-xs font-extrabold text-[var(--retina-primary-700)]"
           >
-            레티나안경원 강동점
+            {`${$selected_opt_store_obj?.name ?? ''} 안경원`.trim()}
           </div>
         </div>
 

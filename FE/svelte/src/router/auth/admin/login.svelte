@@ -15,7 +15,7 @@
   onMount(() => {
     if (typeof sessionStorage === 'undefined') return
     if (sessionStorage.getItem('admin_token')) {
-      navigate(PATH.adminFace)
+      navigate(PATH.adminLens)
     }
   })
 
@@ -56,7 +56,7 @@
 
     try {
       await admin_login({ id: local_id, password: local_password })
-      navigate(PATH.adminFace)
+      navigate(PATH.adminLens)
     } catch (local_error) {
       g_error_message =
         local_error instanceof Error ? local_error.message : '관리자 로그인 처리 중 오류가 발생했습니다.'

@@ -2,8 +2,8 @@
   import { PATH } from '@/config/path'
   import AdminLayout from '@/router/auth/admin/admin_layout.svelte'
 
+  // 얼굴형 기준 설정은 일단 카드에서 제외. 페이지/라우트는 보존되어 있음.
   const g_admin_card_arr = [
-    { title: '얼굴형 기준 설정', href: PATH.adminFace },
     { title: '렌즈조건 설정', href: PATH.adminLens },
     { title: '안경 정보', href: PATH.adminGlass },
   ]
