@@ -507,7 +507,7 @@
                 type="button"
                 class="grid w-full cursor-pointer grid-cols-[1fr_auto] items-center gap-4 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-5 py-4 text-left shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition hover:-translate-y-0.5 hover:border-[var(--retina-primary-600)] hover:shadow-[0_8px_18px_rgba(245,107,0,0.14)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-70"
                 onclick={() => on_click_select_customer(customer_obj)}
-                aria-label={`${customer_obj.name} 고객 상세로 이동`}
+                aria-label={`${customer_obj.name} 얼굴분석 시작`}
                 disabled={g_is_customer_select_loading}
               >
                 <div class="min-w-0">

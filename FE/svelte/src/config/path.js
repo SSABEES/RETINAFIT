@@ -19,8 +19,6 @@ export const PATH = {
   adminLens: '/admin/lens',
   adminGlass: '/admin/glass',
   /** @param {string | number} id */
-  userDetail: (id) => `/dashboard/users/${String(id)}`,
-  /** @param {string | number} id */
   userMeasurement: (id) => `/dashboard/users/${String(id)}/measurement`,
   /** @param {string | number} id */
   userRecords: (id) => `/dashboard/users/${String(id)}/records`,
@@ -29,7 +27,6 @@ export const PATH = {
 }
 
 export const ROUTE_PATH = {
-  userDetail: '/dashboard/users/:id',
   userMeasurement: '/dashboard/users/:id/measurement',
   userRecords: '/dashboard/users/:id/records',
   userAnalysisHistory: '/dashboard/users/:id/analysis-history',
