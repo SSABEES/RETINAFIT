@@ -1,10 +1,19 @@
 <script>
   import { onMount } from 'svelte'
   import { navigate } from '@maks11060/svelte5-router'
-  import { Glasses, UserRound } from 'lucide-svelte'
+  import { Glasses, UserRound, UserPlus } from 'lucide-svelte'
+  import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
   import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
-  import { selected_customer_obj } from '@/lib/stores/customer'
+  import { create_customer, search_customer } from '@/lib/api/customers'
+  import { create_visit, get_visit, update_visit } from '@/lib/api/visit'
+  import { selected_admin_obj, selected_opt_store_obj } from '@/lib/stores/admin'
+  import {
+    selected_customer_obj,
+    selected_visit_obj,
+    set_selected_customer,
+    set_selected_visit,
+  } from '@/lib/stores/customer'
   import {
     get_session,
     get_face_shape_result,
@@ -14,9 +23,6 @@
     get_skin_tone_recommendation,
     get_frame_styles_for_face_shape,
   } from '@/lib/recommendations/frame_recommendations.js'
-  import { clear_login_select_data } from '@/lib/stores/admin'
-  import { clear_auto_login_obj } from '@/lib/stores/auto_login'
-
   const FACE_SHAPE_LABEL_OBJ = {
     oval: '계란형',
     round: '둥근형',
@@ -40,6 +46,12 @@
   let g_saved_fitting_arr = $state(
     /** @type {{brand: string, model: string, capture_arr: {label: string, src: string}[]}[]} */ ([]),
   )
+
+  let ref_customer_create_modal_open = $state(false)
+  let g_customer_create_error_message = $state('')
+
+  // 비회원(cust_no = 0) 으로 진입한 경우에만 고객정보등록 버튼을 노출한다.
+  const g_is_guest_visit = $derived(Number($selected_customer_obj?.id) === 0)
 
   function normalize_face_shape_key(face_shape_value) {
     const local_value = String(face_shape_value ?? '').trim().toLowerCase()
@@ -118,16 +130,145 @@
     window.history.back()
   }
 
-  function on_click_logout() {
-    sessionStorage.removeItem('token')
-    sessionStorage.removeItem('token_no')
-    clear_login_select_data()
-    clear_auto_login_obj()
-    navigate(PATH.login)
+  function on_click_go_main() {
+    navigate(PATH.visitSelect)
   }
 
-  function on_click_go_dashboard() {
-    navigate(PATH.users)
+  function on_click_open_customer_create_modal() {
+    g_customer_create_error_message = ''
+    ref_customer_create_modal_open = true
+  }
+
+  function on_click_close_customer_create_modal() {
+    if (g_customer_create_error_message) {
+      g_customer_create_error_message = ''
+    }
+    ref_customer_create_modal_open = false
+  }
+
+  /**
+   * 비회원 분석 결과를 새로 등록한 고객 정보로 연결한다.
+   * 1) create_customer 로 신규 고객 등록 → search_customer 로 새 cust_no 추출
+   * 2) 기존 비회원 visit 의 분석 데이터를 GET
+   * 3) 새 cust_no 로 create_visit → 새 visit_no 발급
+   * 4) 기존 분석 데이터를 새 visit 에 PATCH 로 일괄 저장
+   * 5) selected_customer / selected_visit / sessionStorage 모두 갱신
+   * @param {{ name: string, gender: string, birth_dt: string, phone1: string, phone2: string }} customer_obj
+   */
+  async function on_create_customer(customer_obj) {
+    if (!$selected_opt_store_obj?.opt_no) {
+      g_customer_create_error_message = '선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.'
+      return
+    }
+
+    const local_old_visit_no = Number($selected_visit_obj?.visit_no)
+    if (!Number.isFinite(local_old_visit_no) || local_old_visit_no <= 0) {
+      g_customer_create_error_message = '연결할 방문 정보가 없습니다. 잠시 후 다시 시도해 주세요.'
+      return
+    }
+
+    const local_phone1 = customer_obj.phone1.replace(/[^0-9]/g, '')
+    const local_phone2 = customer_obj.phone2.replace(/[^0-9]/g, '')
+    const local_sex_value = Number(customer_obj.gender)
+
+    try {
+      await create_customer({
+        opt_no: $selected_opt_store_obj.opt_no,
+        cust_name: customer_obj.name,
+        phone1: local_phone1,
+        phone2: local_phone2,
+        birthday: customer_obj.birth_dt,
+        sex: local_sex_value,
+      })
+
+      const local_search_arr = await search_customer({
+        phone_no: local_phone1,
+        opt_no: $selected_opt_store_obj.opt_no,
+      })
+      const local_search_obj_arr = Array.isArray(local_search_arr) ? local_search_arr : []
+      const local_new_customer_obj = local_search_obj_arr.find(
+        (local_obj) =>
+          String(local_obj?.cust_name ?? '').trim() === customer_obj.name.trim() &&
+          String(local_obj?.phone1 ?? '').replace(/[^0-9]/g, '') === local_phone1,
+      ) ?? local_search_obj_arr[0]
+      const local_new_cust_no = Number(local_new_customer_obj?.cust_no)
+
+      if (!Number.isFinite(local_new_cust_no) || local_new_cust_no <= 0) {
+        g_customer_create_error_message =
+          '등록한 고객 정보를 찾을 수 없습니다. 잠시 후 다시 시도해 주세요.'
+        return
+      }
+
+      // 기존 비회원 visit 의 분석/리포트 데이터를 가져온다.
+      const local_old_visit_obj = await get_visit({ visit_no: local_old_visit_no })
+
+      // 새 cust_no 로 새 방문을 만든다.
+      const local_new_visit_obj = await create_visit({
+        opt_no: $selected_opt_store_obj.opt_no,
+        cust_no: local_new_cust_no,
+        cust_name: customer_obj.name,
+        birthday: customer_obj.birth_dt,
+        phone_no1: local_phone1,
+        phone_no2: local_phone2,
+        sex: local_sex_value,
+        member_no: $selected_admin_obj?.member_no ?? 0,
+      })
+      const local_new_visit_no = Number(local_new_visit_obj?.visit_no)
+
+      if (!Number.isFinite(local_new_visit_no) || local_new_visit_no <= 0) {
+        g_customer_create_error_message = '새 방문 정보 생성에 실패했습니다.'
+        return
+      }
+
+      // 기존 분석/리포트 데이터를 새 visit 에 일괄 PATCH 로 옮긴다.
+      const local_patch_body_obj = {
+        main_file: local_old_visit_obj?.main_file ?? null,
+        test_file_arr: local_old_visit_obj?.test_file_arr ?? null,
+        test_json: local_old_visit_obj?.test_json ?? null,
+        opt_recommend_json: local_old_visit_obj?.opt_recommend_json ?? null,
+        vp_file_arr: local_old_visit_obj?.vp_file_arr ?? null,
+        vp_json: local_old_visit_obj?.vp_json ?? null,
+        real_vp_json: local_old_visit_obj?.real_vp_json ?? null,
+        report_json: local_old_visit_obj?.report_json ?? null,
+        test_dt: local_old_visit_obj?.test_dt ?? null,
+        vp_dt: local_old_visit_obj?.vp_dt ?? null,
+        real_vp_dt: local_old_visit_obj?.real_vp_dt ?? null,
+      }
+
+      await update_visit({
+        visit_no: local_new_visit_no,
+        body: local_patch_body_obj,
+      })
+
+      set_selected_customer({
+        id: local_new_cust_no,
+        name: customer_obj.name,
+        phone: local_phone1,
+        phone2: local_phone2,
+        gender: local_sex_value === 0 ? '남' : '여',
+        birth_dt: customer_obj.birth_dt,
+        visit_count: 1,
+        last_visit_dt: '-',
+      })
+
+      set_selected_visit({
+        ...local_old_visit_obj,
+        ...local_new_visit_obj,
+        visit_no: local_new_visit_no,
+        cust_no: local_new_cust_no,
+        is_new: false,
+      })
+
+      sessionStorage.setItem('retinal_visit_no', String(local_new_visit_no))
+
+      g_customer_create_error_message = ''
+      ref_customer_create_modal_open = false
+    } catch (local_error) {
+      g_customer_create_error_message =
+        local_error instanceof Error
+          ? local_error.message
+          : '고객 정보 등록 중 오류가 발생했습니다.'
+    }
   }
 
   function safe_parse(json_text) {
@@ -159,7 +300,7 @@
 </script>
 
 <main class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-zinc-950">
-  <Header onback={on_click_back} onlogout={on_click_logout} />
+  <Header />
 
   <section class="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--retina-text-100)] px-6 py-4">
     <div class="mx-auto flex w-full max-w-[940px] flex-col gap-3 pb-6">
@@ -372,7 +513,7 @@
         <span class="font-bold text-[var(--retina-primary-400)]">자세한 사항은 전문 안경사와 상담해 주세요.</span>
       </p>
 
-      <div class="grid grid-cols-2 gap-2">
+      <div class={`grid gap-2 ${g_is_guest_visit ? 'grid-cols-3' : 'grid-cols-2'}`}>
         <button
           type="button"
           onclick={on_click_back}
@@ -382,12 +523,29 @@
         </button>
         <button
           type="button"
-          onclick={on_click_go_dashboard}
+          onclick={on_click_go_main}
           class="grid min-h-[42px] cursor-pointer place-items-center rounded-[10px] border-0 bg-[var(--retina-primary-300)] text-[13px] font-extrabold text-white shadow-sm transition hover:bg-[var(--retina-primary-400)]"
         >
-          대시보드로 이동
+          메인으로 이동
         </button>
+        {#if g_is_guest_visit}
+          <button
+            type="button"
+            onclick={on_click_open_customer_create_modal}
+            class="inline-flex min-h-[42px] cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[var(--retina-primary-600)] bg-white text-[13px] font-extrabold text-[var(--retina-primary-600)] transition hover:bg-[var(--retina-bg-1)]"
+          >
+            <UserPlus size={16} strokeWidth={2.4} aria-hidden="true" />
+            <span>고객정보등록하기</span>
+          </button>
+        {/if}
       </div>
     </div>
   </section>
+
+  <CustomerCreateModal
+    open={ref_customer_create_modal_open}
+    error_message={g_customer_create_error_message}
+    onclose={on_click_close_customer_create_modal}
+    oncreate={on_create_customer}
+  />
 </main>

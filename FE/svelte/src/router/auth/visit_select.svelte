@@ -4,20 +4,19 @@
   import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
   import { create_visit } from '@/lib/api/visit'
-  import {
-    clear_login_select_data,
-    selected_admin_obj,
-    selected_opt_store_obj,
-  } from '@/lib/stores/admin'
-  import { clear_auto_login_obj } from '@/lib/stores/auto_login'
+  import { selected_admin_obj, selected_opt_store_obj } from '@/lib/stores/admin'
   import { set_selected_customer, set_selected_visit } from '@/lib/stores/customer'
 
-  const STORE_NAME = '레티나안경원 강동점'
   const GUEST_CUST_NO = 0
   const GUEST_CUST_NAME = '비회원'
 
   let g_is_guest_visit_loading = $state(false)
   let g_error_message = $state('')
+
+  // 로그인 단계에서 선택한 안경원의 표시 이름. 없으면 안전한 기본 문구로 대체한다.
+  const g_store_name = $derived(
+    String($selected_opt_store_obj?.name ?? '').trim() || '안경원',
+  )
 
   // 첫 방문 클릭 시 비회원(cust_no=0)으로 새 방문을 생성하고 얼굴 분석 화면으로 이동한다.
   async function on_click_start_guest_visit() {
@@ -92,20 +91,12 @@
   function on_click_select_returning_visit() {
     navigate(PATH.users)
   }
-
-  function on_click_logout() {
-    sessionStorage.removeItem('token')
-    sessionStorage.removeItem('token_no')
-    clear_login_select_data()
-    clear_auto_login_obj()
-    navigate(PATH.login)
-  }
 </script>
 
 <main
   class="app-frame-page grid min-h-full grid-rows-[auto_1fr] overflow-hidden bg-[var(--retina-surface)] text-[var(--retina-text)]"
 >
-  <Header show_back={false} onlogout={on_click_logout} />
+  <Header show_back={false} />
 
   <section
     class="grid items-start justify-items-center px-6 pt-6 pb-6"
@@ -114,7 +105,7 @@
     <div class="grid w-full max-w-[760px] gap-5">
       <div class="grid justify-items-center gap-2 text-center">
         <h1 class="m-0 text-[34px] font-extrabold leading-tight text-[var(--retina-text)]">
-          {STORE_NAME}
+          {g_store_name} 안경점
         </h1>
         <p class="m-0 text-base font-medium text-[var(--retina-text-500)]">
           레티나핏 서비스 이용을 위해 방문 유형을 선택해주세요.

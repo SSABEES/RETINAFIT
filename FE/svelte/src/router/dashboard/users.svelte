@@ -21,12 +21,7 @@
     set_selected_customer,
     set_selected_visit,
   } from '@/lib/stores/customer'
-  import {
-    clear_login_select_data,
-    selected_admin_obj,
-    selected_opt_store_obj,
-  } from '@/lib/stores/admin'
-  import { clear_auto_login_obj } from '@/lib/stores/auto_login'
+  import { selected_admin_obj, selected_opt_store_obj } from '@/lib/stores/admin'
 
   const g_six_month_millisecond = 1000 * 60 * 60 * 24 * 30 * 6
 
@@ -338,14 +333,6 @@
     navigate(PATH.visitSelect)
   }
 
-  function on_click_logout() {
-    sessionStorage.removeItem('token')
-    sessionStorage.removeItem('token_no')
-    clear_login_select_data()
-    clear_auto_login_obj()
-    navigate(PATH.login)
-  }
-
   async function on_create_customer(customer_obj) {
     if (!$selected_opt_store_obj?.opt_no) {
       g_create_error_message = '선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.'
@@ -396,7 +383,7 @@
 <main
   class="app-frame-page grid min-h-full grid-rows-[auto_1fr] overflow-hidden bg-[var(--retina-surface)] text-[var(--retina-text)]"
 >
-  <Header onback={on_click_back} onlogout={on_click_logout} />
+  <Header onback={on_click_back} />
 
   <div class="grid min-h-0 grid-cols-2">
     <section
