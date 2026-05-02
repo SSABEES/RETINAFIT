@@ -15,7 +15,6 @@ import UserRecordsPage from '@/router/dashboard/users/[id]/records.svelte'
 import SalesPage from '@/router/dashboard/sales.svelte'
 import BranchesPage from '@/router/dashboard/branches.svelte'
 import AdminLoginPage from '@/router/auth/admin/login.svelte'
-import AdminFacePage from '@/router/auth/admin/face.svelte'
 import AdminLensPage from '@/router/auth/admin/lens.svelte'
 import AdminGlassPage from '@/router/auth/admin/glass.svelte'
 import { PATH, ROUTE_PATH } from '@/config/path'
@@ -36,8 +35,8 @@ export const routes = [
   { path: PATH.sales, component: SalesPage },
   { path: PATH.branches, component: BranchesPage },
   { path: PATH.adminLogin, component: AdminLoginPage },
-  { path: PATH.admin, component: AdminFacePage },
-  { path: PATH.adminFace, component: AdminFacePage },
+  // 얼굴형 기준 설정(adminFace)은 일단 라우트에서 제외. PATH.adminFace 와 face.svelte 는 보존.
+  { path: PATH.admin, component: AdminLensPage },
   { path: PATH.adminLens, component: AdminLensPage },
   { path: PATH.adminGlass, component: AdminGlassPage },
   { path: ROUTE_PATH.userMeasurement, component: UserMeasurementPage },
