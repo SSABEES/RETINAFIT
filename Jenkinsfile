@@ -25,6 +25,7 @@ pipeline {
                         cp /home/ubuntu/app/.env.prod ./.env.prod
                         cp /home/ubuntu/app/BE/.env.prod ./BE/.env.prod
                         cp /home/ubuntu/app/FE/.env.prod ./FE/svelte/.env.prod
+                        cp /home/ubuntu/app/AI/.env.prod ./AI/.env.prod
                     """
                 }
         }
@@ -34,6 +35,7 @@ pipeline {
             steps {
                 sh 'docker compose -f docker-compose.prod.yml build --no-cache fe'
                 sh 'docker compose -f docker-compose.prod.yml build be'
+                sh 'docker compose -f docker-compose.prod.yml build ai'
             }
         }
 
