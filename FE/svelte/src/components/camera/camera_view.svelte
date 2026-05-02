@@ -661,20 +661,7 @@
 </script>
 
 <div class="flex flex-col gap-3">
-  {#if g_init_error}
-    <div
-      class="rounded-lg border border-red-500 bg-zinc-900 p-3 text-sm font-semibold text-red-400"
-    >
-      <p>{g_init_error}</p>
-      {#if g_permission_denied}
-        <p class="mt-1 text-xs font-normal text-zinc-400">
-          브라우저 주소창의 잠금 아이콘에서 카메라 접근을 허용해 주세요.
-        </p>
-      {/if}
-    </div>
-  {/if}
-
-  <div class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black">
+  <div class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black shadow-md shadow-slate-300/60">
     <video
       bind:this={ref_this_video_el}
       class="absolute inset-0 h-full w-full object-cover"
@@ -689,6 +676,19 @@
       class="pointer-events-none absolute inset-0 h-full w-full object-cover"
       style="transform: scaleX(-1);"
     ></canvas>
+
+    {#if g_init_error}
+      <div
+        class="absolute left-2.5 right-2.5 top-2.5 z-20 rounded-lg border border-red-500 bg-zinc-900/90 p-3 text-sm font-semibold text-red-400 backdrop-blur-sm"
+      >
+        <p>{g_init_error}</p>
+        {#if g_permission_denied}
+          <p class="mt-1 text-xs font-normal text-zinc-400">
+            브라우저 주소창의 잠금 아이콘에서 카메라 접근을 허용해 주세요.
+          </p>
+        {/if}
+      </div>
+    {/if}
 
     {#if show_overlay && active && g_face_detected && g_measurements_obj}
       <div
@@ -796,7 +796,7 @@
     {#if show_overlay && active}
       <div class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2">
         <span
-          class="inline-block rounded-full border-[1.5px] px-4 py-2 text-sm font-bold backdrop-blur-sm"
+          class="inline-block whitespace-nowrap rounded-full border-[1.5px] px-4 py-2 text-sm font-bold backdrop-blur-sm"
           style={g_badge_style}
         >
           {g_hint_text}
