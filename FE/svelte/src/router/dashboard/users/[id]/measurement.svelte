@@ -26,12 +26,12 @@
   let g_customer_obj = $derived(get_customer_by_id(id))
 
   /**
-   * 측정값 입력 폼 제출 시 기본 제출을 막고 고객 상세 화면으로 돌아간다.
+   * 측정값 입력 폼 제출 시 기본 제출을 막고 고객 목록으로 돌아간다.
    * @param {SubmitEvent} local_event
    */
   function on_submit_measurement(local_event) {
     local_event.preventDefault()
-    navigate(PATH.userDetail(id))
+    navigate(PATH.users)
   }
 </script>
 
@@ -39,10 +39,10 @@
   {#snippet header_left()}
     <Link
       class="inline-flex min-h-10 items-center gap-2 rounded-lg px-1 text-base font-bold text-slate-600 transition hover:text-[#4B0055] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#9A1BFF]/20"
-      href={PATH.userDetail(id)}
+      href={PATH.users}
     >
       <ArrowLeft size={20} strokeWidth={2.4} aria-hidden="true" />
-      <span>고객 상세</span>
+      <span>고객 목록</span>
     </Link>
   {/snippet}
 
@@ -184,7 +184,7 @@
         <div class="grid grid-cols-2 gap-4">
           <Link
             class="grid min-h-14 place-items-center rounded-xl border border-slate-300 bg-white text-base font-extrabold text-zinc-900 transition hover:bg-slate-50 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
-            href={PATH.userDetail(id)}
+            href={PATH.users}
           >
             취소
           </Link>

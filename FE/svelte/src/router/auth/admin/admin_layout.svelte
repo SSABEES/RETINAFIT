@@ -6,10 +6,10 @@
   import { admin_logout } from '@/lib/api/auth'
 
   /** @type {{ active_key?: string, children?: import('svelte').Snippet }} */
-  let { active_key = 'face', children } = $props()
+  let { active_key = 'lens', children } = $props()
 
+  // 얼굴형 기준 설정(face)은 일단 메뉴에서 제외. 페이지/라우트는 보존되어 있음.
   const g_admin_page_arr = [
-    { key: 'face', label: '얼굴형 기준 설정', href: PATH.adminFace },
     { key: 'lens', label: '렌즈조건 설정', href: PATH.adminLens },
     { key: 'glass', label: '안경 정보', href: PATH.adminGlass },
   ]
@@ -49,8 +49,8 @@
 </script>
 
 {#if g_is_authenticated}
-  <main class="app-frame-page overflow-hidden bg-[var(--retina-page)] text-[var(--retina-text)]">
-    <section class="h-full min-h-0 overflow-y-auto px-8 py-8">
+  <main class="app-frame-page flex h-full flex-col overflow-hidden bg-[var(--retina-page)] text-[var(--retina-text)]">
+    <section class="min-h-0 flex-1 overflow-y-auto px-8 py-8">
       <div class="grid min-h-full w-full content-start gap-4">
         <div class="flex items-start justify-between gap-6">
           <button

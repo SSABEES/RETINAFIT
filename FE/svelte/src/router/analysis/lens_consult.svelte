@@ -1,15 +1,11 @@
 <script>
   import { onMount } from 'svelte'
-  import { navigate } from '@maks11060/svelte5-router'
-  import { Glasses } from 'lucide-svelte'
   import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
   import { ensure_session_auth_tokens } from '@/lib/api/session_auth'
   import { get_recommend_option_arr } from '@/lib/api/recommend_options'
   import { save_visit_recommend } from '@/lib/api/visit'
   import { selected_customer_obj } from '@/lib/stores/customer'
-  import { clear_login_select_data } from '@/lib/stores/admin'
-  import { clear_auto_login_obj } from '@/lib/stores/auto_login'
 
   // 질문 = option_category, 답변 = { option_no, option_name } 으로 매핑된다.
   let g_question_arr = $state([])
@@ -166,18 +162,6 @@
     }
   }
 
-  function on_click_back() {
-    window.history.back()
-  }
-
-  function on_click_logout() {
-    sessionStorage.removeItem('token')
-    sessionStorage.removeItem('token_no')
-    clear_login_select_data()
-    clear_auto_login_obj()
-    navigate(PATH.login)
-  }
-
   // 선택한 추천 옵션을 방문 데이터에 저장한 뒤 AR 피팅 화면으로 이동한다.
   async function on_click_submit() {
     if (g_loading) return
@@ -257,7 +241,7 @@
 </script>
 
 <main class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-zinc-950">
-  <Header onback={on_click_back} onlogout={on_click_logout} />
+  <Header />
 
   <section class="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--retina-text-100)] ">
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-7 pt-3 pb-2">
