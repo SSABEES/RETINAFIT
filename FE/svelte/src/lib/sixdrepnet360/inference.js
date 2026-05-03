@@ -2,7 +2,7 @@
  * 6DRepNet360 ONNX 모델을 onnxruntime-web 으로 추론하는 래퍼.
  *
  * 모델 자산은 PyTorch 체크포인트를 AI/scripts/export_6drepnet360_onnx.py 로 1회 변환해 만든
- * public/models/sixdrepnet360/6drepnet360.onnx (~94MB) 를 same-origin 으로 호스팅.
+ * public/models/sixdrepnet360/*.onnx 를 same-origin 으로 호스팅.
  * onnxruntime-web 의 워커/.wasm 은 vite 의 import.meta.url 자동 해석에 맡긴다 (vite.config.js
  * 의 optimizeDeps.exclude 참조).
  *
@@ -13,8 +13,16 @@
  *   - compute_bbox_from_landmarks: MediaPipe 478 랜드마크로부터 정확한 face bbox
  *   - compute_center_square_bbox:  카메라 프레임 중앙 정사각형 (얼굴 검출 없이 사용)
  *
+ * # 모델 variant
+ * AI/scripts/quantize_6drepnet360_onnx.py 가 산출한 INT8 양자화 결과 두 종 + 원본 FP32 를 토글로
+ * 비교 가능. set_active_variant() 로 활성 variant 변경 → 다음 get_session()/predict_pose() 부터
+ * 새 variant 사용. variant 별 세션은 lazy 로드 + 캐시 (재토글 시 재다운로드 없음).
+ * 자세한 비교는 docs/sixdrepnet360_quantization.md 참조.
+ *
  * @typedef {import("onnxruntime-web").InferenceSession} InferenceSession
  * @typedef {import("@mediapipe/tasks-vision").NormalizedLandmark} NormalizedLandmark
+ *
+ * @typedef {'fp32' | 'dynamic' | 'static'} ModelVariant
  *
  * @typedef {object} BBoxNorm
  * @property {number} x  left, 0-1 normalized
@@ -25,6 +33,7 @@
  * @typedef {object} PosePrediction
  * @property {Float32Array} rotation_matrix  3×3 row-major (length 9)
  * @property {number} latency_ms  session.run 만의 순수 추론 시간(ms)
+ * @property {ModelVariant} variant  추론에 사용된 모델 variant
  */
 
 import * as ort from 'onnxruntime-web'
@@ -37,7 +46,23 @@ import * as ort from 'onnxruntime-web'
 // 핵심 전제: vite.config.js 의 optimizeDeps.exclude 에 'onnxruntime-web' 가 포함되어 있어
 // esbuild pre-bundle 단계에서 onnxruntime-web 의 dynamic import 가 변형되지 않는다.
 
-const MODEL_URL = `${import.meta.env.BASE_URL}models/sixdrepnet360/6drepnet360.onnx`
+// variant → 파일명. AI/scripts/quantize_6drepnet360_onnx.py 의 산출 파일명과 일치.
+const VARIANT_FILES_OBJ = {
+  fp32: '6drepnet360.onnx',
+  dynamic: '6drepnet360.int8.dynamic.onnx',
+  static: '6drepnet360.int8.static.onnx',
+}
+
+/** @type {ModelVariant[]} */
+export const MODEL_VARIANT_ARR = ['fp32', 'dynamic', 'static']
+
+// variant 별 사이즈 — UI 표시용 (자가 메타: 양자화 결과는 ~24MB, FP32 는 94MB).
+export const VARIANT_LABEL_OBJ = {
+  fp32: 'FP32 · 94MB',
+  dynamic: 'INT8 dynamic · 24MB',
+  static: 'INT8 static · 24MB',
+}
+
 const INPUT_NAME = 'pixel_values'
 const OUTPUT_NAME = 'rotation_matrix'
 const INPUT_SIZE = 224
@@ -53,30 +78,62 @@ const STD_B = 0.225
 // face bbox 패딩(좌우/상하 각각). 6DRepNet 류 모델은 이마/턱까지 보아야 yaw 가 안정.
 const BBOX_PADDING = 0.25
 
-/** @type {Promise<InferenceSession> | null} */
-let g_session_promise = null
+// variant 별 세션 promise 캐시. 한 번 로드된 variant 는 dispose_session 전까지 재사용.
+// 토글로 variant 를 왔다갔다해도 모델을 다시 다운로드하지 않는다.
+/** @type {Map<ModelVariant, Promise<InferenceSession>>} */
+const g_session_promises_obj = new Map()
+
+/** @type {ModelVariant} */
+let g_active_variant = 'fp32'
 
 /** @type {OffscreenCanvas | HTMLCanvasElement | null} */
 let g_crop_canvas = null
 /** @type {Float32Array | null} */
 let g_input_buffer = null
 
-// ONNX 세션을 한 번만 생성하는 lazy 싱글톤. WASM 백엔드 우선 — WebGPU 는 가용 디바이스가 제한적.
-async function load_session() {
-  return ort.InferenceSession.create(MODEL_URL, {
+// variant 별 모델 파일 URL 빌드. base URL 은 vite 의 BASE_URL 을 따라가므로 sub-path 배포 호환.
+function model_url_for(variant) {
+  return `${import.meta.env.BASE_URL}models/sixdrepnet360/${VARIANT_FILES_OBJ[variant]}`
+}
+
+// ONNX 세션 생성. WASM 백엔드 우선 — WebGPU 는 가용 디바이스가 제한적이라 후순위.
+async function load_session(variant) {
+  return ort.InferenceSession.create(model_url_for(variant), {
     executionProviders: ['wasm'],
     graphOptimizationLevel: 'all',
   })
 }
 
 /**
- * ONNX InferenceSession 을 lazy 로딩해 반환한다. 첫 호출이 모델 다운로드(~94MB) + 컴파일을
- * 트리거하므로 페이지 진입 직후 미리 한 번 호출해 두는 것을 권장.
+ * 활성 variant 변경. 다음 get_session()/predict_pose() 호출부터 새 variant 사용. 동기 호출이라
+ * 세션 로드는 트리거하지 않음 — 호출자가 get_session() 으로 명시 preload 권장.
+ * @param {ModelVariant} variant
+ */
+export function set_active_variant(variant) {
+  if (!(variant in VARIANT_FILES_OBJ)) {
+    throw new Error(`unknown variant: ${variant}`)
+  }
+  g_active_variant = variant
+}
+
+/** @returns {ModelVariant} */
+export function get_active_variant() {
+  return g_active_variant
+}
+
+/**
+ * 활성 variant 의 ONNX InferenceSession 을 lazy 로딩해 반환. 첫 호출이 모델 다운로드 + WASM
+ * 컴파일을 트리거. 같은 variant 재호출 시 캐시 반환.
  * @returns {Promise<InferenceSession>}
  */
 export function get_session() {
-  if (!g_session_promise) g_session_promise = load_session()
-  return g_session_promise
+  const variant = g_active_variant
+  let p = g_session_promises_obj.get(variant)
+  if (!p) {
+    p = load_session(variant)
+    g_session_promises_obj.set(variant, p)
+  }
+  return p
 }
 
 /**
@@ -180,12 +237,15 @@ export function preprocess(video, bbox) {
 
 /**
  * 비디오 프레임의 bbox 영역에 대해 head pose 를 추론한다. bbox 는 호출자가 직접 전달
- * (compute_center_square_bbox 또는 compute_bbox_from_landmarks 결과 등).
+ * (compute_center_square_bbox 또는 compute_bbox_from_landmarks 결과 등). 활성 variant 의
+ * 세션을 사용 — variant 별 latency 비교를 위해 결과에 variant 도 포함해 반환.
  * @param {HTMLVideoElement} video
  * @param {BBoxNorm} bbox
  * @returns {Promise<PosePrediction>}
  */
 export async function predict_pose(video, bbox) {
+  // 추론 시작 시점의 variant 를 고정 — 추론 도중 변경되어도 결과는 시작 variant 로 라벨.
+  const variant_at_call = g_active_variant
   const session = await get_session()
   const input_data = preprocess(video, bbox)
   const tensor = new ort.Tensor('float32', input_data, [1, 3, INPUT_SIZE, INPUT_SIZE])
@@ -198,20 +258,25 @@ export async function predict_pose(video, bbox) {
   return {
     rotation_matrix: /** @type {Float32Array} */ (output[OUTPUT_NAME].data),
     latency_ms,
+    variant: variant_at_call,
   }
 }
 
 /**
- * 세션과 캐시 버퍼를 정리한다. 통상은 호출하지 않으며(모델 ~94MB 재다운로드 비용),
+ * 모든 variant 의 세션과 캐시 버퍼를 정리한다. 통상은 호출하지 않으며(모델 재다운로드 비용),
  * 페이지를 완전히 떠나거나 메모리 압박이 클 때만 사용.
  * @returns {Promise<void>}
  */
 export async function dispose_session() {
-  if (g_session_promise) {
-    const s = await g_session_promise
-    await s.release()
-    g_session_promise = null
+  for (const p of g_session_promises_obj.values()) {
+    try {
+      const s = await p
+      await s.release()
+    } catch {
+      // release 실패는 이미 깨진 세션 — 다음 단계로 진행
+    }
   }
+  g_session_promises_obj.clear()
   g_crop_canvas = null
   g_input_buffer = null
 }

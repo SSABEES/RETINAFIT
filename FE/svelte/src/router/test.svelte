@@ -19,6 +19,9 @@
     predict_pose,
     compute_bbox_from_landmarks,
     compute_center_square_bbox,
+    set_active_variant,
+    MODEL_VARIANT_ARR,
+    VARIANT_LABEL_OBJ,
   } from '@/lib/sixdrepnet360/inference.js'
   import { rotation_matrix_to_euler } from '@/lib/sixdrepnet360/pose.js'
 
@@ -33,6 +36,18 @@
   // 모델 상태: 'pending' = 시작 전, 'loading' = 다운로드/컴파일 중, 'ready' = 추론 가능, 'error' = 실패
   let g_model_status = $state(/** @type {'pending' | 'loading' | 'ready' | 'error'} */ ('pending'))
   let g_model_error = $state(/** @type {string | null} */ (null))
+
+  // 활성 양자화 variant. 토글로 fp32 / dynamic / static 비교. 변경 시 새 variant 의 세션이
+  // lazy 로드 — 한 번 로드된 variant 는 메모리에 캐시되어 재토글 시 재다운로드 없음.
+  let g_variant = $state(/** @type {import('@/lib/sixdrepnet360/inference.js').ModelVariant} */ ('fp32'))
+
+  // variant 별 최근 latency — 같은 자세에서 토글 즉시 비교용. 새 추론이 들어오면 해당 variant
+  // 칸을 갱신. variant 변경 직후 첫 추론 전까지는 이전 값 유지(stale 으로 보일 수 있으나 비교에 유용).
+  let g_latency_per_variant_obj = $state(/** @type {Record<string, number | null>} */ ({
+    fp32: null,
+    dynamic: null,
+    static: null,
+  }))
 
   // 얼굴 검출 여부 + 추적 bbox (정규화 0-1).
   let g_face_detected = $state(false)
@@ -89,8 +104,11 @@
 
   const g_status_label = $derived.by(() => {
     if (g_model_status === 'pending') return '대기'
-    if (g_model_status === 'loading') return '모델 로딩 중 (~94MB)'
-    if (g_model_status === 'ready') return '준비 완료'
+    if (g_model_status === 'loading') {
+      const size = g_variant === 'fp32' ? '~94MB' : '~24MB'
+      return `${VARIANT_LABEL_OBJ[g_variant]} 로딩 중 (${size})`
+    }
+    if (g_model_status === 'ready') return `${VARIANT_LABEL_OBJ[g_variant]} 준비`
     return '오류'
   })
 
@@ -239,12 +257,36 @@
       g_roll = euler.roll
       g_latency_ms = result.latency_ms
       g_last_rotation = result.rotation_matrix
+      // result.variant 는 추론 시작 시점 variant — 토글 후 inflight 였던 추론은 이전 variant
+      // 로 라벨되므로 비교 표가 어긋나지 않는다.
+      g_latency_per_variant_obj = {
+        ...g_latency_per_variant_obj,
+        [result.variant]: result.latency_ms,
+      }
       update_target_zone()
     } catch (err) {
       console.error('[test] ort inference failed', err)
       g_model_error = err instanceof Error ? err.message : String(err)
     } finally {
       g_ort_inflight = false
+    }
+  }
+
+  // variant 토글 핸들러 — 같은 variant 면 no-op. 새 variant 면 active 변경 + 세션 preload
+  // (이미 캐시되어 있으면 즉시 ready 로 복귀).
+  async function on_change_variant(new_variant) {
+    if (new_variant === g_variant) return
+    g_variant = new_variant
+    set_active_variant(new_variant)
+    g_model_error = null
+    g_model_status = 'loading'
+    try {
+      await get_session()
+      g_model_status = 'ready'
+    } catch (err) {
+      g_model_status = 'error'
+      g_model_error = err instanceof Error ? err.message : String(err)
+      console.error('[test] variant load failed', err)
     }
   }
 
@@ -415,59 +457,131 @@
   }
 </script>
 
-<main class="app-frame-page mx-auto flex w-full max-w-[720px] flex-col gap-4 p-4">
-  <header class="flex items-baseline justify-between">
-    <h1 class="text-lg font-bold text-zinc-100">6DRepNet360 브라우저 추론 검증</h1>
-    <span class="text-xs text-zinc-400">/test · S14P31S107-137</span>
-  </header>
+<main class="app-frame-page mx-auto flex w-full max-w-[1200px] flex-col gap-4 p-4 md:flex-row md:items-start">
+  <!-- 좌측 사이드바: 제어 + 정보. mobile 에선 위쪽 column 으로 자연 흐름. -->
+  <div class="flex w-full flex-col gap-4 md:w-96 md:flex-shrink-0">
+    <header class="flex items-baseline justify-between">
+      <h1 class="text-lg font-bold text-zinc-100">6DRepNet360 브라우저 추론 검증</h1>
+      <span class="text-xs text-zinc-400">/test · S14P31S107-137</span>
+    </header>
 
-  <div
-    class="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-xs"
-  >
-    <span class="text-zinc-400">모델</span>
-    <span class="font-bold {g_status_color}">{g_status_label}</span>
-    {#if g_latency_ms !== null}
-      <span class="ml-auto text-zinc-400">
-        세션 추론 <b class="font-bold tabular-nums text-zinc-100">{g_latency_ms.toFixed(0)}ms</b>
-      </span>
-    {/if}
-  </div>
-
-  <div
-    class="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-xs"
-  >
-    <span class="text-zinc-400">Face crop</span>
-    <button
-      type="button"
-      onclick={() => (g_use_mediapipe = !g_use_mediapipe)}
-      class="ml-auto rounded-md border px-2 py-1 text-[10px] font-bold transition-colors {g_use_mediapipe
-        ? 'border-emerald-500/60 bg-emerald-950/30 text-emerald-300'
-        : 'border-zinc-600 bg-zinc-900 text-zinc-400'}"
-      aria-pressed={g_use_mediapipe}
+    <div
+      class="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-xs"
     >
-      MediaPipe {g_use_mediapipe ? 'ON · 얼굴 추적' : 'OFF · 중앙 정사각형'}
-    </button>
-  </div>
-
-  {#if g_model_error}
-    <div class="rounded-md border border-red-500 bg-red-950/40 px-3 py-2 text-xs text-red-300">
-      <p class="font-bold">ONNX 추론 오류</p>
-      <p class="mt-0.5 break-all font-mono">{g_model_error}</p>
-    </div>
-  {/if}
-
-  {#if g_init_error}
-    <div class="rounded-lg border border-red-500 bg-zinc-900 p-3 text-sm font-semibold text-red-400">
-      <p>{g_init_error}</p>
-      {#if g_permission_denied}
-        <p class="mt-1 text-xs font-normal text-zinc-400">
-          브라우저 주소창의 잠금 아이콘에서 카메라 접근을 허용해 주세요.
-        </p>
+      <span class="text-zinc-400">모델</span>
+      <span class="font-bold {g_status_color}">{g_status_label}</span>
+      {#if g_latency_ms !== null}
+        <span class="ml-auto text-zinc-400">
+          세션 추론 <b class="font-bold tabular-nums text-zinc-100">{g_latency_ms.toFixed(0)}ms</b>
+        </span>
       {/if}
     </div>
-  {/if}
 
-  <div class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black">
+    <!--
+      Variant 토글: FP32 / INT8 dynamic / INT8 static 즉시 전환.
+      같은 자세에서 토글하면서 하단 latency 칸 비교가 핵심 use case.
+      docs/sixdrepnet360_quantization.md 의 CPU EP 실측 결과 (FP32 635ms / dynamic 799ms / static 44ms)
+      가 브라우저 WASM 에서 어떻게 나오는지 본인 디바이스로 직접 확인.
+    -->
+    <div
+      class="flex flex-col gap-2 rounded-md border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-xs"
+    >
+      <div class="flex items-center gap-1.5" role="radiogroup" aria-label="양자화 variant 선택">
+        <span class="mr-auto text-zinc-400">양자화</span>
+        {#each MODEL_VARIANT_ARR as variant}
+          <button
+            type="button"
+            role="radio"
+            aria-checked={g_variant === variant}
+            disabled={g_variant === variant && g_model_status === 'loading'}
+            onclick={() => on_change_variant(variant)}
+            class="rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors disabled:cursor-not-allowed disabled:opacity-60 {g_variant ===
+            variant
+              ? 'border-fuchsia-500/60 bg-fuchsia-950/30 text-fuchsia-300'
+              : 'border-zinc-600 bg-zinc-900 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'}"
+          >
+            {variant}
+          </button>
+        {/each}
+      </div>
+
+      <!-- variant 별 최근 latency 비교 — 토글 후 같은 자세에서 한 사이클 추론 들어오면 채워짐. -->
+      <div class="grid grid-cols-3 gap-1 text-[10px] tabular-nums">
+        {#each MODEL_VARIANT_ARR as variant}
+          <div
+            class="flex flex-col gap-0.5 rounded-sm border px-1.5 py-1 {g_variant === variant
+              ? 'border-fuchsia-500/30 bg-fuchsia-950/15'
+              : 'border-zinc-700/60 bg-zinc-950/40'}"
+          >
+            <span class="text-[9px] font-bold uppercase text-zinc-500">{variant}</span>
+            <span class="text-[10px] text-zinc-300">{VARIANT_LABEL_OBJ[variant]}</span>
+            <span class="font-bold text-zinc-100">
+              {g_latency_per_variant_obj[variant] === null
+                ? '— ms'
+                : `${g_latency_per_variant_obj[variant].toFixed(0)} ms`}
+            </span>
+          </div>
+        {/each}
+      </div>
+    </div>
+
+    <div
+      class="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-xs"
+    >
+      <span class="text-zinc-400">Face crop</span>
+      <button
+        type="button"
+        onclick={() => (g_use_mediapipe = !g_use_mediapipe)}
+        class="ml-auto rounded-md border px-2 py-1 text-[10px] font-bold transition-colors {g_use_mediapipe
+          ? 'border-emerald-500/60 bg-emerald-950/30 text-emerald-300'
+          : 'border-zinc-600 bg-zinc-900 text-zinc-400'}"
+        aria-pressed={g_use_mediapipe}
+      >
+        MediaPipe {g_use_mediapipe ? 'ON · 얼굴 추적' : 'OFF · 중앙 정사각형'}
+      </button>
+    </div>
+
+    {#if g_model_error}
+      <div class="rounded-md border border-red-500 bg-red-950/40 px-3 py-2 text-xs text-red-300">
+        <p class="font-bold">ONNX 추론 오류</p>
+        <p class="mt-0.5 break-all font-mono">{g_model_error}</p>
+      </div>
+    {/if}
+
+    {#if g_init_error}
+      <div class="rounded-lg border border-red-500 bg-zinc-900 p-3 text-sm font-semibold text-red-400">
+        <p>{g_init_error}</p>
+        {#if g_permission_denied}
+          <p class="mt-1 text-xs font-normal text-zinc-400">
+            브라우저 주소창의 잠금 아이콘에서 카메라 접근을 허용해 주세요.
+          </p>
+        {/if}
+      </div>
+    {/if}
+
+    <section class="flex flex-col gap-1 text-xs leading-relaxed text-zinc-400">
+      <p>
+        <b class="text-zinc-200">자동 캡처.</b>
+        yaw 가 ±{TARGET_DEG}°(허용 오차 ±{TARGET_TOLERANCE}°) 영역에서 {HOLD_DURATION_MS / 1000}초 동안 유지되면 자동으로 캡처됩니다.
+        좌우 어느 쪽이든 인식하며, 캡처 후엔 "다시 시도" 버튼으로 재트리거.
+      </p>
+      <p>
+        <b class="text-zinc-200">측정 빈도.</b>
+        추론은 단일 비행 가드로 throttling — 모델 latency 가 곧 실효 빈도입니다 (300ms 면 ≈3Hz).
+        모바일에서 어느 정도 따라오는지 latency 표시로 확인하세요.
+      </p>
+    </section>
+  </div>
+
+  <!-- 우측: 카메라 프리뷰 (3:4). md 이상에선 sidebar 옆에 배치, mobile 에선 sidebar 아래로. -->
+  <div class="flex w-full flex-col items-center gap-4 md:flex-1">
+    <!--
+      max-h-[calc(100vh-220px)] — viewport 가 짧은 디바이스 (저해상도 노트북 등) 에서 카메라가
+      화면을 다 차지해 다시 시도 버튼이 밀려나는 문제 방지.
+      aspect-[3/4] 는 width 결정 시 height 자동인데, max-h 가 발동하면 거꾸로 height cap →
+      비율 유지를 위해 width 가 줄어든다. 220px 는 헤더 + 다시 시도 버튼 + 페이지 패딩 여유.
+    -->
+    <div class="relative aspect-[3/4] w-full max-h-[calc(100vh-220px)] max-w-[480px] overflow-hidden rounded-lg bg-black">
     <!-- 라이브 뷰 — 캡처 후에도 video 엘리먼트는 유지(언마운트 → MediaStream 재시작 비용 회피) -->
     <video
       bind:this={ref_this_video_el}
@@ -567,26 +681,14 @@
     {/if}
   </div>
 
-  {#if g_captured}
-    <button
-      type="button"
-      onclick={on_click_retry}
-      class="self-center rounded-md border border-zinc-600 bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100 transition-colors hover:bg-zinc-700"
-    >
-      다시 시도
-    </button>
-  {/if}
-
-  <section class="flex flex-col gap-1 text-xs leading-relaxed text-zinc-400">
-    <p>
-      <b class="text-zinc-200">자동 캡처.</b>
-      yaw 가 ±{TARGET_DEG}°(허용 오차 ±{TARGET_TOLERANCE}°) 영역에서 {HOLD_DURATION_MS / 1000}초 동안 유지되면 자동으로 캡처됩니다.
-      좌우 어느 쪽이든 인식하며, 캡처 후엔 "다시 시도" 버튼으로 재트리거.
-    </p>
-    <p>
-      <b class="text-zinc-200">측정 빈도.</b>
-      추론은 단일 비행 가드로 throttling — 모델 latency 가 곧 실효 빈도입니다 (300ms 면 ≈3Hz).
-      모바일에서 어느 정도 따라오는지 latency 표시로 확인하세요.
-    </p>
-  </section>
+    {#if g_captured}
+      <button
+        type="button"
+        onclick={on_click_retry}
+        class="rounded-md border border-zinc-600 bg-zinc-800 px-4 py-2 text-sm font-bold text-zinc-100 transition-colors hover:bg-zinc-700"
+      >
+        다시 시도
+      </button>
+    {/if}
+  </div>
 </main>
