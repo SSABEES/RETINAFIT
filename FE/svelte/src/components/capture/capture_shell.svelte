@@ -153,7 +153,7 @@
     -->
     <section
       aria-label="실시간 얼굴 분석"
-      class="col-span-8 grid min-h-0 items-start justify-items-center overflow-hidden border-r border-[var(--retina-text-200)] bg-[var(--retina-bg-2)] px-6 pt-2 pb-2"
+      class="col-span-8 grid min-h-0 items-start justify-items-center overflow-hidden border-r border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-6 pt-2 pb-2"
     >
       <div class="w-full max-w-[420px]">
         <CameraView

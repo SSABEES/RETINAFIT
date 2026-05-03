@@ -93,6 +93,11 @@
     navigate(PATH.analysis)
   }
 
+  // 측정 상세 페이지로 이동. 캡처/측정 세션은 유지된 채 화면만 전환.
+  function on_click_view_measurements() {
+    navigate(PATH.analysisFaceMeasurement)
+  }
+
   function get_visit_no() {
     if (typeof sessionStorage === 'undefined') return null
     const raw = sessionStorage.getItem('retinal_visit_no')
@@ -255,13 +260,20 @@
         </p>
       {/if}
 
-      <div class="mx-auto grid w-full max-w-[820px] grid-cols-[260px_minmax(0,520px)] justify-center gap-4">
+      <div class="mx-auto grid w-full max-w-[860px] grid-cols-[180px_180px_minmax(0,460px)] justify-center gap-4">
         <button
           type="button"
           class="grid min-h-[46px] cursor-pointer place-items-center rounded-xl border border-slate-300 bg-white text-[15px] font-extrabold text-slate-400 transition hover:border-slate-400 hover:text-slate-600"
           onclick={on_click_retry}
         >
           재분석
+        </button>
+        <button
+          type="button"
+          class="grid min-h-[46px] cursor-pointer place-items-center rounded-xl border border-slate-300 bg-white text-[15px] font-extrabold text-slate-400 transition hover:border-slate-400 hover:text-slate-600"
+          onclick={on_click_view_measurements}
+        >
+          측정 상세 보기
         </button>
         <button
           type="button"

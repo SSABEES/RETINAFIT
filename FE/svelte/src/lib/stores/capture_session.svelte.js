@@ -125,19 +125,22 @@ async function compute_face_shape_result() {
       }
     }
 
-    let ear_offsets_obj = null
-    if (bitmap) {
-      const kp = await detect_keypoints_from_image(bitmap)
-      if (kp) {
-        const offsets_px = compute_ear_offsets(kp, capture.height)
-        ear_offsets_obj = {
-          right_y_offset_px: offsets_px.right_y_offset_px,
-          left_y_offset_px: offsets_px.left_y_offset_px,
-          right_y_offset_mm: null,
-          left_y_offset_mm: null,
-        }
-      }
-    }
+    // 귀 높이 산출 — 일단 비활성화 (사용자 요청). FaceDetector 추가 호출 비용 절감.
+    // 화면 표시는 ear_offsets_obj null-check 로 자동 비표시되고, 미러/test_json 도 자연스레 제외.
+    // 재활성화 시 아래 블록 주석을 풀면 됨 (compute_ear_offsets, EarOffsets 타입, 화면 코드 모두 유지).
+    const ear_offsets_obj = null
+    // if (bitmap) {
+    //   const kp = await detect_keypoints_from_image(bitmap)
+    //   if (kp) {
+    //     const offsets_px = compute_ear_offsets(kp, capture.height)
+    //     ear_offsets_obj = {
+    //       right_y_offset_px: offsets_px.right_y_offset_px,
+    //       left_y_offset_px: offsets_px.left_y_offset_px,
+    //       right_y_offset_mm: null,
+    //       left_y_offset_mm: null,
+    //     }
+    //   }
+    // }
 
     const asymmetry = capture.landmarks
       ? compute_asymmetry_score(capture.landmarks)

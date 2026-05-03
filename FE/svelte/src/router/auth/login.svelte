@@ -17,6 +17,13 @@
   let g_error_message = $state('')
   let g_is_loading = $state(false)
 
+  // 양자화 모델 검증용 hidden entry — 로고를 1.5초 안에 7회 누르면 /test 진입
+  // (Flutter WebView에서 시작 URL 외 진입로가 없는 환경 대응)
+  const g_logo_tap_required = 7
+  const g_logo_tap_window_ms = 1500
+  let g_logo_tap_count = 0
+  let g_logo_tap_reset_timer_id = null
+
   // 아이디와 비밀번호가 모두 입력되면 로그인 버튼을 활성 색상으로 전환
   let is_active = $derived(ref_store_id.length > 0 && ref_password.length > 0)
 
@@ -36,6 +43,27 @@
 
   function on_change_auto_login(local_event) {
     ref_auto_login = /** @type {HTMLInputElement} */ (local_event.currentTarget).checked
+  }
+
+  // 로고 탭 카운터를 증가시키고 임계치 도달 시 /test 로 이동 (양자화 검증용 hidden entry)
+  function on_click_logo() {
+    g_logo_tap_count += 1
+
+    if (g_logo_tap_reset_timer_id !== null) {
+      clearTimeout(g_logo_tap_reset_timer_id)
+      g_logo_tap_reset_timer_id = null
+    }
+
+    if (g_logo_tap_count >= g_logo_tap_required) {
+      g_logo_tap_count = 0
+      navigate(PATH.test)
+      return
+    }
+
+    g_logo_tap_reset_timer_id = setTimeout(() => {
+      g_logo_tap_count = 0
+      g_logo_tap_reset_timer_id = null
+    }, g_logo_tap_window_ms)
   }
 
   function build_opt_store_obj(opt_info_obj) {
@@ -170,13 +198,22 @@
       onsubmit={on_submit_login}
     >
       <div class="grid justify-items-center gap-4 text-center">
-        <img
-          class="h-auto w-[248px]"
-          src="/logo/LogoHeight.png"
-          alt="RetinaFit"
-          width="16568"
-          height="16568"
-        />
+        <button
+          type="button"
+          class="m-0 cursor-default border-0 bg-transparent p-0 [-webkit-touch-callout:none]"
+          aria-hidden="true"
+          tabindex="-1"
+          onclick={on_click_logo}
+        >
+          <img
+            class="h-auto w-[248px] select-none"
+            src="/logo/LogoHeight.png"
+            alt="RetinaFit"
+            width="16568"
+            height="16568"
+            draggable="false"
+          />
+        </button>
         <h1 id="login-title" class="sr-only">로그인</h1>
       </div>
 
