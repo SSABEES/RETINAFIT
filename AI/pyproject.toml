@@ -22,6 +22,15 @@ export = [
     "onnxruntime>=1.20.0",
     "onnxscript>=0.1.0",
     "numpy>=2.0.0",
+    # 캘리브레이션 face crop 을 HuggingFace 에서 streaming 으로 가져오기 위해 사용
+    # (download_hf_calibration.py). quantize/compare 자체는 datasets 의존 없음.
+    "datasets>=2.20.0",
+    # 자가 캡처 (capture_calibration_frames.py) — 웹캠 access + face crop preview.
+    # 측면 (yaw |60°+|) bin 보강용. 일반 face dataset 에는 측면이 거의 없음.
+    "opencv-python>=4.10.0",
+    # Pexels API 호출 (download_pexels_calibration.py). datasets 의 transitive 로도 들어오지만
+    # 직접 사용처가 있으니 명시.
+    "requests>=2.31.0",
 ]
 
 [tool.pytest.ini_options]
