@@ -9,6 +9,7 @@
     get_admin_glasses_arr,
     get_admin_glasses_img_presigned_url,
     get_uploaded_file_url,
+    normalize_to_object_key,
     upload_admin_glasses_file,
     update_admin_glasses,
   } from '@/lib/api/admin_glasses'
@@ -175,12 +176,13 @@
   }
 
   // 현재 폼 값을 관리자 안경 등록/수정 API 페이로드 형태로 반환한다.
+  // BE 가 host prefix 를 붙이므로 URL → key 정규화 후 전송 (수정 시 중첩 방지).
   function get_admin_glass_payload_obj() {
     return {
       glasses_name: ref_glass_form_obj.glasses_name.trim(),
       glasses_brand: ref_glass_form_obj.glasses_brand.trim(),
-      glasses_img_url: ref_glass_form_obj.glasses_img_url.trim(),
-      glasses_3d_url: ref_glass_form_obj.glasses_3d_url.trim(),
+      glasses_img_url: normalize_to_object_key(ref_glass_form_obj.glasses_img_url),
+      glasses_3d_url: normalize_to_object_key(ref_glass_form_obj.glasses_3d_url),
       glasses_spec_json: {
         category: ref_glass_form_obj.category,
         frame_style: ref_glass_form_obj.frame_style,
@@ -433,20 +435,33 @@
 
     ref_glass_submit_loading = true
 
+    // 새로 사용자가 고른 파일이 있는지 — 수정 시 PATCH 페이로드에 포함 여부 결정
+    const local_has_new_img_file = Boolean(ref_glass_img_file_obj)
+    const local_has_new_3d_file = Boolean(ref_glass_3d_file_obj)
+
     try {
       const local_uploaded_asset_obj = await upload_glass_asset_if_needed()
 
-      ref_glass_form_obj.glasses_img_url = local_uploaded_asset_obj.glasses_img_url
-      ref_glass_form_obj.glasses_3d_url = local_uploaded_asset_obj.glasses_3d_url
+      if (local_has_new_img_file) {
+        ref_glass_form_obj.glasses_img_url = local_uploaded_asset_obj.glasses_img_url
+      }
+      if (local_has_new_3d_file) {
+        ref_glass_form_obj.glasses_3d_url = local_uploaded_asset_obj.glasses_3d_url
+      }
 
       const local_glass_payload_obj = get_admin_glass_payload_obj()
 
       const local_is_edit_mode = Boolean(ref_selected_glasses_no)
 
       if (local_is_edit_mode) {
+        // 수정: 새로 올린 파일만 patch 에 포함. 변경 안 된 파일은 BE 가 기존 값 유지.
+        const local_patch_payload_obj = { ...local_glass_payload_obj }
+        if (!local_has_new_img_file) delete local_patch_payload_obj.glasses_img_url
+        if (!local_has_new_3d_file) delete local_patch_payload_obj.glasses_3d_url
+
         await update_admin_glasses({
           glasses_no: ref_selected_glasses_no,
-          ...local_glass_payload_obj,
+          ...local_patch_payload_obj,
         })
         push_success_toast('안경 정보를 수정했습니다.')
       } else {
@@ -459,10 +474,7 @@
       ref_glass_3d_file_obj = null
       ref_glass_preview_override_url = ''
       await on_load_admin_glass_arr()
-
-      if (!local_is_edit_mode) {
-        on_click_close_glass_editor()
-      }
+      on_click_close_glass_editor()
     } catch (local_error) {
       push_error_toast(
         local_error instanceof Error ? local_error.message : '안경 저장에 실패했습니다.',
