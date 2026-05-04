@@ -5,10 +5,10 @@
   import PasswordInput from '@/components/input/password_input.svelte'
   import { PATH } from '@/config/path'
   import { admin_login } from '@/lib/api/auth'
+  import { push_error_toast } from '@/lib/stores/toast'
 
   let ref_admin_id = $state('')
   let ref_admin_password = $state('')
-  let g_error_message = $state('')
   let g_is_loading = $state(false)
 
   // 이미 로그인 상태면 관리자 메인으로 보냄
@@ -27,13 +27,11 @@
   // 아이디 입력 반영
   function on_input_admin_id(local_event) {
     ref_admin_id = get_input_value(local_event)
-    g_error_message = ''
   }
 
   // 비밀번호 입력 반영
   function on_input_admin_password(local_event) {
     ref_admin_password = get_input_value(local_event)
-    g_error_message = ''
   }
 
   /**
@@ -47,19 +45,21 @@
     const local_password = ref_admin_password.trim()
 
     if (!local_id || !local_password) {
-      g_error_message = '아이디와 비밀번호를 모두 입력해 주세요.'
+      push_error_toast('아이디와 비밀번호를 모두 입력해 주세요.')
       return
     }
 
     g_is_loading = true
-    g_error_message = ''
 
     try {
       await admin_login({ id: local_id, password: local_password })
       navigate(PATH.adminLens)
     } catch (local_error) {
-      g_error_message =
-        local_error instanceof Error ? local_error.message : '관리자 로그인 처리 중 오류가 발생했습니다.'
+      push_error_toast(
+        local_error instanceof Error
+          ? local_error.message
+          : '관리자 로그인 처리 중 오류가 발생했습니다.',
+      )
     } finally {
       g_is_loading = false
     }
@@ -97,15 +97,6 @@
           required
           oninput={on_input_admin_password}
         />
-
-        {#if g_error_message}
-          <p
-            class="m-0 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-5 py-4 text-sm font-bold text-[#B42318]"
-            role="alert"
-          >
-            {g_error_message}
-          </p>
-        {/if}
 
         <button
           class="min-h-14 cursor-pointer rounded-xl border-0 bg-[var(--retina-primary-700)] text-lg font-extrabold text-white transition hover:bg-[var(--retina-primary-500)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-700)]/30 disabled:cursor-not-allowed disabled:opacity-60"
