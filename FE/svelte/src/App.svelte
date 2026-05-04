@@ -2,7 +2,6 @@
   import { onMount } from 'svelte'
   import { Route, Router } from '@maks11060/svelte5-router'
   import { routes } from '@/config/routes'
-  import { prefetch_models } from '@/lib/sixdrepnet360/inference'
   import GlobalToast from '@/components/toast/global_toast.svelte'
   import SplashScreen from '@/components/splash/splash_screen.svelte'
 
@@ -26,11 +25,6 @@
     const local_observer = new MutationObserver(sync_shell_bg)
     local_observer.observe(ref_content_el, { childList: true })
     sync_shell_bg()
-
-    // 6DRepNet360 InferenceSession 을 백그라운드에서 미리 만들어 첫 추론 컴파일 대기를 제거.
-    // SplashScreen 의 raw-bytes preload 와 .onnx URL 동일 → 브라우저 캐시 dedupe 로 다운로드 1회.
-    // fire-and-forget. 실패는 inference.js 내부에서 silent.
-    prefetch_models()
 
     return () => local_observer.disconnect()
   })

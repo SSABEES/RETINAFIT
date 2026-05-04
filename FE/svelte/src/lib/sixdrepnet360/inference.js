@@ -48,7 +48,7 @@ import * as ort from 'onnxruntime-web'
 
 // proxy 워커 활성화: 모든 세션 작업 (다운로드 / WASM 컴파일 / 추론) 을 전용 Web Worker 에서 실행해
 // 메인 스레드 freeze 를 제거한다. 카메라 video, MediaPipe 검출, canvas rAF 가 추론 중에도 안 끊김.
-// 호출자 (predict_pose / get_session / prefetch_models) 코드는 그대로 — ort 가 내부에서 메시지 패싱.
+// 호출자 (predict_pose / get_session / warm_session_from_bytes) 코드는 그대로 — ort 가 내부에서 메시지 패싱.
 ort.env.wasm.proxy = true
 
 // multi-threaded WASM 활성화 조건: SharedArrayBuffer 가 가용해야 하며, 그러려면 페이지가
@@ -111,12 +111,20 @@ function model_url_for(variant) {
   return `${import.meta.env.BASE_URL}models/sixdrepnet360/${VARIANT_FILES_OBJ[variant]}`
 }
 
-// ONNX 세션 생성. WASM 백엔드 우선 — WebGPU 는 가용 디바이스가 제한적이라 후순위.
+// ONNX 세션 생성 옵션. WASM 백엔드 우선 — WebGPU 는 가용 디바이스가 제한적이라 후순위.
+const SESSION_OPTIONS_OBJ = {
+  executionProviders: ['wasm'],
+  graphOptimizationLevel: 'all',
+}
+
+// URL 경로로 세션 생성 — ort 내부에서 fetch 후 컴파일. lazy fallback 용 (스플래시 미경유 / skip 시).
 async function load_session(variant) {
-  return ort.InferenceSession.create(model_url_for(variant), {
-    executionProviders: ['wasm'],
-    graphOptimizationLevel: 'all',
-  })
+  return ort.InferenceSession.create(model_url_for(variant), SESSION_OPTIONS_OBJ)
+}
+
+// 외부에서 받아둔 바이트로 직접 세션 생성 — fetch 단계 생략.
+async function load_session_from_bytes(bytes) {
+  return ort.InferenceSession.create(bytes, SESSION_OPTIONS_OBJ)
 }
 
 /**
@@ -279,37 +287,31 @@ export async function predict_pose(video, bbox) {
 }
 
 /**
- * 지정한 variant 들의 InferenceSession 을 미리 만들어 g_session_promises_obj 에 등록한다.
- * .onnx 다운로드 + WASM 그래프 컴파일 + 텐서 메모리 할당까지 백그라운드에서 끝내므로, 이후
- * get_session()/predict_pose() 는 즉시 반환되고 첫 추론도 컴파일 대기 없이 시작된다. 같은
- * variant 에 대해 prefetch 후 get_session() 호출 시 캐시 엔트리를 그대로 재사용 (재로드 없음).
+ * 외부에서 미리 다운로드한 .onnx 바이트로 InferenceSession 을 만들어 캐시에 등록한다. get_session()
+ * 의 URL fetch 경로와 달리 ort 가 다시 다운로드하지 않으므로 같은 모델을 두 번 받지 않는다.
  *
- * 호출 지점: App.svelte onMount — 첫 진입에서 fire-and-forget. 실패한 variant 의 캐시 엔트리는
- * 제거하여 다음 get_session() 이 정상 경로로 재시도하도록 한다.
+ * 호출 지점: SplashScreen — preload_sixdrepnet_model() 로 받은 bytes 를 그대로 전달. 컴파일과
+ * 텐서 메모리 할당까지 끝낸 뒤 onready 를 쏘므로 첫 추론에서 컴파일 대기 0초.
  *
- * Trade-off: WASM 세션은 모델 + 작업 메모리로 ~150–200MB 를 즉시 점유한다 (fp32 기준). 메모리
- * 부담을 피하고 싶다면 fetch 만 미리 거는 raw-bytes prefetch 로 회귀 — 단, 첫 추론 시 컴파일
- * 대기 0.5–2초 발생.
+ * 같은 variant 캐시가 이미 있으면 그것을 반환 (재컴파일 없음). 컴파일 실패 시 캐시 엔트리를 제거해
+ * 다음 get_session() 이 URL 경로로 재시도 가능.
  *
- * @param {ModelVariant[]} [variants]  prefetch 대상. 미지정 시 메인 경로 fp32 만.
- * @returns {Promise<void>}
+ * Trade-off: WASM 세션은 모델 + 작업 메모리로 ~150–200MB 를 즉시 점유 (fp32 기준).
+ *
+ * @param {ModelVariant} variant
+ * @param {Uint8Array} bytes
+ * @returns {Promise<InferenceSession>}
  */
-export async function prefetch_models(variants) {
-  const targets = variants ?? ['fp32']
-
-  await Promise.all(
-    targets.map((v) => {
-      let p = g_session_promises_obj.get(v)
-      if (!p) {
-        p = load_session(v)
-        g_session_promises_obj.set(v, p)
-      }
-      return p.catch(() => {
-        // 실패 시 캐시 엔트리 제거 — 다음 get_session() 호출에서 재시도 가능하도록
-        g_session_promises_obj.delete(v)
-      })
-    }),
-  )
+export function warm_session_from_bytes(variant, bytes) {
+  let p = g_session_promises_obj.get(variant)
+  if (!p) {
+    p = load_session_from_bytes(bytes).catch((err) => {
+      g_session_promises_obj.delete(variant)
+      throw err
+    })
+    g_session_promises_obj.set(variant, p)
+  }
+  return p
 }
 
 /**
