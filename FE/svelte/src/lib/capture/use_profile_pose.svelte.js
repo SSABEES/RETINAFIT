@@ -23,6 +23,9 @@ import { update_stability_step, compute_hint_text, PROFILE_CONSTANTS } from './p
  * @property {string | null} hint_text
  * @property {boolean} session_ready
  * @property {number | null} last_yaw
+ * @property {number | null} last_pitch
+ * @property {number | null} last_roll
+ * @property {Float32Array | null} last_rotation
  */
 
 /**
@@ -37,6 +40,9 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
   // reactive 상태 — UI 가 읽음
   let _stable_count  = $state(0)
   let _last_yaw      = $state(/** @type {number | null} */ (null))
+  let _last_pitch    = $state(/** @type {number | null} */ (null))
+  let _last_roll     = $state(/** @type {number | null} */ (null))
+  let _last_rotation = $state(/** @type {Float32Array | null} */ (null))
   let _session_ready = $state(false)
 
   // non-reactive — 내부용
@@ -67,11 +73,14 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
       const result = await predict_pose(video, bbox)
       if (snapshot_id !== _reset_id) return       // 카메라 재시작 후 stale 결과 폐기
 
-      const { yaw } = rotation_matrix_to_euler(result.rotation_matrix)
+      const { yaw, pitch, roll } = rotation_matrix_to_euler(result.rotation_matrix)
       const prev_count = _stable_count
 
       _session_ready = true
       _last_yaw = yaw
+      _last_pitch = pitch
+      _last_roll = roll
+      _last_rotation = result.rotation_matrix
 
       const target_deg = get_pose_target() === 'right_profile'
         ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
@@ -104,6 +113,9 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
   function reset() {
     _stable_count = 0
     _last_yaw = null
+    _last_pitch = null
+    _last_roll = null
+    _last_rotation = null
     _yaw_buffer = []
     _frame_counter = 0
     _reset_id += 1
@@ -131,5 +143,8 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
     },
     get session_ready()  { return _session_ready },
     get last_yaw()       { return _last_yaw },
+    get last_pitch()     { return _last_pitch },
+    get last_roll()      { return _last_roll },
+    get last_rotation()  { return _last_rotation },
   }
 }

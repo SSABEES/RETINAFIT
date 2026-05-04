@@ -548,7 +548,7 @@
         if (pose_target === 'front') {
           draw_face_mesh(ref_this_canvas_el, g_last_detection)
         } else {
-          draw_profile_bbox()
+          draw_profile_cube()
         }
       }
       draw_guide_ellipse()
@@ -705,24 +705,89 @@
     ctx.restore()
   }
 
-  // 측면 단계의 분석 영역(중앙 정사각형 crop) 을 점선 사각으로 그린다. is_landmark_visible 토글로
-  // 켜고 끔. 정면의 face_mesh 와 같은 "가이드 시각화" 역할.
-  function draw_profile_bbox() {
+  // 6D 포즈 큐브 — 머리 좌표계의 정육면체를 회전행렬로 회전시켜 2D 캔버스에 투영. 측면 단계의
+  // is_landmark_visible 토글에 의해 ON/OFF 됨 (정면의 face mesh 가 토글되는 것과 같은 역할).
+  // 좌표계: x=right, y=down (이미지 컨벤션), z=out-of-screen. 캔버스가 video 와 함께 scaleX(-1)
+  // 미러링되므로 project_cube 가 x 부호를 한 번 더 반전해 사용자 perception 과 일치시킨다.
+  // (모델은 unmirrored 프레임을 받으므로 R 그대로 적용 시 큐브가 머리와 반대 방향으로 회전.)
+  const CUBE_VERTICES = [
+    [-1, -1, -1], [+1, -1, -1], [+1, +1, -1], [-1, +1, -1], // 뒤 면 (z=-1, 머리 뒤쪽)
+    [-1, -1, +1], [+1, -1, +1], [+1, +1, +1], [-1, +1, +1], // 앞 면 (z=+1, 얼굴 쪽)
+  ]
+
+  function project_cube(R, cx, cy, half) {
+    const PERSPECTIVE = 4
+    const out = []
+    for (const v of CUBE_VERTICES) {
+      const vx = R[0] * v[0] + R[1] * v[1] + R[2] * v[2]
+      const vy = R[3] * v[0] + R[4] * v[1] + R[5] * v[2]
+      const vz = R[6] * v[0] + R[7] * v[1] + R[8] * v[2]
+      const scale = PERSPECTIVE / (PERSPECTIVE - vz)
+      out.push({ x: cx - vx * half * scale, y: cy + vy * half * scale })
+    }
+    return out
+  }
+
+  function stroke_quad(ctx, a, b, c, d) {
+    ctx.beginPath()
+    ctx.moveTo(a.x, a.y)
+    ctx.lineTo(b.x, b.y)
+    ctx.lineTo(c.x, c.y)
+    ctx.lineTo(d.x, d.y)
+    ctx.closePath()
+    ctx.stroke()
+  }
+
+  function stroke_segment(ctx, a, b) {
+    ctx.beginPath()
+    ctx.moveTo(a.x, a.y)
+    ctx.lineTo(b.x, b.y)
+    ctx.stroke()
+  }
+
+  // 큐브 렌더: 뒤 면(파랑·약간 흐림) → 연결 모서리(노랑) → 앞 면(빨강·강조). 빨강면이 얼굴이
+  // 향하는 방향 — 사용자가 정면 보면 빨간 사각형이 카메라 향하고, 옆을 보면 옆으로 돈다.
+  function draw_pose_cube(ctx, R, cx, cy, half) {
+    const v = project_cube(R, cx, cy, half)
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'
+    ctx.shadowBlur = 4
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+
+    ctx.strokeStyle = 'rgba(80,140,255,0.7)'
+    ctx.lineWidth = 2.5
+    stroke_quad(ctx, v[0], v[1], v[2], v[3])
+
+    ctx.strokeStyle = 'rgba(255,210,80,0.85)'
+    ctx.lineWidth = 2
+    stroke_segment(ctx, v[0], v[4])
+    stroke_segment(ctx, v[1], v[5])
+    stroke_segment(ctx, v[2], v[6])
+    stroke_segment(ctx, v[3], v[7])
+
+    ctx.strokeStyle = 'rgba(255,80,100,0.95)'
+    ctx.lineWidth = 3
+    stroke_quad(ctx, v[4], v[5], v[6], v[7])
+    ctx.restore()
+  }
+
+  // 측면 단계 큐브 그리기 — 추론 결과 회전행렬이 있을 때만 호출. 중앙 정사각형 bbox 기준으로
+  // 위치 잡고, test.svelte 의 폴백 모드와 동일하게 0.15 비율 사용 (frame 짧은 변 × 0.15).
+  function draw_profile_cube() {
     if (!ref_this_canvas_el || !ref_this_video_el) return
     if (ref_this_video_el.videoWidth === 0) return
+    if (profile_pose.last_rotation === null) return
     const ctx = ref_this_canvas_el.getContext('2d')
     if (!ctx) return
 
     const bbox = compute_center_square_bbox(ref_this_video_el)
     const w = ref_this_canvas_el.width
     const h = ref_this_canvas_el.height
-
-    ctx.save()
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)'
-    ctx.lineWidth = 2
-    ctx.setLineDash([6, 4])
-    ctx.strokeRect(bbox.x * w, bbox.y * h, bbox.w * w, bbox.h * h)
-    ctx.restore()
+    const cx = (bbox.x + bbox.w / 2) * w
+    const cy = (bbox.y + bbox.h / 2) * h
+    const half = Math.min(bbox.w * w, bbox.h * h) * 0.15
+    draw_pose_cube(ctx, profile_pose.last_rotation, cx, cy, half)
   }
 
   /**
@@ -787,6 +852,11 @@
     const target = pose_target === 'right_profile' ? +90 : -90
     return profile_yaw_style(profile_pose.last_yaw, target)
   })
+
+  // pitch / roll 은 정면용 angle_style 그대로 사용 — 0 에서 멀어질수록 'not ok'. 측면 자세에서도
+  // 사용자 머리가 위/아래/기울어짐 없이 수평으로 돌아가는 게 이상적이라 같은 의미로 적용 가능.
+  const g_profile_pitch_style = $derived(angle_style(profile_pose.last_pitch ?? 0, PITCH_THR))
+  const g_profile_roll_style = $derived(angle_style(profile_pose.last_roll ?? 0, ROLL_THR))
 </script>
 
 <div class="flex flex-col gap-3">
@@ -923,13 +993,13 @@
     {/if}
 
     <!--
-      측면 단계 한정 yaw 각도 인디케이터 — 정면의 좌우/상하/기울기 패널과 같은 위치/스타일.
-      사용자가 0° 에서 ±90° 까지 회전 진행도를 시각화. 목표값(+90/-90) 도 표시해 사용자가
-      어디까지 돌려야 하는지 직관 확인. session_ready 이전엔 노출 안 함 (추론 결과 없음).
+      측면 단계 한정 6D 각도 인디케이터 (yaw/pitch/roll) — 정면의 좌우/상하/기울기 패널과
+      같은 위치/스타일. 모델이 반환하는 3축을 그대로 표시. 좌우(yaw) 만 stable 판정에 사용되고
+      상하(pitch)/기울기(roll) 는 참고 표시. session_ready 이전엔 노출 안 함.
     -->
     {#if show_overlay && active && pose_target !== 'front' && profile_pose.session_ready && profile_pose.last_yaw !== null && !g_already_dispatched}
       <div
-        class="pointer-events-none absolute right-2.5 top-2.5 z-10 flex w-44 flex-col gap-1 rounded-lg border border-white/20 bg-black/55 px-3 py-2 text-[11px] backdrop-blur-sm"
+        class="pointer-events-none absolute right-2.5 top-2.5 z-10 flex w-44 flex-col gap-1.5 rounded-lg border border-white/20 bg-black/55 px-3 py-2 text-[11px] backdrop-blur-sm"
         aria-live="polite"
         aria-label="측면 자세 각도"
       >
@@ -951,11 +1021,41 @@
             {profile_pose.last_yaw.toFixed(1)}°
           </span>
         </div>
-        <div class="flex items-center gap-2 text-[10px] text-white/55">
-          <span class="w-10">목표</span>
-          <b class="ml-auto tabular-nums">
-            {pose_target === 'right_profile' ? '+90.0' : '-90.0'}°
-          </b>
+        <div class="flex items-center gap-2">
+          <span class="w-10 font-semibold text-white/65">상하</span>
+          <div
+            class="h-1.5 flex-1 overflow-hidden rounded-sm"
+            style="background: {g_profile_pitch_style.track_bg};"
+          >
+            <div
+              class="h-full transition-[width]"
+              style="width: {g_profile_pitch_style.width_pct}%; background: {g_profile_pitch_style.fill_bg};"
+            ></div>
+          </div>
+          <span
+            class="w-12 text-right font-bold tabular-nums"
+            style="color: {g_profile_pitch_style.text_color};"
+          >
+            {(profile_pose.last_pitch ?? 0).toFixed(1)}°
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-10 font-semibold text-white/65">기울기</span>
+          <div
+            class="h-1.5 flex-1 overflow-hidden rounded-sm"
+            style="background: {g_profile_roll_style.track_bg};"
+          >
+            <div
+              class="h-full transition-[width]"
+              style="width: {g_profile_roll_style.width_pct}%; background: {g_profile_roll_style.fill_bg};"
+            ></div>
+          </div>
+          <span
+            class="w-12 text-right font-bold tabular-nums"
+            style="color: {g_profile_roll_style.text_color};"
+          >
+            {(profile_pose.last_roll ?? 0).toFixed(1)}°
+          </span>
         </div>
       </div>
     {/if}
