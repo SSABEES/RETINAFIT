@@ -8,9 +8,9 @@
 export const PROFILE_CONSTANTS = Object.freeze({
   ORT_FRAME_SKIP: 5,           // tick() 호출 5번마다 1번 추론 → 12Hz rAF 에서 ~2.4Hz
   TARGET_DEG: 90,              // ±90° 가 측면 정자세
-  TOLERANCE: 10,               // 영역 폭 ±10°
+  TOLERANCE: 15,               // 영역 폭 ±15° — 사용자 자세 흔들림 허용 (10° 는 너무 빡빡)
   YAW_STD_THR: 5,              // 안정성 표준편차 임계 (도)
-  STABILITY_FRAMES: 12,        // 12 frames @ 12Hz ≈ 1초 hold (사용자 피드백 — 2.5초가 너무 길다)
+  STABILITY_FRAMES: 12,        // 12 frames @ 12Hz ≈ 1초 hold
   YAW_BUFFER_SIZE: 10,         // 표준편차 계산용 슬라이딩 윈도우
 })
 
@@ -30,6 +30,10 @@ export function yaw_std(arr) {
  * 매 프레임 안정성 step. 영역 안(타깃 ±TOLERANCE) + 안정(yaw_buffer std < YAW_STD_THR) 이면
  * stable_count 1 증가, 아니면 5 감소 (정면 update_stability 와 동일한 보수적 감소).
  *
+ * 히스테리시스: 한 번 STABILITY_FRAMES 에 도달하면 lock — 이후 yaw 추론 노이즈로 stable_count 가
+ * 다시 떨어지지 않음. reset() (단계 전환 / 카메라 재시작) 으로만 0 으로 복귀. 도달 직후 자동 발사
+ * effect 가 안정적으로 trigger 되도록 보장.
+ *
  * 순수 함수 — 새 state 객체 반환, 입력 mutate 안 함.
  *
  * @param {{ stable_count: number, yaw_buffer: number[], yaw: number, target_deg: number }} input
@@ -37,6 +41,11 @@ export function yaw_std(arr) {
  */
 export function update_stability_step({ stable_count, yaw_buffer, yaw, target_deg }) {
   const next_buffer = [...yaw_buffer.slice(-(PROFILE_CONSTANTS.YAW_BUFFER_SIZE - 1)), yaw]
+
+  // 이미 max 도달 — lock. 추가 yaw 입력에 영향 받지 않음.
+  if (stable_count >= PROFILE_CONSTANTS.STABILITY_FRAMES) {
+    return { stable_count, yaw_buffer: next_buffer }
+  }
 
   const in_zone = Math.abs(yaw - target_deg) < PROFILE_CONSTANTS.TOLERANCE
   const buffer_full = next_buffer.length >= PROFILE_CONSTANTS.YAW_BUFFER_SIZE

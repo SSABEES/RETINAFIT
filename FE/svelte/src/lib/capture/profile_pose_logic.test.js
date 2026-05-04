@@ -56,17 +56,30 @@ describe('update_stability_step', () => {
     expect(result.stable_count).toBe(PROFILE_CONSTANTS.STABILITY_FRAMES)
   })
 
-  it('영역 진입 후 이탈 → -5 보수적 감소', () => {
-    const initial = { stable_count: 20, yaw_buffer: Array(10).fill(89) }
+  it('영역 진입 후 이탈 (pre-stable) → -5 보수적 감소', () => {
+    // initial 10 < STABILITY_FRAMES(12) — 히스테리시스 lock 미발동, 정상 감소.
+    const initial = { stable_count: 10, yaw_buffer: Array(10).fill(89) }
     const result = update_stability_step({ ...initial, yaw: 0, target_deg: +90 })
-    expect(result.stable_count).toBe(15)
+    expect(result.stable_count).toBe(5)
   })
 
-  it('영역 안이지만 yaw 흔들림 큼 → -5 감소 (holding=false)', () => {
-    const initial = { stable_count: 20, yaw_buffer: [80, 100, 80, 100, 80, 100, 80, 100, 80, 100] }
+  it('영역 안이지만 yaw 흔들림 큼 (pre-stable) → -5 감소 (holding=false)', () => {
+    // initial 10 < STABILITY_FRAMES(12) — 히스테리시스 lock 미발동.
+    const initial = { stable_count: 10, yaw_buffer: [80, 100, 80, 100, 80, 100, 80, 100, 80, 100] }
     const result = update_stability_step({ ...initial, yaw: 90, target_deg: +90 })
     // 새 buffer = [100,80,100,80,100,80,100,80,100,90] — std≈9.43 → threshold(5) 초과
-    expect(result.stable_count).toBe(15)
+    expect(result.stable_count).toBe(5)
+  })
+
+  it('히스테리시스 — max 도달 후 영역 이탈해도 stable_count 유지', () => {
+    // STABILITY_FRAMES 도달한 상태 = 사용자가 자세 잡기 성공. 이후 추론 노이즈 한두 프레임으로
+    // 떨어뜨리지 않음 — 자동 발사 effect 가 안정적으로 trigger 되도록 보장.
+    const initial = {
+      stable_count: PROFILE_CONSTANTS.STABILITY_FRAMES,
+      yaw_buffer: Array(10).fill(89),
+    }
+    const result = update_stability_step({ ...initial, yaw: 0, target_deg: +90 })
+    expect(result.stable_count).toBe(PROFILE_CONSTANTS.STABILITY_FRAMES)
   })
 
   it('yaw_buffer 가 슬라이딩 — YAW_BUFFER_SIZE 초과해도 마지막 N개만 유지', () => {
