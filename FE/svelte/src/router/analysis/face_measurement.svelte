@@ -171,7 +171,12 @@
         </section>
 
         <section class="flex min-h-0 items-center justify-center">
-          <article class="flex h-full max-h-[458px] w-full max-w-[368px] flex-col gap-4 overflow-y-auto rounded-[14px] border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
+          <!--
+            article 높이 고정 (h-[458px]) — grid row height 따라 변동하지 않음. 컨텐츠가 넘치면
+            overflow-y-auto 로 내부 스크롤. front 단계의 귀 높이 section 이 추가되어도 컨테이너
+            크기 그대로, 사용자는 스크롤로 접근.
+          -->
+          <article class="flex h-[458px] w-full max-w-[368px] flex-col gap-4 overflow-y-auto rounded-[14px] border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
           <PhotoSwitcher session={g_session} view={g_view} onview_change={on_view_change} />
           <div class="h-px bg-slate-200"></div>
           <MeasurementList
