@@ -151,13 +151,17 @@
         얼굴 측정
       </h1>
 
-      <div class="mx-auto mt-2 grid h-full min-h-0 w-full max-w-[760px] grid-cols-[0.98fr_0.92fr] gap-4 px-1">
+      <!--
+        grid-rows-[minmax(0,1fr)] 로 row 가 grid 의 가용 높이를 다 채우게 한다 — 기본 auto rows 는
+        item content 따라 변동해서 좌/우 사이즈가 view 별로 흔들렸던 게 root cause. minmax(0,1fr)
+        는 충분히 작아질 수도 있고 (overflow 안 깨짐) 가용 공간을 다 채울 수도 있음.
+        외곽 (main / 상위 section 의 overflow-hidden + flex-1 체인) 이 viewport 경계 보장.
+      -->
+      <div class="mx-auto mt-2 grid h-full min-h-0 w-full max-w-[760px] grid-cols-[0.98fr_0.92fr] grid-rows-[minmax(0,1fr)] gap-4 px-1">
         <section class="flex min-h-0 items-center justify-center">
           <!--
-            aspect-[3/4] 로 컨테이너 자체 모양 고정 — 우측 article 의 content 길이에 따라 grid row
-            height 가 변하면 좌측도 h-full 따라 같이 변하던 버그 (front view 는 귀 높이 section
-            추가로 article 이 더 길어 좌측이 크게 보였고, profile view 는 article 짧아져 좌측
-            도 작게 보임). aspect-[3/4] 는 width 기반 → grid row 와 무관하게 동일 사이즈 유지.
+            aspect-[3/4] + max-h-full — width 기반 비율 유지, 단 row 가 좁으면 height 캡 내에서 비율
+            유지하며 axisflip. content 변동 면역.
           -->
           <div class="flex aspect-[3/4] max-h-full w-full max-w-[348px] overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
             <MeasureCanvas
@@ -170,13 +174,13 @@
           </div>
         </section>
 
-        <section class="flex min-h-0 items-center justify-center">
+        <section class="flex min-h-0 justify-center">
           <!--
-            article 높이 고정 (h-[458px]) — grid row height 따라 변동하지 않음. 컨텐츠가 넘치면
-            overflow-y-auto 로 내부 스크롤. front 단계의 귀 높이 section 이 추가되어도 컨테이너
-            크기 그대로, 사용자는 스크롤로 접근.
+            article 은 cell 의 가용 높이를 끝까지 사용 (h-full + min-h-0). 컨텐츠가 cell 을 넘기면
+            overflow-y-auto 로 내부 스크롤. items-center 제거 — 기본 stretch 로 동작해 자연스럽게
+            높이 채움. fixed h-[N] 보다 강건: 큰 화면에선 더 길게, 작은 화면에선 viewport 안에 안전.
           -->
-          <article class="flex h-[458px] w-full max-w-[368px] flex-col gap-4 overflow-y-auto rounded-[14px] border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
+          <article class="flex h-full min-h-0 w-full max-w-[368px] flex-col gap-4 overflow-y-auto rounded-[14px] border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
           <PhotoSwitcher session={g_session} view={g_view} onview_change={on_view_change} />
           <div class="h-px bg-slate-200"></div>
           <MeasurementList
