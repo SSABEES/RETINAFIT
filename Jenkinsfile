@@ -48,10 +48,10 @@ pipeline {
                 sh """
                     cd ${WORKSPACE_PATH}/BE
                     export APP_ENV=production
-                    uv sync
+                    /home/ubuntu/.local/bin/uv sync
                     sudo pkill -f 'uvicorn app.main:app --host 0.0.0.0 --port 8000' || true
                     sleep 2
-                    nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 > /home/ubuntu/app/logs/be.log 2>&1 &
+                    nohup /home/ubuntu/.local/bin/uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 > /home/ubuntu/app/logs/be.log 2>&1 &
                 """
             }
         }
@@ -62,10 +62,10 @@ pipeline {
                 sh """
                     cd ${WORKSPACE_PATH}/AI
                     export APP_ENV=production
-                    uv sync
+                    /home/ubuntu/.local/bin/uv sync
                     sudo pkill -f 'uvicorn app.main:app --host 0.0.0.0 --port 8001' || true
                     sleep 2
-                    nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 > /home/ubuntu/app/logs/ai.log 2>&1 &
+                    nohup /home/ubuntu/.local/bin/uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 > /home/ubuntu/app/logs/ai.log 2>&1 &
                 """
             }
         }
