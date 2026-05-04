@@ -9,7 +9,7 @@
   let ref_content_el
   let g_is_model_ready = $state(false)
 
-  // 현재 페이지 main 의 배경색을 외곽 shell 에 자동 동기화 (letterbox)
+  // 현재 페이지 main 의 배경색을 외곽 부분에 자동 동기화
   function sync_shell_bg() {
     if (!ref_shell_el || !ref_content_el) return
 
@@ -28,7 +28,7 @@
     return () => local_observer.disconnect()
   })
 
-  // 스플래시에서 모델 다운로드 완료(또는 사용자가 건너뛰기) 신호를 받으면 호출된다.
+  // 스플래시에서 모델 ready 신호 (다운로드 완료, 건너뛰기)를 수신함
   function on_model_ready() {
     g_is_model_ready = true
   }

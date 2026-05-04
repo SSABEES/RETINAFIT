@@ -14,12 +14,11 @@
   let g_received_bytes = $state(0)
   let g_total_bytes = $state(0)
   let g_error_message = $state(/** @type {string | null} */ (null))
-  let g_attempt_no = $state(0)
 
   /** @type {AbortController | null} */
   let g_abort_controller = null
 
-  // bytes 를 사람이 읽기 좋은 단위로 포맷한다.
+  // bytes 단위로 하여 읽기 좋게
   function format_bytes(bytes) {
     if (!bytes || bytes <= 0) return '—'
     if (bytes < 1024) return `${bytes} B`
@@ -28,7 +27,7 @@
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
   }
 
-  // 모델 다운로드를 시작한다. 실패 시 에러 메시지를 노출하고 사용자가 재시도 버튼을 눌러야 다시 시도한다.
+  // 모델 다운로드를 시작. 실패 시 에러를 노출하고 사용자가 재시도/건너뛰기 선택할 수 있음
   async function start_preload() {
     g_error_message = null
     g_progress_ratio = 0
@@ -58,14 +57,13 @@
     }
   }
 
-  // 재시도 버튼 핸들러. 진행 중인 fetch 를 중단하고 다시 시작한다.
+  // 진행 중 fetch 를 중단 후 다시 시도 (개발환경이라 혹시 모델이 없더라도 진행할 수 있도록 -> 나중에 삭제해야함)
   function on_click_retry() {
     if (g_abort_controller) g_abort_controller.abort()
-    g_attempt_no += 1
     void start_preload()
   }
 
-  // 사용자가 다운로드를 건너뛰고 그대로 진행하도록 한다 (개발용 fallback).
+  // 다운로드를 건너뛰고 그대로 진행
   function on_click_skip() {
     if (g_abort_controller) g_abort_controller.abort()
     onready?.()
@@ -79,7 +77,6 @@
     }
   })
 
-  // 진행률을 정수 퍼센트로 표기.
   let g_progress_percent = $derived(Math.round(g_progress_ratio * 100))
 </script>
 
@@ -124,9 +121,7 @@
       </div>
     {:else}
       <div class="flex w-full flex-col items-center gap-3">
-        <p class="m-0 text-sm font-bold text-[var(--retina-text-700)]">
-          AI 모델 준비 중...
-        </p>
+        <p class="m-0 text-sm font-bold text-[var(--retina-text-700)]">AI 모델 준비 중...</p>
 
         <div
           class="h-2 w-full overflow-hidden rounded-full bg-[var(--retina-text-200)]"
