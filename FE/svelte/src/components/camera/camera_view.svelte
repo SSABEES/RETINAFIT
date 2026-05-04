@@ -774,6 +774,31 @@
   const g_yaw_style = $derived(angle_style(g_frontal_obj?.yaw ?? 0, YAW_THR))
   const g_pitch_style = $derived(angle_style(g_frontal_obj?.pitch ?? 0, PITCH_THR))
   const g_roll_style = $derived(angle_style(g_frontal_obj?.roll ?? 0, ROLL_THR))
+
+  /**
+   * 측면 yaw 각도 진행 바 — 목표(±90°) 까지 가까워질수록 채움.
+   * angle_style 과 의미가 반대 (정면: 0 에 가까울수록 ok / 측면: target 에 가까울수록 ok).
+   * @param {number | null} yaw
+   * @param {number} target_deg
+   */
+  function profile_yaw_style(yaw, target_deg) {
+    if (yaw === null) {
+      return { ok: false, width_pct: 0, track_bg: 'rgba(255,255,255,0.1)', fill_bg: '#9ca3af', text_color: '#9ca3af' }
+    }
+    const distance = Math.abs(yaw - target_deg)
+    const ok = distance < 10  // PROFILE_CONSTANTS.TOLERANCE — 직접 import 안 하고 fixed value (UI 영역)
+    // 0° 부터 ±90° 까지 0–100% 진행. 사용자가 정면(0°)→측면(target) 으로 회전 정도를 직관 시각화.
+    const progress = Math.max(0, Math.min(100, (1 - distance / 90) * 100))
+    const track_bg = ok ? 'rgba(0,200,83,0.15)' : 'rgba(255,193,7,0.15)'
+    const fill_bg = ok ? '#00c853' : '#ffc107'
+    const text_color = ok ? '#34d399' : '#fbbf24'
+    return { ok, width_pct: progress, track_bg, fill_bg, text_color }
+  }
+
+  const g_profile_yaw_style = $derived.by(() => {
+    const target = pose_target === 'right_profile' ? +90 : -90
+    return profile_yaw_style(profile_pose.last_yaw, target)
+  })
 </script>
 
 <div class="flex flex-col gap-3">
@@ -905,6 +930,44 @@
           >
             {g_frontal_obj.roll.toFixed(1)}°
           </span>
+        </div>
+      </div>
+    {/if}
+
+    <!--
+      측면 단계 한정 yaw 각도 인디케이터 — 정면의 좌우/상하/기울기 패널과 같은 위치/스타일.
+      사용자가 0° 에서 ±90° 까지 회전 진행도를 시각화. 목표값(+90/-90) 도 표시해 사용자가
+      어디까지 돌려야 하는지 직관 확인. session_ready 이전엔 노출 안 함 (추론 결과 없음).
+    -->
+    {#if show_overlay && active && pose_target !== 'front' && profile_pose.session_ready && profile_pose.last_yaw !== null && !g_already_dispatched}
+      <div
+        class="pointer-events-none absolute right-2.5 top-2.5 z-10 flex w-44 flex-col gap-1 rounded-lg border border-white/20 bg-black/55 px-3 py-2 text-[11px] backdrop-blur-sm"
+        aria-live="polite"
+        aria-label="측면 자세 각도"
+      >
+        <div class="flex items-center gap-2">
+          <span class="w-10 font-semibold text-white/65">좌우</span>
+          <div
+            class="h-1.5 flex-1 overflow-hidden rounded-sm"
+            style="background: {g_profile_yaw_style.track_bg};"
+          >
+            <div
+              class="h-full transition-[width]"
+              style="width: {g_profile_yaw_style.width_pct}%; background: {g_profile_yaw_style.fill_bg};"
+            ></div>
+          </div>
+          <span
+            class="w-12 text-right font-bold tabular-nums"
+            style="color: {g_profile_yaw_style.text_color};"
+          >
+            {profile_pose.last_yaw.toFixed(1)}°
+          </span>
+        </div>
+        <div class="flex items-center gap-2 text-[10px] text-white/55">
+          <span class="w-10">목표</span>
+          <b class="ml-auto tabular-nums">
+            {pose_target === 'right_profile' ? '+90.0' : '-90.0'}°
+          </b>
         </div>
       </div>
     {/if}
