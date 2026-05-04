@@ -176,20 +176,25 @@
 
         <section class="flex min-h-0 justify-center">
           <!--
-            article 은 cell 의 가용 높이를 끝까지 사용 (h-full + min-h-0). 컨텐츠가 cell 을 넘기면
-            overflow-y-auto 로 내부 스크롤. items-center 제거 — 기본 stretch 로 동작해 자연스럽게
-            높이 채움. fixed h-[N] 보다 강건: 큰 화면에선 더 길게, 작은 화면에선 viewport 안에 안전.
+            article 은 cell 의 가용 높이를 끝까지 사용 (h-full + min-h-0). PhotoSwitcher + divider
+            는 상단 고정, MeasurementList + 귀 높이만 내부 스크롤 (별도 wrapper). 큰 화면에선 길게,
+            작은 화면에선 viewport 안에 안전.
           -->
-          <article class="flex h-full min-h-0 w-full max-w-[368px] flex-col gap-4 overflow-y-auto rounded-[14px] border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
+          <article class="flex h-full min-h-0 w-full max-w-[368px] flex-col gap-4 overflow-hidden rounded-[14px] border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
           <PhotoSwitcher session={g_session} view={g_view} onview_change={on_view_change} />
           <div class="h-px bg-slate-200"></div>
-          <MeasurementList
-            items_arr={g_items_arr}
-            active_item_id={g_active_item_id}
-            view_label={g_view_label}
-            onselect={on_select_item}
-            onclear={on_clear_item}
-          />
+          <!--
+            scroll wrapper — flex-1 로 article 의 남은 공간 흡수, min-h-0 로 content 보다 작아질 수
+            있어 overflow 발동, overflow-y-auto 로 내부 스크롤. PhotoSwitcher 영역은 상단 고정.
+          -->
+          <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+            <MeasurementList
+              items_arr={g_items_arr}
+              active_item_id={g_active_item_id}
+              view_label={g_view_label}
+              onselect={on_select_item}
+              onclear={on_clear_item}
+            />
           {#if g_view === 'front_no_glasses' && g_face_shape_result?.ear_offsets_obj}
             {@const eo = g_face_shape_result.ear_offsets_obj}
             {@const ear_diff_mm = (eo.right_y_offset_mm !== null && eo.left_y_offset_mm !== null)
@@ -232,6 +237,7 @@
               </ul>
             </section>
           {/if}
+          </div>
           </article>
         </section>
       </div>
