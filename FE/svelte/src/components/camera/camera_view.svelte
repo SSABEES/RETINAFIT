@@ -343,20 +343,26 @@
 
   async function run_auto_capture_sequence() {
     const my_token = ++g_capture_sequence_token
-    /** @type {AudioPromptKey[]} */
-    const sequence = ['count_three', 'count_two', 'count_one', 'count_click']
 
-    for (const file_key of sequence) {
-      if (
-        my_token !== g_capture_sequence_token ||
-        !active ||
-        !g_is_auto_capture ||
-        g_already_dispatched
-      ) {
-        return
+    // 정면: 카운트다운(3-2-1-click) 음성 시퀀스 후 캡처 — 사용자가 곧 찍힌다는 신호 받고 표정 정렬.
+    // 측면: 카운트다운 생략하고 즉시 캡처 — 안정화 자체로 ~2.5초 이미 대기했고, 측면 자세는 표정
+    // 정렬 의미 없으므로 추가 대기는 답답함만 가중. (정면과 다른 UX 정당성: 표정 vs 자세각.)
+    if (pose_target === 'front') {
+      /** @type {AudioPromptKey[]} */
+      const sequence = ['count_three', 'count_two', 'count_one', 'count_click']
+
+      for (const file_key of sequence) {
+        if (
+          my_token !== g_capture_sequence_token ||
+          !active ||
+          !g_is_auto_capture ||
+          g_already_dispatched
+        ) {
+          return
+        }
+
+        await play_prompt_audio(file_key)
       }
-
-      await play_prompt_audio(file_key)
     }
 
     if (
