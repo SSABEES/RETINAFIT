@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { Route, Router } from '@maks11060/svelte5-router'
   import { routes } from '@/config/routes'
+  import GlobalToast from '@/components/toast/global_toast.svelte'
   import SplashScreen from '@/components/splash/splash_screen.svelte'
 
   let url = ''
@@ -46,6 +47,7 @@
   </div>
 </div>
 
+<GlobalToast />
 {#if !g_is_model_ready}
   <SplashScreen onready={on_model_ready} />
 {/if}

@@ -9,9 +9,11 @@
     get_admin_glasses_arr,
     get_admin_glasses_img_presigned_url,
     get_uploaded_file_url,
+    normalize_to_object_key,
     upload_admin_glasses_file,
     update_admin_glasses,
   } from '@/lib/api/admin_glasses'
+  import { push_error_toast, push_success_toast } from '@/lib/stores/toast'
 
   /**
    * @typedef {{ label: string, value: string }} GlassDropdownOption
@@ -174,12 +176,13 @@
   }
 
   // 현재 폼 값을 관리자 안경 등록/수정 API 페이로드 형태로 반환한다.
+  // BE 가 host prefix 를 붙이므로 URL → key 정규화 후 전송 (수정 시 중첩 방지).
   function get_admin_glass_payload_obj() {
     return {
       glasses_name: ref_glass_form_obj.glasses_name.trim(),
       glasses_brand: ref_glass_form_obj.glasses_brand.trim(),
-      glasses_img_url: ref_glass_form_obj.glasses_img_url.trim(),
-      glasses_3d_url: ref_glass_form_obj.glasses_3d_url.trim(),
+      glasses_img_url: normalize_to_object_key(ref_glass_form_obj.glasses_img_url),
+      glasses_3d_url: normalize_to_object_key(ref_glass_form_obj.glasses_3d_url),
       glasses_spec_json: {
         category: ref_glass_form_obj.category,
         frame_style: ref_glass_form_obj.frame_style,
@@ -199,8 +202,6 @@
     }
   }
 
-  let ref_glass_saved_message = $state('')
-  let ref_glass_error_message = $state('')
   let ref_glass_list_loading = $state(false)
   let ref_glass_submit_loading = $state(false)
   let ref_glass_delete_loading = $state(false)
@@ -266,7 +267,6 @@
   // 관리자 안경 목록을 새로 불러와 최신순으로 정렬한다.
   async function on_load_admin_glass_arr() {
     ref_glass_list_loading = true
-    ref_glass_error_message = ''
 
     try {
       const local_glass_arr = await get_admin_glasses_arr()
@@ -279,8 +279,9 @@
         )
     } catch (local_error) {
       ref_glass_list_arr = []
-      ref_glass_error_message =
-        local_error instanceof Error ? local_error.message : '안경 목록을 불러오지 못했습니다.'
+      push_error_toast(
+        local_error instanceof Error ? local_error.message : '안경 목록을 불러오지 못했습니다.',
+      )
     } finally {
       ref_glass_list_loading = false
     }
@@ -294,8 +295,6 @@
     ref_glass_img_file_obj = null
     ref_glass_3d_file_obj = null
     ref_glass_preview_override_url = ''
-    ref_glass_saved_message = ''
-    ref_glass_error_message = ''
   }
 
   // 안경 추가 화면을 연다.
@@ -312,8 +311,6 @@
     ref_glass_img_file_obj = null
     ref_glass_3d_file_obj = null
     ref_glass_preview_override_url = ''
-    ref_glass_saved_message = ''
-    ref_glass_error_message = ''
   }
 
   // 지정된 드롭다운의 열림/닫힘 상태를 토글한다.
@@ -424,8 +421,6 @@
           : String(glass_obj.temple_length),
       fit_note: glass_obj.fit_note ?? '',
     }
-    ref_glass_saved_message = ''
-    ref_glass_error_message = ''
     void ensure_glass_editor_component()
   }
 
@@ -434,48 +429,56 @@
     local_event.preventDefault()
 
     if (!ref_glass_form_obj.glasses_img_url.trim() && !ref_glass_img_file_obj) {
-      ref_glass_error_message = '대표 이미지를 선택해 주세요.'
-      ref_glass_saved_message = ''
+      push_error_toast('대표 이미지를 선택해 주세요.')
       return
     }
 
     ref_glass_submit_loading = true
-    ref_glass_error_message = ''
-    ref_glass_saved_message = ''
+
+    // 새로 사용자가 고른 파일이 있는지 — 수정 시 PATCH 페이로드에 포함 여부 결정
+    const local_has_new_img_file = Boolean(ref_glass_img_file_obj)
+    const local_has_new_3d_file = Boolean(ref_glass_3d_file_obj)
 
     try {
       const local_uploaded_asset_obj = await upload_glass_asset_if_needed()
 
-      ref_glass_form_obj.glasses_img_url = local_uploaded_asset_obj.glasses_img_url
-      ref_glass_form_obj.glasses_3d_url = local_uploaded_asset_obj.glasses_3d_url
+      if (local_has_new_img_file) {
+        ref_glass_form_obj.glasses_img_url = local_uploaded_asset_obj.glasses_img_url
+      }
+      if (local_has_new_3d_file) {
+        ref_glass_form_obj.glasses_3d_url = local_uploaded_asset_obj.glasses_3d_url
+      }
 
       const local_glass_payload_obj = get_admin_glass_payload_obj()
 
       const local_is_edit_mode = Boolean(ref_selected_glasses_no)
 
       if (local_is_edit_mode) {
+        // 수정: 새로 올린 파일만 patch 에 포함. 변경 안 된 파일은 BE 가 기존 값 유지.
+        const local_patch_payload_obj = { ...local_glass_payload_obj }
+        if (!local_has_new_img_file) delete local_patch_payload_obj.glasses_img_url
+        if (!local_has_new_3d_file) delete local_patch_payload_obj.glasses_3d_url
+
         await update_admin_glasses({
           glasses_no: ref_selected_glasses_no,
-          ...local_glass_payload_obj,
+          ...local_patch_payload_obj,
         })
-        ref_glass_saved_message = '안경 정보를 수정했습니다.'
+        push_success_toast('안경 정보를 수정했습니다.')
       } else {
         const local_created_glass_obj = await create_admin_glasses(local_glass_payload_obj)
         ref_selected_glasses_no = local_created_glass_obj?.glasses_no ?? null
-        ref_glass_saved_message = '안경 정보를 등록했습니다.'
+        push_success_toast('안경 정보를 등록했습니다.')
       }
 
       ref_glass_img_file_obj = null
       ref_glass_3d_file_obj = null
       ref_glass_preview_override_url = ''
       await on_load_admin_glass_arr()
-
-      if (!local_is_edit_mode) {
-        on_click_close_glass_editor()
-      }
+      on_click_close_glass_editor()
     } catch (local_error) {
-      ref_glass_error_message =
-        local_error instanceof Error ? local_error.message : '안경 저장에 실패했습니다.'
+      push_error_toast(
+        local_error instanceof Error ? local_error.message : '안경 저장에 실패했습니다.',
+      )
     } finally {
       ref_glass_submit_loading = false
     }
@@ -486,16 +489,15 @@
     if (!ref_selected_glasses_no) return
 
     ref_glass_delete_loading = true
-    ref_glass_error_message = ''
-    ref_glass_saved_message = ''
 
     try {
       await delete_admin_glasses({ glasses_no: ref_selected_glasses_no })
       await on_load_admin_glass_arr()
       on_click_close_glass_editor()
     } catch (local_error) {
-      ref_glass_error_message =
-        local_error instanceof Error ? local_error.message : '안경 비활성화에 실패했습니다.'
+      push_error_toast(
+        local_error instanceof Error ? local_error.message : '안경 비활성화에 실패했습니다.',
+      )
     } finally {
       ref_glass_delete_loading = false
     }
@@ -513,14 +515,6 @@
           총 {ref_glass_list_arr.length}개
         </span>
       </div>
-
-      {#if ref_glass_error_message}
-        <p
-          class="rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 text-left text-sm font-bold text-rose-700"
-        >
-          {ref_glass_error_message}
-        </p>
-      {/if}
 
       <section
         class="rounded-2xl border border-slate-200 bg-white px-8 py-5 shadow-sm shadow-slate-200/50"
@@ -871,8 +865,6 @@
         {ref_selected_glasses_no}
         {ref_glass_submit_loading}
         {ref_glass_delete_loading}
-        {ref_glass_saved_message}
-        {ref_glass_error_message}
         {ref_glass_form_obj}
         {ref_glass_img_file_obj}
         {ref_glass_3d_file_obj}

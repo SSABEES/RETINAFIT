@@ -2,22 +2,19 @@
   import { onMount } from 'svelte'
   import { navigate } from '@maks11060/svelte5-router'
   import { fade, fly } from 'svelte/transition'
-  import { cubicOut } from 'svelte/easing'
   import {
     Glasses,
     CheckCheck,
     X,
-    HelpCircle,
     ChevronRight,
-    SlidersHorizontal,
-    RotateCcw,
+    RefreshCw,
     Save,
     FileText,
   } from 'lucide-svelte'
   import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
   import {
-    get_all_glasses,
+    load_normalized_glasses,
     request_fitting_presigned_urls,
     confirm_fitting_result,
   } from '@/lib/api/glasses'
@@ -30,7 +27,9 @@
     launch_virtual_fitting,
     wait_for_flutter_bridge,
   } from '@/lib/flutter'
-  import { selected_visit_obj } from '@/lib/stores/customer'
+  import { selected_customer_obj, selected_visit_obj } from '@/lib/stores/customer'
+  import { push_error_toast, push_toast } from '@/lib/stores/toast'
+  import { pick_recommended_glasses_arr } from '@/lib/recommendations/frame_recommendations'
 
   /**
    * @typedef {{
@@ -88,44 +87,22 @@
     }, {}),
   )
 
-  let g_toast_msg = $state('')
-  let g_toast_timer = $state(null)
-
   /**
-   * 메시지를 띄우고 2.8초 뒤 내림
+   * 메시지를 글로벌 토스트로 띄운다 (info 톤).
    */
   function show_toast(msg) {
-    g_toast_msg = msg
-    clearTimeout(g_toast_timer)
-    g_toast_timer = setTimeout(() => (g_toast_msg = ''), 2800)
+    push_toast(msg)
   }
 
-  const FRAME_TYPE_OPTIONS = ['풀프레임', '하프프레임', '무프레임']
-  const MATERIAL_OPTIONS = ['아세테이트', '메탈', '티타늄', '혼합']
-  const CATEGORY_OPTIONS = ['안경', '선글라스', '스포츠']
-
-  // API 응답을 피팅 카드·필터에서 사용하는 필드 구조로 정규화
-  function normalize_glasses_arr(glass_arr) {
-    return (Array.isArray(glass_arr) ? glass_arr : []).map((local_glass_obj, local_index) => {
-      const local_spec_obj = local_glass_obj.glasses_spec_json ?? {}
-      const local_raw_no = Number(local_glass_obj.glasses_no)
-      const local_safe_no = Number.isFinite(local_raw_no) ? local_raw_no : local_index + 1
-
-      return {
-        id: local_safe_no,
-        glasses_no: local_safe_no,
-        brand: String(local_glass_obj.glasses_brand ?? ''),
-        model: String(local_glass_obj.glasses_name ?? ''),
-        price: String(local_spec_obj.price ?? ''),
-        frame_type: String(local_spec_obj.frame_type ?? ''),
-        frame_style: String(local_spec_obj.frame_style ?? ''),
-        material: String(local_spec_obj.material ?? ''),
-        category: String(local_spec_obj.category ?? ''),
-        img_url: String(local_glass_obj.glasses_img_url ?? ''),
-        glasses_3d_url: String(local_glass_obj.glasses_3d_url ?? ''),
-      }
-    })
+  // 현재 선택된 고객의 얼굴형/피부톤 기준으로 추천 3개를 뽑는다.
+  function get_personalized_recommended_arr(glass_arr) {
+    return pick_recommended_glasses_arr(
+      glass_arr,
+      $selected_customer_obj?.face_shape,
+      $selected_customer_obj?.skin_tone,
+    )
   }
+
   let g_filter_modal_open = $state(false)
   let g_filter_loading = $state(false)
   let g_all_glasses_arr = $state([])
@@ -200,11 +177,10 @@
       }
     })
 
-    get_all_glasses()
-      .then((local_glass_arr) => {
-        const local_normalized_glass_arr = normalize_glasses_arr(local_glass_arr)
+    load_normalized_glasses()
+      .then((local_normalized_glass_arr) => {
         g_all_glasses_arr = local_normalized_glass_arr
-        g_recommended_arr = local_normalized_glass_arr.slice(0, 3)
+        g_recommended_arr = get_personalized_recommended_arr(local_normalized_glass_arr)
       })
       .catch(() => {
         g_all_glasses_arr = []
@@ -360,15 +336,15 @@
   }
 
   let g_submit_loading = $state(false)
-  let g_submit_error = $state('')
 
   /**
-   * 3장 캡쳐된 현재 피팅을 API로 저장. Presigned URL 발급 → S3 업로드 → 백엔드 확정
+   * 3장 캡쳐된 현재 피팅을 API로 저장.
+   * 1) Presigned URL 발급 → 2) S3 PUT → 3) g_saved_fittings_arr 갱신 →
+   * 4) 누적 fitting_arr 와 vp_file_arr 를 visit 에 PATCH (sessionStorage 미사용)
    */
   async function on_click_save_fitting() {
     if (!g_can_save || g_submit_loading) return
     g_submit_loading = true
-    g_submit_error = ''
     try {
       const local_visit_no = $selected_visit_obj?.visit_no
       const glasses_info = g_glasses_arr.find((g) => g.id === g_selected_id)
@@ -385,13 +361,18 @@
               type: 'image/jpeg',
             }),
       )
-      const local_url_arr = [
+      const local_presigned_url_arr = [
         local_presigned.front_url,
         local_presigned.left_url,
         local_presigned.right_url,
       ]
+      const local_key_arr = [
+        local_presigned.front_key,
+        local_presigned.left_key,
+        local_presigned.right_key,
+      ]
       await Promise.all(
-        local_url_arr.map((url, idx) =>
+        local_presigned_url_arr.map((url, idx) =>
           fetch(url, {
             method: 'PUT',
             body: local_file_arr[idx],
@@ -401,76 +382,49 @@
         ),
       )
 
-      // 업로드된 key 배열 백엔드로 보내 저장
-      await confirm_fitting_result(local_visit_no, {
-        vp_file_arr: [
-          local_presigned.front_key,
-          local_presigned.left_key,
-          local_presigned.right_key,
-        ],
-        vp_json: { glasses_no: local_glasses_no, fitting_result: {} },
-      })
+      // result.svelte 가 그대로 src 로 쓸 수 있도록 query string 떼어낸 public URL 만 저장
+      const local_public_url_arr = local_presigned_url_arr.map((url) => String(url).split('?')[0])
 
-      // 로컬 저장 목록 업데이트 (같은 안경이면 기존 항목을 새 캡쳐로 교체, 아니면 append)
+      // 로컬 누적 목록 갱신 (같은 안경이면 새 캡쳐로 덮어쓰기, 아니면 append)
       const local_new_fitting_obj = {
         glasses_id: g_selected_id,
         glasses_no: local_glasses_no,
         brand: glasses_info?.brand ?? '',
         model: glasses_info?.model ?? '',
-        captures: [...g_capture_slot_arr],
+        capture_arr: SLOT_LABEL_ARR.map((local_label, local_idx) => ({
+          label: local_label,
+          url: local_public_url_arr[local_idx] ?? '',
+        })),
+        file_key_arr: local_key_arr,
       }
       const local_existing_idx = g_saved_fittings_arr.findIndex(
         (local_obj) => local_obj.glasses_id === g_selected_id,
       )
+      let local_next_saved_arr
       if (local_existing_idx >= 0) {
-        const local_next_arr = [...g_saved_fittings_arr]
-        local_next_arr[local_existing_idx] = local_new_fitting_obj
-        g_saved_fittings_arr = local_next_arr
+        local_next_saved_arr = [...g_saved_fittings_arr]
+        local_next_saved_arr[local_existing_idx] = local_new_fitting_obj
       } else {
-        g_saved_fittings_arr = [...g_saved_fittings_arr, local_new_fitting_obj]
+        local_next_saved_arr = [...g_saved_fittings_arr, local_new_fitting_obj]
       }
+      g_saved_fittings_arr = local_next_saved_arr
 
-      // result.svelte 용 sessionStorage 도 동일하게 같은 모델은 교체 정책으로 갱신한다.
-      try {
-        const local_capture_data_url_arr = await Promise.all(
-          local_file_arr.map((local_file_obj) => read_file_as_data_url(local_file_obj)),
-        )
-        const local_persisted_fitting_obj = {
-          brand: glasses_info?.brand ?? '',
-          model: glasses_info?.model ?? '',
-          capture_arr: SLOT_LABEL_ARR.map((local_label, local_idx) => ({
-            label: local_label,
-            src: local_capture_data_url_arr[local_idx] ?? '',
+      // 누적 결과를 BE 에 PATCH (vp_json.fitting_arr 와 vp_file_arr union)
+      await confirm_fitting_result(local_visit_no, {
+        vp_file_arr: local_next_saved_arr.flatMap((local_fit) => local_fit.file_key_arr),
+        vp_json: {
+          fitting_arr: local_next_saved_arr.map((local_fit) => ({
+            glasses_no: local_fit.glasses_no,
+            brand: local_fit.brand,
+            model: local_fit.model,
+            capture_arr: local_fit.capture_arr,
           })),
-        }
-        const local_existing_raw = sessionStorage.getItem('retinal_saved_fittings')
-        const local_existing_arr_raw = local_existing_raw ? JSON.parse(local_existing_raw) : []
-        const local_existing_arr = Array.isArray(local_existing_arr_raw)
-          ? local_existing_arr_raw
-          : []
-        const local_persisted_idx = local_existing_arr.findIndex(
-          (local_obj) =>
-            local_obj?.brand === local_persisted_fitting_obj.brand &&
-            local_obj?.model === local_persisted_fitting_obj.model,
-        )
-        let local_next_persisted_arr
-        if (local_persisted_idx >= 0) {
-          local_next_persisted_arr = [...local_existing_arr]
-          local_next_persisted_arr[local_persisted_idx] = local_persisted_fitting_obj
-        } else {
-          local_next_persisted_arr = [...local_existing_arr, local_persisted_fitting_obj]
-        }
-        sessionStorage.setItem(
-          'retinal_saved_fittings',
-          JSON.stringify(local_next_persisted_arr),
-        )
-      } catch {
-        // 저장 실패해도 본 흐름은 막지 않는다.
-      }
+        },
+      })
 
       clear_capture_slot_arr()
     } catch (local_err) {
-      g_submit_error = local_err instanceof Error ? local_err.message : '저장에 실패했습니다.'
+      push_error_toast(local_err instanceof Error ? local_err.message : '저장에 실패했습니다.')
     } finally {
       g_submit_loading = false
     }
@@ -541,20 +495,11 @@
   }
 
   /**
-   * 필터 모달 열기 시 전체 안경 목록을 한 번만 fetch
+   * 프레임 변경 버튼: 이미 불러온 안경 목록에서 추천 슬롯만 다시 추첨
+   * (API 재호출은 하지 않음 — 페이지 진입 시 한 번만 호출)
    */
-  async function on_click_open_filter_modal() {
-    g_filter_modal_open = true
-    if (g_all_glasses_arr.length > 0) return
-    g_filter_loading = true
-    try {
-      const local_glass_arr = await get_all_glasses()
-      g_all_glasses_arr = normalize_glasses_arr(local_glass_arr)
-    } catch {
-      g_all_glasses_arr = []
-    } finally {
-      g_filter_loading = false
-    }
+  function on_click_refresh_glasses() {
+    g_recommended_arr = get_personalized_recommended_arr(g_all_glasses_arr)
   }
 
   /**
@@ -673,15 +618,6 @@
           </div>
         {/if}
 
-        <button
-          type="button"
-          onclick={on_click_guide_open}
-          class="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[9px] font-bold text-slate-600 shadow backdrop-blur-md transition-colors hover:bg-white hover:text-[var(--retina-primary-300)]"
-        >
-          <HelpCircle size={10} />
-          <span>사용 가이드</span>
-        </button>
-
       </div>
     </section>
 
@@ -751,14 +687,14 @@
           <h2 class="text-[13px] font-extrabold text-zinc-900">추천 안경</h2>
           <button
             type="button"
-            onclick={on_click_open_filter_modal}
-            class="flex items-center gap-1 rounded-lg border border-[var(--retina-primary-500)] bg-white px-2 py-1 text-[10px] font-bold text-[var(--retina-primary-500)] transition-colors hover:bg-[var(--retina-bg-1)]"
+            onclick={on_click_refresh_glasses}
+            class="flex items-center gap-0.5 rounded-md border border-[var(--retina-primary-500)] bg-white px-1.5 py-0.5 text-[9px] font-bold text-[var(--retina-primary-500)] transition-colors hover:bg-[var(--retina-bg-1)]"
           >
-            <SlidersHorizontal size={11} />
+            <RefreshCw size={9} />
             <span>프레임 변경</span>
             {#if g_active_filter_count > 0}
               <span
-                class="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--retina-primary-300)] text-[9px] font-black text-white"
+                class="flex h-3 w-3 items-center justify-center rounded-full bg-[var(--retina-primary-300)] text-[8px] font-black text-white"
               >
                 {g_active_filter_count}
               </span>
@@ -819,7 +755,7 @@
                     {/if}
                     <p class="truncate text-[12px] font-extrabold text-zinc-900">{item.model}</p>
                     <span class="truncate text-[10px] font-semibold text-slate-400"
-                      >{item.brand} · {item.frame_type}</span
+                      >{item.brand}</span
                     >
                     <div class="mt-0.5 flex items-center justify-between gap-1.5">
                       <span class="text-[11px] font-extrabold text-[var(--retina-primary-300)]"
@@ -882,10 +818,6 @@
           </div>
         {/if}
 
-        {#if g_submit_error}
-          <p class="mb-2 text-[10px] font-bold text-red-500" role="alert">{g_submit_error}</p>
-        {/if}
-
         <p class="mb-1.5 text-center text-[10px] font-semibold text-slate-500">
           촬영 완료 후 피팅 결과를 저장하세요.
         </p>
@@ -923,140 +855,6 @@
   </div>
 </main>
 
-<!-- 프레임 필터 드로어 -->
-{#if g_filter_modal_open}
-  <div
-    class="fixed inset-0 z-40 bg-black/40 backdrop-blur-[1px]"
-    role="presentation"
-    onclick={() => (g_filter_modal_open = false)}
-    in:fade={{ duration: 200 }}
-    out:fade={{ duration: 150 }}
-  ></div>
-
-  <div
-    class="fixed right-0 top-0 z-50 flex h-full w-[440px] flex-col bg-white shadow-2xl"
-    in:fly={{ x: 440, duration: 320, easing: cubicOut }}
-    out:fly={{ x: 440, duration: 220, easing: cubicOut }}
-  >
-    <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-8 py-6">
-      <div>
-        <h3 class="text-lg font-black text-zinc-900">프레임 필터</h3>
-        {#if g_filter_loading}
-          <p class="mt-0.5 text-xs text-slate-400">안경 목록 불러오는 중...</p>
-        {:else}
-          <p class="mt-0.5 text-xs text-slate-400">전체 {g_all_glasses_arr.length}개</p>
-        {/if}
-      </div>
-      <button
-        type="button"
-        onclick={() => (g_filter_modal_open = false)}
-        class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-      >
-        <X size={20} />
-      </button>
-    </div>
-
-    <div class="min-h-0 flex-1 overflow-y-auto">
-      {#if g_filter_loading}
-        <div class="flex justify-center py-20">
-          <span
-            class="h-6 w-6 animate-spin rounded-full border-2 border-[var(--retina-primary-200)] border-t-transparent"
-          ></span>
-        </div>
-      {:else}
-        <div class="space-y-8 px-8 py-6">
-          <div>
-            <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">테 종류</p>
-            <div class="flex flex-wrap gap-2">
-              {#each FRAME_TYPE_OPTIONS as opt (opt)}
-                {@const selected = g_filter_obj.frame_type_arr.includes(opt)}
-                <button
-                  type="button"
-                  onclick={() => on_click_toggle_filter('frame_type_arr', opt)}
-                  class={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
-                    selected
-                      ? 'bg-[var(--retina-primary-300)] text-white shadow-md'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {opt}
-                </button>
-              {/each}
-            </div>
-          </div>
-
-          <div>
-            <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">재질</p>
-            <div class="flex flex-wrap gap-2">
-              {#each MATERIAL_OPTIONS as opt (opt)}
-                {@const selected = g_filter_obj.material_arr.includes(opt)}
-                <button
-                  type="button"
-                  onclick={() => on_click_toggle_filter('material_arr', opt)}
-                  class={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
-                    selected
-                      ? 'bg-[var(--retina-primary-300)] text-white shadow-md'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {opt}
-                </button>
-              {/each}
-            </div>
-          </div>
-
-          <div>
-            <p class="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">카테고리</p>
-            <div class="flex flex-wrap gap-2">
-              {#each CATEGORY_OPTIONS as opt (opt)}
-                {@const selected = g_filter_obj.category_arr.includes(opt)}
-                <button
-                  type="button"
-                  onclick={() => on_click_toggle_filter('category_arr', opt)}
-                  class={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
-                    selected
-                      ? 'bg-[var(--retina-primary-300)] text-white shadow-md'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {opt}
-                </button>
-              {/each}
-            </div>
-          </div>
-        </div>
-      {/if}
-    </div>
-
-    <div class="shrink-0 border-t border-slate-100 bg-slate-50 px-8 py-6">
-      <p class="mb-4 text-sm font-bold text-slate-500">
-        {#if g_active_filter_count > 0}
-          <span class="text-[var(--retina-primary-300)]">{g_glasses_arr.length}개</span>의 안경이 검색됩니다
-        {:else}
-          필터를 선택하면 실시간으로 결과가 반영됩니다
-        {/if}
-      </p>
-      <div class="flex gap-3">
-        <button
-          type="button"
-          onclick={on_click_reset_filter}
-          disabled={g_active_filter_count === 0}
-          class="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 py-3.5 text-sm font-bold text-slate-500 transition-all hover:border-slate-300 hover:bg-white disabled:opacity-40"
-        >
-          <RotateCcw size={14} />
-          초기화
-        </button>
-        <button
-          type="button"
-          onclick={() => (g_filter_modal_open = false)}
-          class="flex flex-[2] items-center justify-center rounded-2xl bg-[var(--retina-primary-300)] py-3.5 text-sm font-black text-white transition-colors hover:bg-[var(--retina-primary-400)]"
-        >
-          적용하기
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
 
 <!-- 가이드 오버레이 -->
 {#if g_guide_step > 0}
@@ -1123,21 +921,6 @@
       </div>
     </div>
   {/if}
-{/if}
-
-<!-- 토스트 알림 -->
-{#if g_toast_msg}
-  <div
-    class="fixed bottom-8 left-1/2 z-[60] -translate-x-1/2"
-    in:fly={{ y: 12, duration: 250 }}
-    out:fade={{ duration: 200 }}
-  >
-    <div
-      class="flex items-center gap-3 rounded-2xl bg-zinc-900/95 px-5 py-3.5 shadow-2xl backdrop-blur-md"
-    >
-      <span class="text-sm font-bold text-white">{g_toast_msg}</span>
-    </div>
-  </div>
 {/if}
 
 <style>
