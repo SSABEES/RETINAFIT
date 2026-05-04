@@ -118,23 +118,52 @@
     }
   }
 
-  function build_test_json() {
+  /**
+   * measurements_obj 의 한 항목을 schema_version 3 의 { value_mm, value_px, source } 형태로 변환
+   * @param {{ value_mm?: number | null, value_px?: number | null, source?: string } | null | undefined} item_obj
+   */
+  function pick_measurement_value(item_obj) {
+    if (!item_obj) return null
     return {
-      schema_version: 1,
-      glasses_mode: g_session.glasses_mode,
-      face_shape: g_face_shape_result,
+      value_mm: item_obj.value_mm ?? null,
+      value_px: item_obj.value_px ?? null,
+      source: item_obj.source ?? 'auto',
+    }
+  }
+
+  function build_test_json() {
+    const local_face_shape_value = g_face_shape_result?.face_shape ?? g_face_shape_key
+    const local_skin_tone_obj = g_face_shape_result?.skin_tone ?? null
+    const local_face_shape_recommendation_arr = get_frame_styles_for_face_shape(
+      local_face_shape_value,
+    )
+    const local_skin_tone_recommendation_arr = g_skin_tone_recommendation_obj.chip_arr.map(
+      (local_chip_obj) => ({ label: local_chip_obj.label }),
+    )
+    const local_measurements_obj = g_session.measurements_obj ?? {}
+    const local_face_width_obj = pick_measurement_value(local_measurements_obj.face_width)
+    const local_face_height_obj = pick_measurement_value(local_measurements_obj.face_height)
+    const local_face_ratio_value =
+      local_face_height_obj?.value_mm && local_face_width_obj?.value_mm
+        ? Number((local_face_height_obj.value_mm / local_face_width_obj.value_mm).toFixed(3))
+        : null
+
+    return {
+      schema_version: 3,
+      face_shape: local_face_shape_value,
+      face_shape_recommendations: local_face_shape_recommendation_arr,
+      skin_tone: local_skin_tone_obj,
+      skin_tone_recommendations: local_skin_tone_recommendation_arr,
+      asymmetry_score: g_face_shape_result?.asymmetry?.score ?? null,
+      measurements: {
+        face_width: local_face_width_obj,
+        face_height: local_face_height_obj,
+        pd: pick_measurement_value(local_measurements_obj.pd),
+        right_pd: pick_measurement_value(local_measurements_obj.right_pd),
+        left_pd: pick_measurement_value(local_measurements_obj.left_pd),
+      },
+      face_ratio: local_face_ratio_value,
       scale: g_session.scale,
-      measurements: g_session.measurements_obj,
-      captures_meta: Object.fromEntries(
-        Object.entries(g_session.captures_obj).map(([key, capture_obj]) => [
-          key,
-          {
-            width: capture_obj.width,
-            height: capture_obj.height,
-            captured_at: capture_obj.captured_at,
-          },
-        ]),
-      ),
     }
   }
 

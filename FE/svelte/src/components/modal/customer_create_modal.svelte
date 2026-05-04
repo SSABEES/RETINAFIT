@@ -1,13 +1,13 @@
 <script>
   import { X } from 'lucide-svelte'
   import DatePicker from '@/components/input/date_picker.svelte'
+  import { push_error_toast } from '@/lib/stores/toast'
 
   /**
    * @typedef {{ name: string, gender: string, birth_dt: string, phone1: string, phone2: string }} CustomerCreatePayload
    *
    * @typedef {object} CustomerCreateModalProps
    * @property {boolean} [open]
-   * @property {string} [error_message]
    * @property {(() => void) | undefined} [onclose]
    * @property {((customer_obj: CustomerCreatePayload) => void | Promise<void>) | undefined} [oncreate]
    */
@@ -15,7 +15,6 @@
   /** @type {CustomerCreateModalProps} */
   let {
     open = false,
-    error_message = '',
     onclose = undefined,
     oncreate = undefined,
   } = $props()
@@ -26,7 +25,6 @@
   let ref_phone1 = $state('')
   let ref_phone2 = $state('')
   let g_is_submit_loading = $state(false)
-  let g_form_error_message = $state('')
 
   // 신규 고객 등록 폼의 입력값을 초기화한다.
   function reset_form() {
@@ -35,7 +33,6 @@
     ref_birth_dt = ''
     ref_phone1 = ''
     ref_phone2 = ''
-    g_form_error_message = ''
   }
 
   // 모달을 닫기 전에 폼 입력값을 초기화한다.
@@ -50,7 +47,6 @@
 
   function on_change_birth_dt(value_str) {
     ref_birth_dt = value_str
-    if (g_form_error_message) g_form_error_message = ''
   }
 
   /**
@@ -61,7 +57,7 @@
     local_event.preventDefault()
 
     if (!ref_birth_dt) {
-      g_form_error_message = '생년월일을 선택해 주세요.'
+      push_error_toast('생년월일을 선택해 주세요.')
       return
     }
 
@@ -74,7 +70,6 @@
     }
 
     g_is_submit_loading = true
-    g_form_error_message = ''
 
     try {
       await oncreate?.(local_customer_obj)
@@ -223,15 +218,6 @@
             disabled={g_is_submit_loading}
           />
         </label>
-
-        {#if g_form_error_message || error_message}
-          <p
-            class="m-0 rounded-md bg-[var(--retina-bg-1)] px-3 py-1.5 text-xs font-bold text-[var(--retina-primary-700)]"
-            role="alert"
-          >
-            {g_form_error_message || error_message}
-          </p>
-        {/if}
 
         <div class="grid grid-cols-2 gap-2">
           <button
