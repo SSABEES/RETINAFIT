@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import { preload_sixdrepnet_model } from '@/lib/sixdrepnet360/preload.js'
+  import { warm_session_from_bytes } from '@/lib/sixdrepnet360/inference'
 
   /**
    * @type {{
@@ -38,7 +39,7 @@
     const local_signal = g_abort_controller.signal
 
     try {
-      await preload_sixdrepnet_model(
+      const local_bytes = await preload_sixdrepnet_model(
         variant,
         (progress_obj) => {
           g_progress_ratio = progress_obj.ratio
@@ -47,6 +48,11 @@
         },
         local_signal,
       )
+
+      if (local_signal.aborted) return
+
+      // 다운로드된 바이트로 InferenceSession 컴파일/메모리 할당까지 마쳐야 첫 추론 컴파일 대기 0초.
+      await warm_session_from_bytes(variant, local_bytes)
 
       if (local_signal.aborted) return
       onready?.()

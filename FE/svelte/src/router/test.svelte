@@ -60,6 +60,10 @@
   // (콜드 스타트 비용은 매번 지불, 그러나 본 토글의 주된 가치는 yaw 정확도 비교이므로 충분).
   let g_use_mediapipe = $state(true)
 
+  // 6축 포즈 큐브 렌더링 토글. OFF 시 큐브를 그리지 않아 카메라 화면이 깨끗해진다 — 큐브 시각화
+  // 없이 yaw/pitch/roll 수치만으로 검수하고 싶을 때 사용. 기본 ON 으로 기존 동작 유지.
+  let g_show_cube = $state(true)
+
   // 6DRepNet360 yaw/pitch/roll
   let g_yaw = $state(/** @type {number | null} */ (null))
   let g_pitch = $state(/** @type {number | null} */ (null))
@@ -426,9 +430,9 @@
     ctx.restore()
   }
 
-  // 캔버스를 클리어하고, 추론된 회전행렬이 있으면 face bbox 중앙에 3D 포즈 큐브를 그린다.
-  // 2D 사각형 bbox 는 더 이상 표시하지 않음 — 큐브 자체가 얼굴 위에 떠있어 추적/포즈를 동시에 신호.
-  // (face bbox 는 여전히 6D 추론 입력 crop 영역으로는 사용됨, 단지 화면에 그리지만 않을 뿐.)
+  // 캔버스를 클리어하고, g_show_cube 가 ON 이며 추론된 회전행렬이 있으면 face bbox 중앙에 3D
+  // 포즈 큐브를 그린다. (face bbox 는 6D 추론 입력 crop 영역으로는 항상 사용됨, 단지 화면에
+  // 그리지만 않을 뿐.)
   function draw_bbox() {
     if (!ref_this_canvas_el || !ref_this_video_el) return
     const ctx = ref_this_canvas_el.getContext('2d')
@@ -438,7 +442,7 @@
     const h = ref_this_canvas_el.height
     ctx.clearRect(0, 0, w, h)
 
-    if (g_last_rotation === null) return
+    if (!g_show_cube || g_last_rotation === null) return
 
     const bbox = g_face_bbox ?? compute_center_square_bbox(ref_this_video_el)
     const cx = (bbox.x + bbox.w / 2) * w
@@ -538,6 +542,27 @@
         aria-pressed={g_use_mediapipe}
       >
         MediaPipe {g_use_mediapipe ? 'ON · 얼굴 추적' : 'OFF · 중앙 정사각형'}
+      </button>
+    </div>
+
+    <!--
+      포즈 큐브 토글 — 6축(yaw/pitch/roll) 시각화를 위해 얼굴 위에 그려지는 3D 큐브의 표시 여부.
+      OFF 면 카메라 화면이 깨끗해져 yaw/pitch/roll 수치 패널만으로 검수 가능. 기본 ON 으로
+      기존 동작 유지.
+    -->
+    <div
+      class="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-xs"
+    >
+      <span class="text-zinc-400">포즈 큐브</span>
+      <button
+        type="button"
+        onclick={() => (g_show_cube = !g_show_cube)}
+        class="ml-auto rounded-md border px-2 py-1 text-[10px] font-bold transition-colors {g_show_cube
+          ? 'border-emerald-500/60 bg-emerald-950/30 text-emerald-300'
+          : 'border-zinc-600 bg-zinc-900 text-zinc-400'}"
+        aria-pressed={g_show_cube}
+      >
+        {g_show_cube ? 'ON · 6축 시각화' : 'OFF'}
       </button>
     </div>
 

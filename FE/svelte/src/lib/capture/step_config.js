@@ -30,7 +30,7 @@ export const ALL_STEPS = [
     hint: '고개를 왼쪽으로 돌려 주세요',
     pose_type: 'left_profile',
     wears_glasses: false,
-    capture_mode: 'manual',
+    capture_mode: 'auto',
   },
   {
     step_id: 'right_no_glasses',
@@ -38,7 +38,7 @@ export const ALL_STEPS = [
     hint: '오른쪽으로 돌려 주세요',
     pose_type: 'right_profile',
     wears_glasses: false,
-    capture_mode: 'manual',
+    capture_mode: 'auto',
   },
 ]
 
