@@ -2,10 +2,12 @@
   import { onMount } from 'svelte'
   import { Route, Router } from '@maks11060/svelte5-router'
   import { routes } from '@/config/routes'
+  import SplashScreen from '@/components/splash/splash_screen.svelte'
 
   let url = ''
   let ref_shell_el
   let ref_content_el
+  let g_is_model_ready = $state(false)
 
   // 현재 페이지 main 의 배경색을 외곽 shell 에 자동 동기화 (letterbox)
   function sync_shell_bg() {
@@ -25,6 +27,11 @@
 
     return () => local_observer.disconnect()
   })
+
+  // 스플래시에서 모델 다운로드 완료(또는 사용자가 건너뛰기) 신호를 받으면 호출된다.
+  function on_model_ready() {
+    g_is_model_ready = true
+  }
 </script>
 
 <div class="app-frame-shell" bind:this={ref_shell_el}>
@@ -38,3 +45,7 @@
     </div>
   </div>
 </div>
+
+{#if !g_is_model_ready}
+  <SplashScreen onready={on_model_ready} />
+{/if}
