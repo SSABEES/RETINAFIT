@@ -12,6 +12,9 @@
   } from '@/lib/mediapipe/face_landmarker.js'
   import { compute_measurements, compute_measurement_points } from '@/lib/mediapipe/measurements.js'
   import { video_to_blob } from '@/lib/capture/capture_utils.js'
+  // 측면(left_profile/right_profile) 자세 감지 composable. pose_target 에 따라 tick() 이
+  // no-op 이거나 6D 추론 발사. 정면 단계엔 무관 — 인스턴스만 만들어두고 사용 안 함.
+  import { create_profile_pose_detector } from '@/lib/capture/use_profile_pose.svelte.js'
 
   /**
    * @typedef {import("@/lib/mediapipe/face_types.js").FaceMeasurements} FaceMeasurements
@@ -87,6 +90,12 @@
   let g_last_audio_key = null
   let g_last_audio_at = 0
   let g_capture_sequence_token = 0
+
+  // 측면 자세 감지 — pose_target 이 'front' 면 tick() 이 즉시 return 하므로 항상 생성해도 안전.
+  const profile_pose = create_profile_pose_detector({
+    get_pose_target: () => pose_target,
+    get_video_el: () => ref_this_video_el,
+  })
 
   let g_init_error = $state(/** @type {string | null} */ (null))
   let g_permission_denied = $state(false)
@@ -217,6 +226,7 @@
       g_capture_sequence_token += 1
       g_buffer_arr = []
       g_stable_count = 0
+      profile_pose.reset()
       g_face_detected = false
       g_measurements_obj = null
 
@@ -271,6 +281,7 @@
       g_capture_timeout = null
     }
     g_capture_sequence_token += 1
+    profile_pose.reset()
     stop_prompt_audio()
     g_stability_audio_stage = 'idle'
     g_last_audio_key = null
@@ -639,6 +650,7 @@
     g_stable_count = 0
     g_stability_audio_stage = 'idle'
     g_last_audio_key = null
+    profile_pose.reset()
   }
 
   /**
