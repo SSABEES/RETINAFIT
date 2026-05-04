@@ -55,8 +55,13 @@
   }
 </script>
 
+<!--
+  flex-1 min-h-0 overflow-hidden — flex-col 부모(face_measurement 의 scroll wrapper) 안에서 가용
+  높이를 끝까지 흡수. 헤더(측정 항목 + view_label) 는 컴포넌트 상단 고정, ul 만 내부에서 스크롤.
+  컴포넌트가 다른 곳에서 쓰여도 flex 부모 밖에선 flex-1 이 무시되므로 안전.
+-->
 <section
-  class="flex flex-col gap-3"
+  class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden"
   aria-label="측정 항목 리스트"
 >
   <div class="flex items-baseline justify-between">
@@ -69,7 +74,7 @@
   {#if items_arr.length === 0}
     <p class="m-0 text-xs font-semibold text-slate-500">이 뷰에 정의된 측정 항목이 없습니다.</p>
   {:else}
-    <ul class="m-0 flex list-none flex-col gap-1 p-0">
+    <ul class="m-0 flex min-h-0 flex-1 list-none flex-col gap-1 overflow-y-auto p-0">
       {#each items_arr as item (item.item_id)}
         {@const is_active = active_item_id === item.item_id}
         {@const has_value = item.value_px !== null}

@@ -24,4 +24,26 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['onnxruntime-web'],
   },
+  // crossOriginIsolated 활성화 — onnxruntime-web 이 SharedArrayBuffer 를 쓸 수 있어야
+  // multi-threaded WASM (ort.env.wasm.numThreads > 1) 로 6DRepNet360 추론이 코어 수만큼 병렬화.
+  //
+  // COEP 모드: 'require-corp' 대신 'credentialless' 선택. 차이는 cross-origin 응답이 CORP
+  // 헤더 없이도 로드되되, 쿠키 등 credential 없이 페치되는 것. 우리 S3 presigned URL 은 쿼리
+  // 파라미터로 인증하므로 쿠키 무관 → credentialless 와 호환. require-corp 였다면 S3 버킷 정책
+  // 손대야 했을 텐데 그 비용을 회피.
+  //
+  // 프로덕션 호스팅도 동일 헤더를 보내야 함 — 정적 호스트(nginx/CDN/Cloudflare 등) 설정에
+  // 동일 두 줄을 추가하지 않으면 prod 에서 단일 스레드로 폴백된다.
+  server: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
+    },
+  },
+  preview: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
+    },
+  },
 })
