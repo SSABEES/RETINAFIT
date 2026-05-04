@@ -338,7 +338,9 @@
   let g_submit_loading = $state(false)
 
   /**
-   * 3장 캡쳐된 현재 피팅을 API로 저장. Presigned URL 발급 → S3 업로드 → 백엔드 확정
+   * 3장 캡쳐된 현재 피팅을 API로 저장.
+   * 1) Presigned URL 발급 → 2) S3 PUT → 3) g_saved_fittings_arr 갱신 →
+   * 4) 누적 fitting_arr 와 vp_file_arr 를 visit 에 PATCH (sessionStorage 미사용)
    */
   async function on_click_save_fitting() {
     if (!g_can_save || g_submit_loading) return
@@ -359,13 +361,18 @@
               type: 'image/jpeg',
             }),
       )
-      const local_url_arr = [
+      const local_presigned_url_arr = [
         local_presigned.front_url,
         local_presigned.left_url,
         local_presigned.right_url,
       ]
+      const local_key_arr = [
+        local_presigned.front_key,
+        local_presigned.left_key,
+        local_presigned.right_key,
+      ]
       await Promise.all(
-        local_url_arr.map((url, idx) =>
+        local_presigned_url_arr.map((url, idx) =>
           fetch(url, {
             method: 'PUT',
             body: local_file_arr[idx],
@@ -375,72 +382,45 @@
         ),
       )
 
-      // 업로드된 key 배열 백엔드로 보내 저장
-      await confirm_fitting_result(local_visit_no, {
-        vp_file_arr: [
-          local_presigned.front_key,
-          local_presigned.left_key,
-          local_presigned.right_key,
-        ],
-        vp_json: { glasses_no: local_glasses_no, fitting_result: {} },
-      })
+      // result.svelte 가 그대로 src 로 쓸 수 있도록 query string 떼어낸 public URL 만 저장
+      const local_public_url_arr = local_presigned_url_arr.map((url) => String(url).split('?')[0])
 
-      // 로컬 저장 목록 업데이트 (같은 안경이면 기존 항목을 새 캡쳐로 교체, 아니면 append)
+      // 로컬 누적 목록 갱신 (같은 안경이면 새 캡쳐로 덮어쓰기, 아니면 append)
       const local_new_fitting_obj = {
         glasses_id: g_selected_id,
         glasses_no: local_glasses_no,
         brand: glasses_info?.brand ?? '',
         model: glasses_info?.model ?? '',
-        captures: [...g_capture_slot_arr],
+        capture_arr: SLOT_LABEL_ARR.map((local_label, local_idx) => ({
+          label: local_label,
+          url: local_public_url_arr[local_idx] ?? '',
+        })),
+        file_key_arr: local_key_arr,
       }
       const local_existing_idx = g_saved_fittings_arr.findIndex(
         (local_obj) => local_obj.glasses_id === g_selected_id,
       )
+      let local_next_saved_arr
       if (local_existing_idx >= 0) {
-        const local_next_arr = [...g_saved_fittings_arr]
-        local_next_arr[local_existing_idx] = local_new_fitting_obj
-        g_saved_fittings_arr = local_next_arr
+        local_next_saved_arr = [...g_saved_fittings_arr]
+        local_next_saved_arr[local_existing_idx] = local_new_fitting_obj
       } else {
-        g_saved_fittings_arr = [...g_saved_fittings_arr, local_new_fitting_obj]
+        local_next_saved_arr = [...g_saved_fittings_arr, local_new_fitting_obj]
       }
+      g_saved_fittings_arr = local_next_saved_arr
 
-      // result.svelte 용 sessionStorage 도 동일하게 같은 모델은 교체 정책으로 갱신한다.
-      try {
-        const local_capture_data_url_arr = await Promise.all(
-          local_file_arr.map((local_file_obj) => read_file_as_data_url(local_file_obj)),
-        )
-        const local_persisted_fitting_obj = {
-          brand: glasses_info?.brand ?? '',
-          model: glasses_info?.model ?? '',
-          capture_arr: SLOT_LABEL_ARR.map((local_label, local_idx) => ({
-            label: local_label,
-            src: local_capture_data_url_arr[local_idx] ?? '',
+      // 누적 결과를 BE 에 PATCH (vp_json.fitting_arr 와 vp_file_arr union)
+      await confirm_fitting_result(local_visit_no, {
+        vp_file_arr: local_next_saved_arr.flatMap((local_fit) => local_fit.file_key_arr),
+        vp_json: {
+          fitting_arr: local_next_saved_arr.map((local_fit) => ({
+            glasses_no: local_fit.glasses_no,
+            brand: local_fit.brand,
+            model: local_fit.model,
+            capture_arr: local_fit.capture_arr,
           })),
-        }
-        const local_existing_raw = sessionStorage.getItem('retinal_saved_fittings')
-        const local_existing_arr_raw = local_existing_raw ? JSON.parse(local_existing_raw) : []
-        const local_existing_arr = Array.isArray(local_existing_arr_raw)
-          ? local_existing_arr_raw
-          : []
-        const local_persisted_idx = local_existing_arr.findIndex(
-          (local_obj) =>
-            local_obj?.brand === local_persisted_fitting_obj.brand &&
-            local_obj?.model === local_persisted_fitting_obj.model,
-        )
-        let local_next_persisted_arr
-        if (local_persisted_idx >= 0) {
-          local_next_persisted_arr = [...local_existing_arr]
-          local_next_persisted_arr[local_persisted_idx] = local_persisted_fitting_obj
-        } else {
-          local_next_persisted_arr = [...local_existing_arr, local_persisted_fitting_obj]
-        }
-        sessionStorage.setItem(
-          'retinal_saved_fittings',
-          JSON.stringify(local_next_persisted_arr),
-        )
-      } catch {
-        // 저장 실패해도 본 흐름은 막지 않는다.
-      }
+        },
+      })
 
       clear_capture_slot_arr()
     } catch (local_err) {

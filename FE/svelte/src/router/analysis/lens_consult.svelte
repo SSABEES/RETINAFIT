@@ -177,12 +177,7 @@
         throw new Error('방문 정보가 없어 추천 옵션을 저장할 수 없습니다.')
       }
 
-      await save_visit_recommend({
-        visit_no: local_visit_no,
-        opt_recommend_json: ref_selected_obj,
-      })
-
-      // result.svelte 에서 보여주기 위해 선택한 질문/답변 라벨을 sessionStorage 에 저장한다.
+      // result.svelte 에서 표시할 수 있도록 질문/답변 라벨까지 함께 PATCH 한다.
       const local_lens_selection_arr = g_question_arr.map((local_question_obj) => {
         const local_selected_no_arr =
           ref_selected_obj[local_question_obj.question_text] ?? []
@@ -200,10 +195,14 @@
           label_arr: local_label_arr,
         }
       })
-      sessionStorage.setItem(
-        'retinal_lens_selections',
-        JSON.stringify(local_lens_selection_arr),
-      )
+
+      await save_visit_recommend({
+        visit_no: local_visit_no,
+        opt_recommend_json: {
+          selection_obj: ref_selected_obj,
+          selection_arr: local_lens_selection_arr,
+        },
+      })
 
       window.location.href = PATH.analysisArFitting
     } catch (local_err) {

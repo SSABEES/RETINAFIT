@@ -16,11 +16,6 @@
     set_selected_visit,
   } from '@/lib/stores/customer'
   import {
-    get_session,
-    get_face_shape_result,
-    hydrate_from_mirror,
-  } from '@/lib/stores/capture_session.svelte.js'
-  import {
     get_skin_tone_recommendation,
     get_frame_styles_for_face_shape,
   } from '@/lib/recommendations/frame_recommendations.js'
@@ -38,20 +33,26 @@
     NEUTRAL: '중성 톤',
   }
 
-  const g_session = $derived(get_session())
-  const g_face_shape_result = $derived(get_face_shape_result())
-
-  // sessionStorage 에서 복원되는 lens_consult 응답
-  let g_lens_selection_arr = $state(/** @type {{question_text: string, label_arr: string[]}[]} */ ([]))
-  // sessionStorage 에서 복원되는 AR 피팅 결과 (안경별 정면/좌측/우측 이미지)
-  let g_saved_fitting_arr = $state(
-    /** @type {{brand: string, model: string, capture_arr: {label: string, src: string}[]}[]} */ ([]),
-  )
+  // visit GET 응답을 통째로 보관해 각 섹션 derived 가 여기서 꺼내쓴다.
+  let g_visit_obj = $state(/** @type {Record<string, any> | null} */ (null))
+  let g_visit_loading = $state(true)
 
   let ref_customer_create_modal_open = $state(false)
 
   // 비회원(cust_no = 0) 으로 진입한 경우에만 고객정보등록 버튼을 노출한다.
   const g_is_guest_visit = $derived(Number($selected_customer_obj?.id) === 0)
+
+  // visit_obj.test_json (얼굴 분석 결과 schema_version 3)
+  const g_test_json = $derived(g_visit_obj?.test_json ?? null)
+
+  // visit_obj.opt_recommend_json (렌즈 상담 답변)
+  const g_opt_recommend_json = $derived(g_visit_obj?.opt_recommend_json ?? null)
+
+  // visit_obj.vp_json (AR 피팅 결과 — fitting_arr 포함)
+  const g_vp_json = $derived(g_visit_obj?.vp_json ?? null)
+
+  // visit_obj.report_json (BE 가 생성하는 최종 인사이트)
+  const g_report_json = $derived(g_visit_obj?.report_json ?? null)
 
   function normalize_face_shape_key(face_shape_value) {
     const local_value = String(face_shape_value ?? '').trim().toLowerCase()
@@ -80,7 +81,7 @@
 
   const g_face_shape_key = $derived(
     normalize_face_shape_key(
-      $selected_customer_obj?.face_shape ?? g_face_shape_result?.face_shape ?? 'oval',
+      g_test_json?.face_shape ?? $selected_customer_obj?.face_shape ?? 'oval',
     ),
   )
 
@@ -88,16 +89,63 @@
 
   const g_skin_tone_recommendation_obj = $derived(
     get_skin_tone_recommendation(
-      g_face_shape_result?.skin_tone?.tone ?? $selected_customer_obj?.skin_tone ?? 'NEUTRAL',
+      g_test_json?.skin_tone?.tone ?? $selected_customer_obj?.skin_tone ?? 'NEUTRAL',
     ),
   )
 
-  const g_recommended_color_arr = $derived(
-    g_skin_tone_recommendation_obj.chip_arr.slice(0, 4),
-  )
-  const g_recommended_frame_arr = $derived(
-    get_frame_styles_for_face_shape(g_face_shape_key).slice(0, 6),
-  )
+  // BE 가 추천 칩 배열을 보내줬으면 그걸 우선 사용, 아니면 FE 로컬 매핑으로 fallback
+  const g_recommended_color_arr = $derived.by(() => {
+    const local_be_arr = Array.isArray(g_test_json?.skin_tone_recommendations)
+      ? g_test_json.skin_tone_recommendations
+      : []
+    if (local_be_arr.length > 0) {
+      return local_be_arr.slice(0, 4).map((/** @type {{ label?: string, tone_class?: string }} */ local_chip) => ({
+        label: String(local_chip.label ?? ''),
+        tone_class:
+          local_chip.tone_class ??
+          g_skin_tone_recommendation_obj.chip_arr.find(
+            (local_default) => local_default.label === local_chip.label,
+          )?.tone_class ??
+          'bg-slate-300',
+      }))
+    }
+    return g_skin_tone_recommendation_obj.chip_arr.slice(0, 4)
+  })
+
+  const g_recommended_frame_arr = $derived.by(() => {
+    const local_be_arr = Array.isArray(g_test_json?.face_shape_recommendations)
+      ? g_test_json.face_shape_recommendations
+      : []
+    if (local_be_arr.length > 0) return local_be_arr.slice(0, 6)
+    return get_frame_styles_for_face_shape(g_face_shape_key).slice(0, 6)
+  })
+
+  // 렌즈 상담 답변 (BE 가 selection_arr 로 저장한다)
+  const g_lens_selection_arr = $derived.by(() => {
+    const local_arr = Array.isArray(g_opt_recommend_json?.selection_arr)
+      ? g_opt_recommend_json.selection_arr
+      : []
+    return /** @type {{question_text: string, label_arr: string[]}[]} */ (local_arr)
+  })
+
+  // AR 피팅 결과 (BE 가 fitting_arr 로 저장한다)
+  const g_saved_fitting_arr = $derived.by(() => {
+    const local_arr = Array.isArray(g_vp_json?.fitting_arr) ? g_vp_json.fitting_arr : []
+    return /** @type {{brand: string, model: string, capture_arr: {label: string, url: string}[]}[]} */ (
+      local_arr
+    )
+  })
+
+  // report_json 의 인사이트 bullet 배열 추출 — summary_arr 또는 insight_arr 또는 string[] 형태 모두 지원
+  const g_report_bullet_arr = $derived.by(() => {
+    if (!g_report_json) return /** @type {string[]} */ ([])
+    if (Array.isArray(g_report_json)) return g_report_json.map(String)
+    if (Array.isArray(g_report_json.summary_arr)) return g_report_json.summary_arr.map(String)
+    if (Array.isArray(g_report_json.insight_arr)) return g_report_json.insight_arr.map(String)
+    if (Array.isArray(g_report_json.bullet_arr)) return g_report_json.bullet_arr.map(String)
+    if (typeof g_report_json.summary === 'string') return [g_report_json.summary]
+    return /** @type {string[]} */ ([])
+  })
 
   // 고객 정보 표시용 (없는 값은 '-' 처리)
   const g_customer_phone = $derived($selected_customer_obj?.phone ?? '-')
@@ -257,6 +305,8 @@
       sessionStorage.setItem('retinal_visit_no', String(local_new_visit_no))
 
       ref_customer_create_modal_open = false
+      // 새 visit 으로 PATCH 마이그레이션 됐으니 화면 데이터도 그쪽 기준으로 다시 로드.
+      await load_visit_data()
     } catch (local_error) {
       push_error_toast(
         local_error instanceof Error
@@ -266,31 +316,26 @@
     }
   }
 
-  function safe_parse(json_text) {
-    if (!json_text) return null
+  // 현재 visit 의 분석/리포트/피팅 데이터를 한 번에 GET 해서 화면을 채운다.
+  async function load_visit_data() {
+    const local_visit_no = Number($selected_visit_obj?.visit_no)
+    if (!Number.isFinite(local_visit_no) || local_visit_no <= 0) {
+      g_visit_loading = false
+      return
+    }
     try {
-      return JSON.parse(json_text)
-    } catch {
-      return null
+      g_visit_obj = await get_visit({ visit_no: local_visit_no })
+    } catch (local_err) {
+      push_error_toast(
+        local_err instanceof Error ? local_err.message : '방문 정보를 불러오지 못했습니다.',
+      )
+    } finally {
+      g_visit_loading = false
     }
   }
 
   onMount(() => {
-    hydrate_from_mirror()
-
-    if (typeof sessionStorage === 'undefined') return
-
-    const local_lens_raw = sessionStorage.getItem('retinal_lens_selections')
-    const local_lens_arr = safe_parse(local_lens_raw)
-    if (Array.isArray(local_lens_arr)) {
-      g_lens_selection_arr = local_lens_arr
-    }
-
-    const local_fitting_raw = sessionStorage.getItem('retinal_saved_fittings')
-    const local_fitting_arr = safe_parse(local_fitting_raw)
-    if (Array.isArray(local_fitting_arr)) {
-      g_saved_fitting_arr = local_fitting_arr
-    }
+    void load_visit_data()
   })
 </script>
 
@@ -384,6 +429,31 @@
         </div>
       </section>
 
+      <!-- 2.5 AI 분석 인사이트 (report_json) -->
+      <section class="rounded-[14px] border border-slate-200 bg-white px-5 py-4 shadow-sm">
+        <h2 class="m-0 text-[13px] font-extrabold text-zinc-900">AI 분석 인사이트</h2>
+
+        {#if g_visit_loading}
+          <p class="mt-3 text-[11px] font-semibold text-slate-400">리포트 불러오는 중...</p>
+        {:else if g_report_bullet_arr.length === 0}
+          <p class="mt-3 text-[11px] font-semibold text-slate-400">
+            아직 생성된 인사이트가 없습니다.
+          </p>
+        {:else}
+          <ul class="mt-3 grid gap-2 text-[12px] leading-relaxed text-slate-700">
+            {#each g_report_bullet_arr as bullet_text, bullet_index (bullet_index)}
+              <li class="flex gap-2">
+                <span
+                  class="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--retina-primary-300)]"
+                  aria-hidden="true"
+                ></span>
+                <span class="whitespace-pre-line">{bullet_text}</span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
+
       <!-- 3. 선택한 생활 패턴 -->
       <section class="rounded-[14px] border border-slate-200 bg-white px-5 py-4 shadow-sm">
         <h2 class="m-0 text-[13px] font-extrabold text-zinc-900">선택한 생활 패턴</h2>
@@ -433,9 +503,9 @@
                 <div
                   class="relative aspect-[3/4] w-full overflow-hidden rounded-[8px] border border-slate-200 bg-white"
                 >
-                  {#if local_front_capture_obj?.src}
+                  {#if local_front_capture_obj?.url}
                     <img
-                      src={local_front_capture_obj.src}
+                      src={local_front_capture_obj.url}
                       alt={`${fitting_obj.model} 정면`}
                       class="h-full w-full object-cover"
                     />
