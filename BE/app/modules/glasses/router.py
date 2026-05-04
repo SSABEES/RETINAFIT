@@ -89,10 +89,10 @@ async def get_glasses_upload_url(
     - type=3d  → 3D 파일 (.glb)
     """
     if type == "img":
-        key = generate_object_key(0, "glasses/img")
+        key = generate_object_key(folder="glasses/img")
         url = generate_presigned_url(key)
         return {"url": url, "key": key}
     else:
-        key = generate_object_key(0, "glasses/3d", extension="glb")
+        key = generate_object_key(folder="glasses/3d", extension="glb")
         url = generate_presigned_url(key)
         return {"url": url, "key": key}
