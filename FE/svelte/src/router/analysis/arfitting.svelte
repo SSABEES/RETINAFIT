@@ -454,7 +454,7 @@
    */
   function on_click_submit_report() {
     if (!g_can_submit) return
-    window.location.href = PATH.analysisResult
+    navigate(PATH.analysisResult)
   }
 
   /**
