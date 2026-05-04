@@ -51,3 +51,30 @@ export function update_stability_step({ stable_count, yaw_buffer, yaw, target_de
 
   return { stable_count: next_count, yaw_buffer: next_buffer }
 }
+
+/**
+ * 사용자에게 보일 측면 단계 힌트 텍스트. null 반환 시 호출자가 기본 힌트로 폴백.
+ *
+ * 분기 순서:
+ *   1) 세션 미준비 → "측정 모델 준비 중…"
+ *   2) 추론 전 → null (호출자 기본 힌트)
+ *   3) 영역 미도달 → "고개를 [방향]으로 더 돌려주세요"
+ *   4) 영역 안 + stable → "✓ 측정 중…"
+ *   5) 영역 안 + 진행 중 → "자세 유지 중 N%"
+ *
+ * @param {{ session_ready: boolean, last_yaw: number | null, target_deg: number,
+ *           is_stable: boolean, progress: number }} input
+ * @returns {string | null}
+ */
+export function compute_hint_text({ session_ready, last_yaw, target_deg, is_stable, progress }) {
+  if (!session_ready) return '측정 모델 준비 중…'
+  if (last_yaw === null) return null
+
+  const distance = Math.abs(last_yaw - target_deg)
+  if (distance >= PROFILE_CONSTANTS.TOLERANCE) {
+    const direction = target_deg > 0 ? '오른쪽' : '왼쪽'
+    return `고개를 ${direction}으로 더 돌려주세요`
+  }
+  if (is_stable) return '✓ 측정 중…'
+  return `자세 유지 중 ${progress}%`
+}
