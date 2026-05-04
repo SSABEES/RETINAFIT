@@ -39,3 +39,38 @@ export const get_all_glasses = () => {
     headers: get_session_auth_headers(),
   })
 }
+
+/**
+ * API 응답 안경 객체를 피팅 카드·필터에서 사용하는 필드 구조로 정규화
+ * @param {unknown} glass_arr
+ */
+export const normalize_glasses_arr = (glass_arr) => {
+  return (Array.isArray(glass_arr) ? glass_arr : []).map((local_glass_obj, local_index) => {
+    const local_spec_obj = local_glass_obj?.glasses_spec_json ?? {}
+    const local_raw_no = Number(local_glass_obj?.glasses_no)
+    const local_safe_no = Number.isFinite(local_raw_no) ? local_raw_no : local_index + 1
+
+    return {
+      id: local_safe_no,
+      glasses_no: local_safe_no,
+      brand: String(local_glass_obj?.glasses_brand ?? ''),
+      model: String(local_glass_obj?.glasses_name ?? ''),
+      price: String(local_spec_obj.price ?? ''),
+      frame_type: String(local_spec_obj.frame_type ?? ''),
+      frame_style: String(local_spec_obj.frame_style ?? ''),
+      material: String(local_spec_obj.material ?? ''),
+      category: String(local_spec_obj.category ?? ''),
+      color: String(local_spec_obj.color ?? ''),
+      img_url: String(local_glass_obj?.glasses_img_url ?? ''),
+      glasses_3d_url: String(local_glass_obj?.glasses_3d_url ?? ''),
+    }
+  })
+}
+
+/**
+ * 활성화된 안경 전체 목록을 조회 후 페이지에서 사용할 형태로 정규화해 반환
+ */
+export const load_normalized_glasses = async () => {
+  const local_raw_arr = await get_all_glasses()
+  return normalize_glasses_arr(local_raw_arr)
+}

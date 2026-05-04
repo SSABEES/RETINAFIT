@@ -35,15 +35,18 @@ def generate_presigned_url(object_key: str, expires_in: int = 600) -> str:
         raise Exception(f"Presigned URL 발급 실패: {str(e)}")
 
 
-def generate_object_key(visit_no: int, folder: str, filename: str = None, extension: str = "jpg") -> str:
+def generate_object_key(visit_no: int = None, folder: str = None, filename: str = None, extension: str = "jpg") -> str:
     """
     S3 저장 경로 생성
-    예: visits/1/test/bare/uuid.jpg
-        visits/0/glasses/3d/uuid.glb
+    예: visits/1/test/bare/uuid.jpg   ← 방문 관련 파일
+        glasses/img/uuid.jpg          ← 안경 이미지
+        glasses/3d/uuid.glb           ← 안경 3D 파일
     """
     if not filename:
         filename = f"{uuid.uuid4()}.{extension}"
-    return f"visits/{visit_no}/{folder}/{filename}"
+    if visit_no is not None:
+        return f"visits/{visit_no}/{folder}/{filename}"
+    return f"{folder}/{filename}"
 
 
 def get_file_url(object_key: str) -> str:

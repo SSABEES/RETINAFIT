@@ -22,6 +22,7 @@
     set_selected_visit,
   } from '@/lib/stores/customer'
   import { selected_admin_obj, selected_opt_store_obj } from '@/lib/stores/admin'
+  import { push_error_toast } from '@/lib/stores/toast'
 
   const g_six_month_millisecond = 1000 * 60 * 60 * 24 * 30 * 6
 
@@ -30,8 +31,6 @@
   let g_visit_target_customer = $state(/** @type {any} */ (null))
   let ref_search_phone = $state('')
   let ref_consent_agreed = $state(false)
-  let g_search_error_message = $state('')
-  let g_create_error_message = $state('')
   let g_is_search_loading = $state(false)
   let g_is_customer_select_loading = $state(false)
   let g_has_searched = $state(false)
@@ -191,7 +190,6 @@
     set_selected_customer(customer_obj)
     g_visit_target_customer = customer_obj
     g_is_customer_select_loading = true
-    g_search_error_message = ''
 
     try {
       await on_start_new_visit()
@@ -202,7 +200,7 @@
 
   async function on_start_new_visit() {
     if (!$selected_opt_store_obj?.opt_no) {
-      g_search_error_message = '선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.'
+      push_error_toast('선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.')
       return
     }
 
@@ -217,7 +215,7 @@
       const local_visit_no = Number(local_result_obj?.visit_no)
 
       if (!Number.isFinite(local_visit_no)) {
-        g_search_error_message = '방문 정보 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+        push_error_toast('방문 정보 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.')
         return
       }
 
@@ -239,23 +237,23 @@
 
       navigate(PATH.analysis)
     } catch (local_error) {
-      g_search_error_message =
+      push_error_toast(
         local_error instanceof Error
           ? local_error.message
-          : '방문 정보 생성 중 오류가 발생했습니다.'
+          : '방문 정보 생성 중 오류가 발생했습니다.',
+      )
     }
   }
 
   async function run_phone_search(local_phone) {
     if (!$selected_opt_store_obj?.opt_no) {
-      g_search_error_message = '선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.'
+      push_error_toast('선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.')
       return
     }
 
     g_search_request_id += 1
     const local_request_id = g_search_request_id
     g_is_search_loading = true
-    g_search_error_message = ''
 
     try {
       const local_customer_arr = await search_customer({
@@ -287,10 +285,11 @@
         return
       }
 
-      g_search_error_message =
+      push_error_toast(
         local_error instanceof Error
           ? local_error.message
-          : '고객 정보 조회 중 오류가 발생했습니다.'
+          : '고객 정보 조회 중 오류가 발생했습니다.',
+      )
     } finally {
       if (local_request_id === g_search_request_id) {
         g_is_search_loading = false
@@ -300,7 +299,6 @@
 
   function on_change_keypad(local_value) {
     ref_search_phone = local_value.replace(/[^0-9]/g, '')
-    g_search_error_message = ''
     g_has_searched = false
     ref_customer_arr = []
     customer_arr_store.set([])
@@ -320,12 +318,10 @@
   }
 
   function on_click_open_customer_create_modal() {
-    g_create_error_message = ''
     ref_customer_create_modal_open = true
   }
 
   function on_click_close_customer_create_modal() {
-    g_create_error_message = ''
     ref_customer_create_modal_open = false
   }
 
@@ -335,7 +331,7 @@
 
   async function on_create_customer(customer_obj) {
     if (!$selected_opt_store_obj?.opt_no) {
-      g_create_error_message = '선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.'
+      push_error_toast('선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.')
       return
     }
 
@@ -369,13 +365,13 @@
 
       ref_customer_arr = [local_new_customer_obj, ...ref_customer_arr]
       customer_arr_store.set(ref_customer_arr)
-      g_create_error_message = ''
       ref_customer_create_modal_open = false
     } catch (local_error) {
-      g_create_error_message =
+      push_error_toast(
         local_error instanceof Error
           ? local_error.message
-          : '고객 정보 등록 중 오류가 발생했습니다.'
+          : '고객 정보 등록 중 오류가 발생했습니다.',
+      )
     }
   }
 </script>
@@ -433,14 +429,7 @@
       class="grid min-h-0 place-items-center bg-[var(--retina-text-100)] px-6 py-6"
       aria-label="고객 조회 결과 영역"
     >
-      {#if g_search_error_message}
-        <p
-          class="m-0 max-w-[420px] rounded-lg bg-[var(--retina-bg-1)] px-5 py-3 text-center text-sm font-bold text-[var(--retina-primary-700)]"
-          role="alert"
-        >
-          {g_search_error_message}
-        </p>
-      {:else if g_is_search_loading && ref_customer_arr.length === 0}
+      {#if g_is_search_loading && ref_customer_arr.length === 0}
         <p class="m-0 text-sm font-bold text-[var(--retina-text-700)]">조회 중...</p>
       {:else if ref_customer_arr.length === 0 && g_has_searched}
         <div class="grid justify-items-center gap-4 text-center">
@@ -528,7 +517,6 @@
 
   <CustomerCreateModal
     open={ref_customer_create_modal_open}
-    error_message={g_create_error_message}
     onclose={on_click_close_customer_create_modal}
     oncreate={on_create_customer}
   />
