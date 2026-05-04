@@ -45,15 +45,13 @@ import * as ort from 'onnxruntime-web'
 // 멀티쓰레드 활성 (crossOriginIsolated=true) 시 ort 가 이 경로에서 pthread 워커 .mjs 도 fetch.
 ort.env.wasm.wasmPaths = `${import.meta.env.BASE_URL}ort/`
 
-// proxy 워커는 비활성. ort 의 proxy=true 는 자기 자신을 워커로 다시 띄우는 구조라 워커 URL 이
-// ort 모듈의 import.meta.url 로 하드코딩됨. Vite/Rolldown 가 prod 빌드에서 ort 를 main 번들에
-// 인라인하면 워커가 main 번들을 로드 → Svelte 런타임의 document 접근에서 즉사 → backend init
-// 실패. ort API 가 proxyUrl 같은 override 를 제공하지 않아 우회 불가.
+// proxy 워커 활성화: 모든 세션 작업 (다운로드 / WASM 컴파일 / 추론) 을 전용 Web Worker 에서 실행해
+// 메인 스레드 freeze 를 제거. 카메라 video, MediaPipe 검출, canvas rAF 가 추론 중에도 안 끊김.
 //
-// Trade-off: 메인 스레드에서 WASM 컴파일/추론 실행. 3Hz 추론 기준 frame 당 ~100-300ms 점유.
-// 호스트 nginx 가 COOP/COEP 발급해 crossOriginIsolated 이 true 가 되면 ort 가 WASM 내부에서
-// pthread 멀티쓰레드를 가동해 점유 시간이 코어 수만큼 단축됨 → 실사용 체감 거의 없어질 것.
-ort.env.wasm.proxy = false
+// 동작 전제: vite.config.js 의 manualChunks 가 onnxruntime-web 을 별도 chunk 로 분리해야 함.
+// 분리 안 하면 ort 가 main 번들로 인라인되고 self-referencing 워커 (`new Worker(import.meta.url)`)
+// 가 main 번들 전체를 워커로 띄워 Svelte 런타임의 document 접근에서 즉사함.
+ort.env.wasm.proxy = true
 
 // multi-threaded WASM 활성화 조건: SharedArrayBuffer 가 가용해야 하며, 그러려면 페이지가
 // crossOriginIsolated 상태여야 한다 — vite.config.js 의 server.headers (COOP same-origin +

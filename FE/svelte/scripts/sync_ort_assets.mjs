@@ -1,10 +1,12 @@
-// onnxruntime-web 의 워커 .mjs / .wasm 페어를 public/ort 로 동기화한다.
-// dev/build 시 자동 실행 (package.json 의 predev / prebuild 훅).
+// onnxruntime-web 의 WASM 런타임 자산 (.wasm 본체 + 멀티쓰레드 pthread .mjs) 을
+// public/ort 로 동기화한다. dev/build 시 자동 실행 (package.json 의 predev / prebuild 훅).
 //
-// 배경: prod 빌드에서 Vite/Rolldown 가 ort 의 워커 동적 import 를 main 번들에 인라인해
-// 버리는 문제 — ort 가 워커를 띄우면 main 번들이 워커 컨텍스트에서 실행되며 Svelte 런타임
-// 의 document 참조에서 즉사 → "no available backend" 로 연쇄. wasmPaths 를 명시 (inference.js)
-// 하고 자산을 public 경로에서 직접 서빙해 main 번들 인라인을 우회한다.
+// 역할: ort 가 InferenceSession 생성 시 WASM 컴파일 + (crossOriginIsolated 시) pthread 워커
+// 풀 가동을 위해 이 자산들을 fetch. inference.js 의 wasmPaths 가 이 디렉터리를 가리키며,
+// 운영 nginx 가 정적 서빙해 안정적인 same-origin URL 을 보장.
+//
+// 참고: ort 의 proxy 워커 격리는 이 스크립트가 다루지 않는다 (vite.config.js 의 manualChunks
+// 가 ort 자체를 별도 chunk 로 emit 해 처리). 이 스크립트는 WASM 런타임 자산만 책임.
 //
 // public/ort 는 자동 생성물이라 .gitignore 에 등록되어 있다.
 
