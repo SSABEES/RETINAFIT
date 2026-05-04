@@ -7,7 +7,7 @@
 </script>
 
 <main
-  class="grid h-full min-h-0 max-h-full w-full grid-cols-[240px_1fr] overflow-hidden bg-[#F7F8FA] text-[var(--retinal-text)]"
+  class="app-frame-page grid h-full min-h-0 max-h-full w-full grid-cols-[240px_1fr] overflow-hidden bg-[#F7F8FA] text-[var(--retinal-text)]"
 >
   <DashboardSidebar {active_key} />
 

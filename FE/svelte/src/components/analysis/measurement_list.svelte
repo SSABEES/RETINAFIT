@@ -56,11 +56,11 @@
 </script>
 
 <section
-  class="flex flex-col gap-3 rounded-xl border border-[var(--retinal-border)] bg-white px-4 py-4 shadow-sm shadow-slate-200/40"
+  class="flex flex-col gap-3"
   aria-label="측정 항목 리스트"
 >
   <div class="flex items-baseline justify-between">
-    <h3 class="m-0 text-sm font-extrabold text-zinc-950">측정 항목</h3>
+    <h3 class="m-0 text-[13px] font-extrabold text-slate-800">측정 항목</h3>
     {#if view_label}
       <span class="text-xs font-semibold text-slate-500">{view_label}</span>
     {/if}
@@ -75,8 +75,8 @@
         {@const has_value = item.value_px !== null}
         <li>
           <div
-            class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-[var(--retinal-soft-purple)]"
-            class:bg-[var(--retinal-soft-purple)]={is_active}
+            class="flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-left transition hover:bg-[#FFF6EB]"
+            class:bg-[#FFF6EB]={is_active}
             role="button"
             tabindex="0"
             aria-pressed={is_active}
@@ -90,17 +90,17 @@
           >
             <span
               class="grid h-4 w-4 flex-none place-items-center rounded-full border border-slate-400"
-              class:border-[var(--retinal-primary-600)]={is_active}
+              class:border-[#F97316]={is_active}
               aria-hidden="true"
             >
               {#if is_active}
-                <span class="h-2 w-2 rounded-full bg-[var(--retinal-primary-600)]"></span>
+                <span class="h-2 w-2 rounded-full bg-[#F97316]"></span>
               {/if}
             </span>
-            <span class="flex-1 truncate text-sm font-semibold text-zinc-900">{item.label}</span>
+            <span class="flex-1 truncate text-sm font-semibold text-slate-700">{item.label}</span>
             <span
               class="flex-none text-sm font-bold tabular-nums"
-              class:text-zinc-950={has_value}
+              class:text-[var(--retina-text)]={has_value}
               class:text-slate-400={!has_value}
             >
               {format_value(item)}

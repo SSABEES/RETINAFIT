@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte'
-  import { ArrowLeft, Eraser, FileText, RotateCcw } from 'lucide-svelte'
+  import { Eraser, FileText } from 'lucide-svelte'
   import { navigate } from '@maks11060/svelte5-router'
   import { PATH } from '@/config/path.js'
   import {
@@ -13,13 +13,15 @@
     clear_item_points,
     clear_all_measurements,
     pick_capture_for_view,
-    reset as reset_session,
   } from '@/lib/stores/capture_session.svelte.js'
+  import { clear_login_select_data } from '@/lib/stores/admin'
+  import { clear_auto_login_obj } from '@/lib/stores/auto_login'
   import { EAR_HEIGHT_DIFF_THRESHOLD_MM } from '@/lib/measurements/thresholds.js'
-  import ResultHeader from '@/components/analysis/result_header.svelte'
+  import Header from '@/components/layout/header.svelte'
   import MeasureCanvas from '@/components/analysis/measure_canvas.svelte'
   import MeasurementList from '@/components/analysis/measurement_list.svelte'
   import PhotoSwitcher from '@/components/analysis/photo_switcher.svelte'
+  import ConfirmModal from '@/components/modal/confirm_modal.svelte'
 
   /**
    * 부호 있는 mm 값을 표시 문자열로 변환. null/undefined 면 '—'.
@@ -107,73 +109,51 @@
     navigate(PATH.analysis)
   }
 
-  // "측정값 모두 지우기" — 캡쳐는 유지하고 measurements_obj 만 초기화 (자동 항목은 다시 채워짐).
+  // 로그아웃 — report.svelte 와 동일 로직: 토큰/자동로그인/admin 선택 모두 비우고 로그인 화면으로.
+  function on_click_logout() {
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('token_no')
+    clear_login_select_data()
+    clear_auto_login_obj()
+    navigate(PATH.login)
+  }
+
+  // "측정값 초기화" 확인 모달 — 사용자가 동작 의미를 정확히 인지 후 진행하도록 분리.
+  let g_show_clear_modal = $state(false)
+
+  // 버튼 클릭은 모달만 띄움. 실제 초기화는 모달의 onconfirm 에서.
   function on_click_clear_all() {
+    g_show_clear_modal = true
+  }
+
+  // 모달 확인: 수동 측정 항목 제거 + 자동 항목은 캡처 시점 자동값으로 복원.
+  function on_confirm_clear() {
     clear_all_measurements()
+    g_show_clear_modal = false
+  }
+
+  function on_cancel_clear() {
+    g_show_clear_modal = false
   }
 
   // "리포트 보기" — 분석 리포트 화면으로 이동. 측정값은 세션에 그대로 유지.
   function on_click_view_report() {
     navigate(PATH.analysisReport)
   }
-
-  // "처음부터" — 세션 전체 리셋 후 캡쳐 화면으로.
-  function on_click_restart() {
-    reset_session()
-    navigate(PATH.analysis)
-  }
 </script>
 
-<main class="app-frame-page flex flex-col overflow-hidden bg-[#F7F8FA] text-zinc-950">
-  <header
-    class="grid h-[72px] grid-cols-[1fr_auto_1fr] items-center border-b border-[var(--retina-border)] bg-white px-8"
-  >
-    <div class="flex justify-start">
-      <button
-        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-1 text-base font-bold text-slate-600 transition hover:text-[var(--retina-primary-700)]"
-        type="button"
-        onclick={on_click_back}
-      >
-        <ArrowLeft size={20} strokeWidth={2.4} aria-hidden="true" />
-        <span>뒤로가기</span>
-      </button>
-    </div>
-    <h1 class="m-0 text-2xl font-extrabold tracking-normal text-zinc-950">얼굴 측정</h1>
-    <div class="flex items-center justify-end gap-2">
-      <button
-        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-[var(--retina-border)] bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-        type="button"
-        onclick={on_click_clear_all}
-      >
-        <Eraser size={16} strokeWidth={2.5} aria-hidden="true" />
-        <span>측정값 모두 지우기</span>
-      </button>
-      <button
-        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border-0 bg-[var(--retina-primary-600)] px-3 text-sm font-bold text-white transition hover:bg-[var(--retina-primary-700)]"
-        type="button"
-        onclick={on_click_view_report}
-      >
-        <FileText size={16} strokeWidth={2.5} aria-hidden="true" />
-        <span>리포트 보기</span>
-      </button>
-      <button
-        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-[var(--retina-border)] bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-        type="button"
-        onclick={on_click_restart}
-      >
-        <RotateCcw size={16} strokeWidth={2.5} aria-hidden="true" />
-        <span>처음부터</span>
-      </button>
-    </div>
-  </header>
+<main class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-[var(--retina-text)]">
+  <Header onback={on_click_back} onlogout={on_click_logout} />
 
-  <section class="flex min-h-0 flex-1 overflow-hidden px-8 py-6">
-    <div class="mx-auto flex h-full w-full max-w-[1216px] flex-col gap-4">
-      <ResultHeader result={g_face_shape_result} />
+  <section class="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div class="flex min-h-0 flex-1 flex-col px-7 pt-2.5 pb-1">
+      <h1 class="m-0 text-center text-[18px] font-extrabold tracking-[-0.02em] text-[var(--retina-text)]">
+        얼굴 측정
+      </h1>
 
-      <div class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_360px] gap-6">
-        <div class="flex min-h-0 flex-col gap-3">
-          <div class="flex min-h-0 flex-1 items-center justify-center">
+      <div class="mx-auto mt-2 grid h-full min-h-0 w-full max-w-[760px] grid-cols-[0.98fr_0.92fr] gap-4 px-1">
+        <section class="flex min-h-0 items-center justify-center">
+          <div class="flex h-full max-h-[458px] w-full max-w-[348px] overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
             <MeasureCanvas
               capture={g_selected_capture}
               items_arr={g_items_arr}
@@ -182,9 +162,12 @@
               oncancel={on_cancel}
             />
           </div>
+        </section>
+
+        <section class="flex min-h-0 items-center justify-center">
+          <article class="flex h-full max-h-[458px] w-full max-w-[368px] flex-col gap-4 overflow-y-auto rounded-[14px] border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
           <PhotoSwitcher session={g_session} view={g_view} onview_change={on_view_change} />
-        </div>
-        <div class="flex min-h-0 flex-col gap-3 overflow-y-auto">
+          <div class="h-px bg-slate-200"></div>
           <MeasurementList
             items_arr={g_items_arr}
             active_item_id={g_active_item_id}
@@ -198,25 +181,23 @@
               ? Math.abs(eo.right_y_offset_mm - eo.left_y_offset_mm)
               : null}
             {@const ear_diff_flagged = ear_diff_mm !== null && ear_diff_mm >= EAR_HEIGHT_DIFF_THRESHOLD_MM}
-            <section
-              class="flex flex-col gap-2 rounded-xl border border-[var(--retina-border)] bg-white px-4 py-4 shadow-sm shadow-slate-200/40"
-              aria-label="자동 산출 귀 높이 (참고)"
-            >
+            <div class="h-px bg-slate-200"></div>
+            <section class="flex flex-col gap-2" aria-label="자동 산출 귀 높이 (참고)">
               <div class="flex items-baseline justify-between">
-                <h3 class="m-0 text-sm font-extrabold text-zinc-950">귀 높이 (자동)</h3>
+                <h3 class="m-0 text-[13px] font-extrabold text-slate-800">귀 높이 (자동)</h3>
                 <span class="text-xs font-semibold text-slate-500">눈선 기준 ± 편차</span>
               </div>
               <ul class="m-0 flex list-none flex-col gap-1 p-0">
                 <li class="flex items-center gap-3 px-3 py-2">
-                  <span class="flex-1 truncate text-sm font-semibold text-zinc-900">우측 귀 높이</span>
-                  <span class="flex-none text-sm font-bold tabular-nums text-zinc-950">
+                  <span class="flex-1 truncate text-sm font-semibold text-slate-700">우측 귀 높이</span>
+                  <span class="flex-none text-sm font-bold tabular-nums text-[var(--retina-text)]">
                     {format_signed_mm(eo.right_y_offset_mm)}
                   </span>
                   <span class="flex-none rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-800">자동</span>
                 </li>
                 <li class="flex items-center gap-3 px-3 py-2">
-                  <span class="flex-1 truncate text-sm font-semibold text-zinc-900">좌측 귀 높이</span>
-                  <span class="flex-none text-sm font-bold tabular-nums text-zinc-950">
+                  <span class="flex-1 truncate text-sm font-semibold text-slate-700">좌측 귀 높이</span>
+                  <span class="flex-none text-sm font-bold tabular-nums text-[var(--retina-text)]">
                     {format_signed_mm(eo.left_y_offset_mm)}
                   </span>
                   <span class="flex-none rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-800">자동</span>
@@ -236,8 +217,41 @@
               </ul>
             </section>
           {/if}
-        </div>
+          </article>
+        </section>
       </div>
     </div>
   </section>
+
+  <footer class="shrink-0 border-t border-slate-100 bg-white px-7 py-2.5">
+    <div class="mx-auto grid w-full max-w-[820px] grid-cols-[260px_minmax(0,520px)] justify-center gap-4">
+      <button
+        type="button"
+        class="inline-flex min-h-[46px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white text-[15px] font-extrabold text-slate-400 transition hover:border-slate-400 hover:text-slate-600"
+        onclick={on_click_clear_all}
+      >
+        <Eraser size={18} strokeWidth={2.4} aria-hidden="true" />
+        <span>측정값 초기화</span>
+      </button>
+      <button
+        type="button"
+        class="inline-flex min-h-[46px] cursor-pointer items-center justify-center gap-2 rounded-xl border-0 bg-[#F97316] px-6 text-[15px] font-extrabold text-white transition hover:bg-[#EA580C]"
+        onclick={on_click_view_report}
+      >
+        <FileText size={18} strokeWidth={2.4} aria-hidden="true" />
+        <span>리포트 보기</span>
+      </button>
+    </div>
+  </footer>
+
+  <ConfirmModal
+    open={g_show_clear_modal}
+    title="측정값 초기화"
+    message="직접 측정한 값은 모두 지워지고, 자동 측정값은 캡처 시점 값으로 복원됩니다."
+    cancelLabel="취소"
+    confirmLabel="초기화"
+    onclose={on_cancel_clear}
+    oncancel={on_cancel_clear}
+    onconfirm={on_confirm_clear}
+  />
 </main>

@@ -43,9 +43,11 @@
     if (!ref_this_hit_area_el || !capture) return null
     const rect = ref_this_hit_area_el.getBoundingClientRect()
     if (rect.width === 0 || rect.height === 0) return null
-    const x = (evt.clientX - rect.left) * (capture.width / rect.width)
+    // image 가 mirrored display 라 클릭한 시각 위치 x 를 unmirrored 좌표계로 변환해서 저장.
+    // (저장된 measurement_points_obj 는 mediapipe 의 unmirrored 좌표계와 일관 유지.)
+    const visual_x = (evt.clientX - rect.left) * (capture.width / rect.width)
     const y = (evt.clientY - rect.top) * (capture.height / rect.height)
-    return { x, y }
+    return { x: capture.width - visual_x, y }
   }
 
   /**
@@ -96,24 +98,36 @@
 
     return `${Math.round(item.value_px ?? 0)} px`
   }
+
+  // 활성 항목만 오버레이 표시 — 측정 항목 전체를 한꺼번에 그리면 가독성/정확도 둘 다 떨어짐.
+  // 사용자가 측정 리스트에서 항목을 선택하면 그 항목만 사진 위에 표시.
+  const g_active_item = $derived(
+    items_arr.find((it) => it.item_id === active_item_id && it.points) ?? null,
+  )
+
+  // capture.object_url 은 capture_shell 에서 좌우 반전(미러)된 display 용 URL.
+  // 측정 좌표(measurement_points_obj)는 unmirrored 좌표계라 둘이 정합 안 됨 → 좌우 어긋남.
+  // image 는 mirrored 유지(사용자 거울 view) + 좌표만 mirror 변환해서 매칭.
+  // x → width - x 로 변환하여 mirrored display 의 좌표계로 만든다.
+  function mirror_x(x) {
+    return capture ? capture.width - x : x
+  }
 </script>
 
 {#if capture}
   <div
-    class="relative mx-auto block max-h-full"
+    class="relative mx-auto block h-full max-h-full"
     style="aspect-ratio: {capture.width} / {capture.height}; max-width: min(100%, 720px);"
   >
     <img
-      class="block h-full w-full select-none"
+      class="absolute inset-0 block h-full w-full select-none"
       src={capture.object_url}
       alt="측정 대상 사진"
-      width={capture.width}
-      height={capture.height}
       draggable="false"
     />
     <button
       bind:this={ref_this_hit_area_el}
-      class="absolute inset-0 z-10 h-full w-full border-0 bg-transparent p-0"
+      class="absolute inset-0 z-10 border-0 bg-transparent p-0"
       class:cursor-crosshair={active_item_id}
       class:cursor-default={!active_item_id}
       aria-label="측정 캔버스에서 두 점을 클릭해 거리를 잽니다"
@@ -123,49 +137,63 @@
     <svg
       class="pointer-events-none absolute inset-0 h-full w-full"
       viewBox="0 0 {capture.width} {capture.height}"
-      preserveAspectRatio="xMidYMid meet"
+      preserveAspectRatio="none"
       aria-hidden="true"
     >
-      {#each items_arr as item (item.item_id)}
-        {#if item.points}
-          {@const p1 = item.points[0]}
-          {@const p2 = item.points[1]}
-          {@const is_active = active_item_id === item.item_id}
-          {@const stroke =
-            item.source === 'auto'
-              ? 'var(--retinal-measure-auto)'
-              : 'var(--retinal-measure-manual)'}
-          {@const dash = item.source === 'auto' ? '6 4' : undefined}
-          <line
-            x1={p1.x}
-            y1={p1.y}
-            x2={p2.x}
-            y2={p2.y}
-            {stroke}
-            stroke-width={is_active ? 5 : 3}
-            stroke-dasharray={dash}
-          />
-          <circle cx={p1.x} cy={p1.y} r={is_active ? 8 : 5} fill={stroke} />
-          <circle cx={p2.x} cy={p2.y} r={is_active ? 8 : 5} fill={stroke} />
-          <text
-            x={(p1.x + p2.x) / 2}
-            y={(p1.y + p2.y) / 2 - 10}
-            fill={stroke}
-            font-size="22"
-            font-weight="700"
-            text-anchor="middle"
-          >
-            {item.label}: {format_value(item)}
-          </text>
-        {/if}
-      {/each}
+      {#if g_active_item}
+        {@const p1 = g_active_item.points[0]}
+        {@const p2 = g_active_item.points[1]}
+        {@const x1 = mirror_x(p1.x)}
+        {@const x2 = mirror_x(p2.x)}
+        {@const dash = g_active_item.source === 'auto' ? '8 6' : undefined}
+        <!-- 가독성을 위한 흰색 외곽선 (paint-order 로 stroke 먼저, fill 나중) -->
+        <line
+          {x1}
+          y1={p1.y}
+          {x2}
+          y2={p2.y}
+          stroke="white"
+          stroke-width="9"
+          stroke-linecap="round"
+          stroke-dasharray={dash}
+          opacity="0.85"
+        />
+        <line
+          {x1}
+          y1={p1.y}
+          {x2}
+          y2={p2.y}
+          stroke="#F97316"
+          stroke-width="5"
+          stroke-linecap="round"
+          stroke-dasharray={dash}
+        />
+        <circle cx={x1} cy={p1.y} r="10" fill="#F97316" stroke="white" stroke-width="3" />
+        <circle cx={x2} cy={p2.y} r="10" fill="#F97316" stroke="white" stroke-width="3" />
+        <text
+          x={(x1 + x2) / 2}
+          y={(p1.y + p2.y) / 2 - 14}
+          font-size="24"
+          font-weight="800"
+          text-anchor="middle"
+          paint-order="stroke fill"
+          stroke="white"
+          stroke-width="5"
+          stroke-linejoin="round"
+          fill="#F97316"
+        >
+          {g_active_item.label}: {format_value(g_active_item)}
+        </text>
+      {/if}
 
       {#if g_pending_first}
         <circle
-          cx={g_pending_first.x}
+          cx={mirror_x(g_pending_first.x)}
           cy={g_pending_first.y}
-          r="8"
-          fill="var(--retinal-measure-manual)"
+          r="10"
+          fill="#F97316"
+          stroke="white"
+          stroke-width="3"
         />
       {/if}
     </svg>

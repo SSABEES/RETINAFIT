@@ -10,12 +10,19 @@
     load_auto_login_obj,
     save_auto_login_obj,
   } from '@/lib/stores/auto_login'
+  import { push_error_toast } from '@/lib/stores/toast'
 
   let ref_store_id = $state('')
   let ref_password = $state('')
   let ref_auto_login = $state(false)
-  let g_error_message = $state('')
   let g_is_loading = $state(false)
+
+  // 양자화 모델 검증용 hidden entry — 로고를 1.5초 안에 7회 누르면 /test 진입
+  // (Flutter WebView에서 시작 URL 외 진입로가 없는 환경 대응)
+  const g_logo_tap_required = 7
+  const g_logo_tap_window_ms = 1500
+  let g_logo_tap_count = 0
+  let g_logo_tap_reset_timer_id = null
 
   // 아이디와 비밀번호가 모두 입력되면 로그인 버튼을 활성 색상으로 전환
   let is_active = $derived(ref_store_id.length > 0 && ref_password.length > 0)
@@ -26,16 +33,35 @@
 
   function on_input_store_id(local_event) {
     ref_store_id = get_input_value(local_event)
-    g_error_message = ''
   }
 
   function on_input_password(local_event) {
     ref_password = get_input_value(local_event)
-    g_error_message = ''
   }
 
   function on_change_auto_login(local_event) {
     ref_auto_login = /** @type {HTMLInputElement} */ (local_event.currentTarget).checked
+  }
+
+  // 로고 탭 카운터를 증가시키고 임계치 도달 시 /test 로 이동 (양자화 검증용 hidden entry)
+  function on_click_logo() {
+    g_logo_tap_count += 1
+
+    if (g_logo_tap_reset_timer_id !== null) {
+      clearTimeout(g_logo_tap_reset_timer_id)
+      g_logo_tap_reset_timer_id = null
+    }
+
+    if (g_logo_tap_count >= g_logo_tap_required) {
+      g_logo_tap_count = 0
+      navigate(PATH.test)
+      return
+    }
+
+    g_logo_tap_reset_timer_id = setTimeout(() => {
+      g_logo_tap_count = 0
+      g_logo_tap_reset_timer_id = null
+    }, g_logo_tap_window_ms)
   }
 
   function build_opt_store_obj(opt_info_obj) {
@@ -98,12 +124,11 @@
     const local_password = ref_password.trim()
 
     if (!local_id || !local_password) {
-      g_error_message = '아이디와 비밀번호를 모두 입력해 주세요.'
+      push_error_toast('아이디와 비밀번호를 모두 입력해 주세요.')
       return
     }
 
     g_is_loading = true
-    g_error_message = ''
 
     try {
       const local_login_response_obj = await login({
@@ -126,8 +151,9 @@
 
       apply_login_response(local_login_response_obj)
     } catch (local_error) {
-      g_error_message =
-        local_error instanceof Error ? local_error.message : '로그인 처리 중 오류가 발생했습니다.'
+      push_error_toast(
+        local_error instanceof Error ? local_error.message : '로그인 처리 중 오류가 발생했습니다.',
+      )
     } finally {
       g_is_loading = false
     }
@@ -170,13 +196,22 @@
       onsubmit={on_submit_login}
     >
       <div class="grid justify-items-center gap-4 text-center">
-        <img
-          class="h-auto w-[248px]"
-          src="/logo/LogoHeight.png"
-          alt="RetinaFit"
-          width="16568"
-          height="16568"
-        />
+        <button
+          type="button"
+          class="m-0 cursor-default border-0 bg-transparent p-0 [-webkit-touch-callout:none]"
+          aria-hidden="true"
+          tabindex="-1"
+          onclick={on_click_logo}
+        >
+          <img
+            class="h-auto w-[248px] select-none"
+            src="/logo/LogoHeight.png"
+            alt="RetinaFit"
+            width="16568"
+            height="16568"
+            draggable="false"
+          />
+        </button>
         <h1 id="login-title" class="sr-only">로그인</h1>
       </div>
 
@@ -223,15 +258,6 @@
           />
         </label>
       </div>
-
-      {#if g_error_message}
-        <p
-          class="rounded-[10px] border border-[var(--retina-danger-soft)] bg-[var(--retina-danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--retina-danger-700)]"
-          role="alert"
-        >
-          {g_error_message}
-        </p>
-      {/if}
 
       <button
         class={`min-h-14 w-full cursor-pointer rounded-[8px] border-0 text-[24px] font-bold tracking-[0.18em] text-[var(--retina-text-100)] transition focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--retina-text-300)]/70 disabled:cursor-not-allowed disabled:opacity-60 ${
