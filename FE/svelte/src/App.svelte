@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { Route, Router } from '@maks11060/svelte5-router'
   import { routes } from '@/config/routes'
+  import { prefetch_models } from '@/lib/sixdrepnet360/inference'
 
   let url = ''
   let ref_shell_el
@@ -22,6 +23,10 @@
     const local_observer = new MutationObserver(sync_shell_bg)
     local_observer.observe(ref_content_el, { childList: true })
     sync_shell_bg()
+
+    // 6DRepNet360 ONNX 자산을 HTTP 캐시에 미리 채워 첫 추론 진입 시 다운로드 대기를 줄인다.
+    // 메모리는 안 먹는 raw fetch 라 fire-and-forget 으로 충분. 실패는 inference.js 내부에서 silent.
+    prefetch_models()
 
     return () => local_observer.disconnect()
   })
