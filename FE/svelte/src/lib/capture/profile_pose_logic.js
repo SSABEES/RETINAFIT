@@ -3,6 +3,17 @@
  * 이 모듈은 Svelte runes 미사용 — 단위 테스트 가능 + use_profile_pose.svelte.js 가 호출.
  */
 
+// 측면 자세 감지 임계값. test.svelte 에서 검증된 값 그대로 채택.
+// 실제 튜닝은 prod 실측 후. 변경 시 테스트도 함께 갱신.
+export const PROFILE_CONSTANTS = Object.freeze({
+  ORT_FRAME_SKIP: 5,           // tick() 호출 5번마다 1번 추론 → 12Hz rAF 에서 ~2.4Hz
+  TARGET_DEG: 90,              // ±90° 가 측면 정자세
+  TOLERANCE: 10,               // 영역 폭 ±10°
+  YAW_STD_THR: 5,              // 안정성 표준편차 임계 (도)
+  STABILITY_FRAMES: 30,        // 30 frames @ 12Hz ≈ 2.5초 hold
+  YAW_BUFFER_SIZE: 10,         // 표준편차 계산용 슬라이딩 윈도우
+})
+
 /**
  * 배열의 표준편차. 빈 배열은 Infinity 반환 — holding 검사가 자동 실패하도록.
  * @param {number[]} arr
@@ -13,4 +24,30 @@ export function yaw_std(arr) {
   const mean = arr.reduce((a, b) => a + b, 0) / arr.length
   const variance = arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length
   return Math.sqrt(variance)
+}
+
+/**
+ * 매 프레임 안정성 step. 영역 안(타깃 ±TOLERANCE) + 안정(yaw_buffer std < YAW_STD_THR) 이면
+ * stable_count 1 증가, 아니면 5 감소 (정면 update_stability 와 동일한 보수적 감소).
+ *
+ * 순수 함수 — 새 state 객체 반환, 입력 mutate 안 함.
+ *
+ * @param {{ stable_count: number, yaw_buffer: number[], yaw: number, target_deg: number }} input
+ * @returns {{ stable_count: number, yaw_buffer: number[] }}
+ */
+export function update_stability_step({ stable_count, yaw_buffer, yaw, target_deg }) {
+  const next_buffer = [...yaw_buffer.slice(-(PROFILE_CONSTANTS.YAW_BUFFER_SIZE - 1)), yaw]
+
+  const in_zone = Math.abs(yaw - target_deg) < PROFILE_CONSTANTS.TOLERANCE
+  const buffer_full = next_buffer.length >= PROFILE_CONSTANTS.YAW_BUFFER_SIZE
+  const holding = buffer_full && yaw_std(next_buffer) < PROFILE_CONSTANTS.YAW_STD_THR
+
+  let next_count
+  if (in_zone && holding) {
+    next_count = Math.min(stable_count + 1, PROFILE_CONSTANTS.STABILITY_FRAMES)
+  } else {
+    next_count = Math.max(0, stable_count - 5)
+  }
+
+  return { stable_count: next_count, yaw_buffer: next_buffer }
 }
