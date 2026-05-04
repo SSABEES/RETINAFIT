@@ -2,12 +2,15 @@
   import { onMount } from 'svelte'
   import { Route, Router } from '@maks11060/svelte5-router'
   import { routes } from '@/config/routes'
+  import GlobalToast from '@/components/toast/global_toast.svelte'
+  import SplashScreen from '@/components/splash/splash_screen.svelte'
 
   let url = ''
   let ref_shell_el
   let ref_content_el
+  let g_is_model_ready = $state(false)
 
-  // 현재 페이지 main 의 배경색을 외곽 shell 에 자동 동기화 (letterbox)
+  // 현재 페이지 main 의 배경색을 외곽 부분에 자동 동기화
   function sync_shell_bg() {
     if (!ref_shell_el || !ref_content_el) return
 
@@ -25,6 +28,11 @@
 
     return () => local_observer.disconnect()
   })
+
+  // 스플래시에서 모델 ready 신호 (다운로드 완료, 건너뛰기)를 수신함
+  function on_model_ready() {
+    g_is_model_ready = true
+  }
 </script>
 
 <div class="app-frame-shell" bind:this={ref_shell_el}>
@@ -38,3 +46,8 @@
     </div>
   </div>
 </div>
+
+<GlobalToast />
+{#if !g_is_model_ready}
+  <SplashScreen onready={on_model_ready} />
+{/if}

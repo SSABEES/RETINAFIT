@@ -5,8 +5,6 @@
     ref_selected_glasses_no,
     ref_glass_submit_loading,
     ref_glass_delete_loading,
-    ref_glass_saved_message,
-    ref_glass_error_message,
     ref_glass_form_obj,
     ref_glass_img_file_obj,
     ref_glass_3d_file_obj,
@@ -25,6 +23,18 @@
     get_glass_dropdown_option_label,
     get_glass_dropdown_selected_label,
   } = $props()
+
+  // S3 URL 또는 key 경로에서 파일명만 추출. 절대 URL/상대 key 모두 지원.
+  function get_filename_from_url(url_value) {
+    const local_text = String(url_value ?? '').trim()
+    if (!local_text) return ''
+    try {
+      const local_pathname = new URL(local_text).pathname
+      return decodeURIComponent(local_pathname.split('/').pop() ?? '')
+    } catch {
+      return decodeURIComponent(local_text.split('?')[0].split('/').pop() ?? '')
+    }
+  }
 </script>
 
 <form class="grid gap-4" onsubmit={on_submit_glass_form}>
@@ -69,22 +79,6 @@
       </button>
     </div>
   </div>
-
-  {#if ref_glass_saved_message}
-    <p
-      class="rounded-xl border border-[#D6BBFB] bg-[#F8F1FF] px-5 py-3 text-left text-base font-bold text-[#6B21A8]"
-    >
-      {ref_glass_saved_message}
-    </p>
-  {/if}
-
-  {#if ref_glass_error_message}
-    <p
-      class="rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 text-left text-base font-bold text-rose-700"
-    >
-      {ref_glass_error_message}
-    </p>
-  {/if}
 
   <section
     class="rounded-2xl border border-slate-200 bg-white px-8 py-5 shadow-sm shadow-slate-200/50"
@@ -133,32 +127,56 @@
           <div class="grid gap-3 border-t border-[#E8DAEE] px-4 py-4">
             <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
               대표 이미지 파일
-              <input
-                class="min-h-12 min-w-0 rounded-xl border border-slate-200 bg-white px-4 py-3 text-base font-bold text-zinc-950 outline-none transition file:mr-4 file:rounded-lg file:border-0 file:bg-[#F3E8F5] file:px-3 file:py-2 file:text-sm file:font-extrabold file:text-[#4B0055] focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
-                type="file"
-                accept="image/*"
-                onchange={on_change_glass_img_file}
-              />
-              <span class="text-xs font-semibold text-slate-400">
-                {ref_glass_img_file_obj?.name ??
-                  (ref_glass_form_obj.glasses_img_url ? '기존 이미지를 사용 중' : '선택한 파일 없음')}
-              </span>
+              <div class="relative flex min-h-12 min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition focus-within:border-[#4B0055] focus-within:ring-3 focus-within:ring-[#4B0055]/12">
+                <input
+                  class="absolute inset-0 cursor-pointer opacity-0"
+                  type="file"
+                  accept="image/*"
+                  onchange={on_change_glass_img_file}
+                />
+                <span class="shrink-0 rounded-lg bg-[#F3E8F5] px-3 py-2 text-sm font-extrabold text-[#4B0055]">
+                  파일 선택
+                </span>
+                <span
+                  class="truncate text-base font-bold text-zinc-950"
+                  title={ref_glass_img_file_obj?.name ?? get_filename_from_url(ref_glass_form_obj.glasses_img_url)}
+                >
+                  {#if ref_glass_img_file_obj}
+                    {ref_glass_img_file_obj.name}
+                  {:else if ref_glass_form_obj.glasses_img_url}
+                    {get_filename_from_url(ref_glass_form_obj.glasses_img_url) || ref_glass_form_obj.glasses_img_url}
+                  {:else}
+                    선택된 파일 없음
+                  {/if}
+                </span>
+              </div>
             </label>
 
             <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
               3D 모델 파일
-              <input
-                class="min-h-12 min-w-0 rounded-xl border border-slate-200 bg-white px-4 py-3 text-base font-bold text-zinc-950 outline-none transition file:mr-4 file:rounded-lg file:border-0 file:bg-[#F3E8F5] file:px-3 file:py-2 file:text-sm file:font-extrabold file:text-[#4B0055] focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
-                type="file"
-                accept=".glb,.gltf,.fbx,.obj,.usdz,.stl,.ply,.3dm"
-                onchange={on_change_glass_3d_file}
-              />
-              <span class="text-xs font-semibold text-slate-400">
-                {ref_glass_3d_file_obj?.name ??
-                  (ref_glass_form_obj.glasses_3d_url
-                    ? '기존 3D 파일을 사용 중'
-                    : '선택한 파일 없음')}
-              </span>
+              <div class="relative flex min-h-12 min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition focus-within:border-[#4B0055] focus-within:ring-3 focus-within:ring-[#4B0055]/12">
+                <input
+                  class="absolute inset-0 cursor-pointer opacity-0"
+                  type="file"
+                  accept=".glb,.gltf,.fbx,.obj,.usdz,.stl,.ply,.3dm"
+                  onchange={on_change_glass_3d_file}
+                />
+                <span class="shrink-0 rounded-lg bg-[#F3E8F5] px-3 py-2 text-sm font-extrabold text-[#4B0055]">
+                  파일 선택
+                </span>
+                <span
+                  class="truncate text-base font-bold text-zinc-950"
+                  title={ref_glass_3d_file_obj?.name ?? get_filename_from_url(ref_glass_form_obj.glasses_3d_url)}
+                >
+                  {#if ref_glass_3d_file_obj}
+                    {ref_glass_3d_file_obj.name}
+                  {:else if ref_glass_form_obj.glasses_3d_url}
+                    {get_filename_from_url(ref_glass_form_obj.glasses_3d_url) || ref_glass_form_obj.glasses_3d_url}
+                  {:else}
+                    선택된 파일 없음
+                  {/if}
+                </span>
+              </div>
             </label>
           </div>
         </div>

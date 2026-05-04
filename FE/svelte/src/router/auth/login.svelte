@@ -10,11 +10,11 @@
     load_auto_login_obj,
     save_auto_login_obj,
   } from '@/lib/stores/auto_login'
+  import { push_error_toast } from '@/lib/stores/toast'
 
   let ref_store_id = $state('')
   let ref_password = $state('')
   let ref_auto_login = $state(false)
-  let g_error_message = $state('')
   let g_is_loading = $state(false)
 
   // 양자화 모델 검증용 hidden entry — 로고를 1.5초 안에 7회 누르면 /test 진입
@@ -33,12 +33,10 @@
 
   function on_input_store_id(local_event) {
     ref_store_id = get_input_value(local_event)
-    g_error_message = ''
   }
 
   function on_input_password(local_event) {
     ref_password = get_input_value(local_event)
-    g_error_message = ''
   }
 
   function on_change_auto_login(local_event) {
@@ -126,12 +124,11 @@
     const local_password = ref_password.trim()
 
     if (!local_id || !local_password) {
-      g_error_message = '아이디와 비밀번호를 모두 입력해 주세요.'
+      push_error_toast('아이디와 비밀번호를 모두 입력해 주세요.')
       return
     }
 
     g_is_loading = true
-    g_error_message = ''
 
     try {
       const local_login_response_obj = await login({
@@ -154,8 +151,9 @@
 
       apply_login_response(local_login_response_obj)
     } catch (local_error) {
-      g_error_message =
-        local_error instanceof Error ? local_error.message : '로그인 처리 중 오류가 발생했습니다.'
+      push_error_toast(
+        local_error instanceof Error ? local_error.message : '로그인 처리 중 오류가 발생했습니다.',
+      )
     } finally {
       g_is_loading = false
     }
@@ -260,15 +258,6 @@
           />
         </label>
       </div>
-
-      {#if g_error_message}
-        <p
-          class="rounded-[10px] border border-[var(--retina-danger-soft)] bg-[var(--retina-danger-soft)] px-4 py-3 text-sm font-semibold text-[var(--retina-danger-700)]"
-          role="alert"
-        >
-          {g_error_message}
-        </p>
-      {/if}
 
       <button
         class={`min-h-14 w-full cursor-pointer rounded-[8px] border-0 text-[24px] font-bold tracking-[0.18em] text-[var(--retina-text-100)] transition focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--retina-text-300)]/70 disabled:cursor-not-allowed disabled:opacity-60 ${
