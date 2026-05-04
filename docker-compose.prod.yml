@@ -37,6 +37,8 @@ services:
       - ./FE/.env.prod
     expose:
       - "80"
+    volumes:
+      - /home/ubuntu/app/models/sixdrepnet360/6drepnet360.onnx:/usr/share/nginx/html/models/sixdrepnet360/6drepnet360.onnx
     depends_on:
       - be
     restart: unless-stopped
