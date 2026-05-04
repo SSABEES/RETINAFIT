@@ -572,8 +572,6 @@
     g_already_dispatched = true
     try {
       const { blob, width, height } = await video_to_blob(ref_this_video_el)
-      // TEMP 진단: 캡처 dimensions 가 단계별로 다른지 확인 (이슈 #3). 결과 확인 후 제거.
-      console.log('[capture] dimensions', { pose_target, w: width, h: height, blob_size: blob.size })
       const object_url = URL.createObjectURL(blob)
       // 캡쳐 시점의 랜드마크 쌍을 픽셀 공간 좌표로 변환. 랜드마크가 없으면 null.
       const landmarks = g_last_detection?.faceLandmarks?.[0] ?? null
