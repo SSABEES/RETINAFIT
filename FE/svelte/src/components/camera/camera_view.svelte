@@ -138,9 +138,16 @@
 
   // 가이드 타원 색상을 pose_target 과 상태에 따라 결정한다.
   const g_guide_color = $derived.by(() => {
+    // 측면: composable 의 stable/progress 기반 색
+    if (pose_target !== 'front') {
+      if (profile_pose.is_stable) return 'rgba(0,230,118,0.9)'    // 초록 — 발사 직전
+      if (profile_pose.progress > 0) return 'rgba(255,193,7,0.85)' // 노랑 — 진행 중
+      return 'rgba(255,255,255,0.7)'                              // 흰색 — 대기/이탈
+    }
+
+    // 정면 — 기존 로직 그대로
     if (!g_face_detected) return 'rgba(200,200,200,0.5)'
     if (!g_complete_obj.is_complete) return 'rgba(244,67,54,0.85)'
-    if (pose_target !== 'front') return 'rgba(255,255,255,0.7)' // 프로필 포즈: 정면 판정 미적용
     if (!g_frontal_obj?.is_frontal) return 'rgba(255,193,7,0.85)'
     if (g_is_stable) return 'rgba(0,230,118,0.9)'
     return 'rgba(255,193,7,0.85)'
@@ -148,6 +155,12 @@
 
   // 사용자에게 보여줄 힌트 문자열을 pose_target 과 상태에 따라 결정한다.
   const g_hint_text = $derived.by(() => {
+    // 측면: composable 이 자체 hint 계산. null 이면 기본 가이드로 폴백.
+    if (pose_target !== 'front') {
+      return profile_pose.hint_text ?? '카메라 앞에 자세를 잡아주세요'
+    }
+
+    // 정면 — 기존 로직 그대로
     if (!g_face_detected) return '얼굴을 가이드 안에 맞춰주세요'
     if (!g_complete_obj.is_complete) return '얼굴 전체가 화면에 나오도록 해주세요'
     if (pose_target === 'left_profile') return '고개를 왼쪽으로 돌려주세요'
@@ -172,6 +185,14 @@
   // 상태별 힌트 배지 색상 (inline style 로 적용할 문자열).
   const g_badge_style = $derived.by(() => {
     const base = 'background: rgba(0,0,0,0.55);'
+    // 측면: stable=초록, 진행 중=주황, 대기=흰
+    if (pose_target !== 'front') {
+      if (profile_pose.is_stable) return base + ' border-color: rgba(0,230,118,0.7); color: #69f0ae;'
+      if (profile_pose.progress > 0) return base + ' border-color: rgba(255,152,0,0.6); color: #ffb74d;'
+      return base + ' border-color: rgba(255,255,255,0.25); color: #eeeeee;'
+    }
+
+    // 정면 — 기존 로직 그대로
     if (pose_target === 'front' && g_is_stable) {
       return base + ' border-color: rgba(0,230,118,0.7); color: #69f0ae;'
     }
@@ -852,6 +873,30 @@
           >
             {g_frontal_obj.roll.toFixed(1)}°
           </span>
+        </div>
+      </div>
+    {/if}
+
+    <!--
+      측면 단계 한정 진행률 게이지. composable 이 yaw 영역 진입을 감지해 진행률 누적.
+      test.svelte 의 g_capture_progress 게이지와 동일 디자인 — 시각 일관성.
+      g_already_dispatched 면 캡처 완료 후라 노출 불필요.
+    -->
+    {#if pose_target !== 'front' && profile_pose.progress > 0 && !g_already_dispatched}
+      <div
+        class="pointer-events-none absolute left-2.5 top-2.5 z-10 flex w-44 flex-col gap-1
+               rounded-lg border border-emerald-400/50 bg-black/65 px-3 py-2 text-[11px] backdrop-blur-sm"
+        aria-live="polite"
+      >
+        <div class="flex items-baseline justify-between text-emerald-300">
+          <span class="font-bold">측면 자세 유지 중</span>
+          <span class="tabular-nums">{Math.round(profile_pose.progress)}%</span>
+        </div>
+        <div class="h-1.5 overflow-hidden rounded-sm bg-emerald-900/50">
+          <div
+            class="h-full bg-emerald-400 transition-[width] duration-100"
+            style="width: {profile_pose.progress}%;"
+          ></div>
         </div>
       </div>
     {/if}
