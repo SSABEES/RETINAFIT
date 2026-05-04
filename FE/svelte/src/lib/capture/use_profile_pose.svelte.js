@@ -42,8 +42,48 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el }) 
   let _frame_counter = 0
   let _reset_id      = 0
 
-  function tick() {
-    // 다음 task 에서 추론 통합. 이번 task 는 shell only.
+  async function tick() {
+    if (get_pose_target() === 'front') return
+    if (_ort_inflight) return
+    _frame_counter += 1
+    if (_frame_counter % PROFILE_CONSTANTS.ORT_FRAME_SKIP !== 0) return
+
+    const video = get_video_el()
+    if (!video || video.videoWidth === 0) return
+
+    _ort_inflight = true
+    const snapshot_id = _reset_id
+
+    try {
+      // get_session() 은 prefetch 캐시 hit 면 즉시 반환. 첫 호출이면 다운로드 + WASM 컴파일 대기.
+      await get_session()
+      if (snapshot_id !== _reset_id) return
+
+      const bbox = compute_center_square_bbox(video)
+      const result = await predict_pose(video, bbox)
+      if (snapshot_id !== _reset_id) return       // 카메라 재시작 후 stale 결과 폐기
+
+      const { yaw } = rotation_matrix_to_euler(result.rotation_matrix)
+
+      _session_ready = true
+      _last_yaw = yaw
+
+      const target_deg = get_pose_target() === 'right_profile'
+        ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
+      const next = update_stability_step({
+        stable_count: _stable_count,
+        yaw_buffer: _yaw_buffer,
+        yaw,
+        target_deg,
+      })
+      _stable_count = next.stable_count
+      _yaw_buffer = next.yaw_buffer
+    } catch (err) {
+      console.error('[profile_pose] tick failed', err)
+      // silent — 다음 tick 자연 재시도. stable_count 변경 없음 → 자동 회복.
+    } finally {
+      _ort_inflight = false
+    }
   }
 
   function reset() {
