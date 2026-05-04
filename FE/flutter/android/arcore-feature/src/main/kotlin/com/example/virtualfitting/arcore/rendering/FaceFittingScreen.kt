@@ -10,7 +10,6 @@ import android.util.Base64
 import android.util.Log
 import android.view.PixelCopy
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +23,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,9 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import java.io.ByteArrayOutputStream
 import com.example.virtualfitting.arcore.assets.AssetException
 import com.example.virtualfitting.arcore.assets.DefaultAssetResolver
@@ -53,7 +49,6 @@ import com.example.virtualfitting.arcore.assets.ResolvedAsset
 import com.example.virtualfitting.arcore.contract.ErrorCode
 import com.example.virtualfitting.arcore.contract.VirtualFittingEvent
 import com.example.virtualfitting.arcore.contract.VirtualFittingRequest
-import com.example.virtualfitting.arcore.fitting.FaceFitPreset
 import com.example.virtualfitting.arcore.fitting.toPreset
 import com.example.virtualfitting.arcore.ui.StatusOverlay
 import com.google.android.filament.RenderableManager
@@ -71,7 +66,6 @@ import io.github.sceneview.ar.rememberARCameraStream
 import dev.romainguy.kotlin.math.rotation
 import dev.romainguy.kotlin.math.translation
 import io.github.sceneview.math.Position
-import io.github.sceneview.math.Rotation as FitRotation
 import io.github.sceneview.math.Scale
 import io.github.sceneview.math.Transform
 import io.github.sceneview.math.toQuaternion
@@ -119,36 +113,7 @@ fun FaceFittingScreen(
     onClose: () -> Unit,
 ) {
     val requestId = request.session.requestId
-
-    // === Debug Tuner 상태 ===
-    // 슬라이더로 실기기에서 안경 위치를 맞춘 뒤, 화면 하단의 값(또는 logcat "TUNER ...")을
-    // FittingPose.kt 의 defaultPreset / FaceFittingScreen.kt 의 FACE_WIDTH_RATIO 에 옮겨 적는다.
-    // TODO(튜닝 완료 후 제거): DebugTuner / DebugSliderRow / DebugTuningState 와 이 블록 삭제,
-    //   `val preset = remember(request.fitting) { request.fitting.toPreset() }` 로 되돌릴 것.
-    val initialPreset = remember(request.fitting) { request.fitting.toPreset() }
-    val initialTuning = remember(initialPreset) {
-        DebugTuningState(
-            offsetX = initialPreset.localPosition.x,
-            offsetY = initialPreset.localPosition.y,
-            offsetZ = initialPreset.localPosition.z,
-            faceWidthRatio = FACE_WIDTH_RATIO,
-            rotationX = initialPreset.localRotation.x,
-            rotationY = initialPreset.localRotation.y,
-            rotationZ = initialPreset.localRotation.z,
-        )
-    }
-    var tuning by remember(initialTuning) { mutableStateOf(initialTuning) }
-    val preset = remember(tuning, initialPreset.scaleToUnits) {
-        FaceFitPreset(
-            scaleToUnits = initialPreset.scaleToUnits,
-            localPosition = Position(tuning.offsetX, tuning.offsetY, tuning.offsetZ),
-            localRotation = FitRotation(
-                x = tuning.rotationX,
-                y = tuning.rotationY,
-                z = tuning.rotationZ,
-            ),
-        )
-    }
+    val preset = remember(request.fitting) { request.fitting.toPreset() }
 
     val context = LocalContext.current
     // RemoteModel 은 HTTP 다운로드가 필요하므로 IO 디스패처에서 resolve.
@@ -347,7 +312,7 @@ fun FaceFittingScreen(
                     // glasses max extent 가 faceWidth * FACE_WIDTH_RATIO 로 맞춰진다.
                     baseScale?.let { base ->
                         val multiplier =
-                            (faceWidth * tuning.faceWidthRatio) / preset.scaleToUnits
+                            (faceWidth * FACE_WIDTH_RATIO) / preset.scaleToUnits
                         node.scale = base * multiplier
                     }
 
@@ -438,17 +403,6 @@ fun FaceFittingScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 24.dp, start = 16.dp, end = 16.dp)
-                .alpha(if (hide_overlay_during_capture) 0f else 1f),
-        )
-
-        // 디버그 튜너. 캡처 중에는 결과 이미지에 안 찍히도록 같이 숨긴다.
-        DebugTuner(
-            state = tuning,
-            initial = initialTuning,
-            onStateChange = { tuning = it },
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 24.dp)
                 .alpha(if (hide_overlay_during_capture) 0f else 1f),
         )
     }
@@ -629,140 +583,4 @@ private fun setEntityVisible(rm: RenderableManager, entity: Int, visible: Boolea
     val instance = rm.getInstance(entity)
     if (instance == 0) return
     rm.setLayerMask(instance, 0xff, if (visible) 0xff else 0x00)
-}
-
-// ===== Debug Tuner =====
-// 실기기에서 슬라이더로 안경 위치를 맞추기 위한 임시 UI. 튜닝이 끝나면 화면 하단의 값
-// 또는 logcat 의 "TUNER ..." 라인을 FittingPose.kt 의 defaultPreset 과
-// FACE_WIDTH_RATIO 상수에 옮겨 적고, 이 영역과 FaceFittingScreen 안의 사용처를 제거.
-
-private data class DebugTuningState(
-    val offsetX: Float = 0f,
-    val offsetY: Float = 0.02f,
-    val offsetZ: Float = 0.055f,
-    val faceWidthRatio: Float = 2.1f,
-    val rotationX: Float = 0f,
-    val rotationY: Float = 0f,
-    val rotationZ: Float = 0f,
-) {
-    fun toCodeSnippet(): String =
-        "Pos(%+.3f, %+.3f, %+.3f) Rot(%+.1f, %+.1f, %+.1f) ratio=%.2f".format(
-            offsetX, offsetY, offsetZ, rotationX, rotationY, rotationZ, faceWidthRatio,
-        )
-}
-
-@Composable
-private fun DebugTuner(
-    state: DebugTuningState,
-    initial: DebugTuningState,
-    onStateChange: (DebugTuningState) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var expanded by remember { mutableStateOf(true) }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth(0.96f)
-            .background(Color(0xCC000000), RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "Tuner",
-                color = Color.White,
-                fontSize = 12.sp,
-            )
-            Spacer(Modifier.weight(1f))
-            Text(
-                text = "Log",
-                color = Color(0xFF80CBC4),
-                fontSize = 11.sp,
-                modifier = Modifier
-                    .clickable { Log.d(TAG, "TUNER ${state.toCodeSnippet()}") }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-            )
-            Text(
-                text = "Reset",
-                color = Color(0xFFEF5350),
-                fontSize = 11.sp,
-                modifier = Modifier
-                    .clickable { onStateChange(initial) }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-            )
-            Text(
-                text = if (expanded) "▼" else "▲",
-                color = Color(0xFFFFB74D),
-                fontSize = 11.sp,
-                modifier = Modifier
-                    .clickable { expanded = !expanded }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-            )
-        }
-        if (expanded) {
-            DebugSliderRow("offset Y", state.offsetY, -0.05f, 0.05f) {
-                onStateChange(state.copy(offsetY = it))
-            }
-            DebugSliderRow("offset Z", state.offsetZ, -0.05f, 0.10f) {
-                onStateChange(state.copy(offsetZ = it))
-            }
-            DebugSliderRow("offset X", state.offsetX, -0.05f, 0.05f) {
-                onStateChange(state.copy(offsetX = it))
-            }
-            DebugSliderRow("ratio", state.faceWidthRatio, 1.0f, 3.5f) {
-                onStateChange(state.copy(faceWidthRatio = it))
-            }
-            DebugSliderRow("rot X", state.rotationX, -30f, 30f) {
-                onStateChange(state.copy(rotationX = it))
-            }
-            DebugSliderRow("rot Y", state.rotationY, -30f, 30f) {
-                onStateChange(state.copy(rotationY = it))
-            }
-            DebugSliderRow("rot Z", state.rotationZ, -30f, 30f) {
-                onStateChange(state.copy(rotationZ = it))
-            }
-            Text(
-                text = state.toCodeSnippet(),
-                color = Color(0xFFB9F6CA),
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace,
-            )
-        }
-    }
-}
-
-@Composable
-private fun DebugSliderRow(
-    label: String,
-    value: Float,
-    min: Float,
-    max: Float,
-    onChange: (Float) -> Unit,
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(32.dp),
-    ) {
-        Text(
-            text = label,
-            color = Color.White,
-            fontSize = 10.sp,
-            modifier = Modifier.width(54.dp),
-        )
-        Text(
-            text = "%+.3f".format(value),
-            color = Color(0xFFFFB74D),
-            fontSize = 10.sp,
-            fontFamily = FontFamily.Monospace,
-            modifier = Modifier.width(56.dp),
-        )
-        Slider(
-            value = value,
-            onValueChange = onChange,
-            valueRange = min..max,
-            modifier = Modifier.weight(1f),
-        )
-    }
 }
