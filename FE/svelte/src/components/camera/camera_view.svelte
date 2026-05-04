@@ -93,9 +93,19 @@
   let g_capture_sequence_token = 0
 
   // 측면 자세 감지 — pose_target 이 'front' 면 tick() 이 즉시 return 하므로 항상 생성해도 안전.
+  // on_stable_reached 콜백: composable 의 stable_count 가 max 처음 도달할 때 rAF 안에서 직접
+  // 호출됨 → Svelte $effect 의 cross-module reactivity 거치지 않고 즉시 시퀀스 발사.
   const profile_pose = create_profile_pose_detector({
     get_pose_target: () => pose_target,
     get_video_el: () => ref_this_video_el,
+    on_stable_reached: () => {
+      // 가드: 이미 dispatch 됐거나 sequence 진행 중이면 중복 호출 방지.
+      if (g_already_dispatched) return
+      if (g_stability_audio_stage === 'final') return
+      console.log('[auto-capture] direct trigger via on_stable_reached')
+      g_stability_audio_stage = 'final'
+      void run_auto_capture_sequence()
+    },
   })
 
   let g_init_error = $state(/** @type {string | null} */ (null))

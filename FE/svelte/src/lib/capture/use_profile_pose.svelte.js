@@ -26,10 +26,14 @@ import { update_stability_step, compute_hint_text, PROFILE_CONSTANTS } from './p
  */
 
 /**
- * @param {{ get_pose_target: () => PoseTarget, get_video_el: () => HTMLVideoElement | null }} cfg
+ * @param {{
+ *   get_pose_target: () => PoseTarget,
+ *   get_video_el: () => HTMLVideoElement | null,
+ *   on_stable_reached?: () => void,
+ * }} cfg
  * @returns {ProfilePoseDetector}
  */
-export function create_profile_pose_detector({ get_pose_target, get_video_el }) {
+export function create_profile_pose_detector({ get_pose_target, get_video_el, on_stable_reached }) {
   // reactive 상태 — UI 가 읽음
   let _stable_count  = $state(0)
   let _last_yaw      = $state(/** @type {number | null} */ (null))
@@ -92,6 +96,17 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el }) 
           stable: next.stable_count,
           max: PROFILE_CONSTANTS.STABILITY_FRAMES,
         })
+      }
+
+      // max 도달 transition (prev<max → next==max) 시 콜백 즉시 호출. Svelte 5 cross-module
+      // getter reactivity 가 가끔 propagation 누락하는 이슈 회피 — rAF 안에서 직접 호출.
+      // test.svelte 의 update_target_zone → capture_now() 패턴과 동일.
+      if (
+        prev_count < PROFILE_CONSTANTS.STABILITY_FRAMES &&
+        next.stable_count >= PROFILE_CONSTANTS.STABILITY_FRAMES
+      ) {
+        console.log('[profile_pose] stable reached — invoking on_stable_reached')
+        on_stable_reached?.()
       }
     } catch (err) {
       console.error('[profile_pose] tick failed', err)
