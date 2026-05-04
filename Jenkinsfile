@@ -5,6 +5,7 @@ pipeline {
         GITLAB_CREDENTIALS = 'gitlab-credentials'
         DEPLOY_PATH        = '/home/ubuntu/app'
         REPO_URL           = 'https://lab.ssafy.com/s14-final/S14P31S107.git'
+        WORKSPACE_PATH     = '/var/jenkins_home/workspace/retina-pipeline'
     }
 
     stages {
@@ -20,35 +21,51 @@ pipeline {
 
         // 2단계: 환경변수 파일 준비 (빌드 전 .env.prod 복사)
         stage('Prepare') {
-                steps {
-                    sh """
-                        cp /home/ubuntu/app/.env.prod ./.env.prod
-                        cp /home/ubuntu/app/BE/.env.prod ./BE/.env.prod
-                        cp /home/ubuntu/app/FE/.env.prod ./FE/svelte/.env.prod
-                        cp /home/ubuntu/app/AI/.env.prod ./AI/.env.prod
-                    """
-                }
-        }
-
-        // 3단계: Docker 이미지 빌드
-        stage('Build') {
             steps {
-                sh 'docker compose -f docker-compose.prod.yml build --no-cache fe'
-                sh 'docker compose -f docker-compose.prod.yml build be'
-                sh 'docker compose -f docker-compose.prod.yml build ai'
+                sh """
+                    cp /home/ubuntu/app/BE/.env.prod ./BE/.env.prod
+                    cp /home/ubuntu/app/FE/.env.prod ./FE/svelte/.env.prod
+                    cp /home/ubuntu/app/AI/.env.prod ./AI/.env.prod
+                """
             }
         }
 
-        // 4단계: 서버에 배포
-        stage('Deploy') {
+        // 3단계: FE 빌드 및 배포
+        stage('Deploy FE') {
             steps {
                 sh """
-                    cp /home/ubuntu/app/.env.prod ./.env.prod
-                    cp /home/ubuntu/app/BE/.env.prod ./BE/.env.prod
-                    cp /home/ubuntu/app/FE/.env.prod ./FE/.env.prod
+                    cd ${WORKSPACE_PATH}/FE/svelte
+                    npm ci
+                    npm run build -- --mode prod
+                    sudo cp -r ${WORKSPACE_PATH}/FE/svelte/dist/* /var/www/html/
+                """
+            }
+        }
 
-                    docker compose -f docker-compose.prod.yml down
-                    docker compose -f docker-compose.prod.yml up -d
+        // 4단계: BE 호스트 재시작
+        stage('Deploy BE') {
+            steps {
+                sh """
+                    cd ${WORKSPACE_PATH}/BE
+                    export APP_ENV=production
+                    /home/ubuntu/.local/bin/uv sync
+                    sudo pkill -f 'uvicorn app.main:app --host 0.0.0.0 --port 8000' || true
+                    sleep 2
+                    nohup /home/ubuntu/.local/bin/uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 > /home/ubuntu/app/logs/be.log 2>&1 &
+                """
+            }
+        }
+
+        // 5단계: AI 호스트 재시작
+        stage('Deploy AI') {
+            steps {
+                sh """
+                    cd ${WORKSPACE_PATH}/AI
+                    export APP_ENV=production
+                    /home/ubuntu/.local/bin/uv sync
+                    sudo pkill -f 'uvicorn app.main:app --host 0.0.0.0 --port 8001' || true
+                    sleep 2
+                    nohup /home/ubuntu/.local/bin/uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 > /home/ubuntu/app/logs/ai.log 2>&1 &
                 """
             }
         }
