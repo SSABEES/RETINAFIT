@@ -38,13 +38,15 @@
 
 import * as ort from 'onnxruntime-web'
 
-// wasmPaths 를 명시 설정하지 않으면 onnxruntime-web 은 자신을 import 한 모듈의 import.meta.url
-// 기준으로 워커/.wasm 을 자동 해석한다. Vite 는 이 dynamic import 를 `?url` 자산으로 처리해
-// dist/assets/ 에 올바르게 emit 한다 — public/ 에서 직접 서빙하면 dev 모드에서 Vite 가 `?import`
-// 쿼리를 붙여 module 트랜스폼을 시도하다 깨지는 문제를 피할 수 있다.
+// ort 워커/.wasm 자산 위치를 명시. predev/prebuild 의 sync_ort_assets.mjs 가
+// node_modules/onnxruntime-web/dist 에서 public/ort 로 복사한 파일을 가리킨다.
 //
-// 핵심 전제: vite.config.js 의 optimizeDeps.exclude 에 'onnxruntime-web' 가 포함되어 있어
-// esbuild pre-bundle 단계에서 onnxruntime-web 의 dynamic import 가 변형되지 않는다.
+// 명시 없이 ort 의 import.meta.url 자동 해석에 맡기면 Vite/Rolldown 의 prod 빌드가 ort 의
+// 워커 동적 import 를 main 번들에 인라인해버린다 (별도 .mjs 로 emit 안 됨). 그 결과 ort 가
+// 워커를 띄우면 main 번들이 워커 컨텍스트에서 실행되며 Svelte 런타임 등의 document 참조에서
+// "ReferenceError: document is not defined" 로 즉사 → "no available backend found" 로 연쇄.
+// wasmPaths 를 박으면 ort 가 같은 origin 의 정적 자산을 직접 fetch 해 워커 init 가 깔끔.
+ort.env.wasm.wasmPaths = `${import.meta.env.BASE_URL}ort/`
 
 // proxy 워커 활성화: 모든 세션 작업 (다운로드 / WASM 컴파일 / 추론) 을 전용 Web Worker 에서 실행해
 // 메인 스레드 freeze 를 제거한다. 카메라 video, MediaPipe 검출, canvas rAF 가 추론 중에도 안 끊김.

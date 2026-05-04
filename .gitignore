@@ -48,6 +48,10 @@ FE/svelte/*.local
 # 모델 파일(.task / .tflite) 은 별도로 public/mediapipe/models/ 에 커밋된다.
 FE/svelte/public/mediapipe/wasm/
 
+# onnxruntime-web 워커/.wasm 도 동일 패턴으로 npm scripts 가 동기화. inference.js 의
+# wasmPaths 가 이 경로를 가리키며, 미존재 시 ort 워커 init 실패로 추론 backend 가 안 잡힘.
+FE/svelte/public/ort/
+
 # 6DRepNet360 ONNX 자산은 AI/scripts/export_6drepnet360_onnx.py 로 .pth 에서 로컬 생성.
 # 정식 도입 결정 시 Git LFS 로 승격 예정. 절차: docs/sixdrepnet360.md
 FE/svelte/public/models/sixdrepnet360/
