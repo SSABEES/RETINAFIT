@@ -115,9 +115,15 @@
 </script>
 
 {#if capture}
+  <!--
+    aspect-ratio 를 capture.width/height 가 아닌 고정 3/4 로 강제. video_to_blob 가 모든 캡처를
+    480×640 으로 정규화하지만 (capture_utils.js), 어떤 이유로 단계별로 dimensions 가 일치하지
+    않더라도 display 측에서 사이즈 일관성을 보장하는 방어막. SVG viewBox 는 capture.width/height
+    그대로 사용하고 preserveAspectRatio="none" 로 stretch — img 와 같이 stretch 되므로 좌표 정합 유지.
+  -->
   <div
     class="relative mx-auto block h-full max-h-full"
-    style="aspect-ratio: {capture.width} / {capture.height}; max-width: min(100%, 720px);"
+    style="aspect-ratio: 3 / 4; max-width: min(100%, 720px);"
   >
     <img
       class="absolute inset-0 block h-full w-full select-none"
