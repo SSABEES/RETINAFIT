@@ -52,8 +52,16 @@ FE/svelte/public/mediapipe/wasm/
 # 정식 도입 결정 시 Git LFS 로 승격 예정. 절차: docs/sixdrepnet360.md
 FE/svelte/public/models/sixdrepnet360/
 
+# Cloudflare Named Tunnel 로컬 설정 — tunnel UUID + credentials path 가 user-specific. 공유 금지.
+.cloudflared.config.yml
+
 # 6DRepNet360 PyTorch 가중치 — OVGU 클라우드에서 로컬 1회 다운로드. 저장소 비대화 방지.
 AI/scripts/*.pth
+
+# ONNX export/quantize 스크립트가 AI/ 루트에 임시로 떨어뜨리는 산출물 (sym_shape_infer_temp.onnx,
+# UUID.data 같은 외부 데이터 청크). 추적 금지 — 재실행으로 언제든 재생성.
+AI/*.onnx
+AI/*.data
 
 ################################
 # Local design docs (not pushed)
