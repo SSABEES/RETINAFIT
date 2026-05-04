@@ -184,10 +184,11 @@
           <PhotoSwitcher session={g_session} view={g_view} onview_change={on_view_change} />
           <div class="h-px bg-slate-200"></div>
           <!--
-            scroll wrapper — flex-1 로 article 의 남은 공간 흡수, min-h-0 로 content 보다 작아질 수
-            있어 overflow 발동, overflow-y-auto 로 내부 스크롤. PhotoSwitcher 영역은 상단 고정.
+            content wrapper — flex-1 로 article 의 남은 공간 흡수. 자체 scroll 은 안 가짐
+            (overflow-hidden) — 스크롤은 MeasurementList 내부의 ul 이 담당. 귀 높이 section 은 wrapper
+            안에서 자연스러운 위치 유지 (스크롤 영역 밖, 항상 보임).
           -->
-          <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+          <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
             <MeasurementList
               items_arr={g_items_arr}
               active_item_id={g_active_item_id}
