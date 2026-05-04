@@ -8,6 +8,7 @@
   import { create_customer, search_customer } from '@/lib/api/customers'
   import { create_visit, get_visit, update_visit } from '@/lib/api/visit'
   import { selected_admin_obj, selected_opt_store_obj } from '@/lib/stores/admin'
+  import { push_error_toast } from '@/lib/stores/toast'
   import {
     selected_customer_obj,
     selected_visit_obj,
@@ -48,7 +49,6 @@
   )
 
   let ref_customer_create_modal_open = $state(false)
-  let g_customer_create_error_message = $state('')
 
   // 비회원(cust_no = 0) 으로 진입한 경우에만 고객정보등록 버튼을 노출한다.
   const g_is_guest_visit = $derived(Number($selected_customer_obj?.id) === 0)
@@ -135,14 +135,10 @@
   }
 
   function on_click_open_customer_create_modal() {
-    g_customer_create_error_message = ''
     ref_customer_create_modal_open = true
   }
 
   function on_click_close_customer_create_modal() {
-    if (g_customer_create_error_message) {
-      g_customer_create_error_message = ''
-    }
     ref_customer_create_modal_open = false
   }
 
@@ -157,13 +153,13 @@
    */
   async function on_create_customer(customer_obj) {
     if (!$selected_opt_store_obj?.opt_no) {
-      g_customer_create_error_message = '선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.'
+      push_error_toast('선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.')
       return
     }
 
     const local_old_visit_no = Number($selected_visit_obj?.visit_no)
     if (!Number.isFinite(local_old_visit_no) || local_old_visit_no <= 0) {
-      g_customer_create_error_message = '연결할 방문 정보가 없습니다. 잠시 후 다시 시도해 주세요.'
+      push_error_toast('연결할 방문 정보가 없습니다. 잠시 후 다시 시도해 주세요.')
       return
     }
 
@@ -194,8 +190,7 @@
       const local_new_cust_no = Number(local_new_customer_obj?.cust_no)
 
       if (!Number.isFinite(local_new_cust_no) || local_new_cust_no <= 0) {
-        g_customer_create_error_message =
-          '등록한 고객 정보를 찾을 수 없습니다. 잠시 후 다시 시도해 주세요.'
+        push_error_toast('등록한 고객 정보를 찾을 수 없습니다. 잠시 후 다시 시도해 주세요.')
         return
       }
 
@@ -216,7 +211,7 @@
       const local_new_visit_no = Number(local_new_visit_obj?.visit_no)
 
       if (!Number.isFinite(local_new_visit_no) || local_new_visit_no <= 0) {
-        g_customer_create_error_message = '새 방문 정보 생성에 실패했습니다.'
+        push_error_toast('새 방문 정보 생성에 실패했습니다.')
         return
       }
 
@@ -261,13 +256,13 @@
 
       sessionStorage.setItem('retinal_visit_no', String(local_new_visit_no))
 
-      g_customer_create_error_message = ''
       ref_customer_create_modal_open = false
     } catch (local_error) {
-      g_customer_create_error_message =
+      push_error_toast(
         local_error instanceof Error
           ? local_error.message
-          : '고객 정보 등록 중 오류가 발생했습니다.'
+          : '고객 정보 등록 중 오류가 발생했습니다.',
+      )
     }
   }
 
@@ -544,7 +539,6 @@
 
   <CustomerCreateModal
     open={ref_customer_create_modal_open}
-    error_message={g_customer_create_error_message}
     onclose={on_click_close_customer_create_modal}
     oncreate={on_create_customer}
   />

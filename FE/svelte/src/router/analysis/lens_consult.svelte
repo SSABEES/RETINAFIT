@@ -6,13 +6,12 @@
   import { get_recommend_option_arr } from '@/lib/api/recommend_options'
   import { save_visit_recommend } from '@/lib/api/visit'
   import { selected_customer_obj } from '@/lib/stores/customer'
+  import { push_error_toast } from '@/lib/stores/toast'
 
   // 질문 = option_category, 답변 = { option_no, option_name } 으로 매핑된다.
   let g_question_arr = $state([])
   let g_options_loading = $state(true)
-  let g_options_error = $state('')
   let g_loading = $state(false)
-  let g_error = $state('')
   // key = 질문 텍스트, value = 선택된 option_no 배열
   let ref_selected_obj = $state({})
 
@@ -166,7 +165,6 @@
   async function on_click_submit() {
     if (g_loading) return
     g_loading = true
-    g_error = ''
 
     try {
       if (!ensure_session_auth_tokens()) {
@@ -209,14 +207,14 @@
 
       window.location.href = PATH.analysisArFitting
     } catch (local_err) {
-      g_error = local_err.message ?? '조건 저장에 실패했습니다.'
+      push_error_toast(local_err.message ?? '조건 저장에 실패했습니다.')
       g_loading = false
     }
   }
 
   onMount(() => {
     if (!ensure_session_auth_tokens()) {
-      g_options_error = '로그인 토큰 정보가 없습니다. 다시 로그인해주세요.'
+      push_error_toast('로그인 토큰 정보가 없습니다. 다시 로그인해주세요.')
       g_options_loading = false
       return
     }
@@ -232,7 +230,7 @@
         init_selected_obj(local_question_arr)
       })
       .catch((local_err) => {
-        g_options_error = local_err.message ?? '옵션을 불러오지 못했습니다.'
+        push_error_toast(local_err.message ?? '옵션을 불러오지 못했습니다.')
       })
       .finally(() => {
         g_options_loading = false
@@ -262,13 +260,6 @@
               aria-label="옵션 로딩 중"
             ></span>
           </div>
-        {:else if g_options_error}
-          <p
-            class="mx-auto max-w-[640px] rounded-xl bg-red-50 px-5 py-3 text-center text-xs font-bold text-red-600"
-            role="alert"
-          >
-            {g_options_error}
-          </p>
         {:else if g_question_arr.length === 0}
           <p
             class="mx-auto max-w-[640px] rounded-xl bg-slate-50 px-5 py-3 text-center text-xs font-bold text-slate-500"
@@ -348,14 +339,6 @@
           </div>
         {/if}
 
-        {#if g_error}
-          <p
-            class="mt-3 rounded-xl bg-red-50 px-5 py-3 text-center text-xs font-bold text-red-600"
-            role="alert"
-          >
-            {g_error}
-          </p>
-        {/if}
       </div>
     </div>
 

@@ -28,6 +28,7 @@
     wait_for_flutter_bridge,
   } from '@/lib/flutter'
   import { selected_customer_obj, selected_visit_obj } from '@/lib/stores/customer'
+  import { push_error_toast, push_toast } from '@/lib/stores/toast'
   import { pick_recommended_glasses_arr } from '@/lib/recommendations/frame_recommendations'
 
   /**
@@ -86,16 +87,11 @@
     }, {}),
   )
 
-  let g_toast_msg = $state('')
-  let g_toast_timer = $state(null)
-
   /**
-   * 메시지를 띄우고 2.8초 뒤 내림
+   * 메시지를 글로벌 토스트로 띄운다 (info 톤).
    */
   function show_toast(msg) {
-    g_toast_msg = msg
-    clearTimeout(g_toast_timer)
-    g_toast_timer = setTimeout(() => (g_toast_msg = ''), 2800)
+    push_toast(msg)
   }
 
   // 현재 선택된 고객의 얼굴형/피부톤 기준으로 추천 3개를 뽑는다.
@@ -340,7 +336,6 @@
   }
 
   let g_submit_loading = $state(false)
-  let g_submit_error = $state('')
 
   /**
    * 3장 캡쳐된 현재 피팅을 API로 저장. Presigned URL 발급 → S3 업로드 → 백엔드 확정
@@ -348,7 +343,6 @@
   async function on_click_save_fitting() {
     if (!g_can_save || g_submit_loading) return
     g_submit_loading = true
-    g_submit_error = ''
     try {
       const local_visit_no = $selected_visit_obj?.visit_no
       const glasses_info = g_glasses_arr.find((g) => g.id === g_selected_id)
@@ -450,7 +444,7 @@
 
       clear_capture_slot_arr()
     } catch (local_err) {
-      g_submit_error = local_err instanceof Error ? local_err.message : '저장에 실패했습니다.'
+      push_error_toast(local_err instanceof Error ? local_err.message : '저장에 실패했습니다.')
     } finally {
       g_submit_loading = false
     }
@@ -844,10 +838,6 @@
           </div>
         {/if}
 
-        {#if g_submit_error}
-          <p class="mb-2 text-[10px] font-bold text-red-500" role="alert">{g_submit_error}</p>
-        {/if}
-
         <p class="mb-1.5 text-center text-[10px] font-semibold text-slate-500">
           촬영 완료 후 피팅 결과를 저장하세요.
         </p>
@@ -951,21 +941,6 @@
       </div>
     </div>
   {/if}
-{/if}
-
-<!-- 토스트 알림 -->
-{#if g_toast_msg}
-  <div
-    class="fixed bottom-8 left-1/2 z-[60] -translate-x-1/2"
-    in:fly={{ y: 12, duration: 250 }}
-    out:fade={{ duration: 200 }}
-  >
-    <div
-      class="flex items-center gap-3 rounded-2xl bg-zinc-900/95 px-5 py-3.5 shadow-2xl backdrop-blur-md"
-    >
-      <span class="text-sm font-bold text-white">{g_toast_msg}</span>
-    </div>
-  </div>
 {/if}
 
 <style>

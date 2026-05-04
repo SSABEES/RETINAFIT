@@ -5,8 +5,6 @@
     ref_selected_glasses_no,
     ref_glass_submit_loading,
     ref_glass_delete_loading,
-    ref_glass_saved_message,
-    ref_glass_error_message,
     ref_glass_form_obj,
     ref_glass_img_file_obj,
     ref_glass_3d_file_obj,
@@ -69,22 +67,6 @@
       </button>
     </div>
   </div>
-
-  {#if ref_glass_saved_message}
-    <p
-      class="rounded-xl border border-[#D6BBFB] bg-[#F8F1FF] px-5 py-3 text-left text-base font-bold text-[#6B21A8]"
-    >
-      {ref_glass_saved_message}
-    </p>
-  {/if}
-
-  {#if ref_glass_error_message}
-    <p
-      class="rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 text-left text-base font-bold text-rose-700"
-    >
-      {ref_glass_error_message}
-    </p>
-  {/if}
 
   <section
     class="rounded-2xl border border-slate-200 bg-white px-8 py-5 shadow-sm shadow-slate-200/50"

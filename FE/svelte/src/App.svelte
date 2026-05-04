@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { Route, Router } from '@maks11060/svelte5-router'
   import { routes } from '@/config/routes'
+  import GlobalToast from '@/components/toast/global_toast.svelte'
 
   let url = ''
   let ref_shell_el
@@ -38,3 +39,5 @@
     </div>
   </div>
 </div>
+
+<GlobalToast />

@@ -12,6 +12,7 @@
     upload_admin_glasses_file,
     update_admin_glasses,
   } from '@/lib/api/admin_glasses'
+  import { push_error_toast, push_success_toast } from '@/lib/stores/toast'
 
   /**
    * @typedef {{ label: string, value: string }} GlassDropdownOption
@@ -199,8 +200,6 @@
     }
   }
 
-  let ref_glass_saved_message = $state('')
-  let ref_glass_error_message = $state('')
   let ref_glass_list_loading = $state(false)
   let ref_glass_submit_loading = $state(false)
   let ref_glass_delete_loading = $state(false)
@@ -266,7 +265,6 @@
   // 관리자 안경 목록을 새로 불러와 최신순으로 정렬한다.
   async function on_load_admin_glass_arr() {
     ref_glass_list_loading = true
-    ref_glass_error_message = ''
 
     try {
       const local_glass_arr = await get_admin_glasses_arr()
@@ -279,8 +277,9 @@
         )
     } catch (local_error) {
       ref_glass_list_arr = []
-      ref_glass_error_message =
-        local_error instanceof Error ? local_error.message : '안경 목록을 불러오지 못했습니다.'
+      push_error_toast(
+        local_error instanceof Error ? local_error.message : '안경 목록을 불러오지 못했습니다.',
+      )
     } finally {
       ref_glass_list_loading = false
     }
@@ -294,8 +293,6 @@
     ref_glass_img_file_obj = null
     ref_glass_3d_file_obj = null
     ref_glass_preview_override_url = ''
-    ref_glass_saved_message = ''
-    ref_glass_error_message = ''
   }
 
   // 안경 추가 화면을 연다.
@@ -312,8 +309,6 @@
     ref_glass_img_file_obj = null
     ref_glass_3d_file_obj = null
     ref_glass_preview_override_url = ''
-    ref_glass_saved_message = ''
-    ref_glass_error_message = ''
   }
 
   // 지정된 드롭다운의 열림/닫힘 상태를 토글한다.
@@ -424,8 +419,6 @@
           : String(glass_obj.temple_length),
       fit_note: glass_obj.fit_note ?? '',
     }
-    ref_glass_saved_message = ''
-    ref_glass_error_message = ''
     void ensure_glass_editor_component()
   }
 
@@ -434,14 +427,11 @@
     local_event.preventDefault()
 
     if (!ref_glass_form_obj.glasses_img_url.trim() && !ref_glass_img_file_obj) {
-      ref_glass_error_message = '대표 이미지를 선택해 주세요.'
-      ref_glass_saved_message = ''
+      push_error_toast('대표 이미지를 선택해 주세요.')
       return
     }
 
     ref_glass_submit_loading = true
-    ref_glass_error_message = ''
-    ref_glass_saved_message = ''
 
     try {
       const local_uploaded_asset_obj = await upload_glass_asset_if_needed()
@@ -458,11 +448,11 @@
           glasses_no: ref_selected_glasses_no,
           ...local_glass_payload_obj,
         })
-        ref_glass_saved_message = '안경 정보를 수정했습니다.'
+        push_success_toast('안경 정보를 수정했습니다.')
       } else {
         const local_created_glass_obj = await create_admin_glasses(local_glass_payload_obj)
         ref_selected_glasses_no = local_created_glass_obj?.glasses_no ?? null
-        ref_glass_saved_message = '안경 정보를 등록했습니다.'
+        push_success_toast('안경 정보를 등록했습니다.')
       }
 
       ref_glass_img_file_obj = null
@@ -474,8 +464,9 @@
         on_click_close_glass_editor()
       }
     } catch (local_error) {
-      ref_glass_error_message =
-        local_error instanceof Error ? local_error.message : '안경 저장에 실패했습니다.'
+      push_error_toast(
+        local_error instanceof Error ? local_error.message : '안경 저장에 실패했습니다.',
+      )
     } finally {
       ref_glass_submit_loading = false
     }
@@ -486,16 +477,15 @@
     if (!ref_selected_glasses_no) return
 
     ref_glass_delete_loading = true
-    ref_glass_error_message = ''
-    ref_glass_saved_message = ''
 
     try {
       await delete_admin_glasses({ glasses_no: ref_selected_glasses_no })
       await on_load_admin_glass_arr()
       on_click_close_glass_editor()
     } catch (local_error) {
-      ref_glass_error_message =
-        local_error instanceof Error ? local_error.message : '안경 비활성화에 실패했습니다.'
+      push_error_toast(
+        local_error instanceof Error ? local_error.message : '안경 비활성화에 실패했습니다.',
+      )
     } finally {
       ref_glass_delete_loading = false
     }
@@ -513,14 +503,6 @@
           총 {ref_glass_list_arr.length}개
         </span>
       </div>
-
-      {#if ref_glass_error_message}
-        <p
-          class="rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 text-left text-sm font-bold text-rose-700"
-        >
-          {ref_glass_error_message}
-        </p>
-      {/if}
 
       <section
         class="rounded-2xl border border-slate-200 bg-white px-8 py-5 shadow-sm shadow-slate-200/50"
@@ -871,8 +853,6 @@
         {ref_selected_glasses_no}
         {ref_glass_submit_loading}
         {ref_glass_delete_loading}
-        {ref_glass_saved_message}
-        {ref_glass_error_message}
         {ref_glass_form_obj}
         {ref_glass_img_file_obj}
         {ref_glass_3d_file_obj}
