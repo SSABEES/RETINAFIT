@@ -153,7 +153,13 @@
 
       <div class="mx-auto mt-2 grid h-full min-h-0 w-full max-w-[760px] grid-cols-[0.98fr_0.92fr] gap-4 px-1">
         <section class="flex min-h-0 items-center justify-center">
-          <div class="flex h-full max-h-[458px] w-full max-w-[348px] overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
+          <!--
+            aspect-[3/4] 로 컨테이너 자체 모양 고정 — 우측 article 의 content 길이에 따라 grid row
+            height 가 변하면 좌측도 h-full 따라 같이 변하던 버그 (front view 는 귀 높이 section
+            추가로 article 이 더 길어 좌측이 크게 보였고, profile view 는 article 짧아져 좌측
+            도 작게 보임). aspect-[3/4] 는 width 기반 → grid row 와 무관하게 동일 사이즈 유지.
+          -->
+          <div class="flex aspect-[3/4] max-h-full w-full max-w-[348px] overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
             <MeasureCanvas
               capture={g_selected_capture}
               items_arr={g_items_arr}
