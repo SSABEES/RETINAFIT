@@ -38,20 +38,22 @@
 
 import * as ort from 'onnxruntime-web'
 
-// ort 워커/.wasm 자산 위치를 명시. predev/prebuild 의 sync_ort_assets.mjs 가
-// node_modules/onnxruntime-web/dist 에서 public/ort 로 복사한 파일을 가리킨다.
-//
-// 명시 없이 ort 의 import.meta.url 자동 해석에 맡기면 Vite/Rolldown 의 prod 빌드가 ort 의
-// 워커 동적 import 를 main 번들에 인라인해버린다 (별도 .mjs 로 emit 안 됨). 그 결과 ort 가
-// 워커를 띄우면 main 번들이 워커 컨텍스트에서 실행되며 Svelte 런타임 등의 document 참조에서
-// "ReferenceError: document is not defined" 로 즉사 → "no available backend found" 로 연쇄.
-// wasmPaths 를 박으면 ort 가 같은 origin 의 정적 자산을 직접 fetch 해 워커 init 가 깔끔.
+// WASM 자산(.wasm 본체 + 멀티쓰레드 pthread .mjs) 위치를 명시. predev/prebuild 의
+// sync_ort_assets.mjs 가 node_modules/onnxruntime-web/dist 에서 public/ort 로 복사한 파일.
+// 명시 없이 import.meta.url 자동 해석에 맡기면 Vite 가 hash 처리한 자산 경로(/assets/)로 emit
+// 되어 동작은 하지만, 명시하면 운영 nginx 설정 / CDN 캐시 / 디버깅 시 안정적인 고정 경로.
+// 멀티쓰레드 활성 (crossOriginIsolated=true) 시 ort 가 이 경로에서 pthread 워커 .mjs 도 fetch.
 ort.env.wasm.wasmPaths = `${import.meta.env.BASE_URL}ort/`
 
-// proxy 워커 활성화: 모든 세션 작업 (다운로드 / WASM 컴파일 / 추론) 을 전용 Web Worker 에서 실행해
-// 메인 스레드 freeze 를 제거한다. 카메라 video, MediaPipe 검출, canvas rAF 가 추론 중에도 안 끊김.
-// 호출자 (predict_pose / get_session / warm_session_from_bytes) 코드는 그대로 — ort 가 내부에서 메시지 패싱.
-ort.env.wasm.proxy = true
+// proxy 워커는 비활성. ort 의 proxy=true 는 자기 자신을 워커로 다시 띄우는 구조라 워커 URL 이
+// ort 모듈의 import.meta.url 로 하드코딩됨. Vite/Rolldown 가 prod 빌드에서 ort 를 main 번들에
+// 인라인하면 워커가 main 번들을 로드 → Svelte 런타임의 document 접근에서 즉사 → backend init
+// 실패. ort API 가 proxyUrl 같은 override 를 제공하지 않아 우회 불가.
+//
+// Trade-off: 메인 스레드에서 WASM 컴파일/추론 실행. 3Hz 추론 기준 frame 당 ~100-300ms 점유.
+// 호스트 nginx 가 COOP/COEP 발급해 crossOriginIsolated 이 true 가 되면 ort 가 WASM 내부에서
+// pthread 멀티쓰레드를 가동해 점유 시간이 코어 수만큼 단축됨 → 실사용 체감 거의 없어질 것.
+ort.env.wasm.proxy = false
 
 // multi-threaded WASM 활성화 조건: SharedArrayBuffer 가 가용해야 하며, 그러려면 페이지가
 // crossOriginIsolated 상태여야 한다 — vite.config.js 의 server.headers (COOP same-origin +
