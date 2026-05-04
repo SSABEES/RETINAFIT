@@ -116,8 +116,23 @@
     Math.min(100, Math.round((g_stable_count / STABILITY_FRAMES) * 100)),
   )
 
-  // 정면 포즈 + 자동 모드일 때만 안정화 기반 자동 캡쳐를 작동시킨다.
-  const g_is_auto_capture = $derived(pose_target === 'front' && capture_mode === 'auto')
+  // 정면 / 측면 모두 capture_mode==='auto' 일 때 자동 발사 활성화. pose_target 별 stable 계산은
+  // 각 파이프라인이 담당하고, 통합 게이트(g_can_auto_fire) 가 분기.
+  const g_is_auto_capture = $derived(capture_mode === 'auto')
+
+  // 자동 발사 단일 게이트. 정면은 안정화 기반(face dimension std), 측면은 yaw 기반(composable).
+  const g_can_auto_fire = $derived.by(() => {
+    if (!active || !g_is_auto_capture || g_already_dispatched) return false
+    if (pose_target === 'front') {
+      return (
+        g_face_detected &&
+        g_complete_obj.is_complete &&
+        !!g_frontal_obj?.is_frontal &&
+        g_is_stable
+      )
+    }
+    return profile_pose.is_stable
+  })
   // 정면 포즈일 때만 check_frontal 결과를 UI/판정에 반영한다.
   const g_should_check_frontal = $derived(pose_target === 'front')
 
@@ -174,27 +189,26 @@
     }
   })
 
+  // 자동 발사 통합 — 정면/측면 분기는 g_can_auto_fire 안에서 끝남.
   $effect(() => {
-    if (!active || !g_is_auto_capture || g_already_dispatched) return
-
-    const can_measure = g_face_detected && g_complete_obj.is_complete && !!g_frontal_obj?.is_frontal
-
-    if (can_measure && g_is_stable) {
-      if (g_stability_audio_stage !== 'final') {
-        g_stability_audio_stage = 'final'
-        void run_auto_capture_sequence()
+    if (!g_can_auto_fire) {
+      if (g_capture_timeout !== null) {
+        clearTimeout(g_capture_timeout)
+        g_capture_timeout = null
       }
+      g_stability_audio_stage = 'idle'
       return
     }
 
-    if (g_capture_timeout !== null) {
-      clearTimeout(g_capture_timeout)
-      g_capture_timeout = null
+    if (g_stability_audio_stage !== 'final') {
+      g_stability_audio_stage = 'final'
+      void run_auto_capture_sequence()
     }
-    g_stability_audio_stage = 'idle'
   })
 
   $effect(() => {
+    // 측면 단계의 방향 안내는 텍스트만 — 음성은 정면 단계에서만 head_*.
+    if (pose_target !== 'front') return
     if (!active || !g_is_auto_capture || g_already_dispatched || g_stability_audio_stage !== 'idle') {
       return
     }
@@ -328,8 +342,10 @@
       return
     }
 
-    const avg = get_average()
-    await trigger_capture_internal(avg)
+    // 측면은 MediaPipe 측정값 없음 → measurements_obj=null. capture_shell.on_capture 가 이미 null
+    // 허용 (현행 manual 측면 캡처도 동일 경로).
+    const meas = pose_target === 'front' ? get_average() : null
+    await trigger_capture_internal(meas)
   }
 
   /**
