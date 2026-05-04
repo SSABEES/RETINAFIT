@@ -12,6 +12,7 @@
   } from '@/lib/mediapipe/face_landmarker.js'
   import { compute_measurements, compute_measurement_points } from '@/lib/mediapipe/measurements.js'
   import { video_to_blob } from '@/lib/capture/capture_utils.js'
+  import { compute_center_square_bbox } from '@/lib/sixdrepnet360/inference.js'
   // 측면(left_profile/right_profile) 자세 감지 composable. pose_target 에 따라 tick() 이
   // no-op 이거나 6D 추론 발사. 정면 단계엔 무관 — 인스턴스만 만들어두고 사용 안 함.
   import { create_profile_pose_detector } from '@/lib/capture/use_profile_pose.svelte.js'
@@ -430,31 +431,42 @@
     g_frame_counter++
 
     if (g_frame_counter % FRAME_SKIP === 0) {
-      const result = detect_from_video(g_landmarker, ref_this_video_el)
-      g_last_detection = result
-      if (result?.faceLandmarks?.length) {
-        g_face_detected = true
-        g_complete_obj = check_face_completeness(result)
-        g_frontal_obj = check_frontal(result)
-        const m = compute_measurements(
-          result.faceLandmarks[0],
-          ref_this_video_el.videoWidth,
-          ref_this_video_el.videoHeight,
-        )
-        if (m) g_measurements_obj = m
-        // 정면 포즈에서만 안정화 진행. 프로필 포즈에서는 버퍼 유지할 필요가 없음.
-        if (
-          g_should_check_frontal &&
-          m &&
-          g_complete_obj.is_complete &&
-          g_frontal_obj?.is_frontal
-        ) {
-          update_stability(m)
+      if (pose_target === 'front') {
+        // ───── 정면: MediaPipe 검출 + frontal/completeness/안정성 ─────
+        const result = detect_from_video(g_landmarker, ref_this_video_el)
+        g_last_detection = result
+        if (result?.faceLandmarks?.length) {
+          g_face_detected = true
+          g_complete_obj = check_face_completeness(result)
+          g_frontal_obj = check_frontal(result)
+          const m = compute_measurements(
+            result.faceLandmarks[0],
+            ref_this_video_el.videoWidth,
+            ref_this_video_el.videoHeight,
+          )
+          if (m) g_measurements_obj = m
+          if (
+            g_should_check_frontal &&
+            m &&
+            g_complete_obj.is_complete &&
+            g_frontal_obj?.is_frontal
+          ) {
+            update_stability(m)
+          } else {
+            g_buffer_arr = []
+            g_stable_count = 0
+          }
         } else {
+          g_face_detected = false
+          g_frontal_obj = null
+          g_complete_obj = { is_complete: true, reason: null }
+          g_measurements_obj = null
           g_buffer_arr = []
           g_stable_count = 0
         }
       } else {
+        // ───── 측면: MediaPipe 미가동. 정면 전용 상태 비움 ─────
+        g_last_detection = null
         g_face_detected = false
         g_frontal_obj = null
         g_complete_obj = { is_complete: true, reason: null }
@@ -464,6 +476,11 @@
       }
     }
 
+    // 측면 단계의 6D 추론 — 매 rAF 호출, 내부 throttle (ORT_FRAME_SKIP) 로 ~2.4Hz 자동 제한
+    if (pose_target !== 'front') {
+      void profile_pose.tick()
+    }
+
     sync_canvas_size()
     if (show_overlay && ref_this_canvas_el) {
       const ctx = ref_this_canvas_el.getContext('2d')
@@ -471,15 +488,13 @@
         ctx.clearRect(0, 0, ref_this_canvas_el.width, ref_this_canvas_el.height)
       }
       if (is_landmark_visible) {
-        draw_face_mesh(ref_this_canvas_el, g_last_detection)
+        if (pose_target === 'front') {
+          draw_face_mesh(ref_this_canvas_el, g_last_detection)
+        } else {
+          draw_profile_bbox()
+        }
       }
       draw_guide_ellipse()
-    }
-
-    if (false && g_is_auto_capture && g_is_stable && !g_already_dispatched) {
-      // 정면 + 자동 모드일 때만 안정화 후 자동 캡쳐. measurement 는 평균값을 사용.
-      const avg = get_average()
-      void trigger_capture_internal(avg)
     }
 
     g_raf_id = requestAnimationFrame(on_loop_frame)
@@ -630,6 +645,26 @@
     ctx.bezierCurveTo(cx - cheek_x, cheek_y - k_upper_vert, cx - k_upper_out, top_y, cx, top_y)
     ctx.closePath()
     ctx.stroke()
+    ctx.restore()
+  }
+
+  // 측면 단계의 분석 영역(중앙 정사각형 crop) 을 점선 사각으로 그린다. is_landmark_visible 토글로
+  // 켜고 끔. 정면의 face_mesh 와 같은 "가이드 시각화" 역할.
+  function draw_profile_bbox() {
+    if (!ref_this_canvas_el || !ref_this_video_el) return
+    if (ref_this_video_el.videoWidth === 0) return
+    const ctx = ref_this_canvas_el.getContext('2d')
+    if (!ctx) return
+
+    const bbox = compute_center_square_bbox(ref_this_video_el)
+    const w = ref_this_canvas_el.width
+    const h = ref_this_canvas_el.height
+
+    ctx.save()
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+    ctx.lineWidth = 2
+    ctx.setLineDash([6, 4])
+    ctx.strokeRect(bbox.x * w, bbox.y * h, bbox.w * w, bbox.h * h)
     ctx.restore()
   }
 
