@@ -212,6 +212,13 @@
 
   // 자동 발사 통합 — 정면/측면 분기는 g_can_auto_fire 안에서 끝남.
   $effect(() => {
+    // stage 가 'final' 이면 시퀀스 진행 중 — stability 플리커링에 반응 안 함.
+    // 측면 단계의 yaw 기반 안정성은 추론 노이즈로 단일 프레임만 영역 이탈해도 _stable_count -=5 가
+    // 일어나 is_stable 이 잠깐 false → 다시 true 가 됨. 이 토글에 effect 가 반응해 stage 를
+    // 'idle' → 'final' 로 다시 세팅하면 run_auto_capture_sequence 가 재호출 + 직전 sequence 가
+    // 토큰 불일치로 abort 되어 캡처 자체가 발사되지 않음. 시퀀스는 reset() / dispatch 으로만 재무장.
+    if (g_stability_audio_stage === 'final') return
+
     if (!g_can_auto_fire) {
       if (g_capture_timeout !== null) {
         clearTimeout(g_capture_timeout)
@@ -221,10 +228,8 @@
       return
     }
 
-    if (g_stability_audio_stage !== 'final') {
-      g_stability_audio_stage = 'final'
-      void run_auto_capture_sequence()
-    }
+    g_stability_audio_stage = 'final'
+    void run_auto_capture_sequence()
   })
 
   $effect(() => {
