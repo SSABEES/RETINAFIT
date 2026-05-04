@@ -10,7 +10,7 @@ export const PROFILE_CONSTANTS = Object.freeze({
   TARGET_DEG: 90,              // ±90° 가 측면 정자세
   TOLERANCE: 10,               // 영역 폭 ±10°
   YAW_STD_THR: 5,              // 안정성 표준편차 임계 (도)
-  STABILITY_FRAMES: 30,        // 30 frames @ 12Hz ≈ 2.5초 hold
+  STABILITY_FRAMES: 12,        // 12 frames @ 12Hz ≈ 1초 hold (사용자 피드백 — 2.5초가 너무 길다)
   YAW_BUFFER_SIZE: 10,         // 표준편차 계산용 슬라이딩 윈도우
 })
 

@@ -48,6 +48,7 @@
   // 세션에서 current_step 이 바뀌면 camera_view 를 재장전해 다음 스텝을 받아들이게 한다.
   $effect(() => {
     const _step_id = g_current_step?.step_id
+    console.log('[capture_shell] step_id effect fired', { step_id: _step_id })
     if (_step_id && ref_this_camera) {
       ref_this_camera.reset()
     }
@@ -67,6 +68,12 @@
    * @param {CaptureResult} result
    */
   async function on_capture(result) {
+    console.log('[capture_shell] on_capture received', {
+      step_id: g_current_step?.step_id,
+      width: result.width,
+      height: result.height,
+      has_meas: !!result.measurements_obj,
+    })
     g_is_capturing = false
     if (!g_current_step) return
 
