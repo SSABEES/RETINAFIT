@@ -64,6 +64,8 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el }) 
       if (snapshot_id !== _reset_id) return       // 카메라 재시작 후 stale 결과 폐기
 
       const { yaw } = rotation_matrix_to_euler(result.rotation_matrix)
+      const was_session_ready = _session_ready
+      const prev_count = _stable_count
 
       _session_ready = true
       _last_yaw = yaw
@@ -78,6 +80,19 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el }) 
       })
       _stable_count = next.stable_count
       _yaw_buffer = next.yaw_buffer
+
+      // 진단 로그: 첫 추론 + 안정성 카운트 변화 추적. (매 tick 로그하면 ~2.4Hz 라 노이즈 큼.)
+      if (!was_session_ready) {
+        console.log('[profile_pose] first inference ready', { yaw: yaw.toFixed(1), target_deg })
+      }
+      if (next.stable_count !== prev_count) {
+        console.log('[profile_pose] count change', {
+          yaw: yaw.toFixed(1),
+          target: target_deg,
+          stable: next.stable_count,
+          max: PROFILE_CONSTANTS.STABILITY_FRAMES,
+        })
+      }
     } catch (err) {
       console.error('[profile_pose] tick failed', err)
       // silent — 다음 tick 자연 재시도. stable_count 변경 없음 → 자동 회복.
