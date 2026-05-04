@@ -1,7 +1,7 @@
 from app.core.config import settings
-from app.rag.llm.base import LLMProvider
-from app.rag.llm.dummy import DummyLLMProvider
-from app.rag.llm.gemini_client import GeminiProvider
+from app.llm.base import LLMProvider
+from app.llm.dummy import DummyLLMProvider
+from app.llm.gemini_client import GeminiProvider
 
 
 def build_llm_provider() -> LLMProvider:

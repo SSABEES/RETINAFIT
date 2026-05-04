@@ -4,9 +4,7 @@ from __future__ import annotations
 class DummyLLMProvider:
     """Echo-style LLM stub for local dev / tests.
 
-    Produces a deterministic, structured response that surfaces the
-    retrieved context so we can verify the pipeline end-to-end without
-    calling an external model.
+    프롬프트를 그대로 에코해서 파이프라인 동작을 검증할 때 사용.
     """
 
     def generate(
