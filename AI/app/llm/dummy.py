@@ -12,9 +12,10 @@ class DummyLLMProvider:
         prompt: str,
         *,
         system: str | None = None,
-        temperature: float | None = None,
+        temperature: float | None = None,  # dummy 는 무시 (실제 LLM 호출이 없으므로)
         max_tokens: int | None = None,
     ) -> str:
+        # 프롬프트가 너무 길면 로그가 폭발하므로 적당히 자른다 — 테스트 어설션도 짧은 길이를 가정.
         header = "[dummy-llm]"
         sections = []
         if system:
