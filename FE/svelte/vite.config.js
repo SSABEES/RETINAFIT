@@ -3,13 +3,12 @@ import tailwindcss from '@tailwindcss/vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { fileURLToPath, URL } from 'node:url'
 
-// MediaPipe 자산은 public/mediapipe/ 에 정적으로 둔다.
-//   - models/ : .task / .tflite (git 커밋)
-//   - wasm/   : npm scripts 의 predev/prebuild 가 node_modules 에서 복사 (git 미커밋)
-// onnxruntime-web 의 워커/.wasm 은 public/ 에 두지 않는다 — Vite 가 public/ 자산의
-// JS-side import() 를 금지하기 때문. 대신 onnxruntime-web 의 자체 import.meta.url 해석에
-// 맡기고 (optimizeDeps.exclude 설정), Vite 가 dist/assets/ 로 자동 emit 한다.
-// vite 는 public/ 내용을 dev 자동 서빙 + 빌드 시 dist/ 로 복사.
+// 정적 자산 호스팅 정책:
+//   - MediaPipe: public/mediapipe/  (models/ 는 git 커밋, wasm/ 는 predev/prebuild 가 동기화)
+//   - onnxruntime-web: public/ort/  (predev/prebuild 의 sync_ort_assets.mjs 가 동기화)
+//
+// vite 는 public/ 내용을 dev 자동 서빙 + 빌드 시 dist/ 로 복사. 두 라이브러리 모두 워커/wasm
+// 자산 경로를 명시(`wasmPaths` / `FilesetResolver.forVisionTasks`) 해 같은 origin 으로 fetch.
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [tailwindcss(), svelte()],
@@ -18,11 +17,26 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  // onnxruntime-web 은 런타임에 워커 .mjs 를 await import() 로 동적 로드한다.
-  // Vite 가 pre-bundle 하면 그 import 호출이 `?import` 쿼리로 재작성되어 public/ 정적 자산 페치가 깨진다.
-  // exclude 하면 ort 의 원본 dynamic import 가 그대로 통과되어 wasmPaths 가 가리키는 same-origin URL 을 정상 페치.
+  // dev 의 esbuild pre-bundle 단계에서 ort 의 dynamic import 를 그대로 통과시킨다 (`?import`
+  // 쿼리로 재작성되면 wasmPaths 의 same-origin fetch 가 깨짐). prod 번들링(아래 manualChunks)엔
+  // 영향 없음 — 이건 dev 전용 옵션.
   optimizeDeps: {
     exclude: ['onnxruntime-web'],
+  },
+  // ort 를 main 번들에서 분리해 별도 chunk 로 emit. 분리 안 하면 prod 빌드에서 ort 코드가 main
+  // 번들에 인라인되고, ort 의 self-referencing 워커 (proxy 워커 = `new Worker(import.meta.url)`)
+  // 가 main 번들 URL 을 워커로 띄움 → Svelte 런타임의 document 접근에서 즉사 → backend init 실패.
+  // 분리하면 ort 코드만 담긴 chunk 가 워커로 로드되어 dev 의 모듈 단위 격리와 동일한 효과.
+  // 자기참조 워커를 쓰는 라이브러리(comlink, Monaco editor 등)에 공통적으로 쓰이는 정석 패턴.
+  // Rolldown 은 manualChunks 를 함수 형태로 받음 (객체 형태 미지원).
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/onnxruntime-web')) return 'ort'
+        },
+      },
+    },
   },
   // crossOriginIsolated 활성화 — onnxruntime-web 이 SharedArrayBuffer 를 쓸 수 있어야
   // multi-threaded WASM (ort.env.wasm.numThreads > 1) 로 6DRepNet360 추론이 코어 수만큼 병렬화.

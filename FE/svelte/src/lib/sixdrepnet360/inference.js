@@ -38,17 +38,19 @@
 
 import * as ort from 'onnxruntime-web'
 
-// wasmPaths 를 명시 설정하지 않으면 onnxruntime-web 은 자신을 import 한 모듈의 import.meta.url
-// 기준으로 워커/.wasm 을 자동 해석한다. Vite 는 이 dynamic import 를 `?url` 자산으로 처리해
-// dist/assets/ 에 올바르게 emit 한다 — public/ 에서 직접 서빙하면 dev 모드에서 Vite 가 `?import`
-// 쿼리를 붙여 module 트랜스폼을 시도하다 깨지는 문제를 피할 수 있다.
-//
-// 핵심 전제: vite.config.js 의 optimizeDeps.exclude 에 'onnxruntime-web' 가 포함되어 있어
-// esbuild pre-bundle 단계에서 onnxruntime-web 의 dynamic import 가 변형되지 않는다.
+// WASM 자산(.wasm 본체 + 멀티쓰레드 pthread .mjs) 위치를 명시. predev/prebuild 의
+// sync_ort_assets.mjs 가 node_modules/onnxruntime-web/dist 에서 public/ort 로 복사한 파일.
+// 명시 없이 import.meta.url 자동 해석에 맡기면 Vite 가 hash 처리한 자산 경로(/assets/)로 emit
+// 되어 동작은 하지만, 명시하면 운영 nginx 설정 / CDN 캐시 / 디버깅 시 안정적인 고정 경로.
+// 멀티쓰레드 활성 (crossOriginIsolated=true) 시 ort 가 이 경로에서 pthread 워커 .mjs 도 fetch.
+ort.env.wasm.wasmPaths = `${import.meta.env.BASE_URL}ort/`
 
 // proxy 워커 활성화: 모든 세션 작업 (다운로드 / WASM 컴파일 / 추론) 을 전용 Web Worker 에서 실행해
-// 메인 스레드 freeze 를 제거한다. 카메라 video, MediaPipe 검출, canvas rAF 가 추론 중에도 안 끊김.
-// 호출자 (predict_pose / get_session / warm_session_from_bytes) 코드는 그대로 — ort 가 내부에서 메시지 패싱.
+// 메인 스레드 freeze 를 제거. 카메라 video, MediaPipe 검출, canvas rAF 가 추론 중에도 안 끊김.
+//
+// 동작 전제: vite.config.js 의 manualChunks 가 onnxruntime-web 을 별도 chunk 로 분리해야 함.
+// 분리 안 하면 ort 가 main 번들로 인라인되고 self-referencing 워커 (`new Worker(import.meta.url)`)
+// 가 main 번들 전체를 워커로 띄워 Svelte 런타임의 document 접근에서 즉사함.
 ort.env.wasm.proxy = true
 
 // multi-threaded WASM 활성화 조건: SharedArrayBuffer 가 가용해야 하며, 그러려면 페이지가
