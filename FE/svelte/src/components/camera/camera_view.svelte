@@ -102,7 +102,6 @@
       // 가드: 이미 dispatch 됐거나 sequence 진행 중이면 중복 호출 방지.
       if (g_already_dispatched) return
       if (g_stability_audio_stage === 'final') return
-      console.log('[auto-capture] direct trigger via on_stable_reached')
       g_stability_audio_stage = 'final'
       void run_auto_capture_sequence()
     },
@@ -238,7 +237,6 @@
       return
     }
 
-    console.log('[auto-capture] sequence start', { pose_target, capture_mode })
     g_stability_audio_stage = 'final'
     void run_auto_capture_sequence()
   })
@@ -354,7 +352,6 @@
 
   async function run_auto_capture_sequence() {
     const my_token = ++g_capture_sequence_token
-    console.log('[auto-capture] run_auto_capture_sequence', { my_token, pose_target })
 
     // 정면: 카운트다운(3-2-1-click) 음성 시퀀스 후 캡처 — 사용자가 곧 찍힌다는 신호 받고 표정 정렬.
     // 측면: 카운트다운 생략하고 즉시 캡처 — 안정화 자체로 ~1초 이미 대기했고, 측면 자세는 표정
@@ -383,20 +380,12 @@
       !g_is_auto_capture ||
       g_already_dispatched
     ) {
-      console.log('[auto-capture] sequence aborted at final gate', {
-        my_token,
-        current_token: g_capture_sequence_token,
-        active,
-        g_is_auto_capture,
-        g_already_dispatched,
-      })
       return
     }
 
     // 측면은 MediaPipe 측정값 없음 → measurements_obj=null. capture_shell.on_capture 가 이미 null
     // 허용 (현행 manual 측면 캡처도 동일 경로).
     const meas = pose_target === 'front' ? get_average() : null
-    console.log('[auto-capture] triggering capture', { pose_target, has_meas: !!meas })
     await trigger_capture_internal(meas)
   }
 
@@ -574,26 +563,15 @@
    * @param {FaceMeasurements | null} measurements_obj
    */
   async function trigger_capture_internal(measurements_obj) {
-    if (g_already_dispatched) {
-      console.log('[capture] skip — already dispatched')
-      return
-    }
-    if (!ref_this_video_el || !g_stream) {
-      console.log('[capture] skip — no video/stream', {
-        has_video: !!ref_this_video_el,
-        has_stream: !!g_stream,
-      })
-      return
-    }
+    if (g_already_dispatched) return
+    if (!ref_this_video_el || !g_stream) return
     if (g_capture_timeout !== null) {
       clearTimeout(g_capture_timeout)
       g_capture_timeout = null
     }
     g_already_dispatched = true
-    console.log('[capture] dispatched, capturing blob…')
     try {
       const { blob, width, height } = await video_to_blob(ref_this_video_el)
-      console.log('[capture] blob ready', { width, height, size: blob.size })
       const object_url = URL.createObjectURL(blob)
       // 캡쳐 시점의 랜드마크 쌍을 픽셀 공간 좌표로 변환. 랜드마크가 없으면 null.
       const landmarks = g_last_detection?.faceLandmarks?.[0] ?? null

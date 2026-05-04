@@ -68,7 +68,6 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
       if (snapshot_id !== _reset_id) return       // 카메라 재시작 후 stale 결과 폐기
 
       const { yaw } = rotation_matrix_to_euler(result.rotation_matrix)
-      const was_session_ready = _session_ready
       const prev_count = _stable_count
 
       _session_ready = true
@@ -85,19 +84,6 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
       _stable_count = next.stable_count
       _yaw_buffer = next.yaw_buffer
 
-      // 진단 로그: 첫 추론 + 안정성 카운트 변화 추적. (매 tick 로그하면 ~2.4Hz 라 노이즈 큼.)
-      if (!was_session_ready) {
-        console.log('[profile_pose] first inference ready', { yaw: yaw.toFixed(1), target_deg })
-      }
-      if (next.stable_count !== prev_count) {
-        console.log('[profile_pose] count change', {
-          yaw: yaw.toFixed(1),
-          target: target_deg,
-          stable: next.stable_count,
-          max: PROFILE_CONSTANTS.STABILITY_FRAMES,
-        })
-      }
-
       // max 도달 transition (prev<max → next==max) 시 콜백 즉시 호출. Svelte 5 cross-module
       // getter reactivity 가 가끔 propagation 누락하는 이슈 회피 — rAF 안에서 직접 호출.
       // test.svelte 의 update_target_zone → capture_now() 패턴과 동일.
@@ -105,7 +91,6 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
         prev_count < PROFILE_CONSTANTS.STABILITY_FRAMES &&
         next.stable_count >= PROFILE_CONSTANTS.STABILITY_FRAMES
       ) {
-        console.log('[profile_pose] stable reached — invoking on_stable_reached')
         on_stable_reached?.()
       }
     } catch (err) {
