@@ -1,11 +1,25 @@
 <script>
+  import { onMount } from 'svelte'
   import { navigate } from '@maks11060/svelte5-router'
   import { History, UserPlus } from 'lucide-svelte'
   import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
   import { create_visit } from '@/lib/api/visit'
   import { selected_admin_obj, selected_opt_store_obj } from '@/lib/stores/admin'
-  import { set_selected_customer, set_selected_visit } from '@/lib/stores/customer'
+  import {
+    clear_visit_session_data,
+    set_selected_customer,
+    set_selected_visit,
+  } from '@/lib/stores/customer'
+  import { reset as reset_capture_session } from '@/lib/stores/capture_session.svelte.js'
+
+  // 방문 유형 선택 화면 진입 시점은 곧 새 방문의 시작점이므로, 직전 사용자/방문/캡쳐/피팅 데이터가
+  // 모듈 메모리나 sessionStorage 에 남아 있으면 모두 비운다. (안 비우면 capture_session.phase 가
+  // 'review' 상태로 살아남아 다음 분석 진입 시 얼굴 분석을 건너뛰고 report 로 튕긴다.)
+  onMount(() => {
+    reset_capture_session()
+    clear_visit_session_data()
+  })
 
   const GUEST_CUST_NO = 0
   const GUEST_CUST_NAME = '비회원'

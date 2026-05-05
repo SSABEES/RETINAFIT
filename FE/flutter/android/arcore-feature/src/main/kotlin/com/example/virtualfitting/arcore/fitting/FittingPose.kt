@@ -13,8 +13,8 @@ import io.github.sceneview.math.Rotation
  */
 private val defaultPreset = FaceFitPreset(
     scaleToUnits = 0.16f,
-    localPosition = Position(x = 0f, y = 0.02f, z = 0.055f),
-    localRotation = Rotation(x = 0f, y = 0f, z = 0f),
+    localPosition = Position(x = 0.074f, y = 0.093f, z = -0.074f),
+    localRotation = Rotation(x = 0f, y = 0f, z = 0.8f),
 )
 
 fun FittingConfig.toPreset(base: FaceFitPreset = defaultPreset): FaceFitPreset = FaceFitPreset(

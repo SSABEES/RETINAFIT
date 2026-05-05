@@ -89,7 +89,7 @@ private const val TAG = "FaceFittingScreen"
  * GLB 의 max extent 가 프레임 폭(X) 인지 템플 길이(Z) 인지에 따라 체감이 달라진다. 샘플 GLB
  * 에서 안경이 너무 넓어 보이면 줄이고, 좁아 보이면 늘린다.
  */
-private const val FACE_WIDTH_RATIO = 2.1f
+private const val FACE_WIDTH_RATIO = 2.04f
 
 /**
  * yaw (좌우 회전각, degrees) 가 이 값을 넘으면 반대편 temple 을 hide.

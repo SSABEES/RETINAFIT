@@ -4,6 +4,8 @@
   import { PATH } from '@/config/path'
   import { clear_login_select_data } from '@/lib/stores/admin'
   import { clear_auto_login_obj } from '@/lib/stores/auto_login'
+  import { clear_visit_session_data } from '@/lib/stores/customer'
+  import { reset as reset_capture_session } from '@/lib/stores/capture_session.svelte.js'
 
   /** @type {{
    *   onback?: (() => void) | undefined,
@@ -31,7 +33,9 @@
     }
   }
 
-  // 기본 로그아웃: 토큰/자동 로그인/로그인 선택 상태를 모두 비우고 로그인 화면으로 이동.
+  // 기본 로그아웃: 토큰/자동 로그인/로그인 선택 상태 + 방문/캡쳐 세션을 모두 비우고 로그인 화면으로 이동.
+  // capture_session 과 visit 데이터까지 비워 두지 않으면, SPA 인 특성상 모듈 상태가 살아남아 다음 로그인 사용자에게
+  // 이전 사용자의 review phase 가 그대로 노출돼 얼굴 분석을 건너뛰고 report 로 튕기는 버그가 발생한다.
   // onlogout prop이 주어지면 그 동작을 우선 사용한다.
   function handle_logout_click() {
     if (onlogout) {
@@ -39,6 +43,8 @@
       return
     }
 
+    reset_capture_session()
+    clear_visit_session_data()
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('token_no')
     clear_login_select_data()
