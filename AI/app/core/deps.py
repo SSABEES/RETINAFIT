@@ -1,65 +1,21 @@
+"""FastAPI DI provider 모음.
+
+라우터에서 `Depends(get_llm_provider)` 로 주입
+"""
 from __future__ import annotations
 
 from functools import lru_cache
 
-from app.core.config import settings
-from app.rag.embeddings import build_embedding_provider
-from app.rag.embeddings.base import EmbeddingProvider
-from app.rag.llm import build_llm_provider
-from app.rag.llm.base import LLMProvider
-from app.rag.retriever import Retriever
-from app.rag.vector_store import build_vector_store
-from app.rag.vector_store.base import VectorStore
-from app.services.rag_service import RagService
-
-
-@lru_cache(maxsize=1)
-def get_embedding_provider() -> EmbeddingProvider:
-    return build_embedding_provider()
+from app.llm import build_llm_provider
+from app.llm.base import LLMProvider
 
 
 @lru_cache(maxsize=1)
 def get_llm_provider() -> LLMProvider:
+    """LLM 클라이언트 싱글턴. 첫 요청 때만 build, 이후엔 캐시 반환."""
     return build_llm_provider()
 
 
-@lru_cache(maxsize=1)
-def get_vector_store() -> VectorStore:
-    embedder = get_embedding_provider()
-    store = build_vector_store(dimension=embedder.dimension)
-    store.load()
-    return store
-
-
-@lru_cache(maxsize=1)
-def get_retriever() -> Retriever:
-    return Retriever(
-        embedder=get_embedding_provider(),
-        store=get_vector_store(),
-        top_k=settings.RETRIEVAL_TOP_K,
-        score_threshold=settings.RETRIEVAL_SCORE_THRESHOLD,
-    )
-
-
-@lru_cache(maxsize=1)
-def get_rag_service() -> RagService:
-    return RagService(
-        retriever=get_retriever(),
-        llm=get_llm_provider(),
-        embedder=get_embedding_provider(),
-        store=get_vector_store(),
-        chunk_size=settings.CHUNK_SIZE,
-        chunk_overlap=settings.CHUNK_OVERLAP,
-    )
-
-
 def reset_caches() -> None:
-    """Clear cached singletons. Used by tests / hot-reload scenarios."""
-    for fn in (
-        get_embedding_provider,
-        get_llm_provider,
-        get_vector_store,
-        get_retriever,
-        get_rag_service,
-    ):
-        fn.cache_clear()
+    """캐싱된 싱글턴 초기화. 테스트에서 settings 갈아끼운 뒤 새 provider 로 다시 빌드할 때 사용."""
+    get_llm_provider.cache_clear()
