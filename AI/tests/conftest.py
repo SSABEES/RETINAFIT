@@ -1,6 +1,16 @@
+from __future__ import annotations
+
 import pytest
 
 
 @pytest.fixture
-def sample_image_bytes() -> bytes:
-    return b""
+def isolated_settings(monkeypatch):
+    """Reset DI caches between tests so each test gets fresh providers."""
+    from app.core import deps
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "dummy")
+
+    deps.reset_caches()
+    yield settings
+    deps.reset_caches()
