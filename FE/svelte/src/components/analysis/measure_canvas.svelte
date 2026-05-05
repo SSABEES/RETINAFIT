@@ -86,19 +86,6 @@
     window.removeEventListener('keydown', on_keydown_global)
   })
 
-  /**
-   * 측정 결과를 표시 문자열로 바꾼다.
-   * @param {MeasurementItem} item
-   * @returns {string}
-   */
-  function format_value(item) {
-    if (item.value_mm !== null && item.value_mm !== undefined) {
-      return `${item.value_mm.toFixed(1)} mm`
-    }
-
-    return `${Math.round(item.value_px ?? 0)} px`
-  }
-
   // 활성 항목만 오버레이 표시 — 측정 항목 전체를 한꺼번에 그리면 가독성/정확도 둘 다 떨어짐.
   // 사용자가 측정 리스트에서 항목을 선택하면 그 항목만 사진 위에 표시.
   const g_active_item = $derived(
@@ -159,7 +146,7 @@
           {x2}
           y2={p2.y}
           stroke="white"
-          stroke-width="9"
+          stroke-width="5"
           stroke-linecap="round"
           stroke-dasharray={dash}
           opacity="0.85"
@@ -170,36 +157,22 @@
           {x2}
           y2={p2.y}
           stroke="#F97316"
-          stroke-width="5"
+          stroke-width="2.5"
           stroke-linecap="round"
           stroke-dasharray={dash}
         />
-        <circle cx={x1} cy={p1.y} r="10" fill="#F97316" stroke="white" stroke-width="3" />
-        <circle cx={x2} cy={p2.y} r="10" fill="#F97316" stroke="white" stroke-width="3" />
-        <text
-          x={(x1 + x2) / 2}
-          y={(p1.y + p2.y) / 2 - 14}
-          font-size="24"
-          font-weight="800"
-          text-anchor="middle"
-          paint-order="stroke fill"
-          stroke="white"
-          stroke-width="5"
-          stroke-linejoin="round"
-          fill="#F97316"
-        >
-          {g_active_item.label}: {format_value(g_active_item)}
-        </text>
+        <circle cx={x1} cy={p1.y} r="5" fill="#F97316" stroke="white" stroke-width="1.5" />
+        <circle cx={x2} cy={p2.y} r="5" fill="#F97316" stroke="white" stroke-width="1.5" />
       {/if}
 
       {#if g_pending_first}
         <circle
           cx={mirror_x(g_pending_first.x)}
           cy={g_pending_first.y}
-          r="10"
+          r="5"
           fill="#F97316"
           stroke="white"
-          stroke-width="3"
+          stroke-width="1.5"
         />
       {/if}
     </svg>
