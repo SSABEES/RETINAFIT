@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -100,8 +100,12 @@ async def get_visit(
 async def update_visit(
     visit_no: int,
     request: VisitUpdateRequest,
+    background_tasks: BackgroundTasks,
     auth: dict = Depends(get_token),
     db: AsyncSession = Depends(get_db),
 ):
-    """방문 데이터 업데이트 - 변경된 필드만 전달"""
-    return await service.update_visit(db, visit_no, request)
+    """
+    방문 데이터 업데이트 - 변경된 필드만 전달
+    test_json 이 처음 들어오거나 값이 바뀌면 BG 로 AI face-script 호출 → visit.report_json 채움.
+    """
+    return await service.update_visit(db, visit_no, request, background_tasks)
