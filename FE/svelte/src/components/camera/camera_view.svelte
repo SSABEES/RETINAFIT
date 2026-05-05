@@ -16,6 +16,7 @@
   // 측면(left_profile/right_profile) 자세 감지 composable. pose_target 에 따라 tick() 이
   // no-op 이거나 6D 추론 발사. 정면 단계엔 무관 — 인스턴스만 만들어두고 사용 안 함.
   import { create_profile_pose_detector } from '@/lib/capture/use_profile_pose.svelte.js'
+  import { PROFILE_CONSTANTS } from '@/lib/capture/profile_pose_logic.js'
 
   /**
    * @typedef {import("@/lib/mediapipe/face_types.js").FaceMeasurements} FaceMeasurements
@@ -242,8 +243,6 @@
   })
 
   $effect(() => {
-    // 측면 단계의 방향 안내는 텍스트만 — 음성은 정면 단계에서만 head_*.
-    if (pose_target !== 'front') return
     if (!active || !g_is_auto_capture || g_already_dispatched || g_stability_audio_stage !== 'idle') {
       return
     }
@@ -251,11 +250,27 @@
     /** @type {'head_left' | 'head_right' | 'head_center' | null} */
     let next_audio_key = null
 
-    if (g_face_detected) {
-      if (!g_complete_obj.is_complete) {
-        next_audio_key = 'head_center'
-      } else if (g_frontal_obj && !g_frontal_obj.is_frontal && g_frontal_obj.reason === 'yaw') {
-        next_audio_key = g_frontal_obj.yaw > 0 ? 'head_right' : 'head_left'
+    if (pose_target === 'front') {
+      // 정면 — 얼굴 일부가 frame 밖이면 head_center, frontal yaw 가 어긋났으면 그 방향.
+      if (g_face_detected) {
+        if (!g_complete_obj.is_complete) {
+          next_audio_key = 'head_center'
+        } else if (g_frontal_obj && !g_frontal_obj.is_frontal && g_frontal_obj.reason === 'yaw') {
+          next_audio_key = g_frontal_obj.yaw > 0 ? 'head_right' : 'head_left'
+        }
+      }
+    } else {
+      // 측면 — 6DRepNet360 yaw 기준 안정화 영역 (target ± TOLERANCE) 미도달이면 target 방향으로
+      // 더 돌리도록 안내. 영역 안 (도달 직전~stable) 이면 음성 침묵 — hint text 가 "자세 유지 중"
+      // 으로 진행 표시. compute_hint_text 의 분기와 같은 조건을 그대로 사용.
+      const local_last_yaw = profile_pose.last_yaw
+      if (profile_pose.session_ready && local_last_yaw !== null) {
+        const target_deg = pose_target === 'right_profile'
+          ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
+        const distance = Math.abs(local_last_yaw - target_deg)
+        if (distance >= PROFILE_CONSTANTS.TOLERANCE) {
+          next_audio_key = pose_target === 'right_profile' ? 'head_right' : 'head_left'
+        }
       }
     }
 
@@ -353,25 +368,18 @@
   async function run_auto_capture_sequence() {
     const my_token = ++g_capture_sequence_token
 
-    // 정면: 카운트다운(3-2-1-click) 음성 시퀀스 후 캡처 — 사용자가 곧 찍힌다는 신호 받고 표정 정렬.
-    // 측면: 카운트다운 생략하고 즉시 캡처 — 안정화 자체로 ~1초 이미 대기했고, 측면 자세는 표정
-    // 정렬 의미 없으므로 추가 대기는 답답함만 가중. (정면과 다른 UX 정당성: 표정 vs 자세각.)
+    // 정면/측면 모두 안정화 완료 즉시 셔터음(count_click) 재생 → 캡처. 기존 3-2-1 카운트다운은
+    // 카운트 도중 자세 풀림 처리/노이즈로 인한 false-cancel 등 복잡도 대비 UX 이득이 적어 제거.
     if (pose_target === 'front') {
-      /** @type {AudioPromptKey[]} */
-      const sequence = ['count_three', 'count_two', 'count_one', 'count_click']
-
-      for (const file_key of sequence) {
-        if (
-          my_token !== g_capture_sequence_token ||
-          !active ||
-          !g_is_auto_capture ||
-          g_already_dispatched
-        ) {
-          return
-        }
-
-        await play_prompt_audio(file_key)
+      if (
+        my_token !== g_capture_sequence_token ||
+        !active ||
+        !g_is_auto_capture ||
+        g_already_dispatched
+      ) {
+        return
       }
+      await play_prompt_audio('count_click')
     }
 
     if (
