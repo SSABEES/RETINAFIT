@@ -94,5 +94,5 @@ async def get_glasses_upload_url(
         return {"url": url, "key": key}
     else:
         key = generate_object_key(folder="glasses/3d", extension="glb")
-        url = generate_presigned_url(key, content_type="model/gltf-binary")
+        url = generate_presigned_url(key, content_type="application/octet-stream")
         return {"url": url, "key": key}
