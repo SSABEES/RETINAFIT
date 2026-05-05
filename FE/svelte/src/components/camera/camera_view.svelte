@@ -146,12 +146,23 @@
   const g_should_check_frontal = $derived(pose_target === 'front')
 
   // 가이드 타원 색상을 pose_target 과 상태에 따라 결정한다.
+  // 정면/측면 동일한 색 의미 (회색=대기, 노랑=자세 잡는 중, 초록=안정 도달).
+  // 정면은 추가로 빨강(=얼굴 일부가 frame 밖) 상태가 있다.
   const g_guide_color = $derived.by(() => {
-    // 측면: composable 의 stable/progress 기반 색
     if (pose_target !== 'front') {
-      if (profile_pose.is_stable) return 'rgba(0,230,118,0.9)'    // 초록 — 발사 직전
-      if (profile_pose.progress > 0) return 'rgba(255,193,7,0.85)' // 노랑 — 진행 중
-      return 'rgba(255,255,255,0.7)'                              // 흰색 — 대기/이탈
+      // 대기 — 모델 미준비 또는 첫 yaw 추론 전
+      if (!profile_pose.session_ready || profile_pose.last_yaw === null) {
+        return 'rgba(200,200,200,0.5)'
+      }
+      const target_deg = pose_target === 'right_profile'
+        ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
+      const distance = Math.abs(profile_pose.last_yaw - target_deg)
+      // 영역 밖 — 더 돌려야 함 (정면의 "not frontal" 과 동일 의미)
+      if (distance >= PROFILE_CONSTANTS.TOLERANCE) return 'rgba(255,193,7,0.85)'
+      // 영역 안 + 안정 도달 → 초록
+      if (profile_pose.is_stable) return 'rgba(0,230,118,0.9)'
+      // 영역 안 + 진행 중 → 노랑
+      return 'rgba(255,193,7,0.85)'
     }
 
     // 정면 — 기존 로직 그대로
@@ -169,12 +180,9 @@
       return profile_pose.hint_text ?? '카메라 앞에 자세를 잡아주세요'
     }
 
-    // 정면 — 기존 로직 그대로
+    // 정면 — 기존 로직 그대로 (측면 분기는 위에서 이미 return 했으므로 여기서 pose_target='front' 로 narrowing 됨).
     if (!g_face_detected) return '얼굴을 가이드 안에 맞춰주세요'
     if (!g_complete_obj.is_complete) return '얼굴 전체가 화면에 나오도록 해주세요'
-    if (pose_target === 'left_profile') return '고개를 왼쪽으로 돌려주세요'
-    if (pose_target === 'right_profile') return '고개를 오른쪽으로 돌려주세요'
-    // 정면 포즈 기존 로직
     if (!g_frontal_obj) return '정면을 바라봐 주세요'
     if (g_frontal_obj.is_frontal) {
       return g_is_stable ? '✓ 측정 중...' : `안정화 중 ${g_stability_progress}%`
@@ -860,6 +868,25 @@
           {g_frontal_obj.roll > 0 ? '↺' : '↻'}
         {/if}
       </div>
+    {/if}
+
+    <!--
+      측면 단계 화살표 안내 — 정면과 동일 위치/스타일. yaw 가 target ± TOLERANCE 영역 밖이면
+      target 방향으로 회전하라는 화살표 표시. 영역 안 (도달 직전~stable) 이면 숨김.
+      방향: yaw < target → '→', yaw > target → '←' (사용자 POV 기준 — 미러 표시와 무관하게
+      사용자는 화살표를 절대 방향으로 해석).
+    -->
+    {#if show_overlay && active && pose_target !== 'front' && profile_pose.session_ready && profile_pose.last_yaw !== null && !g_already_dispatched}
+      {@const local_arrow_target_deg = pose_target === 'right_profile' ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG}
+      {@const local_arrow_distance = Math.abs(profile_pose.last_yaw - local_arrow_target_deg)}
+      {#if local_arrow_distance >= PROFILE_CONSTANTS.TOLERANCE}
+        <div
+          class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse text-[7rem] leading-none text-orange-400 drop-shadow-[0_2px_16px_rgba(0,0,0,0.65)]"
+          aria-hidden="true"
+        >
+          {profile_pose.last_yaw < local_arrow_target_deg ? '→' : '←'}
+        </div>
+      {/if}
     {/if}
 
     {#if show_overlay && active && pose_target === 'front' && g_face_detected && g_frontal_obj}
