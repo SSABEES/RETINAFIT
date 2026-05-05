@@ -15,10 +15,11 @@ def get_s3_client():
     )
 
 
-def generate_presigned_url(object_key: str, expires_in: int = 600) -> str:
+def generate_presigned_url(object_key: str, expires_in: int = 600, content_type: str = "image/jpeg") -> str:
     """
     S3 업로드용 Presigned URL 발급
     - expires_in: URL 만료 시간 (초, 기본 10분)
+    - content_type: 업로드 파일 타입 (기본 image/jpeg)
     """
     s3_client = get_s3_client()
     try:
@@ -27,6 +28,7 @@ def generate_presigned_url(object_key: str, expires_in: int = 600) -> str:
             Params={
                 "Bucket": settings.S3_BUCKET_NAME,
                 "Key": object_key,
+                "ContentType": content_type,
             },
             ExpiresIn=expires_in,
         )
