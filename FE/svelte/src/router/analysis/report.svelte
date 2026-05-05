@@ -3,7 +3,9 @@
   import { navigate } from '@maks11060/svelte5-router'
   import { PATH } from '@/config/path'
   import Header from '@/components/layout/header.svelte'
-  import { selected_customer_obj } from '@/lib/stores/customer'
+  import { clear_visit_session_data, selected_customer_obj } from '@/lib/stores/customer'
+  import { clear_login_select_data } from '@/lib/stores/admin'
+  import { clear_auto_login_obj } from '@/lib/stores/auto_login'
   import {
     get_session,
     get_face_shape_result,
@@ -35,12 +37,16 @@
 
   let g_is_submitting = $state(false)
   let g_submit_error = $state('')
+  // 로그아웃처럼 PATH.analysis 가 아닌 곳으로 명시적으로 이동할 때, captures 비움 → /analysis 리다이렉트
+  // 의 reactive race 를 막는다. (true 면 아래 effect 는 자기 navigate 를 보류한다.)
+  let g_is_navigating_away = $state(false)
 
   onMount(() => {
     hydrate_from_mirror()
   })
 
   $effect(() => {
+    if (g_is_navigating_away) return
     if (Object.keys(g_session.captures_obj).length === 0) {
       navigate(PATH.analysis)
     }
@@ -96,6 +102,19 @@
   // 측정 상세 페이지로 이동. 캡처/측정 세션은 유지된 채 화면만 전환.
   function on_click_view_measurements() {
     navigate(PATH.analysisFaceMeasurement)
+  }
+
+  // 로그아웃 — header.svelte 기본 로직과 동일하지만, capture/visit 비움이 page-local effect 의
+  // /analysis 리다이렉트와 레이스하지 않도록 g_is_navigating_away 플래그를 먼저 켠다.
+  function on_click_logout() {
+    g_is_navigating_away = true
+    reset_session()
+    clear_visit_session_data()
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('token_no')
+    clear_login_select_data()
+    clear_auto_login_obj()
+    navigate(PATH.login)
   }
 
   function get_visit_no() {
@@ -204,7 +223,7 @@
 </script>
 
 <main class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-[var(--retina-text)]">
-  <Header onback={on_click_back} />
+  <Header onback={on_click_back} onlogout={on_click_logout} />
 
   <section class="flex min-h-0 flex-1 flex-col overflow-hidden">
     <div class="flex min-h-0 flex-1 flex-col px-7 pt-2.5 pb-1">

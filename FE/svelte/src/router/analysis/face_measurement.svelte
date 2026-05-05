@@ -13,9 +13,11 @@
     clear_item_points,
     clear_all_measurements,
     pick_capture_for_view,
+    reset as reset_capture_session,
   } from '@/lib/stores/capture_session.svelte.js'
   import { clear_login_select_data } from '@/lib/stores/admin'
   import { clear_auto_login_obj } from '@/lib/stores/auto_login'
+  import { clear_visit_session_data } from '@/lib/stores/customer'
   import { EAR_HEIGHT_DIFF_THRESHOLD_MM } from '@/lib/measurements/thresholds.js'
   import Header from '@/components/layout/header.svelte'
   import MeasureCanvas from '@/components/analysis/measure_canvas.svelte'
@@ -52,8 +54,13 @@
 
   let g_view = $state(/** @type {ViewAngle} */ ('front_no_glasses'))
 
+  // 로그아웃처럼 PATH.analysis 가 아닌 곳으로 명시적으로 이동할 때, captures 비움 → /analysis 리다이렉트
+  // 의 reactive race 를 막는다. (true 면 아래 effect 는 자기 navigate 를 보류한다.)
+  let g_is_navigating_away = $state(false)
+
   // 세션이 비어 있으면 (직접 URL 진입 등) /analysis 로 리다이렉트.
   $effect(() => {
+    if (g_is_navigating_away) return
     if (Object.keys(g_session.captures_obj).length === 0) {
       navigate(PATH.analysis)
     }
@@ -109,8 +116,13 @@
     navigate(PATH.analysis)
   }
 
-  // 로그아웃 — report.svelte 와 동일 로직: 토큰/자동로그인/admin 선택 모두 비우고 로그인 화면으로.
+  // 로그아웃 — header.svelte 기본 로직과 동일: 토큰/자동로그인/admin 선택뿐만 아니라
+  // capture_session 과 방문 데이터까지 비워 다음 로그인 사용자에게 이전 분석 결과가 새지 않게 한다.
+  // capture 비움이 위 redirect effect 와 race 하지 않도록 g_is_navigating_away 를 먼저 켠다.
   function on_click_logout() {
+    g_is_navigating_away = true
+    reset_capture_session()
+    clear_visit_session_data()
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('token_no')
     clear_login_select_data()

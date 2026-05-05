@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte'
+  import { navigate } from '@maks11060/svelte5-router'
   import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
   import { ensure_session_auth_tokens } from '@/lib/api/session_auth'
@@ -101,10 +102,16 @@
     }
   }
 
+  // 슬라이더 질문은 단일 선택 UI 라 "선택 없음" 상태가 어색하므로 첫 번째 답변을 기본 선택값으로 채운다.
+  // 칩 토글 질문은 다중 선택이라 빈 배열로 시작.
   function init_selected_obj(question_arr) {
     const local_selected_obj = {}
     for (const question_obj of question_arr) {
-      local_selected_obj[question_obj.question_text] = []
+      const local_first_answer_obj = question_obj.answer_arr?.[0]
+      local_selected_obj[question_obj.question_text] =
+        question_obj.is_slider && local_first_answer_obj
+          ? [local_first_answer_obj.option_no]
+          : []
     }
     ref_selected_obj = local_selected_obj
   }
@@ -204,7 +211,7 @@
         },
       })
 
-      window.location.href = PATH.analysisArFitting
+      navigate(PATH.analysisArFitting)
     } catch (local_err) {
       push_error_toast(local_err.message ?? '조건 저장에 실패했습니다.')
       g_loading = false
