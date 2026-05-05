@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte'
+  import { navigate } from '@maks11060/svelte5-router'
   import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
   import { ensure_session_auth_tokens } from '@/lib/api/session_auth'
@@ -204,7 +205,7 @@
         },
       })
 
-      window.location.href = PATH.analysisArFitting
+      navigate(PATH.analysisArFitting)
     } catch (local_err) {
       push_error_toast(local_err.message ?? '조건 저장에 실패했습니다.')
       g_loading = false

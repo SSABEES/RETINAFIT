@@ -48,6 +48,12 @@
   let g_flutter_availability = $state('UNKNOWN')
   let g_flutter_event_text = $state('')
   let g_flutter_launch_loading = $state(false)
+  // AR 사용 가능 여부 확인이 끝났는지. 마운트 직후 'UNKNOWN' 상태에서 미지원 문구가 깜빡이는 것을 방지.
+  let g_ar_check_done = $state(false)
+  // AR 미지원 — 브리지 연결 실패 또는 디바이스 미지원. 확인 완료 후에만 true 가 되어 placeholder 문구로 안내.
+  let g_ar_unavailable = $derived(
+    g_ar_check_done && (!g_flutter_bridge_ready || g_flutter_availability !== 'SUPPORTED'),
+  )
   // native AR 이 정확히 이 placeholder 영역에 매칭되도록 ref 로 측정해 좌표를 전달한다.
   /** @type {HTMLDivElement | null} */
   let ref_camera_section_el = $state(null)
@@ -152,6 +158,7 @@
       g_flutter_bridge_ready = local_bridge_ready
 
       if (!local_bridge_ready) {
+        g_ar_check_done = true
         return
       }
 
@@ -161,6 +168,9 @@
         })
         .catch(() => {
           g_flutter_availability = 'UNKNOWN'
+        })
+        .finally(() => {
+          g_ar_check_done = true
         })
     })
 
@@ -218,6 +228,7 @@
     }
 
     // 안경 선택과 동시에 native AR 화면을 띄운다. 카메라 + 캡처 모두 native 가 담당.
+    // 브리지 미연결/디바이스 미지원 시에는 토스트 대신 placeholder 영역의 안내 문구로 처리한다.
     const local_glasses_obj =
       g_glasses_arr.find((local_item_obj) => local_item_obj.id === id) ?? null
     if (local_glasses_obj && g_flutter_bridge_ready && g_flutter_availability === 'SUPPORTED') {
@@ -226,10 +237,6 @@
           local_err instanceof Error ? local_err.message : 'AR 피팅 실행에 실패했습니다.'
         show_toast(local_err_text)
       })
-    } else if (!g_flutter_bridge_ready) {
-      show_toast('Flutter 브리지 연결을 기다리는 중입니다. 잠시 후 다시 선택해주세요.')
-    } else if (g_flutter_availability !== 'SUPPORTED') {
-      show_toast(`네이티브 AR 사용 불가 상태입니다. (${g_flutter_availability})`)
     }
   }
 
@@ -454,7 +461,7 @@
    */
   function on_click_submit_report() {
     if (!g_can_submit) return
-    window.location.href = PATH.analysisResult
+    navigate(PATH.analysisResult)
   }
 
   /**
@@ -592,12 +599,17 @@
         <!-- native AR 이 화면을 takeover 하므로 이 영역은 안내 placeholder 만 표시한다. -->
         <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
           <Glasses size={48} class="mb-3 text-white/40" />
-          <p class="text-[14px] font-bold text-white/85">
-            {g_selected_id === null
-              ? '오른쪽 목록에서 안경을 선택하면 AR 피팅이 시작됩니다'
-              : g_flutter_launch_loading
-                ? 'AR 피팅 화면을 여는 중...'
-                : 'AR 화면에서 정면 → 좌측 → 우측 순서로 촬영해주세요'}
+          <p class="text-[14px] font-bold leading-relaxed text-white/85">
+            {#if g_ar_unavailable}
+              해당 기기는 AR 피팅 사용이 불가합니다<br />
+              (Android 기기로 접속해주세요)
+            {:else if g_selected_id === null}
+              오른쪽 목록에서 안경을 선택하면 AR 피팅이 시작됩니다
+            {:else if g_flutter_launch_loading}
+              AR 피팅 화면을 여는 중...
+            {:else}
+              AR 화면에서 정면 → 좌측 → 우측 순서로 촬영해주세요
+            {/if}
           </p>
         </div>
 

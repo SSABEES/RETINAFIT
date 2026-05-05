@@ -18,7 +18,17 @@ export const request_fitting_presigned_urls = (visit_no, glasses_no) => {
 /**
  * S3 업로드 완료 후 가상 피팅 결과를 방문 데이터에 PATCH 로 저장
  * @param {number} visit_no
- * @param {{ vp_file_arr: string[], vp_json: { glasses_no: number, fitting_result: object } }} body
+ * @param {{
+ *   vp_file_arr: string[],
+ *   vp_json: {
+ *     fitting_arr: Array<{
+ *       glasses_no: number,
+ *       brand: string,
+ *       model: string,
+ *       capture_arr: Array<{ label: string, url: string }>,
+ *     }>,
+ *   },
+ * }} body
  */
 export const confirm_fitting_result = (visit_no, body) => {
   return apiRequest(`/api/v1/visits/${visit_no}`, {
