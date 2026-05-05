@@ -151,9 +151,19 @@
         얼굴 측정
       </h1>
 
-      <div class="mx-auto mt-2 grid h-full min-h-0 w-full max-w-[760px] grid-cols-[0.98fr_0.92fr] gap-4 px-1">
+      <!--
+        grid-rows-[minmax(0,1fr)] 로 row 가 grid 의 가용 높이를 다 채우게 한다 — 기본 auto rows 는
+        item content 따라 변동해서 좌/우 사이즈가 view 별로 흔들렸던 게 root cause. minmax(0,1fr)
+        는 충분히 작아질 수도 있고 (overflow 안 깨짐) 가용 공간을 다 채울 수도 있음.
+        외곽 (main / 상위 section 의 overflow-hidden + flex-1 체인) 이 viewport 경계 보장.
+      -->
+      <div class="mx-auto mt-2 grid h-full min-h-0 w-full max-w-[760px] grid-cols-[0.98fr_0.92fr] grid-rows-[minmax(0,1fr)] gap-4 px-1">
         <section class="flex min-h-0 items-center justify-center">
-          <div class="flex h-full max-h-[458px] w-full max-w-[348px] overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
+          <!--
+            aspect-[3/4] + max-h-full — width 기반 비율 유지, 단 row 가 좁으면 height 캡 내에서 비율
+            유지하며 axisflip. content 변동 면역.
+          -->
+          <div class="flex aspect-[3/4] max-h-full w-full max-w-[348px] overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
             <MeasureCanvas
               capture={g_selected_capture}
               items_arr={g_items_arr}
@@ -164,17 +174,28 @@
           </div>
         </section>
 
-        <section class="flex min-h-0 items-center justify-center">
-          <article class="flex h-full max-h-[458px] w-full max-w-[368px] flex-col gap-4 overflow-y-auto rounded-[14px] border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
+        <section class="flex min-h-0 justify-center">
+          <!--
+            article 은 cell 의 가용 높이를 끝까지 사용 (h-full + min-h-0). PhotoSwitcher + divider
+            는 상단 고정, MeasurementList + 귀 높이만 내부 스크롤 (별도 wrapper). 큰 화면에선 길게,
+            작은 화면에선 viewport 안에 안전.
+          -->
+          <article class="flex h-full min-h-0 w-full max-w-[368px] flex-col gap-4 overflow-hidden rounded-[14px] border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
           <PhotoSwitcher session={g_session} view={g_view} onview_change={on_view_change} />
           <div class="h-px bg-slate-200"></div>
-          <MeasurementList
-            items_arr={g_items_arr}
-            active_item_id={g_active_item_id}
-            view_label={g_view_label}
-            onselect={on_select_item}
-            onclear={on_clear_item}
-          />
+          <!--
+            content wrapper — flex-1 로 article 의 남은 공간 흡수. 자체 scroll 은 안 가짐
+            (overflow-hidden) — 스크롤은 MeasurementList 내부의 ul 이 담당. 귀 높이 section 은 wrapper
+            안에서 자연스러운 위치 유지 (스크롤 영역 밖, 항상 보임).
+          -->
+          <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+            <MeasurementList
+              items_arr={g_items_arr}
+              active_item_id={g_active_item_id}
+              view_label={g_view_label}
+              onselect={on_select_item}
+              onclear={on_clear_item}
+            />
           {#if g_view === 'front_no_glasses' && g_face_shape_result?.ear_offsets_obj}
             {@const eo = g_face_shape_result.ear_offsets_obj}
             {@const ear_diff_mm = (eo.right_y_offset_mm !== null && eo.left_y_offset_mm !== null)
@@ -217,6 +238,7 @@
               </ul>
             </section>
           {/if}
+          </div>
           </article>
         </section>
       </div>

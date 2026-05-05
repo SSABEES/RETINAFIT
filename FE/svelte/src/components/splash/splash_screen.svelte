@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import { preload_sixdrepnet_model } from '@/lib/sixdrepnet360/preload.js'
+  import { warm_session_from_bytes } from '@/lib/sixdrepnet360/inference'
 
   /**
    * @type {{
@@ -27,7 +28,17 @@
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
   }
 
-  // 모델 다운로드를 시작. 실패 시 에러를 노출하고 사용자가 재시도/건너뛰기 선택할 수 있음
+  // 모델 준비 시퀀스. 두 단계로 구성:
+  //   1) preload_sixdrepnet_model: 모델 바이트 확보 (Cache Storage hit 면 즉시, miss 면 네트워크)
+  //   2) warm_session_from_bytes: ort 가 WASM 그래프 컴파일 + 텐서 메모리 할당 (~0.5-2초)
+  //
+  // 캐시 hit 사용자도 (1) 은 0초지만 (2) 의 컴파일은 그대로 발생하므로 splash 가 그 시간만큼
+  // 잠깐 보이는 게 정상 동작. 컴파일을 splash 가 끝낸 뒤 onready 를 쏘는 이유는, 첫 추론
+  // 호출(predict_pose)이 컴파일 대기 없이 즉시 결과를 내도록 보장하기 위함. splash 를 더
+  // 빨리 닫고 백그라운드 컴파일하는 패턴도 가능하나, 그러면 첫 추론에서 동일 시간 freeze 가
+  // 옮겨갈 뿐이라 UX 이득 없음 — 명시적 splash 로 대기 컨텍스트를 제공하는 쪽이 명료.
+  //
+  // 실패 시 에러 노출 → 사용자가 재시도/건너뛰기 선택 가능.
   async function start_preload() {
     g_error_message = null
     g_progress_ratio = 0
@@ -38,7 +49,7 @@
     const local_signal = g_abort_controller.signal
 
     try {
-      await preload_sixdrepnet_model(
+      const local_bytes = await preload_sixdrepnet_model(
         variant,
         (progress_obj) => {
           g_progress_ratio = progress_obj.ratio
@@ -47,6 +58,11 @@
         },
         local_signal,
       )
+
+      if (local_signal.aborted) return
+
+      // 컴파일 단계 — 캐시 hit/miss 무관하게 항상 발생하며 splash 가 시각적으로 머무는 주된 이유.
+      await warm_session_from_bytes(variant, local_bytes)
 
       if (local_signal.aborted) return
       onready?.()

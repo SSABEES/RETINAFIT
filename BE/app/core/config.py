@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -46,7 +47,7 @@ class Settings(BaseSettings):
         )
 
     model_config = SettingsConfigDict(
-        env_file=".env.local",                                                # .env.local 파일에서 자동으로 읽음
+        env_file=".env.prod" if os.getenv("APP_ENV") == "production" else ".env.local",
         env_file_encoding="utf-8",
         case_sensitive=True,                                            # DB_HOST ≠ db_host 구분
     )

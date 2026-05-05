@@ -38,13 +38,32 @@
 
 import * as ort from 'onnxruntime-web'
 
-// wasmPaths 를 명시 설정하지 않으면 onnxruntime-web 은 자신을 import 한 모듈의 import.meta.url
-// 기준으로 워커/.wasm 을 자동 해석한다. Vite 는 이 dynamic import 를 `?url` 자산으로 처리해
-// dist/assets/ 에 올바르게 emit 한다 — public/ 에서 직접 서빙하면 dev 모드에서 Vite 가 `?import`
-// 쿼리를 붙여 module 트랜스폼을 시도하다 깨지는 문제를 피할 수 있다.
+// WASM 자산(.wasm 본체 + 멀티쓰레드 pthread .mjs) 위치를 명시. predev/prebuild 의
+// sync_ort_assets.mjs 가 node_modules/onnxruntime-web/dist 에서 public/ort 로 복사한 파일.
+// 명시 없이 import.meta.url 자동 해석에 맡기면 Vite 가 hash 처리한 자산 경로(/assets/)로 emit
+// 되어 동작은 하지만, 명시하면 운영 nginx 설정 / CDN 캐시 / 디버깅 시 안정적인 고정 경로.
+// 멀티쓰레드 활성 (crossOriginIsolated=true) 시 ort 가 이 경로에서 pthread 워커 .mjs 도 fetch.
+ort.env.wasm.wasmPaths = `${import.meta.env.BASE_URL}ort/`
+
+// proxy 워커 활성화: 모든 세션 작업 (다운로드 / WASM 컴파일 / 추론) 을 전용 Web Worker 에서 실행해
+// 메인 스레드 freeze 를 제거. 카메라 video, MediaPipe 검출, canvas rAF 가 추론 중에도 안 끊김.
 //
-// 핵심 전제: vite.config.js 의 optimizeDeps.exclude 에 'onnxruntime-web' 가 포함되어 있어
-// esbuild pre-bundle 단계에서 onnxruntime-web 의 dynamic import 가 변형되지 않는다.
+// 동작 전제: vite.config.js 의 manualChunks 가 onnxruntime-web 을 별도 chunk 로 분리해야 함.
+// 분리 안 하면 ort 가 main 번들로 인라인되고 self-referencing 워커 (`new Worker(import.meta.url)`)
+// 가 main 번들 전체를 워커로 띄워 Svelte 런타임의 document 접근에서 즉사함.
+ort.env.wasm.proxy = true
+
+// multi-threaded WASM 활성화 조건: SharedArrayBuffer 가 가용해야 하며, 그러려면 페이지가
+// crossOriginIsolated 상태여야 한다 — vite.config.js 의 server.headers (COOP same-origin +
+// COEP credentialless) 가 dev 에서 이 조건을 만든다. 프로덕션은 정적 호스트에서 동일 헤더를
+// 직접 설정해야 함. 헤더가 없으면 crossOriginIsolated === false → 자동 단일 스레드 폴백.
+//
+// 스레드 수 cap = 4: 모바일 디바이스의 효율 코어까지 풀로 돌리면 thread coordination 비용 +
+// thermal throttling 으로 오히려 latency 가 늘기 쉽다. 6DRepNet360 정도 모델은 4 스레드가
+// 보편적 sweet spot — 더 키워야 할 이유가 생기면 측정 후 조정.
+if (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated) {
+  ort.env.wasm.numThreads = Math.min(navigator.hardwareConcurrency ?? 4, 4)
+}
 
 // variant → 파일명. AI/scripts/quantize_6drepnet360_onnx.py 의 산출 파일명과 일치.
 const VARIANT_FILES_OBJ = {
@@ -88,20 +107,26 @@ let g_active_variant = 'fp32'
 
 /** @type {OffscreenCanvas | HTMLCanvasElement | null} */
 let g_crop_canvas = null
-/** @type {Float32Array | null} */
-let g_input_buffer = null
 
 // variant 별 모델 파일 URL 빌드. base URL 은 vite 의 BASE_URL 을 따라가므로 sub-path 배포 호환.
 function model_url_for(variant) {
   return `${import.meta.env.BASE_URL}models/sixdrepnet360/${VARIANT_FILES_OBJ[variant]}`
 }
 
-// ONNX 세션 생성. WASM 백엔드 우선 — WebGPU 는 가용 디바이스가 제한적이라 후순위.
+// ONNX 세션 생성 옵션. WASM 백엔드 우선 — WebGPU 는 가용 디바이스가 제한적이라 후순위.
+const SESSION_OPTIONS_OBJ = {
+  executionProviders: ['wasm'],
+  graphOptimizationLevel: 'all',
+}
+
+// URL 경로로 세션 생성 — ort 내부에서 fetch 후 컴파일. lazy fallback 용 (스플래시 미경유 / skip 시).
 async function load_session(variant) {
-  return ort.InferenceSession.create(model_url_for(variant), {
-    executionProviders: ['wasm'],
-    graphOptimizationLevel: 'all',
-  })
+  return ort.InferenceSession.create(model_url_for(variant), SESSION_OPTIONS_OBJ)
+}
+
+// 외부에서 받아둔 바이트로 직접 세션 생성 — fetch 단계 생략.
+async function load_session_from_bytes(bytes) {
+  return ort.InferenceSession.create(bytes, SESSION_OPTIONS_OBJ)
 }
 
 /**
@@ -202,7 +227,9 @@ function get_crop_canvas() {
 
 /**
  * 비디오 프레임의 bbox 영역을 224×224 로 크롭/리사이즈하고 ImageNet 정규화 후 CHW 배치한다.
- * 결과 Float32Array 는 모듈 레벨 버퍼를 재사용하므로 호출자 측에서 보관/복제하지 말 것.
+ * 매 호출 새 Float32Array 를 할당해 반환한다 — proxy 워커 모드의 ort 가 입력 텐서 ArrayBuffer 를
+ * postMessage transferable 로 보낼 가능성이 있어, 모듈 레벨 버퍼 재사용 시 detach 위험. 600KB ×
+ * 실효 ~3Hz = ~1.8MB/s GC 압박은 무시 가능 수준이라 안전 우선.
  * @param {HTMLVideoElement} video
  * @param {BBoxNorm} bbox
  * @returns {Float32Array}  length 3*224*224
@@ -220,8 +247,7 @@ export function preprocess(video, bbox) {
   const img = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE).data
 
   const plane = INPUT_SIZE * INPUT_SIZE
-  if (!g_input_buffer) g_input_buffer = new Float32Array(3 * plane)
-  const out = g_input_buffer
+  const out = new Float32Array(3 * plane)
 
   // RGBA(HWC) → RGB(CHW) + ImageNet 정규화. 알파 채널은 무시.
   for (let i = 0; i < plane; i++) {
@@ -263,6 +289,34 @@ export async function predict_pose(video, bbox) {
 }
 
 /**
+ * 외부에서 미리 다운로드한 .onnx 바이트로 InferenceSession 을 만들어 캐시에 등록한다. get_session()
+ * 의 URL fetch 경로와 달리 ort 가 다시 다운로드하지 않으므로 같은 모델을 두 번 받지 않는다.
+ *
+ * 호출 지점: SplashScreen — preload_sixdrepnet_model() 로 받은 bytes 를 그대로 전달. 컴파일과
+ * 텐서 메모리 할당까지 끝낸 뒤 onready 를 쏘므로 첫 추론에서 컴파일 대기 0초.
+ *
+ * 같은 variant 캐시가 이미 있으면 그것을 반환 (재컴파일 없음). 컴파일 실패 시 캐시 엔트리를 제거해
+ * 다음 get_session() 이 URL 경로로 재시도 가능.
+ *
+ * Trade-off: WASM 세션은 모델 + 작업 메모리로 ~150–200MB 를 즉시 점유 (fp32 기준).
+ *
+ * @param {ModelVariant} variant
+ * @param {Uint8Array} bytes
+ * @returns {Promise<InferenceSession>}
+ */
+export function warm_session_from_bytes(variant, bytes) {
+  let p = g_session_promises_obj.get(variant)
+  if (!p) {
+    p = load_session_from_bytes(bytes).catch((err) => {
+      g_session_promises_obj.delete(variant)
+      throw err
+    })
+    g_session_promises_obj.set(variant, p)
+  }
+  return p
+}
+
+/**
  * 모든 variant 의 세션과 캐시 버퍼를 정리한다. 통상은 호출하지 않으며(모델 재다운로드 비용),
  * 페이지를 완전히 떠나거나 메모리 압박이 클 때만 사용.
  * @returns {Promise<void>}
@@ -278,5 +332,4 @@ export async function dispose_session() {
   }
   g_session_promises_obj.clear()
   g_crop_canvas = null
-  g_input_buffer = null
 }
