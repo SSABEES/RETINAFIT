@@ -51,6 +51,39 @@
     clear_auto_login_obj()
     navigate(PATH.login)
   }
+
+  // 로고 클릭 — "강력 새로고침" 기능. 진행 중이던 캡쳐/방문 세션, 분석 관련 sessionStorage,
+  // SW/정적 자산 Cache Storage 까지 비운 뒤 visit_select 로 풀 페이지 리로드. window.location.href 를
+  // 써서 SPA 가 아닌 브라우저 단 전체 리로드를 일으켜 모듈 메모리도 함께 초기화한다.
+  // auth 토큰은 유지 — 로그아웃이 아니라 "방문 선택으로 다시 가기" 동선.
+  // AI 모델 (94MB ONNX) 캐시 (sixdrepnet360-models-v1) 만 보존해 매 클릭마다 모델 재다운로드 회피.
+  async function handle_logo_click() {
+    reset_capture_session()
+    clear_visit_session_data()
+
+    // 분석 흐름의 잔여 sessionStorage 키. clear_visit_session_data 가 일부 처리하지만 명시 정리.
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('retinal_visit_no')
+      sessionStorage.removeItem('retinal_lens_selections')
+      sessionStorage.removeItem('retinal_saved_fittings')
+    }
+
+    // Cache Storage — AI 모델 캐시는 제외하고 나머지만 삭제.
+    if (typeof window !== 'undefined' && 'caches' in window) {
+      try {
+        const local_cache_keys = await caches.keys()
+        await Promise.all(
+          local_cache_keys
+            .filter((local_key) => local_key !== 'sixdrepnet360-models-v1')
+            .map((local_key) => caches.delete(local_key)),
+        )
+      } catch {
+        // best-effort — 캐시 삭제 실패해도 다음 단계 진행.
+      }
+    }
+
+    window.location.href = PATH.visitSelect
+  }
 </script>
 
 <header class="grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 px-6">
@@ -69,13 +102,20 @@
     {/if}
   </div>
 
-  <img
-    class="h-6 w-auto"
-    src="/logo/LogoWide_2.png"
-    alt="Retina Fit"
-    width="240"
-    height="52"
-  />
+  <button
+    type="button"
+    class="grid h-8 cursor-pointer place-items-center border-0 bg-transparent p-0"
+    aria-label="홈으로 (캐시/세션 초기화)"
+    onclick={handle_logo_click}
+  >
+    <img
+      class="h-6 w-auto"
+      src="/logo/LogoWide_2.png"
+      alt="Retina Fit"
+      width="240"
+      height="52"
+    />
+  </button>
 
   <div class="flex justify-end">
     {#if show_logout}

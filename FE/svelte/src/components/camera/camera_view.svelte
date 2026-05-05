@@ -12,17 +12,17 @@
   } from '@/lib/mediapipe/face_landmarker.js'
   import { compute_measurements, compute_measurement_points } from '@/lib/mediapipe/measurements.js'
   import { video_to_blob } from '@/lib/capture/capture_utils.js'
-  import { compute_center_square_bbox } from '@/lib/sixdrepnet360/inference.js'
   // 측면(left_profile/right_profile) 자세 감지 composable. pose_target 에 따라 tick() 이
   // no-op 이거나 6D 추론 발사. 정면 단계엔 무관 — 인스턴스만 만들어두고 사용 안 함.
   import { create_profile_pose_detector } from '@/lib/capture/use_profile_pose.svelte.js'
+  import { PROFILE_CONSTANTS } from '@/lib/capture/profile_pose_logic.js'
 
   /**
    * @typedef {import("@/lib/mediapipe/face_types.js").FaceMeasurements} FaceMeasurements
    * @typedef {import("@/lib/mediapipe/face_types.js").FrontalCheck} FrontalCheck
    * @typedef {import("@/lib/mediapipe/face_types.js").CompletenessCheck} CompletenessCheck
    * @typedef {import("@/lib/mediapipe/face_types.js").Point2D} Point2D
-   * @typedef {'head_left' | 'head_right' | 'head_center' | 'count_three' | 'count_two' | 'count_one' | 'count_click'} AudioPromptKey
+   * @typedef {'head_left' | 'head_right' | 'head_center' | 'face_good' | 'count_three' | 'count_two' | 'count_one' | 'count_click'} AudioPromptKey
    *
    * @typedef {object} CaptureResult
    * @property {Blob} blob
@@ -146,12 +146,23 @@
   const g_should_check_frontal = $derived(pose_target === 'front')
 
   // 가이드 타원 색상을 pose_target 과 상태에 따라 결정한다.
+  // 정면/측면 동일한 색 의미 (회색=대기, 노랑=자세 잡는 중, 초록=안정 도달).
+  // 정면은 추가로 빨강(=얼굴 일부가 frame 밖) 상태가 있다.
   const g_guide_color = $derived.by(() => {
-    // 측면: composable 의 stable/progress 기반 색
     if (pose_target !== 'front') {
-      if (profile_pose.is_stable) return 'rgba(0,230,118,0.9)'    // 초록 — 발사 직전
-      if (profile_pose.progress > 0) return 'rgba(255,193,7,0.85)' // 노랑 — 진행 중
-      return 'rgba(255,255,255,0.7)'                              // 흰색 — 대기/이탈
+      // 대기 — 모델 미준비 또는 첫 yaw 추론 전
+      if (!profile_pose.session_ready || profile_pose.last_yaw === null) {
+        return 'rgba(200,200,200,0.5)'
+      }
+      const target_deg = pose_target === 'right_profile'
+        ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
+      const distance = Math.abs(profile_pose.last_yaw - target_deg)
+      // 영역 밖 — 더 돌려야 함 (정면의 "not frontal" 과 동일 의미)
+      if (distance >= PROFILE_CONSTANTS.TOLERANCE) return 'rgba(255,193,7,0.85)'
+      // 영역 안 + 안정 도달 → 초록
+      if (profile_pose.is_stable) return 'rgba(0,230,118,0.9)'
+      // 영역 안 + 진행 중 → 노랑
+      return 'rgba(255,193,7,0.85)'
     }
 
     // 정면 — 기존 로직 그대로
@@ -169,12 +180,9 @@
       return profile_pose.hint_text ?? '카메라 앞에 자세를 잡아주세요'
     }
 
-    // 정면 — 기존 로직 그대로
+    // 정면 — 기존 로직 그대로 (측면 분기는 위에서 이미 return 했으므로 여기서 pose_target='front' 로 narrowing 됨).
     if (!g_face_detected) return '얼굴을 가이드 안에 맞춰주세요'
     if (!g_complete_obj.is_complete) return '얼굴 전체가 화면에 나오도록 해주세요'
-    if (pose_target === 'left_profile') return '고개를 왼쪽으로 돌려주세요'
-    if (pose_target === 'right_profile') return '고개를 오른쪽으로 돌려주세요'
-    // 정면 포즈 기존 로직
     if (!g_frontal_obj) return '정면을 바라봐 주세요'
     if (g_frontal_obj.is_frontal) {
       return g_is_stable ? '✓ 측정 중...' : `안정화 중 ${g_stability_progress}%`
@@ -242,8 +250,14 @@
   })
 
   $effect(() => {
-    // 측면 단계의 방향 안내는 텍스트만 — 음성은 정면 단계에서만 head_*.
-    if (pose_target !== 'front') return
+    // ★ entry guard 보다 먼저 측면 yaw / session_ready 를 한 번 읽어 effect 의 reactive deps 에
+    //   무조건 등록한다. 이 effect 의 첫 실행이 정면 단계 (front 분기) 에 일어나거나 entry guard
+    //   에서 일찍 bail 하면 last_yaw 가 dep 으로 잡히지 않아, 이후 yaw 가 바뀌어도 effect 가 재실행
+    //   되지 않고 측면 음성 안내가 영영 침묵하는 문제가 있었음. 텍스트 ($derived 경유) 는 항상
+    //   읽으니 정상 동작했지만, effect 는 read-path 에 따라 deps 가 달라지므로 명시 고정 필요.
+    const local_last_yaw = profile_pose.last_yaw
+    const local_session_ready = profile_pose.session_ready
+
     if (!active || !g_is_auto_capture || g_already_dispatched || g_stability_audio_stage !== 'idle') {
       return
     }
@@ -251,11 +265,26 @@
     /** @type {'head_left' | 'head_right' | 'head_center' | null} */
     let next_audio_key = null
 
-    if (g_face_detected) {
-      if (!g_complete_obj.is_complete) {
-        next_audio_key = 'head_center'
-      } else if (g_frontal_obj && !g_frontal_obj.is_frontal && g_frontal_obj.reason === 'yaw') {
-        next_audio_key = g_frontal_obj.yaw > 0 ? 'head_right' : 'head_left'
+    if (pose_target === 'front') {
+      // 정면 — 얼굴 일부가 frame 밖이면 head_center, frontal yaw 가 어긋났으면 그 방향.
+      if (g_face_detected) {
+        if (!g_complete_obj.is_complete) {
+          next_audio_key = 'head_center'
+        } else if (g_frontal_obj && !g_frontal_obj.is_frontal && g_frontal_obj.reason === 'yaw') {
+          next_audio_key = g_frontal_obj.yaw > 0 ? 'head_right' : 'head_left'
+        }
+      }
+    } else {
+      // 측면 — 6DRepNet360 yaw 기준 안정화 영역 (target ± TOLERANCE) 미도달이면 target 방향으로
+      // 더 돌리도록 안내. 영역 안 (도달 직전~stable) 이면 음성 침묵 — hint text 가 "자세 유지 중"
+      // 으로 진행 표시. compute_hint_text 의 분기와 같은 조건을 그대로 사용.
+      if (local_session_ready && local_last_yaw !== null) {
+        const target_deg = pose_target === 'right_profile'
+          ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
+        const distance = Math.abs(local_last_yaw - target_deg)
+        if (distance >= PROFILE_CONSTANTS.TOLERANCE) {
+          next_audio_key = pose_target === 'right_profile' ? 'head_right' : 'head_left'
+        }
       }
     }
 
@@ -353,26 +382,26 @@
   async function run_auto_capture_sequence() {
     const my_token = ++g_capture_sequence_token
 
-    // 정면: 카운트다운(3-2-1-click) 음성 시퀀스 후 캡처 — 사용자가 곧 찍힌다는 신호 받고 표정 정렬.
-    // 측면: 카운트다운 생략하고 즉시 캡처 — 안정화 자체로 ~1초 이미 대기했고, 측면 자세는 표정
-    // 정렬 의미 없으므로 추가 대기는 답답함만 가중. (정면과 다른 UX 정당성: 표정 vs 자세각.)
-    if (pose_target === 'front') {
-      /** @type {AudioPromptKey[]} */
-      const sequence = ['count_three', 'count_two', 'count_one', 'count_click']
-
-      for (const file_key of sequence) {
-        if (
-          my_token !== g_capture_sequence_token ||
-          !active ||
-          !g_is_auto_capture ||
-          g_already_dispatched
-        ) {
-          return
-        }
-
-        await play_prompt_audio(file_key)
-      }
+    // 정면/측면 공통 시퀀스: 안정화 도달 → face_good (위치 OK 안내) → count_click (셔터음) → 캡처.
+    if (
+      my_token !== g_capture_sequence_token ||
+      !active ||
+      !g_is_auto_capture ||
+      g_already_dispatched
+    ) {
+      return
     }
+    await play_prompt_audio('face_good')
+
+    if (
+      my_token !== g_capture_sequence_token ||
+      !active ||
+      !g_is_auto_capture ||
+      g_already_dispatched
+    ) {
+      return
+    }
+    await play_prompt_audio('count_click')
 
     if (
       my_token !== g_capture_sequence_token ||
@@ -544,12 +573,8 @@
       if (ctx) {
         ctx.clearRect(0, 0, ref_this_canvas_el.width, ref_this_canvas_el.height)
       }
-      if (is_landmark_visible) {
-        if (pose_target === 'front') {
-          draw_face_mesh(ref_this_canvas_el, g_last_detection)
-        } else {
-          draw_profile_cube()
-        }
+      if (is_landmark_visible && pose_target === 'front') {
+        draw_face_mesh(ref_this_canvas_el, g_last_detection)
       }
       draw_guide_ellipse()
     }
@@ -705,91 +730,6 @@
     ctx.restore()
   }
 
-  // 6D 포즈 큐브 — 머리 좌표계의 정육면체를 회전행렬로 회전시켜 2D 캔버스에 투영. 측면 단계의
-  // is_landmark_visible 토글에 의해 ON/OFF 됨 (정면의 face mesh 가 토글되는 것과 같은 역할).
-  // 좌표계: x=right, y=down (이미지 컨벤션), z=out-of-screen. 캔버스가 video 와 함께 scaleX(-1)
-  // 미러링되므로 project_cube 가 x 부호를 한 번 더 반전해 사용자 perception 과 일치시킨다.
-  // (모델은 unmirrored 프레임을 받으므로 R 그대로 적용 시 큐브가 머리와 반대 방향으로 회전.)
-  const CUBE_VERTICES = [
-    [-1, -1, -1], [+1, -1, -1], [+1, +1, -1], [-1, +1, -1], // 뒤 면 (z=-1, 머리 뒤쪽)
-    [-1, -1, +1], [+1, -1, +1], [+1, +1, +1], [-1, +1, +1], // 앞 면 (z=+1, 얼굴 쪽)
-  ]
-
-  function project_cube(R, cx, cy, half) {
-    const PERSPECTIVE = 4
-    const out = []
-    for (const v of CUBE_VERTICES) {
-      const vx = R[0] * v[0] + R[1] * v[1] + R[2] * v[2]
-      const vy = R[3] * v[0] + R[4] * v[1] + R[5] * v[2]
-      const vz = R[6] * v[0] + R[7] * v[1] + R[8] * v[2]
-      const scale = PERSPECTIVE / (PERSPECTIVE - vz)
-      out.push({ x: cx - vx * half * scale, y: cy + vy * half * scale })
-    }
-    return out
-  }
-
-  function stroke_quad(ctx, a, b, c, d) {
-    ctx.beginPath()
-    ctx.moveTo(a.x, a.y)
-    ctx.lineTo(b.x, b.y)
-    ctx.lineTo(c.x, c.y)
-    ctx.lineTo(d.x, d.y)
-    ctx.closePath()
-    ctx.stroke()
-  }
-
-  function stroke_segment(ctx, a, b) {
-    ctx.beginPath()
-    ctx.moveTo(a.x, a.y)
-    ctx.lineTo(b.x, b.y)
-    ctx.stroke()
-  }
-
-  // 큐브 렌더: 뒤 면(파랑·약간 흐림) → 연결 모서리(노랑) → 앞 면(빨강·강조). 빨강면이 얼굴이
-  // 향하는 방향 — 사용자가 정면 보면 빨간 사각형이 카메라 향하고, 옆을 보면 옆으로 돈다.
-  function draw_pose_cube(ctx, R, cx, cy, half) {
-    const v = project_cube(R, cx, cy, half)
-    ctx.save()
-    ctx.shadowColor = 'rgba(0,0,0,0.6)'
-    ctx.shadowBlur = 4
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-
-    ctx.strokeStyle = 'rgba(80,140,255,0.7)'
-    ctx.lineWidth = 2.5
-    stroke_quad(ctx, v[0], v[1], v[2], v[3])
-
-    ctx.strokeStyle = 'rgba(255,210,80,0.85)'
-    ctx.lineWidth = 2
-    stroke_segment(ctx, v[0], v[4])
-    stroke_segment(ctx, v[1], v[5])
-    stroke_segment(ctx, v[2], v[6])
-    stroke_segment(ctx, v[3], v[7])
-
-    ctx.strokeStyle = 'rgba(255,80,100,0.95)'
-    ctx.lineWidth = 3
-    stroke_quad(ctx, v[4], v[5], v[6], v[7])
-    ctx.restore()
-  }
-
-  // 측면 단계 큐브 그리기 — 추론 결과 회전행렬이 있을 때만 호출. 중앙 정사각형 bbox 기준으로
-  // 위치 잡고, test.svelte 의 폴백 모드와 동일하게 0.15 비율 사용 (frame 짧은 변 × 0.15).
-  function draw_profile_cube() {
-    if (!ref_this_canvas_el || !ref_this_video_el) return
-    if (ref_this_video_el.videoWidth === 0) return
-    if (profile_pose.last_rotation === null) return
-    const ctx = ref_this_canvas_el.getContext('2d')
-    if (!ctx) return
-
-    const bbox = compute_center_square_bbox(ref_this_video_el)
-    const w = ref_this_canvas_el.width
-    const h = ref_this_canvas_el.height
-    const cx = (bbox.x + bbox.w / 2) * w
-    const cy = (bbox.y + bbox.h / 2) * h
-    const half = Math.min(bbox.w * w, bbox.h * h) * 0.15
-    draw_pose_cube(ctx, profile_pose.last_rotation, cx, cy, half)
-  }
-
   /**
    * 재측정을 위해 안정화 상태를 초기화한다.
    * 외부에서 `bind:this` 로 참조해 호출하면 자동 스텝에서 `oncapture` 가 다시 발사되거나,
@@ -928,6 +868,25 @@
           {g_frontal_obj.roll > 0 ? '↺' : '↻'}
         {/if}
       </div>
+    {/if}
+
+    <!--
+      측면 단계 화살표 안내 — 정면과 동일 위치/스타일. yaw 가 target ± TOLERANCE 영역 밖이면
+      target 방향으로 회전하라는 화살표 표시. 영역 안 (도달 직전~stable) 이면 숨김.
+      방향: yaw < target → '→', yaw > target → '←' (사용자 POV 기준 — 미러 표시와 무관하게
+      사용자는 화살표를 절대 방향으로 해석).
+    -->
+    {#if show_overlay && active && pose_target !== 'front' && profile_pose.session_ready && profile_pose.last_yaw !== null && !g_already_dispatched}
+      {@const local_arrow_target_deg = pose_target === 'right_profile' ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG}
+      {@const local_arrow_distance = Math.abs(profile_pose.last_yaw - local_arrow_target_deg)}
+      {#if local_arrow_distance >= PROFILE_CONSTANTS.TOLERANCE}
+        <div
+          class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse text-[7rem] leading-none text-orange-400 drop-shadow-[0_2px_16px_rgba(0,0,0,0.65)]"
+          aria-hidden="true"
+        >
+          {profile_pose.last_yaw < local_arrow_target_deg ? '→' : '←'}
+        </div>
+      {/if}
     {/if}
 
     {#if show_overlay && active && pose_target === 'front' && g_face_detected && g_frontal_obj}
