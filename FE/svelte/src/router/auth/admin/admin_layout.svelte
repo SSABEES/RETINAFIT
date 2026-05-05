@@ -44,7 +44,7 @@
   // 다른 관리자 페이지로 이동
   function on_click_move_admin_page(href) {
     g_admin_page_dropdown_open = false
-    window.location.href = href
+    navigate(href)
   }
 </script>
 

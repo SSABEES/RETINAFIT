@@ -1,4 +1,5 @@
 <script>
+  import { navigate } from '@maks11060/svelte5-router'
   import { PATH } from '@/config/path'
   import AdminLayout from '@/router/auth/admin/admin_layout.svelte'
 
@@ -10,7 +11,7 @@
 
   // 관리자 카드 클릭 시 해당 설정 화면으로 이동한다.
   function on_click_move_admin_page(href) {
-    window.location.href = href
+    navigate(href)
   }
 </script>
 
