@@ -1,86 +1,7 @@
+# ── import ───────────────────────────────────────────
 from __future__ import annotations
-
 from typing import Any
-
-from pydantic import BaseModel, Field, HttpUrl
-
-
-# ── 측정 / 분석 (기존) ───────────────────────────────────────────
-
-class AnalysisRequest(BaseModel):
-    image_url: HttpUrl
-
-
-class AnalysisResponse(BaseModel):
-    face_shape: str | None = None
-    measurements: dict[str, float] = Field(default_factory=dict)
-    recommendations: list[str] = Field(default_factory=list)
-
-
-# ── RAG 공통 ────────────────────────────────────────────────────
-
-class RetrievedChunk(BaseModel):
-    id: str
-    score: float
-    text: str
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class RagDebug(BaseModel):
-    """디버깅·관찰용 메타데이터. 운영에서는 숨기거나 프로파일별로 노출 결정."""
-    prompt: str | None = None
-    context_chars: int | None = None
-
-
-# ── /rag/query: 자유 질의응답 ────────────────────────────────────
-
-class RagQueryRequest(BaseModel):
-    question: str
-    top_k: int | None = None
-    filters: dict[str, Any] | None = None
-    include_debug: bool = False
-
-
-class RagQueryResponse(BaseModel):
-    answer: str
-    retrieved: list[RetrievedChunk] = Field(default_factory=list)
-    debug: RagDebug | None = None
-
-
-# ── /rag/recommend: 안경 추천 ────────────────────────────────────
-
-class RagRecommendRequest(BaseModel):
-    """BE의 visit/face/recommend 데이터를 그대로 받을 수 있도록 dict 기반."""
-    face_measurements: dict[str, Any]                       # visited.test_json
-    recommend_options: dict[str, Any] | list[Any]            # visited.opt_recommend_json
-    glasses_catalog: list[dict[str, Any]] = Field(default_factory=list)
-    top_k: int | None = None
-    filters: dict[str, Any] | None = None
-    include_debug: bool = False
-
-
-class RagRecommendResponse(BaseModel):
-    answer: str
-    retrieved: list[RetrievedChunk] = Field(default_factory=list)
-    debug: RagDebug | None = None
-
-
-# ── /rag/report: 최종 리포트 본문 생성 ───────────────────────────
-
-class RagReportRequest(BaseModel):
-    visit_summary: dict[str, Any] = Field(default_factory=dict)
-    measurements: dict[str, Any] = Field(default_factory=dict)         # test_json
-    recommend_options: dict[str, Any] | list[Any] = Field(default_factory=dict)
-    fitting: dict[str, Any] = Field(default_factory=dict)              # vp_json + real_vp_json
-    top_k: int | None = None
-    filters: dict[str, Any] | None = None
-    include_debug: bool = False
-
-
-class RagReportResponse(BaseModel):
-    answer: str
-    retrieved: list[RetrievedChunk] = Field(default_factory=list)
-    debug: RagDebug | None = None
+from pydantic import BaseModel, Field
 
 
 # ── /report/face-script: 얼굴 측정 → 상담사 스크립트 ──────────────
@@ -89,9 +10,14 @@ class FaceScriptRequest(BaseModel):
     """test_json의 필드를 그대로 받음 (FE/BE가 test_json을 펼쳐서 보내면 됨).
     누락된 값은 LLM이 해당 항목 멘트를 생략. 미래에 새 필드가 추가돼도 무시.
     """
+    # 모든 필드가 Optional. 입력 형태가 클라이언트마다 다른 걸 허용.
+    # Java 라면 @Nullable + 기본값 null 인 필드들. 받은 데이터 모양에 따라 LLM 이 적절히 멘트 구성.
     schema_version: int | None = None
     face_shape: str | None = None                                       # 'oval' 같은 라벨
     asymmetry_score: float | None = None                                # 작을수록 좌우 대칭 ↑
+    # `list[dict[str, Any]]` ≈ List<Map<String, Object>>.
+    # 내부 형태가 자유로운 nested JSON. 강타입 모델로 만들 수도 있지만,
+    # 이 필드는 BE 에서 그대로 패스스루되므로 굳이 모델링 안 하고 dict 으로 받음.
     face_shape_recommendations: list[dict[str, Any]] = Field(default_factory=list)
     skin_tone: dict[str, Any] | None = None                             # {tone: COOL/WARM, hue_deg, ...}
     skin_tone_recommendations: list[dict[str, Any]] = Field(default_factory=list)
@@ -101,11 +27,21 @@ class FaceScriptRequest(BaseModel):
     scale: dict[str, Any] | None = None                                 # 사용 안 함, 호환만
     include_debug: bool = False
 
+    # model_config: 클래스 단위 설정 (Pydantic v2 방식).
+    # "extra": "ignore" 의 의미:
+    #   - 요청 JSON 에 모델에 정의 안 된 필드가 와도 무시하고 통과.
+    #   - 기본값은 "ignore" 라 명시 안 해도 같은 동작이지만, 의도를 코드에 박아둠.
+    #   - 다른 옵션:
+    #       "forbid" → 모르는 필드 오면 422 (엄격 모드)
+    #       "allow"  → 모르는 필드를 인스턴스에 그대로 보존
+    # Spring/Jackson 의 @JsonIgnoreProperties(ignoreUnknown=true) 와 같은 효과.
     model_config = {"extra": "ignore"}
 
 
 class FaceScriptItems(BaseModel):
     """LLM이 채울 항목별 멘트. 입력이 없는 항목은 None."""
+    # nested DTO. Java 의 inner DTO 와 같이, 응답 안의 한 객체 단위를 따로 모델링.
+    # 응답 구조가 { summary, items: { face_width, face_height, ... } } 라서 items 를 별도 클래스로 분리.
     face_width: str | None = None
     face_height: str | None = None
     face_ratio: str | None = None
@@ -115,21 +51,9 @@ class FaceScriptItems(BaseModel):
 
 
 class FaceScriptResponse(BaseModel):
+    # 필수 필드 (디폴트 값 없음). 비어 있으면 422.
     summary: str
+    # 다른 BaseModel 을 필드 타입으로 — Java 의 nested DTO 참조와 동일.
+    # 직렬화 시 자동으로 nested JSON object 로 펼쳐짐.
     items: FaceScriptItems
     raw_answer: str | None = None  # 디버깅용 (LLM 원문)
-
-
-# ── /rag/ingest: 지식베이스 인덱싱 ────────────────────────────────
-
-class RagIngestRequest(BaseModel):
-    knowledge_dir: str | None = None      # 미지정 시 settings.KNOWLEDGE_DIR
-    reset: bool = False
-    persist: bool = True
-
-
-class RagIngestResponse(BaseModel):
-    source: str
-    documents: int
-    chunks: int
-    store_size: int

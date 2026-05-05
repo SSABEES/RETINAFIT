@@ -8,8 +8,8 @@ import json
 from typing import Any
 
 from app.api.schemas import FaceScriptItems, FaceScriptRequest, FaceScriptResponse
-from app.rag.llm.base import LLMProvider
-from app.rag.prompts import build_face_script_prompt
+from app.llm.base import LLMProvider
+from app.prompts import build_face_script_prompt
 
 
 def generate_face_script(payload: FaceScriptRequest, *, llm: LLMProvider) -> FaceScriptResponse:

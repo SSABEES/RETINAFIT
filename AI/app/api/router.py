@@ -1,150 +1,47 @@
 from __future__ import annotations
-
 from fastapi import APIRouter, Depends
 
+# ── 요청/응답 DTO ──
+# Pydantic BaseModel 을 상속한 클래스들. 자세한 건 schemas.py 참고.
 from app.api.schemas import (
-    AnalysisRequest,
-    AnalysisResponse,
     FaceScriptRequest,
     FaceScriptResponse,
-    RagDebug,
-    RagIngestRequest,
-    RagIngestResponse,
-    RagQueryRequest,
-    RagQueryResponse,
-    RagRecommendRequest,
-    RagRecommendResponse,
-    RagReportRequest,
-    RagReportResponse,
-    RetrievedChunk,
 )
-from app.core.config import settings
-from app.core.deps import get_llm_provider, get_rag_service
-from app.pipelines.measurement_pipeline import run_measurement_pipeline
-from app.pipelines.rag_pipeline import RagResult
-from app.rag.llm.base import LLMProvider
-from app.services.rag_service import RagService
+
+# DI provider 함수. Spring 의 @Bean 메서드 비슷한 역할.
+# get_llm_provider() 는 LLMProvider 싱글턴을 반환하는 팩토리.
+from app.core.deps import get_llm_provider
+from app.llm.base import LLMProvider  # ← 인터페이스(=Java 의 interface). 구현은 dummy/gemini 둘 중 하나가 주입됨.
 from app.services import report_service
 
+# 라우터 인스턴스 생성. 이 객체에 데코레이터로 엔드포인트를 등록
 router = APIRouter()
 
 
 # ── Health ───────────────────────────────────────────────────────
 
+# @router.get(...) ≈ Spring 의 @GetMapping(...).
+# 인자 없는 단순 GET. 모니터링 / k8s liveness probe 가 200 으로 살았다 죽었다 판단.
+# tags=["..."] 는 Swagger UI (/docs) 에서 그룹 표시용 라벨. 동작에는 영향 없음.
 @router.get("/health", tags=["health"])
 def health() -> dict[str, str]:
+    # 반환값 dict 는 FastAPI 가 자동으로 JSON 직렬화 → application/json 응답.
+    # Spring 에서 @ResponseBody + Map<String,String> 반환과 같은 효과.
     return {"status": "ok"}
 
 
-# ── 측정 (기존) ──────────────────────────────────────────────────
-
-@router.post("/analyze", response_model=AnalysisResponse, tags=["analysis"])
-def analyze(payload: AnalysisRequest) -> AnalysisResponse:
-    measurements = run_measurement_pipeline(payload.image_url)
-    return AnalysisResponse(measurements=measurements, recommendations=[])
-
-
-# ── 리포트 (RAG 미사용, 순수 LLM) ────────────────────────────────
+# ── 리포트 (얼굴 측정 → 상담 스크립트) ─────────────────────────────
 
 @router.post("/report/face-script", response_model=FaceScriptResponse, tags=["report"])
 def report_face_script(
     payload: FaceScriptRequest,
+    # ↓ DI 핵심.
+    # `llm: LLMProvider = Depends(get_llm_provider)` 의 의미:
+    #   "이 함수가 호출될 때 마다 get_llm_provider() 를 호출한 결과를 llm 에 주입해라."
+    # Spring 으로 치면 메서드 파라미터에 @Autowired 한 것과 같음 (Spring 은 생성자 주입이 표준이지만 개념은 동일).
+    # get_llm_provider 는 @lru_cache 라 첫 호출에만 진짜 객체 만들고 이후엔 같은 인스턴스 재사용 — 사실상 싱글턴.
+    # 테스트에서는 app.dependency_overrides[get_llm_provider] = lambda: FakeLLM() 한 줄로 갈아끼울 수 있음.
     llm: LLMProvider = Depends(get_llm_provider),
 ) -> FaceScriptResponse:
-    """얼굴 측정값 6항목 → 상담사 스크립트(JSON) 생성. RAG 미사용."""
+    """얼굴 측정값 6항목 → 상담사 스크립트(JSON) 생성."""
     return report_service.generate_face_script(payload, llm=llm)
-
-
-# ── RAG ─────────────────────────────────────────────────────────
-
-@router.post("/rag/query", response_model=RagQueryResponse, tags=["rag"])
-def rag_query(
-    payload: RagQueryRequest,
-    service: RagService = Depends(get_rag_service),
-) -> RagQueryResponse:
-    result = service.query(payload.question, top_k=payload.top_k, filters=payload.filters)
-    return RagQueryResponse(
-        answer=result.answer,
-        retrieved=_to_chunks(result),
-        debug=_to_debug(result, include=payload.include_debug),
-    )
-
-
-@router.post("/rag/recommend", response_model=RagRecommendResponse, tags=["rag"])
-def rag_recommend(
-    payload: RagRecommendRequest,
-    service: RagService = Depends(get_rag_service),
-) -> RagRecommendResponse:
-    result = service.recommend(
-        face_measurements=payload.face_measurements,
-        recommend_options=payload.recommend_options,
-        glasses_catalog=payload.glasses_catalog,
-        top_k=payload.top_k,
-        filters=payload.filters,
-    )
-    return RagRecommendResponse(
-        answer=result.answer,
-        retrieved=_to_chunks(result),
-        debug=_to_debug(result, include=payload.include_debug),
-    )
-
-
-@router.post("/rag/report", response_model=RagReportResponse, tags=["rag"])
-def rag_report(
-    payload: RagReportRequest,
-    service: RagService = Depends(get_rag_service),
-) -> RagReportResponse:
-    result = service.report(
-        visit_summary=payload.visit_summary,
-        measurements=payload.measurements,
-        recommend_options=payload.recommend_options,
-        fitting=payload.fitting,
-        top_k=payload.top_k,
-        filters=payload.filters,
-    )
-    return RagReportResponse(
-        answer=result.answer,
-        retrieved=_to_chunks(result),
-        debug=_to_debug(result, include=payload.include_debug),
-    )
-
-
-@router.post("/rag/ingest", response_model=RagIngestResponse, tags=["rag"])
-def rag_ingest(
-    payload: RagIngestRequest,
-    service: RagService = Depends(get_rag_service),
-) -> RagIngestResponse:
-    result = service.ingest(
-        knowledge_dir=payload.knowledge_dir or settings.KNOWLEDGE_DIR,
-        reset=payload.reset,
-        persist=payload.persist,
-    )
-    return RagIngestResponse(
-        source=result.source,
-        documents=result.documents,
-        chunks=result.chunks,
-        store_size=service.store.size(),
-    )
-
-
-# ── helpers ──────────────────────────────────────────────────────
-
-def _to_chunks(result: RagResult) -> list[RetrievedChunk]:
-    return [
-        RetrievedChunk(
-            id=item.document.id,
-            score=item.score,
-            text=item.document.text,
-            metadata=item.document.metadata,
-        )
-        for item in result.retrieved
-    ]
-
-
-def _to_debug(result: RagResult, *, include: bool) -> RagDebug | None:
-    if not include:
-        return None
-    return RagDebug(
-        prompt=result.prompt,
-        context_chars=result.metadata.get("context_chars"),
-    )

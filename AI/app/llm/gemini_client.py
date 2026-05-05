@@ -41,6 +41,8 @@ class GeminiProvider:
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> str:
+        # Gemini generateContent 요청 본문 — 공식 REST 스키마.
+        # contents: 대화 턴 배열 (지금은 user 1턴만 보냄 — multi-turn 미사용).
         payload: dict = {
             "contents": [
                 {"role": "user", "parts": [{"text": prompt}]},
@@ -51,14 +53,19 @@ class GeminiProvider:
             },
         }
         if system:
+            # systemInstruction 은 Gemini 의 system prompt 슬롯 — OpenAI 의 role:system 과 같은 역할.
             payload["systemInstruction"] = {"parts": [{"text": system}]}
 
         url = f"{self._base_url}/models/{self._model}:generateContent"
+        # 동기 httpx.Client — generate 는 동기 함수이고, FastAPI 의 def(=sync) 핸들러에서 호출되므로 OK.
+        # async 핸들러로 바뀌면 httpx.AsyncClient 로 교체 필요.
         with httpx.Client(timeout=self._timeout) as client:
             response = client.post(url, json=payload, headers=self._headers)
         if response.status_code >= 400:
             raise AIException(f"LLM API error {response.status_code}: {response.text}")
 
+        # Gemini 응답 구조: { candidates: [{ content: { parts: [{ text: "..." }] } }, ...] }
+        # 각 단계마다 빈 값일 수 있어 방어적으로 풀어낸다 — 비어 있으면 AIException 으로 일관 처리.
         data = response.json()
         candidates = data.get("candidates", [])
         if not candidates:

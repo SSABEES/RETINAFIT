@@ -1,0 +1,55 @@
+"""LLM 프롬프트 빌더.
+
+- build_face_script_prompt: /report/face-script — RAG 미사용, 정상 범위는 프롬프트에 직접 내장.
+"""
+from __future__ import annotations
+
+
+# ── 얼굴 측정 → 상담사 스크립트 ───────────────────────────────────
+# RAG 미사용. 정상 범위/도메인 라벨은 프롬프트에 직접 내장해 환각 방지.
+
+FACE_SCRIPT_OUTPUT_SCHEMA = """{
+  "summary": "string",                              // 1~2문장 종합 코멘트
+  "items": {                                         // 입력에 없는 항목은 키 자체를 생략
+    "face_width": "string?",                         // 얼굴 너비 멘트 (1~2문장)
+    "face_height": "string?",                        // 얼굴 길이 멘트
+    "face_ratio": "string?",                         // 얼굴 비율 멘트 (1:1.41 식으로 표시 가능)
+    "face_shape": "string?",                         // 얼굴형 + 비대칭 + 추천 프레임 형태 통합
+    "pd": "string?",                                 // PD + 좌/우 균형 통합
+    "skin_tone": "string?"                           // 퍼스널 컬러 톤 + 추천 색상 통합
+  }
+}"""
+
+
+_FACE_SCRIPT_NORMAL_RANGES = """\
+- PD (눈 사이 거리): 성인 평균 60~66 mm. 여성 평균 ≈ 62 mm, 남성 평균 ≈ 64 mm.
+- 좌/우 PD 차이: 1 mm 이내면 균형이 잘 잡힌 상태. 그 이상이면 살짝 비대칭.
+- 얼굴 너비: 성인 평균 130~145 mm.
+- 얼굴 길이: 성인 평균 180~200 mm.
+- 얼굴 비율 (길이 ÷ 너비): 1.30~1.50 사이가 황금비에 가까움. 1.30 미만은 가로형, 1.50 초과는 세로형으로 인지됨.
+- 비대칭 점수 (asymmetry_score): 0에 가까울수록 좌우 대칭이 좋음. 값이 클수록 비대칭이 두드러짐. 구체적 임계값은 임의로 만들지 말고 입력 값을 그대로 인용.
+- 스킨 톤 라벨: COOL = 쿨톤(푸른/차가운 계열의 색이 잘 어울림), WARM = 웜톤(노란/따뜻한 계열이 잘 어울림). 추천 색상은 입력에 동봉된 목록만 인용.
+- 얼굴형 라벨(face_shape): oval=계란형, round=둥근형, square=사각형, heart=하트형, oblong=긴형 등. 추천 프레임 형태(face_shape_recommendations)는 입력 그대로 인용.\
+"""
+
+
+def build_face_script_prompt(measurements_json: str) -> str:
+    """얼굴 측정값 → 상담사 스크립트 생성 프롬프트. RAG 미사용."""
+    return (
+        "당신은 안경원에서 안경사가 손님에게 측정 결과를 설명할 때 읽을 상담 스크립트를 작성하는 작성자입니다.\n\n"
+        f"### 측정값 (입력)\n{measurements_json}\n\n"
+        f"### 도메인 정상 범위 / 라벨 사전 (참고용 — 멘트에 인용 가능)\n{_FACE_SCRIPT_NORMAL_RANGES}\n\n"
+        "### 작성 지시 (반드시 준수)\n"
+        "1. 어투: 존칭, '~해요/~예요' 어미. 손님에게 직접 말하듯 친근하게.\n"
+        "2. 모든 수치는 단위와 함께 표기. 예) 63 mm. 입력 수치는 새로 만들지 말고 그대로 인용.\n"
+        "3. 측정값이 누락된(null/없는) 항목은 items에서 키 자체를 생략.\n"
+        "4. 정상 범위·임계값 인용은 위 '도메인 정상 범위' 목록에 있는 값만 사용. 새 수치/임계값을 만들지 말 것.\n"
+        "5. 의학적 진단·도수 단정 금지. '예상돼요/추천드려요' 같은 부드러운 어조.\n"
+        "6. summary는 1~2문장 종합 코멘트.\n"
+        "7. items 각 멘트는 1~2문장.\n"
+        "8. items.face_shape: 얼굴형 라벨을 한국어로 풀어 설명하고, asymmetry_score가 있으면 함께 언급. recommended_frames 목록이 있으면 'OO/OO 형태가 잘 어울려요' 식으로 자연스럽게 녹임.\n"
+        "9. items.pd: pd_mm을 메인으로 멘트하고, right_pd_mm/left_pd_mm이 있으면 좌우 균형(차이가 1 mm 이내면 양호)을 같이 짚음.\n"
+        "10. items.skin_tone: tone 라벨을 한국어(쿨톤/웜톤)로 풀어주고, recommended_colors가 있으면 'OO/OO 색이 잘 어울려요' 식으로 녹임. hue_deg는 굳이 노출하지 않음 (내부 값).\n"
+        "11. 출력은 아래 JSON 스키마만 반환. 코드 블록·설명·인사말 금지.\n\n"
+        f"### 출력 JSON 스키마\n{FACE_SCRIPT_OUTPUT_SCHEMA}"
+    )
