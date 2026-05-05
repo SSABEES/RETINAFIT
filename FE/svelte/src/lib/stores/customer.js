@@ -93,6 +93,22 @@ export function set_selected_visit(visit_obj) {
 }
 
 /**
+ * 방문 단위로 누적된 화면 상태(고객/방문 선택, 렌즈 선택, 저장된 피팅, 임시 visit_no)를 모두 비운다.
+ * 로그아웃 또는 visit_select 재진입 시 호출 — 이전 사용자의 분석/피팅 결과가 다음 사용자에게 새어 들어가지 않도록 한다.
+ * (capture_session 모듈 상태는 별도로 reset 호출 필요)
+ */
+export function clear_visit_session_data() {
+  selected_customer_obj.set(/** @type {CustomerObj | null} */ (null))
+  selected_visit_obj.set(/** @type {VisitObj | null} */ (null))
+  if (typeof sessionStorage === 'undefined') return
+  sessionStorage.removeItem(SELECTED_CUSTOMER_STORAGE_KEY)
+  sessionStorage.removeItem(SELECTED_VISIT_STORAGE_KEY)
+  sessionStorage.removeItem('retinal_visit_no')
+  sessionStorage.removeItem('retinal_lens_selections')
+  sessionStorage.removeItem('retinal_saved_fittings')
+}
+
+/**
  * 고객 번호로 현재 조회된 고객 목록에서 고객 상세 정보를 찾는다.
  * @param {string | number} id
  */

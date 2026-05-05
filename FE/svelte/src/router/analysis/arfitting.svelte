@@ -43,7 +43,6 @@
   let g_loading = $state(true)
   let g_selected_id = $state(null)
   let g_capture_slot_arr = $state([null, null, null])
-  let g_show_intro = $state(false)
   let g_flutter_bridge_ready = $state(false)
   let g_flutter_availability = $state('UNKNOWN')
   let g_flutter_event_text = $state('')
@@ -83,7 +82,8 @@
     g_all_captured &&
       (g_saved_fittings_arr.length < MAX_FITTINGS || g_is_selected_already_saved),
   )
-  let g_can_submit = $derived(g_saved_fittings_arr.length > 0)
+  // AR 미지원 디바이스 (예: iOS) 는 피팅을 저장할 수 없으므로 저장 0건이어도 리포트로 진행 가능하게 한다.
+  let g_can_submit = $derived(g_saved_fittings_arr.length > 0 || g_ar_unavailable)
 
   // 안경 id별 저장 횟수 맵 (목록 카드 배지 표시용)
   let g_saved_count_map = $derived(
@@ -149,9 +149,6 @@
   )
 
   onMount(() => {
-    g_show_intro = true
-    setTimeout(() => (g_show_intro = false), 3200)
-
     g_flutter_bridge_ready = is_flutter_bridge_ready()
 
     void wait_for_flutter_bridge().then((local_bridge_ready) => {
@@ -612,23 +609,6 @@
             {/if}
           </p>
         </div>
-
-        {#if g_show_intro}
-          <div
-            class="absolute left-1/2 top-3 z-10 -translate-x-1/2"
-            in:fly={{ y: -10, duration: 400 }}
-            out:fade={{ duration: 500 }}
-          >
-            <div
-              class="inline-flex items-center gap-2 rounded-full bg-[var(--retina-primary-300)] px-5 py-2 shadow-[0_4px_12px_rgba(249,115,22,0.35)]"
-            >
-              <Glasses size={14} class="shrink-0 text-white" />
-              <span class="whitespace-nowrap text-[12px] font-bold text-white">
-                안경 선택 시 AR 피팅이 시작됩니다
-              </span>
-            </div>
-          </div>
-        {/if}
 
       </div>
     </section>
