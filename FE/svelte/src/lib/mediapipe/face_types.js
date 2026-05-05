@@ -23,8 +23,8 @@
  * @property {number} jaw_width
  * @property {number} forehead_width
  * @property {number} cheekbone_width
- * @property {number} right_pd_pixels      코 중심선(168) → 우측 동공(263) 수평 거리. 신규.
- * @property {number} left_pd_pixels       좌측 동공(33) → 코 중심선(168) 수평 거리. 신규.
+ * @property {number} right_pd_pixels      코 중심선(168) → 우측 동공(홍채 중심 468) 수평 거리.
+ * @property {number} left_pd_pixels       좌측 동공(홍채 중심 473) → 코 중심선(168) 수평 거리.
  */
 
 /**

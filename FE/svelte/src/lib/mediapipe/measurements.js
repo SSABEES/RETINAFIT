@@ -6,12 +6,15 @@
  * @typedef {import("@mediapipe/tasks-vision").NormalizedLandmark} NormalizedLandmark
  */
 
-// 안내측각(inter-canthal) 거리 대비 동공 거리(PD) 비율의 경험 규칙.
-// 원본 Flutter 프로젝트의 측정 검증에서 유도됨. 추후 실측 보정 시 후보 상수.
+// PD (Pupillary Distance) 는 동공 중심 사이 거리. MediaPipe Face Landmarker 는 478 포인트 (468 face
+// + 양 눈 홍채 5점) 를 반환하므로 홍채 중심을 직접 사용한다. 홍채 인덱스가 누락된 모델 결과(< 478)
+// 일 때는 안내측각(33/263) × PD_FACTOR fallback.
+const RIGHT_PUPIL_IDX = 468  // 우측 눈(코 중심 기준 우측, 즉 263 방향) 홍채 중심
+const LEFT_PUPIL_IDX  = 473  // 좌측 눈(코 중심 기준 좌측, 즉 33 방향) 홍채 중심
 const PD_FACTOR = 0.8
 
 /**
- * 478포인트 정규화 랜드마크 배열에서 8가지 픽셀 측정값을 계산한다.
+ * 478포인트 정규화 랜드마크 배열에서 픽셀 측정값을 계산한다.
  * 측정값 중 하나라도 0 이하이면 측정 실패로 null 을 반환한다.
  *
  * 랜드마크 인덱스:
@@ -22,8 +25,7 @@ const PD_FACTOR = 0.8
  *  - 397/172: 턱 외곽(턱각 근처) → jaw_width
  *  - 297/67: 눈썹 위 이마 좌우 → forehead_width
  *  - 345/116: 광대뼈 정점(cheekbone prominence) → cheekbone_width
- *
- * PD ≈ eye_distance × 0.8 (원본 프로젝트 경험 규칙)
+ *  - 468/473: 우/좌 동공 중심 → pd_pixels, right_pd_pixels, left_pd_pixels
  *
  * @param {NormalizedLandmark[]} landmarks
  * @param {number} width
@@ -32,6 +34,7 @@ const PD_FACTOR = 0.8
  */
 export function compute_measurements(landmarks, width, height) {
   if (!landmarks || landmarks.length < 468) return null
+  const has_iris = landmarks.length >= 478
 
   const face_width = Math.abs(landmarks[454].x - landmarks[234].x) * width
   const face_height = Math.abs(landmarks[152].y - landmarks[10].y) * height
@@ -40,15 +43,17 @@ export function compute_measurements(landmarks, width, height) {
   const jaw_width = Math.abs(landmarks[397].x - landmarks[172].x) * width
   const forehead_width = Math.abs(landmarks[297].x - landmarks[67].x) * width
   const cheekbone_width = Math.abs(landmarks[345].x - landmarks[116].x) * width
-  const pd_pixels = eye_distance * PD_FACTOR
 
-  // 단안 PD: 코 중심선(168) 의 x 를 기준으로 좌/우 분리.
-  // 안과 광학 표준 — 168 은 nasion(코뼈 시작점) 으로 눈선과 거의 같은 수직 위치라 X 투영 왜곡 최소.
+  // PD — 동공-동공 수평 거리. iris 가 있으면 정확값, 없으면 안내측각 기반 추정.
+  // 단안 PD 는 nasion(168, 코뼈 시작점 — 눈선과 거의 같은 수직 위치) 기준 좌/우 분리.
   const nose_midline_x = landmarks[168].x * width
-  const right_eye_x = landmarks[263].x * width
-  const left_eye_x = landmarks[33].x * width
-  const right_pd_pixels = Math.abs(right_eye_x - nose_midline_x)
-  const left_pd_pixels = Math.abs(nose_midline_x - left_eye_x)
+  const right_pupil_x = (has_iris ? landmarks[RIGHT_PUPIL_IDX].x : landmarks[263].x) * width
+  const left_pupil_x  = (has_iris ? landmarks[LEFT_PUPIL_IDX].x  : landmarks[33].x)  * width
+  const pd_pixels = has_iris
+    ? Math.abs(right_pupil_x - left_pupil_x)
+    : eye_distance * PD_FACTOR
+  const right_pd_pixels = Math.abs(right_pupil_x - nose_midline_x)
+  const left_pd_pixels  = Math.abs(nose_midline_x - left_pupil_x)
 
   if (face_width <= 0 || face_height <= 0 || eye_distance <= 0) return null
 
@@ -71,14 +76,16 @@ export function compute_measurements(landmarks, width, height) {
  * measurement_list 의 auto 항목 points 필드에 그대로 세팅 가능.
  *
  * 매핑 (measurement_utils 의 템플릿 item_id 와 1:1):
- *  - pd:              [33, 263]    (안내측각 — eye_distance 기반, factor 0.8 은 거리만 축소)
- *  - right_pd:        [168, 263]   (nasion → 우측 동공)
- *  - left_pd:         [33,  168]   (좌측 동공 → nasion)
+ *  - pd:              [좌 동공, 우 동공]     (홍채 중심 — 478 포인트 모델 시 [473, 468])
+ *  - right_pd:        [nasion(168), 우 동공]
+ *  - left_pd:         [좌 동공, nasion(168)]
  *  - face_width:      [234, 454]   (얼굴 좌우 최외곽)
  *  - face_height:     [10, 152]    (이마/턱끝)
  *  - jaw_width:       [172, 397]   (턱 외곽)
  *  - forehead_width:  [67, 297]    (눈썹 위 이마 좌우)
  *  - cheekbone_width: [116, 345]   (광대뼈 정점)
+ *
+ * iris 인덱스가 누락된 모델 결과(< 478)면 PD 점은 안내측각(33/263) 으로 fallback.
  *
  * @param {NormalizedLandmark[]} landmarks
  * @param {number} width
@@ -87,20 +94,23 @@ export function compute_measurements(landmarks, width, height) {
  */
 export function compute_measurement_points(landmarks, width, height) {
   if (!landmarks || landmarks.length < 468) return null
+  const has_iris = landmarks.length >= 478
+  const right_pupil_idx = has_iris ? RIGHT_PUPIL_IDX : 263
+  const left_pupil_idx  = has_iris ? LEFT_PUPIL_IDX  : 33
   /**
    * @param {number} idx
    * @returns {import('./face_types.js').Point2D}
    */
   const px = (idx) => ({ x: landmarks[idx].x * width, y: landmarks[idx].y * height })
   return {
-    pd:              [px(33),  px(263)],
+    pd:              [px(left_pupil_idx),  px(right_pupil_idx)],
     face_width:      [px(234), px(454)],
     face_height:     [px(10),  px(152)],
     jaw_width:       [px(172), px(397)],
     forehead_width:  [px(67),  px(297)],
     cheekbone_width: [px(116), px(345)],
-    right_pd:        [px(168), px(263)],
-    left_pd:         [px(33),  px(168)],
+    right_pd:        [px(168), px(right_pupil_idx)],
+    left_pd:         [px(left_pupil_idx),  px(168)],
   }
 }
 
