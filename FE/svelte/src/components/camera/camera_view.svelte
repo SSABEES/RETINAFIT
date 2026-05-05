@@ -12,7 +12,6 @@
   } from '@/lib/mediapipe/face_landmarker.js'
   import { compute_measurements, compute_measurement_points } from '@/lib/mediapipe/measurements.js'
   import { video_to_blob } from '@/lib/capture/capture_utils.js'
-  import { compute_center_square_bbox } from '@/lib/sixdrepnet360/inference.js'
   // 측면(left_profile/right_profile) 자세 감지 composable. pose_target 에 따라 tick() 이
   // no-op 이거나 6D 추론 발사. 정면 단계엔 무관 — 인스턴스만 만들어두고 사용 안 함.
   import { create_profile_pose_detector } from '@/lib/capture/use_profile_pose.svelte.js'
@@ -23,7 +22,7 @@
    * @typedef {import("@/lib/mediapipe/face_types.js").FrontalCheck} FrontalCheck
    * @typedef {import("@/lib/mediapipe/face_types.js").CompletenessCheck} CompletenessCheck
    * @typedef {import("@/lib/mediapipe/face_types.js").Point2D} Point2D
-   * @typedef {'head_left' | 'head_right' | 'head_center' | 'count_three' | 'count_two' | 'count_one' | 'count_click'} AudioPromptKey
+   * @typedef {'head_left' | 'head_right' | 'head_center' | 'face_good' | 'count_three' | 'count_two' | 'count_one' | 'count_click'} AudioPromptKey
    *
    * @typedef {object} CaptureResult
    * @property {Blob} blob
@@ -243,6 +242,14 @@
   })
 
   $effect(() => {
+    // ★ entry guard 보다 먼저 측면 yaw / session_ready 를 한 번 읽어 effect 의 reactive deps 에
+    //   무조건 등록한다. 이 effect 의 첫 실행이 정면 단계 (front 분기) 에 일어나거나 entry guard
+    //   에서 일찍 bail 하면 last_yaw 가 dep 으로 잡히지 않아, 이후 yaw 가 바뀌어도 effect 가 재실행
+    //   되지 않고 측면 음성 안내가 영영 침묵하는 문제가 있었음. 텍스트 ($derived 경유) 는 항상
+    //   읽으니 정상 동작했지만, effect 는 read-path 에 따라 deps 가 달라지므로 명시 고정 필요.
+    const local_last_yaw = profile_pose.last_yaw
+    const local_session_ready = profile_pose.session_ready
+
     if (!active || !g_is_auto_capture || g_already_dispatched || g_stability_audio_stage !== 'idle') {
       return
     }
@@ -263,8 +270,7 @@
       // 측면 — 6DRepNet360 yaw 기준 안정화 영역 (target ± TOLERANCE) 미도달이면 target 방향으로
       // 더 돌리도록 안내. 영역 안 (도달 직전~stable) 이면 음성 침묵 — hint text 가 "자세 유지 중"
       // 으로 진행 표시. compute_hint_text 의 분기와 같은 조건을 그대로 사용.
-      const local_last_yaw = profile_pose.last_yaw
-      if (profile_pose.session_ready && local_last_yaw !== null) {
+      if (local_session_ready && local_last_yaw !== null) {
         const target_deg = pose_target === 'right_profile'
           ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
         const distance = Math.abs(local_last_yaw - target_deg)
@@ -368,19 +374,26 @@
   async function run_auto_capture_sequence() {
     const my_token = ++g_capture_sequence_token
 
-    // 정면/측면 모두 안정화 완료 즉시 셔터음(count_click) 재생 → 캡처. 기존 3-2-1 카운트다운은
-    // 카운트 도중 자세 풀림 처리/노이즈로 인한 false-cancel 등 복잡도 대비 UX 이득이 적어 제거.
-    if (pose_target === 'front') {
-      if (
-        my_token !== g_capture_sequence_token ||
-        !active ||
-        !g_is_auto_capture ||
-        g_already_dispatched
-      ) {
-        return
-      }
-      await play_prompt_audio('count_click')
+    // 정면/측면 공통 시퀀스: 안정화 도달 → face_good (위치 OK 안내) → count_click (셔터음) → 캡처.
+    if (
+      my_token !== g_capture_sequence_token ||
+      !active ||
+      !g_is_auto_capture ||
+      g_already_dispatched
+    ) {
+      return
     }
+    await play_prompt_audio('face_good')
+
+    if (
+      my_token !== g_capture_sequence_token ||
+      !active ||
+      !g_is_auto_capture ||
+      g_already_dispatched
+    ) {
+      return
+    }
+    await play_prompt_audio('count_click')
 
     if (
       my_token !== g_capture_sequence_token ||
@@ -552,12 +565,8 @@
       if (ctx) {
         ctx.clearRect(0, 0, ref_this_canvas_el.width, ref_this_canvas_el.height)
       }
-      if (is_landmark_visible) {
-        if (pose_target === 'front') {
-          draw_face_mesh(ref_this_canvas_el, g_last_detection)
-        } else {
-          draw_profile_cube()
-        }
+      if (is_landmark_visible && pose_target === 'front') {
+        draw_face_mesh(ref_this_canvas_el, g_last_detection)
       }
       draw_guide_ellipse()
     }
@@ -711,91 +720,6 @@
     ctx.closePath()
     ctx.stroke()
     ctx.restore()
-  }
-
-  // 6D 포즈 큐브 — 머리 좌표계의 정육면체를 회전행렬로 회전시켜 2D 캔버스에 투영. 측면 단계의
-  // is_landmark_visible 토글에 의해 ON/OFF 됨 (정면의 face mesh 가 토글되는 것과 같은 역할).
-  // 좌표계: x=right, y=down (이미지 컨벤션), z=out-of-screen. 캔버스가 video 와 함께 scaleX(-1)
-  // 미러링되므로 project_cube 가 x 부호를 한 번 더 반전해 사용자 perception 과 일치시킨다.
-  // (모델은 unmirrored 프레임을 받으므로 R 그대로 적용 시 큐브가 머리와 반대 방향으로 회전.)
-  const CUBE_VERTICES = [
-    [-1, -1, -1], [+1, -1, -1], [+1, +1, -1], [-1, +1, -1], // 뒤 면 (z=-1, 머리 뒤쪽)
-    [-1, -1, +1], [+1, -1, +1], [+1, +1, +1], [-1, +1, +1], // 앞 면 (z=+1, 얼굴 쪽)
-  ]
-
-  function project_cube(R, cx, cy, half) {
-    const PERSPECTIVE = 4
-    const out = []
-    for (const v of CUBE_VERTICES) {
-      const vx = R[0] * v[0] + R[1] * v[1] + R[2] * v[2]
-      const vy = R[3] * v[0] + R[4] * v[1] + R[5] * v[2]
-      const vz = R[6] * v[0] + R[7] * v[1] + R[8] * v[2]
-      const scale = PERSPECTIVE / (PERSPECTIVE - vz)
-      out.push({ x: cx - vx * half * scale, y: cy + vy * half * scale })
-    }
-    return out
-  }
-
-  function stroke_quad(ctx, a, b, c, d) {
-    ctx.beginPath()
-    ctx.moveTo(a.x, a.y)
-    ctx.lineTo(b.x, b.y)
-    ctx.lineTo(c.x, c.y)
-    ctx.lineTo(d.x, d.y)
-    ctx.closePath()
-    ctx.stroke()
-  }
-
-  function stroke_segment(ctx, a, b) {
-    ctx.beginPath()
-    ctx.moveTo(a.x, a.y)
-    ctx.lineTo(b.x, b.y)
-    ctx.stroke()
-  }
-
-  // 큐브 렌더: 뒤 면(파랑·약간 흐림) → 연결 모서리(노랑) → 앞 면(빨강·강조). 빨강면이 얼굴이
-  // 향하는 방향 — 사용자가 정면 보면 빨간 사각형이 카메라 향하고, 옆을 보면 옆으로 돈다.
-  function draw_pose_cube(ctx, R, cx, cy, half) {
-    const v = project_cube(R, cx, cy, half)
-    ctx.save()
-    ctx.shadowColor = 'rgba(0,0,0,0.6)'
-    ctx.shadowBlur = 4
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-
-    ctx.strokeStyle = 'rgba(80,140,255,0.7)'
-    ctx.lineWidth = 2.5
-    stroke_quad(ctx, v[0], v[1], v[2], v[3])
-
-    ctx.strokeStyle = 'rgba(255,210,80,0.85)'
-    ctx.lineWidth = 2
-    stroke_segment(ctx, v[0], v[4])
-    stroke_segment(ctx, v[1], v[5])
-    stroke_segment(ctx, v[2], v[6])
-    stroke_segment(ctx, v[3], v[7])
-
-    ctx.strokeStyle = 'rgba(255,80,100,0.95)'
-    ctx.lineWidth = 3
-    stroke_quad(ctx, v[4], v[5], v[6], v[7])
-    ctx.restore()
-  }
-
-  // 측면 단계 큐브 그리기 — 추론 결과 회전행렬이 있을 때만 호출. 중앙 정사각형 bbox 기준으로
-  // 위치 잡고, test.svelte 의 폴백 모드와 동일하게 0.15 비율 사용 (frame 짧은 변 × 0.15).
-  function draw_profile_cube() {
-    if (!ref_this_canvas_el || !ref_this_video_el) return
-    if (ref_this_video_el.videoWidth === 0) return
-    if (profile_pose.last_rotation === null) return
-    const ctx = ref_this_canvas_el.getContext('2d')
-    if (!ctx) return
-
-    const bbox = compute_center_square_bbox(ref_this_video_el)
-    const w = ref_this_canvas_el.width
-    const h = ref_this_canvas_el.height
-    const cx = (bbox.x + bbox.w / 2) * w
-    const cy = (bbox.y + bbox.h / 2) * h
-    const half = Math.min(bbox.w * w, bbox.h * h) * 0.15
-    draw_pose_cube(ctx, profile_pose.last_rotation, cx, cy, half)
   }
 
   /**

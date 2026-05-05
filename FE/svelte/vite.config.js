@@ -2,6 +2,45 @@ import { defineConfig } from 'vite'
 import tailwindcss from '@tailwindcss/vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { fileURLToPath, URL } from 'node:url'
+import { createReadStream, existsSync } from 'node:fs'
+import { resolve as path_resolve, extname } from 'node:path'
+
+// dev 서버가 /ort/* 요청을 Vite 의 transform 미들웨어에 흘려보내지 않게 한다.
+// onnxruntime-web 의 proxy worker 가 ort-wasm-simd-threaded.jsep.mjs 같은 파일을
+// `new Worker(url, { type: 'module' })` 로 동적 로드하는데, public/ 안 .mjs 는
+// "should not be imported from source code" 로 차단되는 게 Vite 의 정책. transform 미들웨어
+// 진입 전에 raw 정적 응답으로 직접 처리해 우회한다. prod 빌드는 영향 없음 (public/ → dist/ 복사 후
+// nginx 등 정적 호스트가 그대로 서빙).
+function serve_ort_public_assets() {
+  return {
+    name: 'serve-ort-public-assets',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const local_url = (req.url ?? '').split('?')[0]
+        if (!local_url.startsWith('/ort/')) return next()
+
+        const local_root = server.config.root
+        const local_file_path = path_resolve(local_root, 'public', local_url.slice(1))
+        if (!existsSync(local_file_path)) return next()
+
+        const local_ext = extname(local_file_path).toLowerCase()
+        const local_mime =
+          local_ext === '.wasm' ? 'application/wasm' :
+          local_ext === '.mjs'  ? 'application/javascript' :
+          local_ext === '.js'   ? 'application/javascript' :
+          'application/octet-stream'
+
+        // server.headers 는 Vite 내부 정적 미들웨어에서 주입되므로, 우리 미들웨어가 먼저 응답하는
+        // 경우 COOP/COEP 가 빠진다. cross-origin-isolated 유지를 위해 직접 같은 값으로 추가.
+        res.setHeader('Content-Type', local_mime)
+        res.setHeader('Cross-Origin-Opener-Policy', 'same-origin')
+        res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless')
+        res.setHeader('Cross-Origin-Resource-Policy', 'same-origin')
+        createReadStream(local_file_path).pipe(res)
+      })
+    },
+  }
+}
 
 // 정적 자산 호스팅 정책:
 //   - MediaPipe: public/mediapipe/  (models/ 는 git 커밋, wasm/ 는 predev/prebuild 가 동기화)
@@ -11,7 +50,7 @@ import { fileURLToPath, URL } from 'node:url'
 // 자산 경로를 명시(`wasmPaths` / `FilesetResolver.forVisionTasks`) 해 같은 origin 으로 fetch.
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [tailwindcss(), svelte()],
+  plugins: [tailwindcss(), svelte(), serve_ort_public_assets()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
