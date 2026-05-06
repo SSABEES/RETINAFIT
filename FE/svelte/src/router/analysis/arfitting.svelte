@@ -2,15 +2,7 @@
   import { onMount } from 'svelte'
   import { navigate } from '@maks11060/svelte5-router'
   import { fade, fly } from 'svelte/transition'
-  import {
-    Glasses,
-    CheckCheck,
-    X,
-    ChevronRight,
-    RefreshCw,
-    Save,
-    FileText,
-  } from 'lucide-svelte'
+  import { Glasses, CheckCheck, X, ChevronRight, RefreshCw, Save, FileText } from 'lucide-svelte'
   import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
   import {
@@ -46,7 +38,7 @@
   let g_capture_slot_arr = $state([null, null, null])
   let g_flutter_bridge_ready = $state(false)
   let g_flutter_availability = $state('UNKNOWN')
-  let g_flutter_event_text = $state('')
+  let _g_flutter_event_text = $state('')
   let g_flutter_launch_loading = $state(false)
   // AR 사용 가능 여부 확인이 끝났는지. 마운트 직후 'UNKNOWN' 상태에서 미지원 문구가 깜빡이는 것을 방지.
   let g_ar_check_done = $state(false)
@@ -59,11 +51,7 @@
   let ref_camera_section_el = $state(null)
 
   const SLOT_LABEL_ARR = ['정면', '좌측', '우측']
-  const SLOT_ICON_ARR = [
-    '/icons/face_center.png',
-    '/icons/face_left.png',
-    '/icons/face_right.png',
-  ]
+  const SLOT_ICON_ARR = ['/icons/face_center.png', '/icons/face_left.png', '/icons/face_right.png']
   // native 가 emit 하는 slot 키 -> 슬롯 인덱스 매핑
   const SLOT_KEY_TO_INDEX = { front: 0, left: 1, right: 2 }
   const MAX_FITTINGS = 5
@@ -80,8 +68,7 @@
   )
 
   let g_can_save = $derived(
-    g_all_captured &&
-      (g_saved_fittings_arr.length < MAX_FITTINGS || g_is_selected_already_saved),
+    g_all_captured && (g_saved_fittings_arr.length < MAX_FITTINGS || g_is_selected_already_saved),
   )
   // AR 미지원 디바이스 (예: iOS) 는 피팅을 저장할 수 없으므로 저장 0건이어도 리포트로 진행 가능하게 한다.
   let g_can_submit = $derived(g_saved_fittings_arr.length > 0 || g_ar_unavailable)
@@ -110,8 +97,8 @@
     )
   }
 
-  let g_filter_modal_open = $state(false)
-  let g_filter_loading = $state(false)
+  let _g_filter_modal_open = $state(false)
+  let _g_filter_loading = $state(false)
   let g_all_glasses_arr = $state([])
   let g_filter_obj = $state({ frame_type_arr: [], material_arr: [], category_arr: [] })
 
@@ -141,7 +128,7 @@
   let g_selected_model_url = $derived(
     g_selected_glasses_obj ? get_virtual_fitting_model_url(g_selected_glasses_obj) : '',
   )
-  let g_can_launch_flutter_fitting = $derived(
+  let _g_can_launch_flutter_fitting = $derived(
     g_flutter_bridge_ready &&
       g_flutter_availability === 'SUPPORTED' &&
       Boolean(g_selected_glasses_obj) &&
@@ -177,7 +164,7 @@
       const local_data_obj = local_event_obj?.data ?? {}
       const local_data_text = JSON.stringify(local_data_obj)
 
-      g_flutter_event_text = `${local_event_name}: ${local_data_text}`
+      _g_flutter_event_text = `${local_event_name}: ${local_data_text}`
 
       // native AR 가 캡처한 이미지를 슬롯에 채운다.
       if (local_event_name === 'captured') {
@@ -445,7 +432,7 @@
     return `${Number(local_digits).toLocaleString('ko-KR')}원`
   }
 
-  function read_file_as_data_url(file_obj) {
+  function _read_file_as_data_url(file_obj) {
     return new Promise((resolve, reject) => {
       const local_reader = new FileReader()
       local_reader.onload = () => resolve(String(local_reader.result ?? ''))
@@ -465,7 +452,7 @@
   /**
    * 선택한 안경의 native asset 경로를 확인하고 Flutter AR 피팅 화면 열기
    */
-  async function on_click_launch_flutter_fitting() {
+  async function _on_click_launch_flutter_fitting() {
     if (!g_flutter_bridge_ready) {
       show_toast('Flutter 브리지가 연결되지 않았습니다.')
       return
@@ -486,13 +473,13 @@
     try {
       const local_request_id = await launch_flutter_fitting_for_glasses(g_selected_glasses_obj)
 
-      g_flutter_event_text = `launch_requested: ${local_request_id}`
+      _g_flutter_event_text = `launch_requested: ${local_request_id}`
       show_toast('Flutter AR 피팅을 실행했습니다.')
     } catch (local_error) {
       const local_error_text =
         local_error instanceof Error ? local_error.message : 'Flutter AR 피팅 실행에 실패했습니다.'
 
-      g_flutter_event_text = `launch_error: ${local_error_text}`
+      _g_flutter_event_text = `launch_error: ${local_error_text}`
       show_toast(local_error_text)
     } finally {
       g_flutter_launch_loading = false
@@ -510,7 +497,7 @@
   /**
    * 필터 옵션 토글 (즉시 반영)
    */
-  function on_click_toggle_filter(field, value) {
+  function _on_click_toggle_filter(field, value) {
     const arr = g_filter_obj[field]
     g_filter_obj[field] = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]
   }
@@ -560,7 +547,7 @@
 
   let g_guide_info = $derived(GUIDE_STEP_ARR[g_guide_step])
 
-  function on_click_guide_open() {
+  function _on_click_guide_open() {
     g_guide_step = 1
   }
   function on_click_guide_close() {
@@ -610,7 +597,6 @@
             {/if}
           </p>
         </div>
-
       </div>
     </section>
 
@@ -659,7 +645,8 @@
                   />
                 {/if}
               </div>
-              <span class={`text-[10px] font-bold ${slot ? 'text-[var(--retina-primary-300)]' : 'text-slate-400'}`}
+              <span
+                class={`text-[10px] font-bold ${slot ? 'text-[var(--retina-primary-300)]' : 'text-slate-400'}`}
                 >{SLOT_LABEL_ARR[idx]}</span
               >
             </div>
@@ -794,7 +781,8 @@
                   in:fly={{ y: 6, duration: 200 }}
                 >
                   <CheckCheck size={9} class="shrink-0 text-[var(--retina-primary-300)]" />
-                  <span class="max-w-[60px] truncate text-[10px] font-bold text-[var(--retina-primary-300)]"
+                  <span
+                    class="max-w-[60px] truncate text-[10px] font-bold text-[var(--retina-primary-300)]"
                     >{fit.model}</span
                   >
                   <button
@@ -850,7 +838,6 @@
   <LoadingOverlay open={g_submit_loading} label="피팅 결과 저장 중..." />
 </main>
 
-
 <!-- 가이드 오버레이 -->
 {#if g_guide_step > 0}
   <div
@@ -878,12 +865,16 @@
           ></div>
         {/each}
       </div>
-      <p class="mb-1.5 text-xs font-black uppercase tracking-widest text-[var(--retina-primary-300)]">
+      <p
+        class="mb-1.5 text-xs font-black uppercase tracking-widest text-[var(--retina-primary-300)]"
+      >
         Step {g_guide_step} / 5
       </p>
       <h3 class="mb-3 text-lg font-black leading-snug text-zinc-900">{g_guide_info.title}</h3>
       <p class="whitespace-pre-line text-sm leading-relaxed text-slate-500">{g_guide_info.desc}</p>
-      <div class="mt-4 flex items-center justify-between gap-2 rounded-2xl bg-[var(--retina-bg-1)] px-4 py-3">
+      <div
+        class="mt-4 flex items-center justify-between gap-2 rounded-2xl bg-[var(--retina-bg-1)] px-4 py-3"
+      >
         <span class="text-xs font-bold text-[var(--retina-primary-300)]">{g_guide_info.hint}</span>
         <ChevronRight size={14} class="shrink-0 text-[var(--retina-primary-300)]" />
       </div>
@@ -929,5 +920,4 @@
     background: #e2e8f0;
     border-radius: 10px;
   }
-
 </style>

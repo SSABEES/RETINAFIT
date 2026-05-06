@@ -60,10 +60,7 @@
   높이를 끝까지 흡수. 헤더(측정 항목 + view_label) 는 컴포넌트 상단 고정, ul 만 내부에서 스크롤.
   컴포넌트가 다른 곳에서 쓰여도 flex 부모 밖에선 flex-1 이 무시되므로 안전.
 -->
-<section
-  class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden"
-  aria-label="측정 항목 리스트"
->
+<section class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden" aria-label="측정 항목 리스트">
   <div class="flex items-baseline justify-between">
     <h3 class="m-0 text-[13px] font-extrabold text-slate-800">측정 항목</h3>
     {#if view_label}

@@ -51,8 +51,6 @@
 import { untrack } from 'svelte'
 import { get_steps_for_mode } from '@/lib/capture/step_config.js'
 import { classify_face_shape } from '@/lib/mediapipe/classify.js'
-import { compute_ear_offsets } from '@/lib/mediapipe/measurements.js'
-import { detect_keypoints_from_image } from '@/lib/mediapipe/face_detector.js'
 import { compute_asymmetry_score } from '@/lib/mediapipe/asymmetry.js'
 import { compute_skin_tone } from '@/lib/mediapipe/skin_tone.js'
 import { build_initial_measurements, pixel_distance } from '@/lib/measurements/measurement_utils.js'
@@ -142,13 +140,12 @@ async function compute_face_shape_result() {
     //   }
     // }
 
-    const asymmetry = capture.landmarks
-      ? compute_asymmetry_score(capture.landmarks)
-      : null
+    const asymmetry = capture.landmarks ? compute_asymmetry_score(capture.landmarks) : null
 
-    const skin_tone = (bitmap && capture.landmarks)
-      ? compute_skin_tone(bitmap, capture.landmarks, capture.width, capture.height)
-      : null
+    const skin_tone =
+      bitmap && capture.landmarks
+        ? compute_skin_tone(bitmap, capture.landmarks, capture.width, capture.height)
+        : null
 
     return {
       face_shape: classify_face_shape(capture.measurements_obj),

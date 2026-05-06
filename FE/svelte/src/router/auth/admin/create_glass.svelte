@@ -84,7 +84,9 @@
     class="rounded-2xl border border-slate-200 bg-white px-8 py-5 shadow-sm shadow-slate-200/50"
   >
     <div class="flex justify-end">
-      <div class="grid min-h-12 grid-cols-2 gap-2 rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] p-1">
+      <div
+        class="grid min-h-12 grid-cols-2 gap-2 rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] p-1"
+      >
         <button
           class={`cursor-pointer rounded-[10px] px-4 text-sm font-extrabold transition ${
             ref_glass_form_obj.is_active
@@ -127,24 +129,30 @@
           <div class="grid gap-3 border-t border-[#E8DAEE] px-4 py-4">
             <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
               대표 이미지 파일
-              <div class="relative flex min-h-12 min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition focus-within:border-[#4B0055] focus-within:ring-3 focus-within:ring-[#4B0055]/12">
+              <div
+                class="relative flex min-h-12 min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition focus-within:border-[#4B0055] focus-within:ring-3 focus-within:ring-[#4B0055]/12"
+              >
                 <input
                   class="absolute inset-0 cursor-pointer opacity-0"
                   type="file"
                   accept="image/*"
                   onchange={on_change_glass_img_file}
                 />
-                <span class="shrink-0 rounded-lg bg-[#F3E8F5] px-3 py-2 text-sm font-extrabold text-[#4B0055]">
+                <span
+                  class="shrink-0 rounded-lg bg-[#F3E8F5] px-3 py-2 text-sm font-extrabold text-[#4B0055]"
+                >
                   파일 선택
                 </span>
                 <span
                   class="truncate text-base font-bold text-zinc-950"
-                  title={ref_glass_img_file_obj?.name ?? get_filename_from_url(ref_glass_form_obj.glasses_img_url)}
+                  title={ref_glass_img_file_obj?.name ??
+                    get_filename_from_url(ref_glass_form_obj.glasses_img_url)}
                 >
                   {#if ref_glass_img_file_obj}
                     {ref_glass_img_file_obj.name}
                   {:else if ref_glass_form_obj.glasses_img_url}
-                    {get_filename_from_url(ref_glass_form_obj.glasses_img_url) || ref_glass_form_obj.glasses_img_url}
+                    {get_filename_from_url(ref_glass_form_obj.glasses_img_url) ||
+                      ref_glass_form_obj.glasses_img_url}
                   {:else}
                     선택된 파일 없음
                   {/if}
@@ -154,24 +162,30 @@
 
             <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
               3D 모델 파일
-              <div class="relative flex min-h-12 min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition focus-within:border-[#4B0055] focus-within:ring-3 focus-within:ring-[#4B0055]/12">
+              <div
+                class="relative flex min-h-12 min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition focus-within:border-[#4B0055] focus-within:ring-3 focus-within:ring-[#4B0055]/12"
+              >
                 <input
                   class="absolute inset-0 cursor-pointer opacity-0"
                   type="file"
                   accept=".glb,.gltf,.fbx,.obj,.usdz,.stl,.ply,.3dm"
                   onchange={on_change_glass_3d_file}
                 />
-                <span class="shrink-0 rounded-lg bg-[#F3E8F5] px-3 py-2 text-sm font-extrabold text-[#4B0055]">
+                <span
+                  class="shrink-0 rounded-lg bg-[#F3E8F5] px-3 py-2 text-sm font-extrabold text-[#4B0055]"
+                >
                   파일 선택
                 </span>
                 <span
                   class="truncate text-base font-bold text-zinc-950"
-                  title={ref_glass_3d_file_obj?.name ?? get_filename_from_url(ref_glass_form_obj.glasses_3d_url)}
+                  title={ref_glass_3d_file_obj?.name ??
+                    get_filename_from_url(ref_glass_form_obj.glasses_3d_url)}
                 >
                   {#if ref_glass_3d_file_obj}
                     {ref_glass_3d_file_obj.name}
                   {:else if ref_glass_form_obj.glasses_3d_url}
-                    {get_filename_from_url(ref_glass_form_obj.glasses_3d_url) || ref_glass_form_obj.glasses_3d_url}
+                    {get_filename_from_url(ref_glass_form_obj.glasses_3d_url) ||
+                      ref_glass_form_obj.glasses_3d_url}
                   {:else}
                     선택된 파일 없음
                   {/if}
@@ -205,7 +219,7 @@
           />
         </label>
 
-        {#each g_glass_dropdown_arr.filter((dropdown_obj) => ['category', 'frame_style', 'frame_type'].includes(dropdown_obj.key)) as dropdown_obj (dropdown_obj.key)}
+        {#each g_glass_dropdown_arr.filter( (dropdown_obj) => ['category', 'frame_style', 'frame_type'].includes(dropdown_obj.key), ) as dropdown_obj (dropdown_obj.key)}
           <div class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
             {dropdown_obj.label}
 

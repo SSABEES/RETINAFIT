@@ -231,7 +231,7 @@ function order_loop_indices(connections) {
   let curr = start
   while (true) {
     const neighbors = adj.get(curr) ?? []
-    const next = neighbors.find(n => n !== prev)
+    const next = neighbors.find((n) => n !== prev)
     if (next === undefined || next === start) break
     loop.push(next)
     prev = curr

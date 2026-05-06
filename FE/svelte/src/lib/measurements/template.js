@@ -21,9 +21,9 @@ export const MEASUREMENT_TEMPLATE = [
   // 안경 착용/측면 관련 수동 측정 항목들은 현재 스코프 밖이라 제거 (캡처 자체는 유지).
   // jaw_width/forehead_width/cheekbone_width 는 얼굴형 분류기 입력으로만 쓰이므로
   // capture.measurements_obj 파이프라인에 남겨두고 사용자 측정 UI 에서는 제외.
-  { item_id: 'pd',          label: 'PD (눈 간격)',   view: 'front_no_glasses', source: 'auto' },
-  { item_id: 'right_pd',    label: '우측 PD (단안)', view: 'front_no_glasses', source: 'auto' },
-  { item_id: 'left_pd',     label: '좌측 PD (단안)', view: 'front_no_glasses', source: 'auto' },
-  { item_id: 'face_width',  label: '얼굴 너비',       view: 'front_no_glasses', source: 'auto' },
-  { item_id: 'face_height', label: '얼굴 길이',       view: 'front_no_glasses', source: 'auto' },
+  { item_id: 'pd', label: 'PD (눈 간격)', view: 'front_no_glasses', source: 'auto' },
+  { item_id: 'right_pd', label: '우측 PD (단안)', view: 'front_no_glasses', source: 'auto' },
+  { item_id: 'left_pd', label: '좌측 PD (단안)', view: 'front_no_glasses', source: 'auto' },
+  { item_id: 'face_width', label: '얼굴 너비', view: 'front_no_glasses', source: 'auto' },
+  { item_id: 'face_height', label: '얼굴 길이', view: 'front_no_glasses', source: 'auto' },
 ]

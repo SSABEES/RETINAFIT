@@ -1,15 +1,6 @@
 <script>
   import { navigate } from '@maks11060/svelte5-router'
-  import {
-    CalendarDays,
-    ChevronRight,
-    CircleCheck,
-    Phone,
-    Plus,
-    Search,
-    UserPlus,
-    UserSearch,
-  } from 'lucide-svelte'
+  import { ChevronRight, CircleCheck, Plus, UserSearch } from 'lucide-svelte'
   import Header from '@/components/layout/header.svelte'
   import Keypad from '@/components/input/keypad.svelte'
   import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
@@ -41,10 +32,6 @@
     ref_search_phone.length === g_phone_full_length && ref_consent_agreed,
   )
   let g_search_request_id = 0
-
-  function get_initial(name) {
-    return name.slice(0, 1)
-  }
 
   function get_analysis_status_obj(test_dt) {
     if (!test_dt) {
@@ -464,13 +451,11 @@
             <UserSearch size={42} strokeWidth={1.5} />
           </span>
           <p class="m-0 text-sm font-bold text-[var(--retina-text-800)]">
-            ← <br>먼저 휴대폰 번호로 고객을 조회해주세요.
+            ← <br />먼저 휴대폰 번호로 고객을 조회해주세요.
           </p>
         </div>
       {:else}
-        <div
-          class="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col gap-4 py-2"
-        >
+        <div class="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col gap-4 py-2">
           <div class="flex shrink-0 items-center justify-between">
             <p class="m-0 text-sm font-bold text-[var(--retina-text-500)]">
               총 <span class="text-[var(--retina-text-700)]">{ref_customer_arr.length}명</span>

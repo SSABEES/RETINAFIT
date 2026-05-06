@@ -49,7 +49,9 @@
 </script>
 
 {#if g_is_authenticated}
-  <main class="app-frame-page flex h-full flex-col overflow-hidden bg-[var(--retina-page)] text-[var(--retina-text)]">
+  <main
+    class="app-frame-page flex h-full flex-col overflow-hidden bg-[var(--retina-page)] text-[var(--retina-text)]"
+  >
     <section class="min-h-0 flex-1 overflow-y-auto px-8 py-8">
       <div class="grid min-h-full w-full content-start gap-4">
         <div class="flex items-start justify-between gap-6">
@@ -79,7 +81,8 @@
               onclick={on_click_toggle_admin_page_dropdown}
             >
               <span>
-                {g_admin_page_arr.find((admin_page_obj) => admin_page_obj.key === active_key)?.label}
+                {g_admin_page_arr.find((admin_page_obj) => admin_page_obj.key === active_key)
+                  ?.label}
               </span>
               <ChevronDown
                 size={18}
