@@ -30,6 +30,7 @@
   import { selected_customer_obj, selected_visit_obj } from '@/lib/stores/customer'
   import { push_error_toast, push_toast } from '@/lib/stores/toast'
   import { pick_recommended_glasses_arr } from '@/lib/recommendations/frame_recommendations'
+  import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
 
   /**
    * @typedef {{
@@ -845,6 +846,8 @@
       </div>
     </aside>
   </div>
+
+  <LoadingOverlay open={g_submit_loading} label="피팅 결과 저장 중..." />
 </main>
 
 

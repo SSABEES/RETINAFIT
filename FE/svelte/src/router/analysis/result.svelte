@@ -23,6 +23,7 @@
   import MeasurementList from '@/components/analysis/measurement_list.svelte'
   import { MEASUREMENT_TEMPLATE } from '@/lib/measurements/template.js'
   import { pixel_distance } from '@/lib/measurements/measurement_utils.js'
+  import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   const FACE_SHAPE_LABEL_OBJ = {
     oval: '계란형',
     round: '둥근형',
@@ -42,6 +43,9 @@
   let g_visit_loading = $state(true)
 
   let ref_customer_create_modal_open = $state(false)
+  // 비회원 → 고객 등록 (create_customer + create_visit + update_visit) 진행 중 플래그.
+  // 모달 onclose/oncreate 와 화면 PATCH 가 동시에 진행돼 중복 클릭/네비게이션을 막아야 한다.
+  let g_is_registering_customer = $state(false)
 
   // 비회원(cust_no = 0) 으로 진입한 경우에만 고객정보등록 버튼을 노출한다.
   const g_is_guest_visit = $derived(Number($selected_customer_obj?.id) === 0)
@@ -292,6 +296,7 @@
    * @param {{ name: string, gender: string, birth_dt: string, phone1: string, phone2: string }} customer_obj
    */
   async function on_create_customer(customer_obj) {
+    if (g_is_registering_customer) return
     if (!$selected_opt_store_obj?.opt_no) {
       push_error_toast('선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.')
       return
@@ -307,6 +312,7 @@
     const local_phone2 = customer_obj.phone2.replace(/[^0-9]/g, '')
     const local_sex_value = Number(customer_obj.gender)
 
+    g_is_registering_customer = true
     try {
       await create_customer({
         opt_no: $selected_opt_store_obj.opt_no,
@@ -405,6 +411,8 @@
           ? local_error.message
           : '고객 정보 등록 중 오류가 발생했습니다.',
       )
+    } finally {
+      g_is_registering_customer = false
     }
   }
 
@@ -742,4 +750,6 @@
     onclose={on_click_close_customer_create_modal}
     oncreate={on_create_customer}
   />
+
+  <LoadingOverlay open={g_is_registering_customer} label="고객 정보 등록 중..." />
 </main>

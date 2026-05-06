@@ -8,6 +8,7 @@
   import { save_visit_recommend } from '@/lib/api/visit'
   import { selected_customer_obj } from '@/lib/stores/customer'
   import { push_error_toast } from '@/lib/stores/toast'
+  import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
 
   // 질문 = option_category, 답변 = { option_no, option_name } 으로 매핑된다.
   let g_question_arr = $state([])
@@ -369,4 +370,6 @@
       </div>
     </div>
   </section>
+
+  <LoadingOverlay open={g_loading} label="추천 옵션 저장 중..." />
 </main>

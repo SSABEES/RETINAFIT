@@ -17,6 +17,7 @@
     get_skin_tone_recommendation,
     get_frame_styles_for_face_shape,
   } from '@/lib/recommendations/frame_recommendations.js'
+  import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
 
   const g_session = $derived(get_session())
   const g_face_shape_result = $derived(get_face_shape_result())
@@ -344,4 +345,6 @@
       </div>
     </div>
   </section>
+
+  <LoadingOverlay open={g_is_submitting} label="분석 결과 저장 중..." />
 </main>
