@@ -309,13 +309,14 @@
   }
 
   /*
-   * Landscape orientation: 모달은 portrait 좌표계 그대로 그리되 90deg 회전해 표시.
+   * Landscape orientation: 모달은 portrait 좌표계 그대로 그리되 -90deg (counterclockwise) 회전해 표시.
    * 가로 모니터를 portrait 디바이스로 시뮬레이션 — PC 디버깅 + 가로 태블릿 세로 사용 모두 커버.
    *
-   * 좌표 변환:
+   * 좌표 변환 (반시계 90deg):
    *   - element pre-transform 크기: width=100vh (모니터 height), height=100vw (모니터 width)
-   *   - rotate(90deg) about (0,0): rectangle (-H, 0) ~ (0, W)
-   *   - translate(100vw, 0): rectangle (0, 0) ~ (H, W) — viewport 정확히 덮음
+   *   - rotate(-90deg) about (0,0): (x, y) → (y, -x), rectangle (0, -W) ~ (H, 0)
+   *   - translate(0, 100vh): rectangle (0, 0) ~ (H, W) — viewport 정확히 덮음
+   *     (100vh 는 viewport 높이 = pre-transform W, 즉 element 가로 폭)
    *   - 클릭 좌표는 SVG getScreenCTM 으로 자동 unproject (to_image_px 참조)
    */
   @media (orientation: landscape) {
@@ -326,7 +327,7 @@
       width: 100vh;
       height: 100vw;
       transform-origin: top left;
-      transform: translate(100vw, 0) rotate(90deg);
+      transform: translate(0, 100vh) rotate(-90deg);
     }
   }
 </style>
