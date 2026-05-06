@@ -1,6 +1,7 @@
 <script>
   import { onDestroy, onMount } from 'svelte'
   import { fade, fly } from 'svelte/transition'
+  import PhotoSwitcher from '@/components/analysis/photo_switcher.svelte'
 
   /**
    * @typedef {import('@/lib/stores/capture_session.svelte.js').Capture} Capture
@@ -65,10 +66,17 @@
     aria-label="측정 이미지 확대 보기"
     transition:fade={{ duration: 200 }}
   >
-    <!-- 상단 바 -->
+    <!-- 상단 바: 좌측 PhotoSwitcher + 우측 닫기 -->
     <div
-      class="absolute top-0 right-0 left-0 z-30 flex h-14 items-center justify-end bg-black/30 px-4 backdrop-blur-sm"
+      class="absolute top-0 right-0 left-0 z-30 flex h-14 items-center justify-between gap-4 bg-black/30 px-4 backdrop-blur-sm"
     >
+      <div class="flex-1 max-w-[360px]">
+        <PhotoSwitcher
+          {session}
+          {view}
+          onview_change={(v) => onview_change?.(v)}
+        />
+      </div>
       <button
         type="button"
         class="rounded px-3 py-2 text-sm font-bold text-white transition hover:bg-white/10"
