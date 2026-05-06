@@ -31,12 +31,12 @@ export const ROLL_THR = 14
 const KEY_INDICES = [10, 152, 234, 454, 33, 263, 133, 362, 1, 61, 291, 172, 397]
 
 // 페이스 메시 드로잉 색상 (가이드 타원 색상과는 분리되어 있음)
-const MESH_COLOR_TESSELATION = 'rgba(200,200,200,0.22)'
-const MESH_COLOR_OVAL = 'rgba(255,255,255,0.85)'
-const MESH_COLOR_EYE = '#00e676'
-const MESH_COLOR_EYEBROW = '#40c4ff'
-const MESH_COLOR_LIP = '#f48fb1'
-const MESH_COLOR_IRIS = '#ffeb3b'
+const MESH_COLOR_TESSELATION = 'rgba(200,200,200,0.10)'
+const MESH_COLOR_OVAL = 'rgba(255,255,255,0.5)'
+const MESH_COLOR_EYE = 'rgba(255,255,255,0.5)'
+const MESH_COLOR_EYEBROW = 'rgba(255,255,255,0.5)'
+const MESH_COLOR_LIP = 'rgba(255,255,255,0.5)'
+const MESH_COLOR_IRIS = 'rgba(255,255,255,0.5)'
 
 /** @type {Promise<FaceLandmarker> | null} */
 let g_image_promise = null
@@ -210,6 +210,127 @@ function draw_connections(ctx, landmarks, connections, w, h, color, line_width) 
 }
 
 /**
+ * connection 리스트를 노드 인접 그래프로 변환해 폐곡선 순서대로 정렬된 인덱스 배열을 반환.
+ * 폐곡선이 아니거나 분기가 있으면 첫 번째로 도달 가능한 경로를 사용.
+ * @param {ReadonlyArray<{ start: number, end: number }>} connections
+ * @returns {number[]}
+ */
+function order_loop_indices(connections) {
+  /** @type {Map<number, number[]>} */
+  const adj = new Map()
+  for (const c of connections) {
+    if (!adj.has(c.start)) adj.set(c.start, [])
+    if (!adj.has(c.end)) adj.set(c.end, [])
+    adj.get(c.start)?.push(c.end)
+    adj.get(c.end)?.push(c.start)
+  }
+  if (connections.length === 0) return []
+  const start = connections[0].start
+  const loop = [start]
+  let prev = -1
+  let curr = start
+  while (true) {
+    const neighbors = adj.get(curr) ?? []
+    const next = neighbors.find(n => n !== prev)
+    if (next === undefined || next === start) break
+    loop.push(next)
+    prev = curr
+    curr = next
+    if (loop.length > 1024) break
+  }
+  return loop
+}
+
+/**
+ * 홍채(iris) 폐곡선 정점들의 중심과 평균 반지름을 구해 완전한 원으로 그린다.
+ * iris connection 은 보통 4점만 있어 베지어로는 다각형 느낌이 남으므로,
+ * 평균 반지름 원이 가장 자연스럽게 동그란 눈동자 표현이 된다.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {NormalizedLandmark[]} landmarks
+ * @param {ReadonlyArray<{ start: number, end: number }>} connections
+ * @param {number} w
+ * @param {number} h
+ * @param {string} color
+ * @param {number} line_width
+ */
+function draw_iris_circle(ctx, landmarks, connections, w, h, color, line_width) {
+  /** @type {Set<number>} */
+  const unique_indices = new Set()
+  for (const c of connections) {
+    unique_indices.add(c.start)
+    unique_indices.add(c.end)
+  }
+  /** @type {{ x: number, y: number }[]} */
+  const pts = []
+  for (const idx of unique_indices) {
+    const lm = landmarks[idx]
+    if (!lm) return
+    pts.push({ x: lm.x * w, y: lm.y * h })
+  }
+  if (pts.length < 3) return
+  let cx = 0
+  let cy = 0
+  for (const p of pts) {
+    cx += p.x
+    cy += p.y
+  }
+  cx /= pts.length
+  cy /= pts.length
+  let radius_sum = 0
+  for (const p of pts) {
+    radius_sum += Math.hypot(p.x - cx, p.y - cy)
+  }
+  const radius = (radius_sum / pts.length) * 0.75
+  ctx.strokeStyle = color
+  ctx.lineWidth = line_width
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+  ctx.stroke()
+}
+
+/**
+ * 폐곡선 connection 을 quadratic bezier 로 부드럽게 그린다.
+ * 각 정점 사이의 중점들을 베지어 곡선의 시작/끝으로, 정점 자체를 제어점으로 사용해
+ * 직선 segment 대비 곡선이 자연스럽게 둥글어진다.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {NormalizedLandmark[]} landmarks
+ * @param {ReadonlyArray<{ start: number, end: number }>} connections
+ * @param {number} w
+ * @param {number} h
+ * @param {string} color
+ * @param {number} line_width
+ */
+function draw_smooth_closed_loop(ctx, landmarks, connections, w, h, color, line_width) {
+  const loop = order_loop_indices(connections)
+  if (loop.length < 3) return
+  /** @type {{ x: number, y: number }[]} */
+  const pts = []
+  for (const idx of loop) {
+    const lm = landmarks[idx]
+    if (!lm) return
+    pts.push({ x: lm.x * w, y: lm.y * h })
+  }
+  ctx.strokeStyle = color
+  ctx.lineWidth = line_width
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  const last = pts[pts.length - 1]
+  const first = pts[0]
+  ctx.moveTo((last.x + first.x) / 2, (last.y + first.y) / 2)
+  for (let i = 0; i < pts.length; i++) {
+    const curr = pts[i]
+    const next = pts[(i + 1) % pts.length]
+    const mx = (curr.x + next.x) / 2
+    const my = (curr.y + next.y) / 2
+    ctx.quadraticCurveTo(curr.x, curr.y, mx, my)
+  }
+  ctx.closePath()
+  ctx.stroke()
+}
+
+/**
  * 페이스 메시(테셀레이션, 윤곽, 눈, 눈썹, 입술, 홍채)를 canvas 에 그린다.
  * 비디오 프레임은 그리지 않는다 — 이 canvas 는 <video> 위에 투명 오버레이로 겹쳐 그리는 용도이므로
  * 비디오 프레임을 복제해 그리면 불투명해져 카메라 영상을 가리게 된다.
@@ -244,7 +365,7 @@ export function draw_face_mesh(canvas, result) {
     MESH_COLOR_OVAL,
     2,
   )
-  draw_connections(
+  draw_smooth_closed_loop(
     ctx,
     landmarks,
     MpFaceLandmarker.FACE_LANDMARKS_RIGHT_EYE,
@@ -253,7 +374,7 @@ export function draw_face_mesh(canvas, result) {
     MESH_COLOR_EYE,
     2,
   )
-  draw_connections(
+  draw_smooth_closed_loop(
     ctx,
     landmarks,
     MpFaceLandmarker.FACE_LANDMARKS_LEFT_EYE,
@@ -281,7 +402,7 @@ export function draw_face_mesh(canvas, result) {
     2,
   )
   draw_connections(ctx, landmarks, MpFaceLandmarker.FACE_LANDMARKS_LIPS, w, h, MESH_COLOR_LIP, 2)
-  draw_connections(
+  draw_iris_circle(
     ctx,
     landmarks,
     MpFaceLandmarker.FACE_LANDMARKS_RIGHT_IRIS,
@@ -290,7 +411,7 @@ export function draw_face_mesh(canvas, result) {
     MESH_COLOR_IRIS,
     2,
   )
-  draw_connections(
+  draw_iris_circle(
     ctx,
     landmarks,
     MpFaceLandmarker.FACE_LANDMARKS_LEFT_IRIS,
