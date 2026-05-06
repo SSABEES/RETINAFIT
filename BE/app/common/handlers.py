@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -5,6 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from app.common.error_codes import ErrorCode
 from app.common.exceptions import AppException
 
+logger = logging.getLogger(__name__)
 
 def register_exception_handlers(app: FastAPI) -> None:
     """
@@ -25,6 +27,14 @@ def register_exception_handlers(app: FastAPI) -> None:
             "message": "방문 정보를 찾을 수 없습니다."
         }
         """
+        logger.warning(
+            "AppException: %s %s - [%s] %s",
+            request.method,
+            request.url,
+            exc.error_code.value,
+            exc.message,
+            exc_info=True,
+        )
         return JSONResponse(
             status_code=exc.status_code,
             content={
@@ -40,6 +50,13 @@ def register_exception_handlers(app: FastAPI) -> None:
         Pydantic 유효성 검사 실패 처리
         예: 필수 필드 누락, 타입 불일치 등
         """
+        logger.warning(
+            "ValidationError: %s %s - %s",
+            request.method,
+            request.url,
+            exc.errors(),
+            exc_info=True,
+        )
         return JSONResponse(
             status_code=422,
             content={
@@ -54,6 +71,13 @@ def register_exception_handlers(app: FastAPI) -> None:
         """
         예상치 못한 에러 처리 (500)
         """
+        logger.error(
+            "UnhandledException: %s %s - %s",
+            request.method,
+            request.url,
+            exc,
+            exc_info=True,  # traceback 포함
+        )
         return JSONResponse(
             status_code=500,
             content={
