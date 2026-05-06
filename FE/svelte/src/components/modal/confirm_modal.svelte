@@ -29,16 +29,26 @@
   function on_click_close() {
     onclose?.()
   }
+
+  // .app-frame 에 걸린 transform: scale 이 fixed 자식의 containing block 을 viewport 가 아닌
+  // 프레임(1024×768)으로 만들어 버려, 그대로 두면 모달 backdrop 이 프레임 안쪽까지만 덮인다.
+  // 이를 우회하기 위해 모달 노드를 document.body 직속으로 이동시킨다.
+  function portal_to_body(node) {
+    document.body.appendChild(node)
+    return {
+      destroy() {
+        if (node.parentNode === document.body) {
+          document.body.removeChild(node)
+        }
+      },
+    }
+  }
 </script>
 
 {#if open}
-  <!--
-    .app-frame 이 transform: scale 로 fixed containing block 을 만들기 때문에 inset-0 만으로는
-    .app-frame 영역까지만 덮이고 좌우 빈 공간이 노출된다. .app-edge-extend (negative left/right)
-    를 같이 걸어 viewport 좌우 끝까지 오버레이가 닿게 한다.
-  -->
   <div
-    class="app-edge-extend fixed inset-y-0 z-50 grid place-items-center bg-black/45 px-5"
+    use:portal_to_body
+    class="fixed inset-0 z-50 grid place-items-center bg-black/45 px-5"
     role="presentation"
   >
     <section

@@ -114,7 +114,7 @@
 
     set_selected_opt_store(local_opt_store_obj, local_admin_arr)
     set_selected_admin(local_admin_arr[0])
-    navigate(PATH.opticianSelect)
+    navigate(PATH.visitSelect)
   }
 
   async function on_submit_login(local_event) {
