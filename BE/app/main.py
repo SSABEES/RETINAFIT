@@ -1,9 +1,16 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.common.handlers import register_exception_handlers
 from app.api.router import api_router
+
+# ─── 로깅 설정 ────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.DEBUG if settings.DEBUG else logging.WARNING,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 # ─── 앱 생성 ──────────────────────────────────────────────────
 app = FastAPI(
@@ -36,3 +43,4 @@ app.include_router(api_router, prefix="/api/v1")
 @app.get("/health", tags=["health"])
 async def health_check():
     return {"status": "ok", "env": settings.APP_ENV}
+    

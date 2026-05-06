@@ -40,3 +40,13 @@ async def update_visit(db: AsyncSession, visit_no: int, data: dict) -> Visit | N
     await db.commit()
     await db.refresh(visit)
     return visit
+
+async def update_report_json(db: AsyncSession, visit_no: int, report_json: dict) -> Visit | None:
+    """report_json 업데이트 - AI face-script 결과 저장"""
+    visit = await get_visit(db, visit_no)
+    if not visit:
+        return None
+    visit.report_json = report_json
+    await db.commit()
+    await db.refresh(visit)
+    return visit
