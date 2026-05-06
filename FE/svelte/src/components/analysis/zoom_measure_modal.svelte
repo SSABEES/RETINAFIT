@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from 'svelte'
   import { fade, fly } from 'svelte/transition'
   import PhotoSwitcher from '@/components/analysis/photo_switcher.svelte'
+  import MeasurementList from '@/components/analysis/measurement_list.svelte'
   import { is_aruco_overlay_enabled } from '@/lib/measurements/aruco_debug_overlay.svelte.js'
 
   /**
@@ -42,8 +43,18 @@
 
   /** @type {HTMLButtonElement | null} */
   let ref_this_hit_area_el = $state(null)
+  let g_list_open = $state(false)
   /** @type {Point2D | null} */
   let g_pending_first = $state(null)
+
+  /**
+   * 항목 클릭 — 부모로 위임하고 sheet 자동 닫음.
+   * @param {string} item_id
+   */
+  function on_select_item_local(item_id) {
+    onselect_item?.(item_id)
+    g_list_open = false
+  }
 
   // active 가 바뀌면 pending 초기화 — 가로 캔버스와 동일 패턴.
   $effect(() => {
@@ -246,6 +257,32 @@
       <!-- capture 가 null 이면 안내 placeholder -->
       <div class="absolute top-14 right-0 bottom-0 left-0 grid place-items-center text-sm font-semibold text-slate-300">
         사진이 선택되지 않았습니다.
+      </div>
+    {/if}
+
+    <!-- 우하단 floating 토글 버튼 -->
+    <button
+      type="button"
+      class="absolute right-4 bottom-4 z-40 rounded-full bg-white px-4 py-2 text-sm font-extrabold text-slate-700 shadow-lg transition hover:bg-slate-50"
+      onclick={() => (g_list_open = !g_list_open)}
+      aria-expanded={g_list_open}
+    >
+      {g_list_open ? '측정 항목 접기' : '측정 항목 펼치기'}
+    </button>
+
+    <!-- bottom sheet — 열렸을 때만 렌더, 슬라이드 업 200ms -->
+    {#if g_list_open}
+      <div
+        class="absolute right-0 bottom-0 left-0 z-30 max-h-[50vh] overflow-y-auto rounded-t-2xl bg-white px-5 pt-4 pb-20 shadow-[0_-8px_24px_rgba(0,0,0,0.2)]"
+        aria-label="측정 항목 리스트"
+        transition:fly={{ y: 200, duration: 200 }}
+      >
+        <MeasurementList
+          {items_arr}
+          {active_item_id}
+          onselect={on_select_item_local}
+          onclear={(id) => onclear_item?.(id)}
+        />
       </div>
     {/if}
   </div>
