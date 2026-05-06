@@ -370,16 +370,16 @@
 
   <div class="grid min-h-0 grid-cols-2">
     <section
-      class="grid min-h-0 grid-rows-[1fr_auto] gap-4 border-r border-[var(--retina-text-200)] px-6 pt-5 pb-5"
+      class="grid min-h-0 grid-rows-[1fr_auto] gap-5 border-r border-[var(--retina-text-200)] px-8 pt-6 pb-6"
       aria-label="고객 조회 키패드 영역"
     >
-      <div class="w-[22rem] self-start justify-self-center">
+      <div class="w-full max-w-[28rem] self-start justify-self-center">
         <Keypad value={ref_search_phone} onchange={on_change_keypad} />
       </div>
 
-      <div class="grid w-[22rem] justify-self-center gap-3">
+      <div class="grid w-full max-w-[28rem] justify-self-center gap-3">
         <button
-          class="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-[var(--retina-bg-1)] px-3 py-2.5 text-left text-sm font-bold text-[var(--retina-text-800)] transition hover:bg-[var(--retina-primary-200)]/40 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
+          class="flex w-full cursor-pointer items-center gap-2 rounded-lg border-0 bg-[var(--retina-bg-1)] px-4 py-3 text-left text-sm font-bold text-[var(--retina-text-800)] transition hover:bg-[var(--retina-primary-200)]/40 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
           type="button"
           aria-pressed={ref_consent_agreed}
           onclick={on_click_toggle_consent}
@@ -398,10 +398,10 @@
         </button>
 
         <button
-          class={`min-h-14 w-full cursor-pointer rounded-md border-0 text-xl font-bold tracking-[0.3em] text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+          class={`min-h-16 w-full cursor-pointer rounded-xl border-0 text-2xl font-bold tracking-[0.3em] text-white transition disabled:cursor-not-allowed ${
             is_search_active
-              ? 'bg-[var(--retina-primary-300)] hover:bg-[var(--retina-primary-700)]'
-              : 'bg-[var(--retina-bg-2)]'
+              ? 'bg-[var(--retina-primary-600)] hover:bg-[var(--retina-primary-700)]'
+              : 'bg-[var(--retina-primary-300)]/60 text-white/90'
           }`}
           type="button"
           onclick={on_click_search_submit}
@@ -472,6 +472,7 @@
 
           <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
             {#each ref_customer_arr as customer_obj (customer_obj.id)}
+              {@const is_face_done = customer_obj.status_key === 'analysis_done'}
               <button
                 type="button"
                 class="grid w-full shrink-0 cursor-pointer grid-cols-[1fr_auto] items-center gap-4 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-5 py-4 text-left shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition hover:-translate-y-0.5 hover:border-[var(--retina-primary-600)] hover:shadow-[0_8px_18px_rgba(245,107,0,0.14)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-70"
@@ -494,12 +495,25 @@
                   </p>
                 </div>
 
-                <span
-                  class="inline-flex items-center gap-1 rounded-full border border-[var(--retina-primary-600)] bg-[var(--retina-surface)] px-3.5 py-1.5 text-sm font-bold text-[var(--retina-primary-600)]"
-                >
-                  얼굴분석
-                  <ChevronRight size={14} strokeWidth={2.6} aria-hidden="true" />
-                </span>
+                <div class="flex items-center gap-2">
+                  <img
+                    src={is_face_done
+                      ? '/icons/Property 1=Face, Property 2=Active.png'
+                      : '/icons/Property 1=Face, Property 2=Default.png'}
+                    alt={is_face_done ? '얼굴분석 완료' : '얼굴분석 진행 필요'}
+                    class="h-12 w-12"
+                  />
+                  <img
+                    src="/icons/Property 1=Life, Property 2=Default.png"
+                    alt="생활패턴"
+                    class="h-12 w-12"
+                  />
+                  <img
+                    src="/icons/Property 1=Fitting, Property 2=Default.png"
+                    alt="피팅시작"
+                    class="h-12 w-12"
+                  />
+                </div>
               </button>
             {/each}
           </div>

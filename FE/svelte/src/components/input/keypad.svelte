@@ -1,6 +1,4 @@
 <script>
-  import { Delete } from 'lucide-svelte'
-
   /** @type {{
    *   value?: string,
    *   onchange?: ((value: string) => void) | undefined,
@@ -10,7 +8,18 @@
 
   const MAX_LENGTH = 11
   const PREFIX_010 = '010'
-  const DIGIT_ARR = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+  // 디지트 → 이미지 파일 매핑. 디자인이 keypad.png(=1), keypad-1.png(=2) ... 식으로 한 칸씩 밀려서 export 되어 있음.
+  const DIGIT_KEY_ARR = [
+    { digit: '1', src: '/icons/keypad.png' },
+    { digit: '2', src: '/icons/keypad-1.png' },
+    { digit: '3', src: '/icons/keypad-2.png' },
+    { digit: '4', src: '/icons/keypad-3.png' },
+    { digit: '5', src: '/icons/keypad-4.png' },
+    { digit: '6', src: '/icons/keypad-5.png' },
+    { digit: '7', src: '/icons/keypad-6.png' },
+    { digit: '8', src: '/icons/keypad-7.png' },
+    { digit: '9', src: '/icons/keypad-8.png' },
+  ]
   const PLACEHOLDER = '010 - 1234 - 5678'
 
   // 한 자리 숫자를 끝에 추가하고 onchange 로 알린다.
@@ -39,28 +48,33 @@
   })
 </script>
 
-<div class="flex w-full max-w-sm flex-col items-center gap-6">
+<div class="flex w-full flex-col items-center gap-5">
   <!-- 표시 영역 -->
   <div class="w-full text-center">
     <p class="mb-3 text-sm font-bold tracking-wide text-zinc-500">휴대폰 번호를 입력해주세요.</p>
-    <div class="border-b border-zinc-300/70 pb-3">
+    <div class="flex items-end justify-center border-b-2 border-zinc-800 pb-2 min-h-[3rem]">
       {#if value.length === 0}
-        <span class="text-3xl font-bold tracking-[0.08em] text-zinc-300">{PLACEHOLDER}</span>
+        <img
+          src="/icons/Property 1=Default.png"
+          alt={PLACEHOLDER}
+          class="h-8 w-auto"
+        />
       {:else}
-        <span class="text-3xl font-bold tracking-[0.08em] text-zinc-900">{g_formatted_value}</span>
+        <span class="text-[2rem] font-bold tracking-[0.02em] text-zinc-900 leading-none">{g_formatted_value}</span>
       {/if}
     </div>
   </div>
 
   <!-- 키패드 그리드 -->
   <div class="grid w-full grid-cols-3 gap-3">
-    {#each DIGIT_ARR as digit (digit)}
+    {#each DIGIT_KEY_ARR as key_obj (key_obj.digit)}
       <button
         type="button"
-        onclick={() => on_click_digit(digit)}
-        class="h-16 rounded-2xl border border-white/60 bg-white/40 text-2xl font-bold text-zinc-800 shadow-[0_2px_10px_rgba(75,0,85,0.05)] backdrop-blur-md transition-all duration-150 hover:bg-white/70 hover:shadow-[0_4px_14px_rgba(75,0,85,0.08)] active:scale-95 active:bg-white/85"
+        onclick={() => on_click_digit(key_obj.digit)}
+        aria-label={`${key_obj.digit} 입력`}
+        class="block aspect-[18/10] w-full cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-100 hover:shadow-[0_3px_12px_rgba(0,0,0,0.10)] active:translate-y-0.5"
       >
-        {digit}
+        <img src={key_obj.src} alt={key_obj.digit} class="h-full w-full" />
       </button>
     {/each}
 
@@ -69,18 +83,20 @@
       type="button"
       onclick={on_click_prefix_010}
       disabled={value.length > 0}
-      class="h-16 rounded-2xl border border-[var(--retinal-primary-600)]/30 bg-[#F5EAF7]/50 text-2xl font-bold text-[var(--retinal-primary-600)] shadow-[0_2px_10px_rgba(75,0,85,0.08)] backdrop-blur-md transition-all duration-150 hover:bg-[#F5EAF7]/80 hover:shadow-[0_4px_14px_rgba(75,0,85,0.15)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
+      aria-label="010 입력"
+      class="block aspect-[18/10] w-full cursor-pointer overflow-hidden rounded-lg border border-[#dbe7ff] bg-[#eef3ff] p-0 shadow-[0_2px_8px_rgba(75,123,236,0.10)] transition-all duration-100 hover:shadow-[0_3px_12px_rgba(75,123,236,0.16)] active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
     >
-      010
+      <img src="/icons/keypad-9.png" alt="010" class="h-full w-full" />
     </button>
 
     <!-- 0 -->
     <button
       type="button"
       onclick={() => on_click_digit('0')}
-      class="h-16 rounded-2xl border border-white/60 bg-white/40 text-2xl font-bold text-zinc-800 shadow-[0_2px_10px_rgba(75,0,85,0.05)] backdrop-blur-md transition-all duration-150 hover:bg-white/70 hover:shadow-[0_4px_14px_rgba(75,0,85,0.08)] active:scale-95 active:bg-white/85"
+      aria-label="0 입력"
+      class="block aspect-[18/10] w-full cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-100 hover:shadow-[0_3px_12px_rgba(0,0,0,0.10)] active:translate-y-0.5"
     >
-      0
+      <img src="/icons/keypad-10.png" alt="0" class="h-full w-full" />
     </button>
 
     <!-- 백스페이스 -->
@@ -89,9 +105,9 @@
       onclick={on_click_backspace}
       aria-label="한 자리 지우기"
       disabled={value.length === 0}
-      class="flex h-16 items-center justify-center rounded-2xl border border-white/60 bg-white/40 text-zinc-600 shadow-[0_2px_10px_rgba(75,0,85,0.05)] backdrop-blur-md transition-all duration-150 hover:bg-white/70 hover:text-zinc-900 hover:shadow-[0_4px_14px_rgba(75,0,85,0.08)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
+      class="block h-20 w-36 cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-100 hover:shadow-[0_3px_12px_rgba(0,0,0,0.10)] active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
     >
-      <Delete size={24} strokeWidth={2.2} aria-hidden="true" />
+      <img src="/icons/keypad-11.png" alt="" class="h-full w-full" aria-hidden="true" />
     </button>
   </div>
 </div>

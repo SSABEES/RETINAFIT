@@ -1,6 +1,5 @@
 <script>
   import { navigate } from '@maks11060/svelte5-router'
-  import { ArrowLeft, LogOut } from 'lucide-svelte'
   import { PATH } from '@/config/path'
   import { clear_login_select_data } from '@/lib/stores/admin'
   import { clear_auto_login_obj } from '@/lib/stores/auto_login'
@@ -91,12 +90,12 @@
   <div class="flex justify-start">
     {#if show_back}
       <button
-        class="grid h-8 w-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+        class="grid h-8 w-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent transition hover:bg-slate-100"
         type="button"
         aria-label="뒤로가기"
         onclick={handle_back_click}
       >
-        <ArrowLeft size={24} strokeWidth={2.2} aria-hidden="true" />
+        <img src="/icons/DivLeft.png" alt="" class="h-6 w-6" aria-hidden="true" />
       </button>
     {:else}
       <span class="h-8 w-8" aria-hidden="true"></span>
@@ -115,12 +114,12 @@
   <div class="flex justify-end">
     {#if show_logout}
       <button
-        class="grid h-8 w-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+        class="grid h-8 w-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent transition hover:bg-slate-100"
         type="button"
         aria-label="로그아웃"
         onclick={handle_logout_click}
       >
-        <LogOut size={22} strokeWidth={2.2} aria-hidden="true" />
+        <img src="/icons/BtnLogout.png" alt="" class="h-6 w-6" aria-hidden="true" />
       </button>
     {:else}
       <span class="h-8 w-8" aria-hidden="true"></span>
