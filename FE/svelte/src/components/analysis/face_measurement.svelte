@@ -181,23 +181,6 @@
         얼굴 측정
       </h1>
 
-      {#if g_is_pd_fallback}
-        <!--
-          ArUco 마커 검출이 실패해 PD 63mm 추정값으로 환산 중임을 안내. 마커가 인식되면 자동으로
-          숨겨진다 (g_session.scale.source === 'aruco_marker'). 운영자에게 측정 정확도가
-          평균값 기반임을 명시 — 개인차가 있을 수 있음.
-        -->
-        <div
-          class="mx-auto mt-2 flex w-full max-w-[760px] items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-800"
-          role="status"
-        >
-          <span class="leading-snug">
-            마커 인식 실패 — 평균 PD 63mm 기준 <b>추정치</b> 로 표시 중입니다. 정확한 측정을 위해
-            마커를 다시 촬영해주세요.
-          </span>
-        </div>
-      {/if}
-
       <!--
         grid-rows-[minmax(0,1fr)] 로 row 가 grid 의 가용 높이를 다 채우게 한다 — 기본 auto rows 는
         item content 따라 변동해서 좌/우 사이즈가 view 별로 흔들렸던 게 root cause. minmax(0,1fr)
@@ -224,6 +207,20 @@
               onpoints_set={on_points_set}
               oncancel={on_cancel}
             />
+            {#if g_is_pd_fallback}
+              <!--
+                ArUco 마커 검출 실패 시 PD 63mm 추정값으로 환산 중임을 알리는 칩. 이미지 위 absolute
+                오버레이로 띄워 grid 레이아웃이 흔들리지 않게 한다. 마커 인식되면 자동 숨김.
+                aria-label 에 자세한 정보 — 시각적으론 짧게.
+              -->
+              <div
+                class="absolute top-2 left-2 z-20 rounded-full bg-amber-100/90 px-3 py-1 text-xs font-extrabold text-amber-800 shadow-md backdrop-blur-sm"
+                role="status"
+                aria-label="마커 인식 실패 — 평균 PD 63mm 추정치로 표시 중"
+              >
+                마커 인식 실패
+              </div>
+            {/if}
             <button
               type="button"
               class="absolute top-2 right-2 z-20 rounded-full bg-white/85 px-3 py-1 text-xs font-extrabold text-slate-700 shadow-md backdrop-blur-sm transition hover:bg-white"
