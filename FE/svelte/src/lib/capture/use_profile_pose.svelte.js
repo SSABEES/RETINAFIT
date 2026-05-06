@@ -8,9 +8,17 @@
  * 정면 단계는 이 composable 무관 — get_pose_target() === 'front' 시 tick() 즉시 return.
  */
 
-import { get_session, predict_pose, compute_center_square_bbox } from '@/lib/sixdrepnet360/inference.js'
+import {
+  get_session,
+  predict_pose,
+  compute_center_square_bbox,
+} from '@/lib/sixdrepnet360/inference.js'
 import { rotation_matrix_to_euler } from '@/lib/sixdrepnet360/pose.js'
-import { update_stability_step, compute_hint_text, PROFILE_CONSTANTS } from './profile_pose_logic.js'
+import {
+  update_stability_step,
+  compute_hint_text,
+  PROFILE_CONSTANTS,
+} from './profile_pose_logic.js'
 
 /**
  * @typedef {'front' | 'left_profile' | 'right_profile'} PoseTarget
@@ -38,19 +46,19 @@ import { update_stability_step, compute_hint_text, PROFILE_CONSTANTS } from './p
  */
 export function create_profile_pose_detector({ get_pose_target, get_video_el, on_stable_reached }) {
   // reactive 상태 — UI 가 읽음
-  let _stable_count  = $state(0)
-  let _last_yaw      = $state(/** @type {number | null} */ (null))
-  let _last_pitch    = $state(/** @type {number | null} */ (null))
-  let _last_roll     = $state(/** @type {number | null} */ (null))
+  let _stable_count = $state(0)
+  let _last_yaw = $state(/** @type {number | null} */ (null))
+  let _last_pitch = $state(/** @type {number | null} */ (null))
+  let _last_roll = $state(/** @type {number | null} */ (null))
   let _last_rotation = $state(/** @type {Float32Array | null} */ (null))
   let _session_ready = $state(false)
 
   // non-reactive — 내부용
   /** @type {number[]} */
-  let _yaw_buffer    = []
-  let _ort_inflight  = false
+  let _yaw_buffer = []
+  let _ort_inflight = false
   let _frame_counter = 0
-  let _reset_id      = 0
+  let _reset_id = 0
 
   async function tick() {
     if (get_pose_target() === 'front') return
@@ -71,7 +79,7 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
 
       const bbox = compute_center_square_bbox(video)
       const result = await predict_pose(video, bbox)
-      if (snapshot_id !== _reset_id) return       // 카메라 재시작 후 stale 결과 폐기
+      if (snapshot_id !== _reset_id) return // 카메라 재시작 후 stale 결과 폐기
 
       const { yaw, pitch, roll } = rotation_matrix_to_euler(result.rotation_matrix)
       const prev_count = _stable_count
@@ -82,8 +90,10 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
       _last_roll = roll
       _last_rotation = result.rotation_matrix
 
-      const target_deg = get_pose_target() === 'right_profile'
-        ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
+      const target_deg =
+        get_pose_target() === 'right_profile'
+          ? +PROFILE_CONSTANTS.TARGET_DEG
+          : -PROFILE_CONSTANTS.TARGET_DEG
       const next = update_stability_step({
         stable_count: _stable_count,
         yaw_buffer: _yaw_buffer,
@@ -126,25 +136,42 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
   return {
     tick,
     reset,
-    get is_stable()      { return _stable_count >= PROFILE_CONSTANTS.STABILITY_FRAMES },
-    get progress()       {
+    get is_stable() {
+      return _stable_count >= PROFILE_CONSTANTS.STABILITY_FRAMES
+    },
+    get progress() {
       return Math.min(100, Math.round((_stable_count / PROFILE_CONSTANTS.STABILITY_FRAMES) * 100))
     },
-    get hint_text()      {
-      const target_deg = get_pose_target() === 'right_profile'
-        ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
+    get hint_text() {
+      const target_deg =
+        get_pose_target() === 'right_profile'
+          ? +PROFILE_CONSTANTS.TARGET_DEG
+          : -PROFILE_CONSTANTS.TARGET_DEG
       return compute_hint_text({
         session_ready: _session_ready,
         last_yaw: _last_yaw,
         target_deg,
         is_stable: _stable_count >= PROFILE_CONSTANTS.STABILITY_FRAMES,
-        progress: Math.min(100, Math.round((_stable_count / PROFILE_CONSTANTS.STABILITY_FRAMES) * 100)),
+        progress: Math.min(
+          100,
+          Math.round((_stable_count / PROFILE_CONSTANTS.STABILITY_FRAMES) * 100),
+        ),
       })
     },
-    get session_ready()  { return _session_ready },
-    get last_yaw()       { return _last_yaw },
-    get last_pitch()     { return _last_pitch },
-    get last_roll()      { return _last_roll },
-    get last_rotation()  { return _last_rotation },
+    get session_ready() {
+      return _session_ready
+    },
+    get last_yaw() {
+      return _last_yaw
+    },
+    get last_pitch() {
+      return _last_pitch
+    },
+    get last_roll() {
+      return _last_roll
+    },
+    get last_rotation() {
+      return _last_rotation
+    },
   }
 }

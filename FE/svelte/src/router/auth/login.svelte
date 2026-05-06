@@ -190,7 +190,10 @@
 <main
   class="app-frame-page grid min-h-full grid-rows-[1fr_auto] overflow-hidden bg-[var(--retina-bg-1)] px-6 pt-6 pb-4 text-[var(--retina-text)]"
 >
-  <section class="grid w-full max-w-[460px] justify-self-center self-center" aria-labelledby="login-title">
+  <section
+    class="grid w-full max-w-[460px] justify-self-center self-center"
+    aria-labelledby="login-title"
+  >
     <form
       class="grid w-full gap-6 rounded-[22px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-14 py-10 shadow-[0_6px_14px_rgba(19,25,40,0.06)]"
       onsubmit={on_submit_login}
@@ -298,7 +301,9 @@
     </form>
   </section>
 
-  <p class="m-0 justify-self-center text-center text-sm font-medium text-[var(--retina-primary-900)]/80">
+  <p
+    class="m-0 justify-self-center text-center text-sm font-medium text-[var(--retina-primary-900)]/80"
+  >
     © 2026 RETINA Co,Ltd. All rights reserved.
   </p>
 </main>

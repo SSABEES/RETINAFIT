@@ -13,11 +13,7 @@
    */
 
   /** @type {CustomerCreateModalProps} */
-  let {
-    open = false,
-    onclose = undefined,
-    oncreate = undefined,
-  } = $props()
+  let { open = false, onclose = undefined, oncreate = undefined } = $props()
 
   let ref_name = $state('')
   let ref_gender = $state('0')
@@ -133,10 +129,7 @@
         </label>
 
         <div class="grid grid-cols-2 gap-3">
-          <fieldset
-            class="m-0 grid gap-1 border-0 p-0"
-            disabled={g_is_submit_loading}
-          >
+          <fieldset class="m-0 grid gap-1 border-0 p-0" disabled={g_is_submit_loading}>
             <legend class="text-xs font-bold text-[var(--retina-text-700)]">
               성별 <span class="text-[#dc2626]">*</span>
             </legend>

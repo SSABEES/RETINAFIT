@@ -150,10 +150,7 @@
       return
     }
 
-    g_question_arr = [
-      ...g_question_arr,
-      { question_text: local_question_text, answer_arr: [] },
-    ]
+    g_question_arr = [...g_question_arr, { question_text: local_question_text, answer_arr: [] }]
     ref_active_question_text = local_question_text
     ref_new_question_text = ''
     show_toast('질문을 추가했습니다. 답변을 등록해 주세요.')
@@ -210,7 +207,9 @@
       await load_question_arr()
     } catch (local_error) {
       const local_message =
-        local_error instanceof Error ? local_error.message : '질문 순서 변경 중 오류가 발생했습니다.'
+        local_error instanceof Error
+          ? local_error.message
+          : '질문 순서 변경 중 오류가 발생했습니다.'
       show_toast(local_message, 'error')
       await load_question_arr()
     }
@@ -396,9 +395,7 @@
           >
             <button
               class={`grid h-7 w-7 cursor-pointer place-items-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-30 ${
-                local_active
-                  ? 'text-white hover:bg-white/15'
-                  : 'text-[#4B0055] hover:bg-white'
+                local_active ? 'text-white hover:bg-white/15' : 'text-[#4B0055] hover:bg-white'
               }`}
               type="button"
               aria-label="질문 앞으로 이동"
@@ -435,9 +432,7 @@
 
             <button
               class={`grid h-7 w-7 cursor-pointer place-items-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-30 ${
-                local_active
-                  ? 'text-white hover:bg-white/15'
-                  : 'text-[#4B0055] hover:bg-white'
+                local_active ? 'text-white hover:bg-white/15' : 'text-[#4B0055] hover:bg-white'
               }`}
               type="button"
               aria-label="질문 뒤로 이동"

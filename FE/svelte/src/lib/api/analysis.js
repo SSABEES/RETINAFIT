@@ -34,10 +34,14 @@ import { flip_blob_horizontally } from '@/lib/capture/capture_utils.js'
  */
 function map_step_id_to_slot(step_id) {
   switch (step_id) {
-    case 'front_no_glasses': return { type: 'bare', slot: 'front' }
-    case 'left_no_glasses':  return { type: 'bare', slot: 'left' }
-    case 'right_no_glasses': return { type: 'bare', slot: 'right' }
-    default: return null
+    case 'front_no_glasses':
+      return { type: 'bare', slot: 'front' }
+    case 'left_no_glasses':
+      return { type: 'bare', slot: 'left' }
+    case 'right_no_glasses':
+      return { type: 'bare', slot: 'right' }
+    default:
+      return null
   }
 }
 

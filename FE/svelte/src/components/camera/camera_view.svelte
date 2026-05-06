@@ -134,10 +134,7 @@
     if (!active || !g_is_auto_capture || g_already_dispatched) return false
     if (pose_target === 'front') {
       return (
-        g_face_detected &&
-        g_complete_obj.is_complete &&
-        !!g_frontal_obj?.is_frontal &&
-        g_is_stable
+        g_face_detected && g_complete_obj.is_complete && !!g_frontal_obj?.is_frontal && g_is_stable
       )
     }
     return profile_pose.is_stable
@@ -154,8 +151,10 @@
       if (!profile_pose.session_ready || profile_pose.last_yaw === null) {
         return 'rgba(200,200,200,0.5)'
       }
-      const target_deg = pose_target === 'right_profile'
-        ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
+      const target_deg =
+        pose_target === 'right_profile'
+          ? +PROFILE_CONSTANTS.TARGET_DEG
+          : -PROFILE_CONSTANTS.TARGET_DEG
       const distance = Math.abs(profile_pose.last_yaw - target_deg)
       // 영역 밖 — 더 돌려야 함 (정면의 "not frontal" 과 동일 의미)
       if (distance >= PROFILE_CONSTANTS.TOLERANCE) return 'rgba(255,193,7,0.85)'
@@ -204,8 +203,10 @@
     const base = 'background: rgba(0,0,0,0.55);'
     // 측면: stable=초록, 진행 중=주황, 대기=흰
     if (pose_target !== 'front') {
-      if (profile_pose.is_stable) return base + ' border-color: rgba(0,230,118,0.7); color: #69f0ae;'
-      if (profile_pose.progress > 0) return base + ' border-color: rgba(255,152,0,0.6); color: #ffb74d;'
+      if (profile_pose.is_stable)
+        return base + ' border-color: rgba(0,230,118,0.7); color: #69f0ae;'
+      if (profile_pose.progress > 0)
+        return base + ' border-color: rgba(255,152,0,0.6); color: #ffb74d;'
       return base + ' border-color: rgba(255,255,255,0.25); color: #eeeeee;'
     }
 
@@ -258,7 +259,12 @@
     const local_last_yaw = profile_pose.last_yaw
     const local_session_ready = profile_pose.session_ready
 
-    if (!active || !g_is_auto_capture || g_already_dispatched || g_stability_audio_stage !== 'idle') {
+    if (
+      !active ||
+      !g_is_auto_capture ||
+      g_already_dispatched ||
+      g_stability_audio_stage !== 'idle'
+    ) {
       return
     }
 
@@ -279,8 +285,10 @@
       // 더 돌리도록 안내. 영역 안 (도달 직전~stable) 이면 음성 침묵 — hint text 가 "자세 유지 중"
       // 으로 진행 표시. compute_hint_text 의 분기와 같은 조건을 그대로 사용.
       if (local_session_ready && local_last_yaw !== null) {
-        const target_deg = pose_target === 'right_profile'
-          ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
+        const target_deg =
+          pose_target === 'right_profile'
+            ? +PROFILE_CONSTANTS.TARGET_DEG
+            : -PROFILE_CONSTANTS.TARGET_DEG
         const distance = Math.abs(local_last_yaw - target_deg)
         if (distance >= PROFILE_CONSTANTS.TOLERANCE) {
           next_audio_key = pose_target === 'right_profile' ? 'head_right' : 'head_left'
@@ -426,7 +434,8 @@
 
     const now = Date.now()
     if (g_last_audio_key === file_key && now - g_last_audio_at < 1200) return
-    if (g_active_prompt_audio && !g_active_prompt_audio.paused && !g_active_prompt_audio.ended) return
+    if (g_active_prompt_audio && !g_active_prompt_audio.paused && !g_active_prompt_audio.ended)
+      return
 
     const audio = new Audio(`/tts/${file_key}.mp3`)
     audio.preload = 'auto'
@@ -776,10 +785,16 @@
    */
   function profile_yaw_style(yaw, target_deg) {
     if (yaw === null) {
-      return { ok: false, width_pct: 0, track_bg: 'rgba(255,255,255,0.1)', fill_bg: '#9ca3af', text_color: '#9ca3af' }
+      return {
+        ok: false,
+        width_pct: 0,
+        track_bg: 'rgba(255,255,255,0.1)',
+        fill_bg: '#9ca3af',
+        text_color: '#9ca3af',
+      }
     }
     const distance = Math.abs(yaw - target_deg)
-    const ok = distance < 10  // PROFILE_CONSTANTS.TOLERANCE — 직접 import 안 하고 fixed value (UI 영역)
+    const ok = distance < 10 // PROFILE_CONSTANTS.TOLERANCE — 직접 import 안 하고 fixed value (UI 영역)
     // 0° 부터 ±90° 까지 0–100% 진행. 사용자가 정면(0°)→측면(target) 으로 회전 정도를 직관 시각화.
     const progress = Math.max(0, Math.min(100, (1 - distance / 90) * 100))
     const track_bg = ok ? 'rgba(0,200,83,0.15)' : 'rgba(255,193,7,0.15)'
@@ -800,7 +815,9 @@
 </script>
 
 <div class="flex flex-col gap-3">
-  <div class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black shadow-md shadow-slate-300/60">
+  <div
+    class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black shadow-md shadow-slate-300/60"
+  >
     <video
       bind:this={ref_this_video_el}
       class="absolute inset-0 h-full w-full object-cover"
@@ -877,7 +894,10 @@
       사용자는 화살표를 절대 방향으로 해석).
     -->
     {#if show_overlay && active && pose_target !== 'front' && profile_pose.session_ready && profile_pose.last_yaw !== null && !g_already_dispatched}
-      {@const local_arrow_target_deg = pose_target === 'right_profile' ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG}
+      {@const local_arrow_target_deg =
+        pose_target === 'right_profile'
+          ? +PROFILE_CONSTANTS.TARGET_DEG
+          : -PROFILE_CONSTANTS.TARGET_DEG}
       {@const local_arrow_distance = Math.abs(profile_pose.last_yaw - local_arrow_target_deg)}
       {#if local_arrow_distance >= PROFILE_CONSTANTS.TOLERANCE}
         <div

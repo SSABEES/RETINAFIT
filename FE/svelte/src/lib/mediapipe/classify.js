@@ -92,11 +92,26 @@ const CATEGORIES = {
 
 /** @type {Record<FaceShape, Array<[number, number]>>} */
 const FACE_SHAPE_RECS = {
-  oval: [[5, 1], [2, 2]],
-  round: [[1, 1], [2, 2]],
-  heart: [[6, 1], [1, 2]],
-  square: [[1, 1], [7, 2]],
-  oblong: [[3, 1], [4, 2]],
+  oval: [
+    [5, 1],
+    [2, 2],
+  ],
+  round: [
+    [1, 1],
+    [2, 2],
+  ],
+  heart: [
+    [6, 1],
+    [1, 2],
+  ],
+  square: [
+    [1, 1],
+    [7, 2],
+  ],
+  oblong: [
+    [3, 1],
+    [4, 2],
+  ],
 }
 
 /** @type {Record<PDSize, Array<[number, number]>>} */
@@ -124,22 +139,25 @@ const PD_SIZE_RECS = {
  * @returns {FaceShape}
  */
 export function classify_face_shape(m) {
-  const length_to_cheekbone_ratio   = m.face_height    / m.cheekbone_width
+  const length_to_cheekbone_ratio = m.face_height / m.cheekbone_width
   const forehead_to_cheekbone_ratio = m.forehead_width / m.cheekbone_width
-  const jaw_to_cheekbone_ratio      = m.jaw_width      / m.cheekbone_width
+  const jaw_to_cheekbone_ratio = m.jaw_width / m.cheekbone_width
 
   // 1. 얼굴이 광대 대비 1.60배 이상 길면 oblong (긴형)
-  if (length_to_cheekbone_ratio >= 1.60) return 'oblong'
+  if (length_to_cheekbone_ratio >= 1.6) return 'oblong'
 
   // 2. 이마가 광대보다 5% 이상 넓고 턱이 광대보다 5% 이상 좁으면 heart (하트형)
   if (forehead_to_cheekbone_ratio > 1.05 && jaw_to_cheekbone_ratio < 0.95) return 'heart'
 
   // 3. 이마/턱 모두 광대와 5% 이내로 비슷하면 square (사각형)
-  if (Math.abs(forehead_to_cheekbone_ratio - 1) < 0.05 &&
-      Math.abs(jaw_to_cheekbone_ratio - 1) < 0.05) return 'square'
+  if (
+    Math.abs(forehead_to_cheekbone_ratio - 1) < 0.05 &&
+    Math.abs(jaw_to_cheekbone_ratio - 1) < 0.05
+  )
+    return 'square'
 
   // 4. 광대 대비 길이가 1.30 미만이면 round (둥근형)
-  if (length_to_cheekbone_ratio < 1.30) return 'round'
+  if (length_to_cheekbone_ratio < 1.3) return 'round'
 
   // 5. 기본은 oval (계란형) — 길이 [1.30, 1.60), 폭 비율은 어디에도 안 걸린 일반형
   return 'oval'

@@ -28,9 +28,7 @@
   let g_error_message = $state('')
 
   // 로그인 단계에서 선택한 안경원의 표시 이름. 없으면 안전한 기본 문구로 대체한다.
-  const g_store_name = $derived(
-    String($selected_opt_store_obj?.name ?? '').trim() || '안경원',
-  )
+  const g_store_name = $derived(String($selected_opt_store_obj?.name ?? '').trim() || '안경원')
 
   // 첫 방문 클릭 시 비회원(cust_no=0)으로 새 방문을 생성하고 얼굴 분석 화면으로 이동한다.
   async function on_click_start_guest_visit() {
@@ -112,10 +110,7 @@
 >
   <Header show_back={false} />
 
-  <section
-    class="grid items-start justify-items-center px-6 pt-6 pb-6"
-    aria-label="방문 유형 선택"
-  >
+  <section class="grid items-start justify-items-center px-6 pt-6 pb-6" aria-label="방문 유형 선택">
     <div class="grid w-full max-w-[760px] gap-5">
       <div class="grid justify-items-center gap-2 text-center">
         <h1 class="m-0 text-[34px] font-extrabold leading-tight text-[var(--retina-text)]">
@@ -155,7 +150,7 @@
               {g_is_guest_visit_loading ? '방문 생성 중...' : '첫 방문이에요'}
             </span>
             <span class="block text-sm font-medium text-[var(--retina-text-500)]">
-              반가워요! <br>고객님 얼굴형에 맞춘 피팅을 시작해볼까요?
+              반가워요! <br />고객님 얼굴형에 맞춘 피팅을 시작해볼까요?
             </span>
           </span>
         </button>

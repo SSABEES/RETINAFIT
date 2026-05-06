@@ -13,12 +13,7 @@
    *   show_back?: boolean,
    *   show_logout?: boolean,
    * }} */
-  let {
-    onback = undefined,
-    onlogout = undefined,
-    show_back = true,
-    show_logout = true,
-  } = $props()
+  let { onback = undefined, onlogout = undefined, show_back = true, show_logout = true } = $props()
 
   // 기본 뒤로가기: 브라우저 히스토리를 거슬러 올라간다.
   // onback prop이 주어지면 그 동작을 우선 사용한다.
@@ -86,7 +81,9 @@
   }
 </script>
 
-<header class="grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 px-6">
+<header
+  class="grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 px-6"
+>
   <div class="flex justify-start">
     {#if show_back}
       <button
@@ -108,13 +105,7 @@
     aria-label="홈으로 (캐시/세션 초기화)"
     onclick={handle_logo_click}
   >
-    <img
-      class="h-6 w-auto"
-      src="/logo/LogoWide_2.png"
-      alt="Retina Fit"
-      width="240"
-      height="52"
-    />
+    <img class="h-6 w-auto" src="/logo/LogoWide_2.png" alt="Retina Fit" width="240" height="52" />
   </button>
 
   <div class="flex justify-end">

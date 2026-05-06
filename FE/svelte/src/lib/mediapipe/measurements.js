@@ -9,8 +9,8 @@
 // PD (Pupillary Distance) 는 동공 중심 사이 거리. MediaPipe Face Landmarker 는 478 포인트 (468 face
 // + 양 눈 홍채 5점) 를 반환하므로 홍채 중심을 직접 사용한다. 홍채 인덱스가 누락된 모델 결과(< 478)
 // 일 때는 안내측각(33/263) × PD_FACTOR fallback.
-const RIGHT_PUPIL_IDX = 468  // 우측 눈(코 중심 기준 우측, 즉 263 방향) 홍채 중심
-const LEFT_PUPIL_IDX  = 473  // 좌측 눈(코 중심 기준 좌측, 즉 33 방향) 홍채 중심
+const RIGHT_PUPIL_IDX = 468 // 우측 눈(코 중심 기준 우측, 즉 263 방향) 홍채 중심
+const LEFT_PUPIL_IDX = 473 // 좌측 눈(코 중심 기준 좌측, 즉 33 방향) 홍채 중심
 const PD_FACTOR = 0.8
 
 /**
@@ -48,12 +48,10 @@ export function compute_measurements(landmarks, width, height) {
   // 단안 PD 는 nasion(168, 코뼈 시작점 — 눈선과 거의 같은 수직 위치) 기준 좌/우 분리.
   const nose_midline_x = landmarks[168].x * width
   const right_pupil_x = (has_iris ? landmarks[RIGHT_PUPIL_IDX].x : landmarks[263].x) * width
-  const left_pupil_x  = (has_iris ? landmarks[LEFT_PUPIL_IDX].x  : landmarks[33].x)  * width
-  const pd_pixels = has_iris
-    ? Math.abs(right_pupil_x - left_pupil_x)
-    : eye_distance * PD_FACTOR
+  const left_pupil_x = (has_iris ? landmarks[LEFT_PUPIL_IDX].x : landmarks[33].x) * width
+  const pd_pixels = has_iris ? Math.abs(right_pupil_x - left_pupil_x) : eye_distance * PD_FACTOR
   const right_pd_pixels = Math.abs(right_pupil_x - nose_midline_x)
-  const left_pd_pixels  = Math.abs(nose_midline_x - left_pupil_x)
+  const left_pd_pixels = Math.abs(nose_midline_x - left_pupil_x)
 
   if (face_width <= 0 || face_height <= 0 || eye_distance <= 0) return null
 
@@ -96,21 +94,21 @@ export function compute_measurement_points(landmarks, width, height) {
   if (!landmarks || landmarks.length < 468) return null
   const has_iris = landmarks.length >= 478
   const right_pupil_idx = has_iris ? RIGHT_PUPIL_IDX : 263
-  const left_pupil_idx  = has_iris ? LEFT_PUPIL_IDX  : 33
+  const left_pupil_idx = has_iris ? LEFT_PUPIL_IDX : 33
   /**
    * @param {number} idx
    * @returns {import('./face_types.js').Point2D}
    */
   const px = (idx) => ({ x: landmarks[idx].x * width, y: landmarks[idx].y * height })
   return {
-    pd:              [px(left_pupil_idx),  px(right_pupil_idx)],
-    face_width:      [px(234), px(454)],
-    face_height:     [px(10),  px(152)],
-    jaw_width:       [px(172), px(397)],
-    forehead_width:  [px(67),  px(297)],
+    pd: [px(left_pupil_idx), px(right_pupil_idx)],
+    face_width: [px(234), px(454)],
+    face_height: [px(10), px(152)],
+    jaw_width: [px(172), px(397)],
+    forehead_width: [px(67), px(297)],
     cheekbone_width: [px(116), px(345)],
-    right_pd:        [px(168), px(right_pupil_idx)],
-    left_pd:         [px(left_pupil_idx),  px(168)],
+    right_pd: [px(168), px(right_pupil_idx)],
+    left_pd: [px(left_pupil_idx), px(168)],
   }
 }
 
