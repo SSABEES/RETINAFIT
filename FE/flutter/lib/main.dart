@@ -1,3 +1,22 @@
+// ============================================================================
+// RetinaFit Flutter 셸 — 진입점 (lib/main.dart)
+// ----------------------------------------------------------------------------
+// 이 앱의 정체:
+//   - UI/도메인 로직은 모두 Svelte 웹앱(`_webAppUrl`) 에 있고, 이 Flutter 앱은
+//     WebView 로 그 사이트를 띄우는 "셸" 역할만 한다.
+//   - 추가로 WebView ↔ Flutter ↔ 네이티브 ARCore 모듈 사이의 양방향 메시지
+//     브릿지를 제공한다 (이 파일 안의 _install_flutter_bridge / _handle_bridge_message
+//     / _send_bridge_* / _broadcast_ar_event 4 인방).
+//
+// 통신 사슬:
+//   Svelte (WebView)
+//      ↕  JS 채널 (RetinafitFlutterBridgeChannel)  +  CustomEvent 'retinafit:flutter_event'
+//   Flutter / Dart  (이 파일)
+//      ↕  MethodChannel + EventChannel  (lib/native/virtual_fitting.dart)
+//   Kotlin/Swift 네이티브 모듈  (android/app/.../VirtualFittingBridge.kt)
+//      ↕  ARCore feature 모듈
+// ============================================================================
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -9,24 +28,40 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import 'native/virtual_fitting.dart';
 
-const String _defaultWebAppUrl = 'https://k14s107.p.ssafy.io/';
+// 운영 Svelte 사이트 URL (HTTPS). dev/staging 은 빌드 시점에 갈아끼움:
+//   flutter build apk --dart-define=WEB_APP_URL=https://staging.example.com
+// `String.fromEnvironment` 는 컴파일 타임 상수만 읽기 때문에 핫리로드로는 못 바꿈.
+const String _defaultWebAppUrl = 'https://fit.adminschool.net/';
 const String _webAppUrl = String.fromEnvironment(
   'WEB_APP_URL',
   defaultValue: _defaultWebAppUrl,
 );
 
 void main() async {
+  // Flutter 엔진의 plugin 채널이 활성화되기 전에 await 를 쓰면 안 되므로 먼저 ensure 호출.
   WidgetsFlutterBinding.ensureInitialized();
-  // 디버그 빌드에서 chrome://inspect 로 WebView 콘솔을 열 수 있게 한다.
+
+  // 디버그 빌드에서 chrome://inspect → "Inspect" 로 WebView 안 콘솔/네트워크 까보기 가능.
+  // 릴리즈 빌드에선 보안상 비활성화 (kDebugMode = false).
   if (kDebugMode && WebViewPlatform.instance is AndroidWebViewPlatform) {
     AndroidWebViewController.enableDebugging(true);
   }
+
+  // 앱 첫 화면이 그려지기 전에 카메라 권한을 미리 잡아둔다 — WebView 안의 getUserMedia 가
+  // OS 레벨 권한이 없으면 시스템 다이얼로그도 못 띄우고 즉시 실패하는 환경 (특히 Android 13+) 대비.
   await _ensure_camera_permission();
-  runApp(const RetinalShellApp());
+
+  runApp(const RetinafitShellApp());
 }
 
-// WebView 안의 getUserMedia 가 동작하려면 OS 카메라 권한이 먼저 잡혀 있어야 한다.
-// 영구 거부 상태면 시스템이 재요청 팝업을 막으므로, 호출부가 이를 보고 설정 안내 모달을 띄운다.
+// 카메라 권한 상태 머신:
+//   - granted / limited : 이미 허용 → 그대로 반환 (재요청 안 함, 사용자 흐름 방해 X)
+//   - permanentlyDenied : OS 가 시스템 다이얼로그 재요청을 차단한 상태 → 그대로 반환해서
+//                         호출부가 이를 보고 "설정으로 이동" 다이얼로그 (_show_open_settings_dialog) 를 띄움
+//   - 그 외 (denied / restricted / 첫 진입) : Permission.camera.request() 로 시스템 다이얼로그 띄움
+//
+// 반환값은 호출부가 분기에 사용. 이 함수 자체는 다이얼로그를 띄우지 않는다 — UI 가 없는 시점
+// (main() 진입 직후, runApp 전) 에도 호출되기 때문에 부수효과를 분리.
 Future<PermissionStatus> _ensure_camera_permission() async {
   final local_status = await Permission.camera.status;
   if (local_status.isGranted || local_status.isLimited) {
@@ -38,13 +73,13 @@ Future<PermissionStatus> _ensure_camera_permission() async {
   return Permission.camera.request();
 }
 
-class RetinalShellApp extends StatelessWidget {
-  const RetinalShellApp({super.key});
+class RetinafitShellApp extends StatelessWidget {
+  const RetinafitShellApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'RETINAL',
+      title: 'RetinaFit',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
@@ -63,36 +98,61 @@ class WebShellPage extends StatefulWidget {
 }
 
 class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver {
-  static const _bridge_channel_name = 'RetinalFlutterBridgeChannel';
-  static const _flutter_event_name = 'retinal:flutter_event';
+  // ───── 브릿지 프로토콜 식별자 (Svelte 와 정확히 일치해야 함) ─────
+  // JS → Dart 메시지를 받을 JavaScriptChannel 이름. Svelte 에선
+  // `RetinafitFlutterBridgeChannel.postMessage(...)` 로 호출.
+  static const _bridge_channel_name = 'RetinafitFlutterBridgeChannel';
+  // Dart → JS 푸시 이벤트 (CustomEvent) 의 이름. Svelte 는
+  // `window.addEventListener('retinafit:flutter_event', e => e.detail ...)` 로 구독.
+  static const _flutter_event_name = 'retinafit:flutter_event';
 
+  // WebView 본체. setNavigationDelegate / addJavaScriptChannel / loadRequest 등 chained 설정.
   late final WebViewController _controller;
+  // 0~100 페이지 로딩 진행률 — 상단 LinearProgressIndicator 표시용.
   var _loadingProgress = 0;
+  // 메인 프레임 로드가 실패하면 _WebLoadError 풀스크린 fallback 노출.
   String? _loadError;
+  // 디버그 화면 (_WebLoadError) 의 마지막 AR 이벤트 텍스트. 운영에서는 거의 안 보임.
   String? _lastArEvent;
+  // 네이티브 AR 이벤트 스트림 구독. dispose 에서 cancel 안 하면 leak.
   StreamSubscription<VirtualFittingEvent>? _arEventSub;
+  // "설정으로 이동" 다이얼로그를 동시에 두 번 띄우지 않기 위한 가드 (lifecycle resumed 가
+  // 짧게 두 번 발생하는 케이스 등).
   bool _settings_dialog_showing = false;
 
   @override
   void initState() {
     super.initState();
+    // 앱 라이프사이클 (resumed/paused/...) 알림을 받기 위한 옵저버 등록.
+    // didChangeAppLifecycleState 에서 시스템 설정 다녀온 직후 권한 재확인에 사용.
     WidgetsBinding.instance.addObserver(this);
 
+    // ───── ① 네이티브 AR 이벤트 구독 — WebView 보다 먼저 ─────
+    // 이유: launch() 가 호출되자마자 첫 이벤트(`Started` 등) 가 도착할 수 있어, listen 등록이
+    //      늦으면 첫 이벤트를 놓칠 수 있다. WebView 띄우기 전 미리 구독해 두는 패턴.
     _arEventSub = VirtualFittingChannel.events.listen((event) {
       // ignore: avoid_print
-      print('[AR] $event');
+      print('[AR] $event'); // 디버그 로깅 (릴리즈도 출력되지만 logcat 만 봄)
+      // 모든 이벤트를 그대로 WebView 안 Svelte 로 push 한다.
       unawaited(_broadcast_ar_event(event));
+      // _WebLoadError 디버그 화면 표시용 — 운영 화면엔 영향 없음.
       if (mounted) {
         setState(() => _lastArEvent = '${event.event}: ${event.data}');
       }
     });
 
+    // 첫 frame 이 그려진 직후 권한 상태를 재확인 — main() 의 _ensure_camera_permission 결과가
+    // permanentlyDenied 였다면 여기서 비로소 "설정으로 이동" 다이얼로그를 띄울 수 있다 (UI 활성화 후).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_check_camera_permission_and_prompt());
     });
 
+    // ───── ② WebView 컨트롤러 chain 설정 ─────
     _controller =
         WebViewController(
+            // WebView 안에서 카메라/마이크 같은 권한이 요청될 때 호출. 우리는 OS 권한을 먼저
+            // 다시 확인하고, 허용된 상태면 grant(), 아니면 deny() + (필요 시) 설정 다이얼로그.
+            // 이 콜백은 페이지가 getUserMedia(...) 를 부를 때 트리거된다.
             onPermissionRequest: (request) async {
               final local_status = await _ensure_camera_permission();
               if (local_status.isGranted || local_status.isLimited) {
@@ -105,29 +165,41 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
               }
             },
           )
+          // JS 활성화 — Svelte SPA 가 동작하려면 필수.
           ..setJavaScriptMode(JavaScriptMode.unrestricted)
+          // 페이지 로드 전 잠깐 보이는 백그라운드. 검은색이면 깜빡임이 거슬려서 흰색으로.
           ..setBackgroundColor(Colors.white)
+          // ───── ③ Svelte → Dart 메시지 입구 (JS 채널 등록) ─────
+          // Svelte 가 `RetinafitFlutterBridgeChannel.postMessage(JSON)` 를 부르면 onMessageReceived
+          // 가 호출된다. 메시지는 _handle_bridge_message 에서 라우팅.
           ..addJavaScriptChannel(
             _bridge_channel_name,
             onMessageReceived: (message) {
               unawaited(_handle_bridge_message(message.message));
             },
           )
+          // ───── ④ 페이지 라이프사이클 콜백 ─────
           ..setNavigationDelegate(
             NavigationDelegate(
+              // 0~100 진행률. 상단 LinearProgressIndicator 갱신.
               onProgress: (progress) {
                 if (mounted) {
                   setState(() => _loadingProgress = progress);
                 }
               },
+              // 페이지 시작될 때마다 이전 에러 fallback 화면 해제.
               onPageStarted: (_) {
                 if (mounted) {
                   setState(() => _loadError = null);
                 }
               },
+              // 페이지 로드 완료 시점에 JS 측 브릿지 객체 (`window.__retinafit_flutter_bridge__`)
+              // 를 주입. 페이지 새로고침 / 라우팅 후 매번 호출되어 SPA 라우팅 후에도 브릿지가 살아 있음.
               onPageFinished: (_) {
                 unawaited(_install_flutter_bridge());
               },
+              // 메인 프레임 로드 실패 (네트워크/HTTPS/404 등) — 풀스크린 _WebLoadError 노출.
+              // 서브 프레임 (iframe 등) 의 에러는 무시.
               onWebResourceError: (error) {
                 if (error.isForMainFrame == true && mounted) {
                   setState(() => _loadError = error.description);
@@ -135,17 +207,21 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
               },
             ),
           )
+          // 운영 / 빌드 정의된 Svelte 사이트 URL 로 진입.
           ..loadRequest(Uri.parse(_webAppUrl));
   }
 
   @override
   void dispose() {
+    // 누수 방지 — 등록 순서의 역순으로 정리.
     WidgetsBinding.instance.removeObserver(this);
     _arEventSub?.cancel();
     super.dispose();
   }
 
-  // 사용자가 시스템 설정에서 권한을 바꾸고 돌아오면 다시 상태를 확인한다.
+  // 앱이 background → foreground 로 돌아올 때 호출. 사용자가 시스템 설정에서 권한을 바꾸고
+  // 돌아온 케이스를 잡기 위함 — 거부→허용으로 바뀌었으면 자연스럽게 동작 시작, 거부 유지면
+  // 다시 안내 다이얼로그.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -153,6 +229,8 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
     }
   }
 
+  // 권한 상태를 확인하고, 영구 거부면 (= 시스템 다이얼로그가 더 안 뜨는 상태) 사용자에게
+  // "설정으로 이동" 안내를 띄운다. 그 외 상태는 _ensure_camera_permission 가 알아서 처리.
   Future<void> _check_camera_permission_and_prompt() async {
     final local_status = await _ensure_camera_permission();
     if (!mounted) return;
@@ -161,6 +239,12 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
     }
   }
 
+  // 카메라 권한이 영구 거부 상태일 때 시스템 설정으로 보내는 안내 다이얼로그.
+  // - barrierDismissible: false → 바깥 탭으로 닫지 못하도록 (선택을 강제)
+  // - "나중에" / "설정 열기" 두 가지 액션
+  // - openAppSettings() 는 permission_handler 의 헬퍼 — 안드로이드 앱 정보 화면으로 직행
+  // - _settings_dialog_showing 가드로 동시에 두 번 띄우지 않게 함 (resumed 가 짧게 두 번
+  //   발생하는 OS 도 있어서)
   Future<void> _show_open_settings_dialog() async {
     if (!mounted || _settings_dialog_showing) return;
     _settings_dialog_showing = true;
@@ -194,13 +278,29 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
     }
   }
 
-  // WebView 안의 Svelte 앱이 Promise 기반으로 호출할 Flutter 브리지를 주입한다.
+  // ========================================================================
+  // _install_flutter_bridge — 페이지 로드 후 JS 측 브릿지 객체 주입
+  // ------------------------------------------------------------------------
+  // Svelte 입장에서는 그냥 `await window.__retinafit_flutter_bridge__.invoke('launch', {...})`
+  // 한 줄로 끝나도록 만든 추상화. 내부적으로는 메시지 큐 + Promise 매핑 로직.
+  //
+  // 동작 단계:
+  //   1) Svelte: bridge.invoke(method, params) 호출
+  //   2) JS: requestId 생성, pending Map 에 {resolve, reject} 저장, postMessage 로 Dart 에 송신,
+  //          Promise 반환
+  //   3) Dart: _handle_bridge_message 가 메시지 받음, method 실행, 결과를 _send_bridge_*
+  //           통해 다시 JS 의 resolve_request/reject_request 호출
+  //   4) JS: pending Map 에서 해당 requestId 의 resolve/reject 꺼내 호출 → Svelte 의 await 풀림
+  //
+  // IIFE 로 감싼 이유: 글로벌 스코프 오염 최소화 (g_pending_request_map_obj 가 클로저에 갇힘).
+  // requestId 는 crypto.randomUUID() 우선, 미지원 환경 (구형 브라우저) 폴백으로 timestamp+random.
+  // ========================================================================
   Future<void> _install_flutter_bridge() async {
     await _controller.runJavaScript('''
       (() => {
         const g_pending_request_map_obj = new Map()
 
-        window.__retinal_flutter_bridge__ = {
+        window.__retinafit_flutter_bridge__ = {
           is_ready: true,
           invoke(method_name, params_obj = {}) {
             return new Promise((resolve, reject) => {
@@ -235,11 +335,23 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
     ''');
   }
 
-  // JS 채널 요청을 기존 VirtualFittingChannel 메서드로 연결한다.
+  // ========================================================================
+  // _handle_bridge_message — Svelte 가 보낸 메시지를 받아 라우팅
+  // ------------------------------------------------------------------------
+  // 받는 메시지 모양 (JSON 문자열):
+  //   { request_id: string, method: 'checkAvailability'|'launch'|'cancel', params: {...} }
+  //
+  // method 별로 VirtualFittingChannel (lib/native/virtual_fitting.dart) 의 정적 메서드를 호출.
+  // 그 메서드들은 다시 MethodChannel 을 통해 Kotlin/Swift 의 VirtualFittingBridge 로 들어간다.
+  //
+  // 결과는 _send_bridge_success / _send_bridge_error 로 JS 측 Promise 에 돌려보낸다.
+  // ========================================================================
   Future<void> _handle_bridge_message(String raw_message) async {
+    // try 안에서 변수가 정의되기 전 throw 가 일어나도 catch 가 답을 보낼 수 있도록 외부 선언.
     String local_request_id = '';
 
     try {
+      // JSON 디코드 + 안전 캐스팅 — 잘못된 페이로드면 catch 로 빠지고 reject 됨.
       final local_payload_obj = jsonDecode(raw_message) as Map<String, dynamic>;
       local_request_id = local_payload_obj['request_id'] as String? ?? '';
       final local_method_name = local_payload_obj['method'] as String? ?? '';
@@ -247,6 +359,7 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
           Map<String, dynamic>.from(local_payload_obj['params'] as Map? ?? const {});
 
       switch (local_method_name) {
+        // ARCore 사용 가능 상태 확인 (인스턴트). 디바이스 미지원 시 'UNSUPPORTED_DEVICE' 등 반환.
         case 'checkAvailability':
           final local_availability = await VirtualFittingChannel.checkAvailability();
           await _send_bridge_success(
@@ -254,6 +367,8 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
             result: local_availability,
           );
           break;
+        // AR 화면 띄우기. 결과 반환값은 native 가 발급한 requestId — 이후 같은 ID 로 이벤트 도착.
+        // params 는 Svelte 의 build_flutter_fitting_payload 가 생성한 객체와 1:1 일치.
         case 'launch':
           final local_launch_request_id = await VirtualFittingChannel.launch(
             productId: local_params_obj['productId'] as String? ?? '',
@@ -271,6 +386,7 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
             result: local_launch_request_id,
           );
           break;
+        // 진행 중 fitting 강제 종료. 결과값 없음 (null).
         case 'cancel':
           await VirtualFittingChannel.cancel();
           await _send_bridge_success(
@@ -278,6 +394,7 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
             result: null,
           );
           break;
+        // 정의되지 않은 method — Svelte 측 오타 방지용 명시적 에러.
         default:
           await _send_bridge_error(
             request_id: local_request_id,
@@ -285,6 +402,8 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
           );
       }
     } catch (local_error) {
+      // JSON 파싱 실패 / 네이티브 Method 채널 에러 / arg 타입 미스매치 등 모두 여기로.
+      // request_id 가 비어있을 수도 있는데, 그 경우 _send_bridge_error 가 자체적으로 noop 처리.
       await _send_bridge_error(
         request_id: local_request_id,
         message: local_error.toString(),
@@ -292,11 +411,14 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
     }
   }
 
-  // Flutter 처리 결과를 WebView Promise resolve 로 돌려준다.
+  // Dart → JS: 성공 응답을 JS 측 pending Promise 의 resolve 로 보낸다.
+  // jsonEncode(request_id) 는 큰따옴표를 안전하게 escape — 사용자/서버에서 온 문자열이라
+  // raw 삽입하면 JS 인젝션 위험. result 도 동일 이유로 jsonEncode 처리.
   Future<void> _send_bridge_success({
     required String request_id,
     required Object? result,
   }) async {
+    // request_id 가 비어있으면 보낼 곳이 없음 — JSON 파싱 실패 등으로 ID 가 누락된 케이스.
     if (request_id.isEmpty) {
       return;
     }
@@ -306,14 +428,15 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
     });
 
     await _controller.runJavaScript('''
-      window.__retinal_flutter_bridge__?.resolve_request(
+      window.__retinafit_flutter_bridge__?.resolve_request(
         ${jsonEncode(request_id)},
         $local_payload_text,
       )
     ''');
   }
 
-  // Flutter 처리 오류를 WebView Promise reject 로 돌려준다.
+  // Dart → JS: 실패 응답을 JS 측 pending Promise 의 reject 로 보낸다.
+  // Svelte 측에선 try/catch 로 받아 toast 등 에러 핸들링.
   Future<void> _send_bridge_error({
     required String request_id,
     required String message,
@@ -327,14 +450,28 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
     });
 
     await _controller.runJavaScript('''
-      window.__retinal_flutter_bridge__?.reject_request(
+      window.__retinafit_flutter_bridge__?.reject_request(
         ${jsonEncode(request_id)},
         $local_payload_text,
       )
     ''');
   }
 
-  // Native AR 이벤트를 DOM CustomEvent 로 브로드캐스트해 Svelte 에서 구독하게 한다.
+  // ========================================================================
+  // _broadcast_ar_event — Native AR 이벤트를 Svelte 로 push (요청-응답이 아님)
+  // ------------------------------------------------------------------------
+  // launch() 가 시작된 뒤 도착하는 모든 이벤트 (Started / TrackingActive / Captured /
+  // Closed / Error 등) 를 그대로 DOM CustomEvent 로 브로드캐스트한다.
+  //
+  // Svelte 측 수신 (예시):
+  //   window.addEventListener('retinafit:flutter_event', (e) => {
+  //     const { requestId, event, data } = e.detail   // 표준화된 평탄 모양
+  //     if (event === 'captured') { /* data.slot, data.image_base64 */ }
+  //   })
+  //
+  // 모든 이벤트가 같은 모양 ({ requestId, event, data }) 으로 표준화되어 있어,
+  // Svelte 에선 event 이름으로 분기만 하면 됨.
+  // ========================================================================
   Future<void> _broadcast_ar_event(VirtualFittingEvent event) async {
     final local_payload_text = jsonEncode({
       'requestId': event.requestId,
@@ -352,6 +489,9 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
     ''');
   }
 
+  // 디버그 화면 (_WebLoadError) 의 "AR 테스트" 버튼이 호출하는 핸들러.
+  // 실 운영 흐름엔 진입하지 않음 — Svelte 페이지가 못 떴을 때 native 단독으로 ARCore 까지 갈 수
+  // 있는지 확인하는 용도. 사용 시 fixtures/glasses/ssample_glasses/ssample_glass.glb 에셋 필요.
   Future<void> _launchArDebug() async {
     try {
       final id = await VirtualFittingChannel.launch(
@@ -371,6 +511,9 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
+    // 레이아웃: WebView 가 풀스크린 + 그 위에 진행률 바 + (실패 시) fallback UI 가 겹쳐 그려짐.
+    // 통상은 WebView 만 보이고, 페이지 로딩 중 짧게 LinearProgressIndicator, 로드 실패 시
+    // _WebLoadError 가 전면 노출.
     return Scaffold(
       body: SafeArea(
         child: Stack(
@@ -393,6 +536,9 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
   }
 }
 
+// Svelte 사이트 로드가 실패했을 때 표시하는 풀스크린 fallback. 운영에선 거의 보이지 않지만,
+// 네트워크 단절 / SSL 만료 / 도메인 변경 등 예외 상황에서 사용자에게 retry + 디버그용 AR 호출
+// 진입점을 제공한다. lastArEvent 텍스트로 native 브릿지 동작 여부도 확인 가능.
 class _WebLoadError extends StatelessWidget {
   const _WebLoadError({
     required this.message,

@@ -1,4 +1,4 @@
-# RETINAL Flutter Shell
+# RetinaFit Flutter Shell
 
 `FE/flutter`는 독립 Flutter UI 앱이 아니라 `FE/svelte`를 `WebView`로 감싸는 셸 앱이다.
 
@@ -125,7 +125,7 @@ const String _defaultWebAppUrl = 'https://k14s107.p.ssafy.io/';
 
 ## Svelte <-> Flutter 브리지
 
-Flutter는 WebView 안에 `window.__retinal_flutter_bridge__`를 주입한다.
+Flutter는 WebView 안에 `window.__retinafit_flutter_bridge__`를 주입한다.
 
 Svelte 쪽 브리지 코드는 아래에 있다.
 
@@ -140,11 +140,11 @@ Svelte 쪽 브리지 코드는 아래에 있다.
 
 Flutter 채널 이름:
 
-- `RetinalFlutterBridgeChannel`
+- `RetinafitFlutterBridgeChannel`
 
 이벤트 이름:
 
-- `retinal:flutter_event`
+- `retinafit:flutter_event`
 
 ## AR 피팅 메모
 

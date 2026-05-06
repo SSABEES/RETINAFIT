@@ -1,7 +1,7 @@
 import { get_flutter_asset_path } from '@/lib/flutter/asset_map'
 
 const g_bridge_request_timeout_ms = 15000
-const g_flutter_event_name = 'retinal:flutter_event'
+const g_flutter_event_name = 'retinafit:flutter_event'
 
 /**
  * window 에 주입된 Flutter 브리지 객체를 반환한다.
@@ -15,7 +15,7 @@ function get_flutter_bridge_obj() {
     return null
   }
 
-  return window.__retinal_flutter_bridge__ ?? null
+  return window.__retinafit_flutter_bridge__ ?? null
 }
 
 /**
