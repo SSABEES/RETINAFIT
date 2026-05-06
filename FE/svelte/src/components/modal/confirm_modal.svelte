@@ -72,7 +72,7 @@
       <h2 class="m-0 pr-12 text-xl font-extrabold text-[var(--retina-text)]">{title}</h2>
 
       {#if message}
-        <p class="mt-3 text-sm font-semibold leading-6 text-slate-600">{message}</p>
+        <p class="mt-3 text-sm font-semibold leading-6 whitespace-pre-line text-slate-600">{message}</p>
       {/if}
 
       <div class="mt-6 grid grid-cols-2 gap-3">

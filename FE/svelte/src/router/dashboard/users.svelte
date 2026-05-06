@@ -4,6 +4,7 @@
   import Header from '@/components/layout/header.svelte'
   import Keypad from '@/components/input/keypad.svelte'
   import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
+  import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import { PATH } from '@/config/path'
   import { create_customer, search_customer } from '@/lib/api/customers'
   import { get_visit_list, create_visit } from '@/lib/api/visit'
@@ -19,6 +20,14 @@
 
   let ref_customer_arr = $state([])
   let ref_customer_create_modal_open = $state(false)
+  let ref_consent_modal_open = $state(false)
+
+  const g_consent_modal_message =
+    '안경 추천 및 가상 피팅 서비스 제공을 위해 아래 정보를 수집·이용합니다.\n\n' +
+    '· 수집 항목: 이름, 휴대폰 번호, 생년월일, 성별, 얼굴 이미지\n' +
+    '· 이용 목적: 얼굴 분석 및 안경 추천·가상 피팅 서비스 제공\n' +
+    '· 보유 기간: 동의 철회 시까지 (관련 법령에 따른 보관 기간 포함)\n\n' +
+    '동의를 거부할 권리가 있으며, 거부 시 서비스 이용이 제한될 수 있습니다.'
   let g_visit_target_customer = $state(/** @type {any} */ (null))
   let ref_search_phone = $state('')
   let ref_consent_agreed = $state(false)
@@ -90,6 +99,15 @@
     }
 
     return fallback_date ?? ''
+  }
+
+  // 개인정보 보호 — 이름 두 번째 글자를 'O' 로 마스킹.
+  // 김철수 → 김O수, 김철 → 김O, 남궁민수 → 남O민수.
+  /** @param {string | null | undefined} name */
+  function mask_name(name) {
+    const local_name = String(name ?? '')
+    if (local_name.length < 2) return local_name
+    return local_name[0] + 'O' + local_name.slice(2)
   }
 
   /** @param {string | number | Date | null | undefined} date_value */
@@ -304,8 +322,28 @@
     customer_arr_store.set([])
   }
 
-  function on_click_toggle_consent() {
-    ref_consent_agreed = !ref_consent_agreed
+  // 미동의 상태에서 누르면 수집 항목 / 이용 목적 / 보관 기간을 안내하는 모달을 띄워
+  // 사용자가 읽고 명시적으로 [동의] 를 누르게 한다. 이미 동의된 상태에서 누르면
+  // 모달 없이 즉시 동의 해제(체크 해제 토글)한다.
+  function on_click_open_consent_modal() {
+    if (ref_consent_agreed) {
+      ref_consent_agreed = false
+      return
+    }
+    ref_consent_modal_open = true
+  }
+
+  function on_click_close_consent_modal() {
+    ref_consent_modal_open = false
+  }
+
+  function on_click_confirm_consent() {
+    ref_consent_agreed = true
+    ref_consent_modal_open = false
+  }
+
+  function on_click_cancel_consent() {
+    ref_consent_modal_open = false
   }
 
   async function on_click_search_submit() {
@@ -395,7 +433,7 @@
           class="flex w-full cursor-pointer items-center gap-3 rounded-none border-0 bg-[var(--retina-primary-50)] px-4 py-1.5 text-left text-base font-bold text-[var(--retina-text-800)] transition hover:bg-[var(--retina-primary-200)]/40 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
           type="button"
           aria-pressed={ref_consent_agreed}
-          onclick={on_click_toggle_consent}
+          onclick={on_click_open_consent_modal}
         >
           {#if ref_consent_agreed}
             <img
@@ -494,17 +532,18 @@
           <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
             {#each ref_customer_arr as customer_obj (customer_obj.id)}
               {@const is_face_done = customer_obj.status_key === 'analysis_done'}
+              {@const local_masked_name = mask_name(customer_obj.name)}
               <button
                 type="button"
                 class="grid min-h-[112px] w-full shrink-0 cursor-pointer grid-cols-[1fr_auto] items-center gap-4 rounded-[10px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-7 py-5 text-left shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition hover:-translate-y-0.5 hover:border-[var(--retina-primary-600)] hover:shadow-[0_8px_18px_rgba(245,107,0,0.14)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-70"
                 onclick={() => on_click_select_customer(customer_obj)}
-                aria-label={`${customer_obj.name} 얼굴분석 시작`}
+                aria-label={`${local_masked_name} 얼굴분석 시작`}
                 disabled={g_is_customer_select_loading}
               >
                 <div class="min-w-0">
                   <div class="flex items-center gap-3">
                     <span class="truncate text-2xl font-extrabold text-[var(--retina-text-800)]">
-                      {customer_obj.name}
+                      {local_masked_name}
                     </span>
                     <span class="text-[var(--retina-text-300)]" aria-hidden="true">|</span>
                     <span class="truncate text-base font-medium text-[var(--retina-text-500)]">
@@ -547,5 +586,16 @@
     open={ref_customer_create_modal_open}
     onclose={on_click_close_customer_create_modal}
     oncreate={on_create_customer}
+  />
+
+  <ConfirmModal
+    open={ref_consent_modal_open}
+    title="개인정보 수집 및 이용 동의"
+    message={g_consent_modal_message}
+    cancelLabel="취소"
+    confirmLabel="동의"
+    onclose={on_click_close_consent_modal}
+    oncancel={on_click_cancel_consent}
+    onconfirm={on_click_confirm_consent}
   />
 </main>
