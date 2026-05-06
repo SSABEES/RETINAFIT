@@ -425,14 +425,20 @@
       </div>
     </section>
 
+    <!--
+      flex column 으로 구성해 list 영역만 내부 스크롤되도록 한다.
+      - 결과 없음/로딩 placeholder 는 m-auto 로 섹션 정중앙에 배치 (기존 place-items-center 효과 대체)
+      - 결과 있음 시 헤더(총 N명/신규등록) 는 shrink-0, 리스트는 flex-1 + min-h-0 + overflow-y-auto
+        → 카드 개수가 많아져도 섹션 밖으로 흘러넘치지 않고 내부 스크롤로 처리
+    -->
     <section
-      class="grid min-h-0 place-items-center bg-[var(--retina-text-100)] px-6 py-6"
+      class="flex min-h-0 flex-col bg-[var(--retina-text-100)] px-6 py-6"
       aria-label="고객 조회 결과 영역"
     >
       {#if g_is_search_loading && ref_customer_arr.length === 0}
-        <p class="m-0 text-sm font-bold text-[var(--retina-text-700)]">조회 중...</p>
+        <p class="m-auto text-sm font-bold text-[var(--retina-text-700)]">조회 중...</p>
       {:else if ref_customer_arr.length === 0 && g_has_searched}
-        <div class="grid justify-items-center gap-4 text-center">
+        <div class="m-auto grid justify-items-center gap-4 text-center">
           <span
             class="grid h-[100px] w-[100px] place-items-center rounded-full bg-[var(--retina-bg-1)] text-[var(--retina-primary-600)]/55"
             aria-hidden="true"
@@ -450,7 +456,7 @@
           </button>
         </div>
       {:else if ref_customer_arr.length === 0}
-        <div class="grid justify-items-center gap-3 text-center">
+        <div class="m-auto grid justify-items-center gap-3 text-center">
           <span
             class="grid h-[100px] w-[100px] place-items-center rounded-full bg-[var(--retina-bg-1)] text-[var(--retina-primary-600)]/55"
             aria-hidden="true"
@@ -462,8 +468,10 @@
           </p>
         </div>
       {:else}
-        <div class="grid w-full max-w-[520px] gap-4 self-start justify-self-center py-2">
-          <div class="flex items-center justify-between">
+        <div
+          class="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col gap-4 py-2"
+        >
+          <div class="flex shrink-0 items-center justify-between">
             <p class="m-0 text-sm font-bold text-[var(--retina-text-500)]">
               총 <span class="text-[var(--retina-text-700)]">{ref_customer_arr.length}명</span>
             </p>
@@ -477,11 +485,11 @@
             </button>
           </div>
 
-          <div class="grid auto-rows-min gap-3 overflow-y-auto">
+          <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
             {#each ref_customer_arr as customer_obj (customer_obj.id)}
               <button
                 type="button"
-                class="grid w-full cursor-pointer grid-cols-[1fr_auto] items-center gap-4 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-5 py-4 text-left shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition hover:-translate-y-0.5 hover:border-[var(--retina-primary-600)] hover:shadow-[0_8px_18px_rgba(245,107,0,0.14)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-70"
+                class="grid w-full shrink-0 cursor-pointer grid-cols-[1fr_auto] items-center gap-4 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-5 py-4 text-left shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition hover:-translate-y-0.5 hover:border-[var(--retina-primary-600)] hover:shadow-[0_8px_18px_rgba(245,107,0,0.14)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-70"
                 onclick={() => on_click_select_customer(customer_obj)}
                 aria-label={`${customer_obj.name} 얼굴분석 시작`}
                 disabled={g_is_customer_select_loading}
