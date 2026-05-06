@@ -387,7 +387,7 @@
       class="flex min-h-0 flex-col items-center justify-center border-r border-[var(--retina-text-200)] px-8 pt-6 pb-6"
       aria-label="고객 조회 키패드 영역"
     >
-      <div class="flex w-full max-w-[30rem] flex-col gap-4">
+      <div class="flex max-w-[30rem] flex-col gap-4">
         <Keypad value={ref_search_phone} onchange={on_change_keypad} />
 
         <div class="grid w-full gap-3">
@@ -455,7 +455,7 @@
           />
           <p class="m-0 text-sm font-bold text-[var(--retina-text-800)]">검색결과가 없어요</p>
           <button
-            class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--retina-primary-600)] bg-[var(--retina-surface)] px-4 py-2 text-sm font-bold text-[var(--retina-primary-600)] transition hover:bg-[var(--retina-bg-1)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-sm border border-[var(--retina-primary-600)] bg-[var(--retina-surface)] px-4 py-2 text-sm font-bold text-[var(--retina-primary-600)] transition hover:bg-[var(--retina-bg-1)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
             type="button"
             onclick={on_click_open_customer_create_modal}
           >
@@ -476,13 +476,13 @@
           </p>
         </div>
       {:else}
-        <div class="mx-auto mt-10 flex min-h-0 w-full max-w-[520px] flex-1 flex-col gap-4 py-2">
+        <div class="mx-auto mt-15 flex min-h-0 w-full max-w-[640px] flex-1 flex-col gap-4 py-2">
           <div class="flex shrink-0 items-center justify-between">
             <p class="m-0 text-sm font-bold text-[var(--retina-text-500)]">
               총 <span class="text-[var(--retina-primary-400)]">{ref_customer_arr.length}명</span>
             </p>
             <button
-              class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--retina-primary-600)] bg-[var(--retina-surface)] px-3 py-1.5 text-sm font-bold text-[var(--retina-primary-600)] transition hover:bg-[var(--retina-bg-1)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
+              class="inline-flex cursor-pointer items-center gap-1.5 rounded-sm border border-[var(--retina-primary-600)] bg-[var(--retina-surface)] px-3 py-1.5 text-sm font-bold text-[var(--retina-primary-600)] transition hover:bg-[var(--retina-bg-1)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
               type="button"
               onclick={on_click_open_customer_create_modal}
             >
@@ -496,43 +496,43 @@
               {@const is_face_done = customer_obj.status_key === 'analysis_done'}
               <button
                 type="button"
-                class="grid w-full shrink-0 cursor-pointer grid-cols-[1fr_auto] items-center gap-4 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-5 py-4 text-left shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition hover:-translate-y-0.5 hover:border-[var(--retina-primary-600)] hover:shadow-[0_8px_18px_rgba(245,107,0,0.14)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-70"
+                class="grid min-h-[112px] w-full shrink-0 cursor-pointer grid-cols-[1fr_auto] items-center gap-4 rounded-[10px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-7 py-5 text-left shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition hover:-translate-y-0.5 hover:border-[var(--retina-primary-600)] hover:shadow-[0_8px_18px_rgba(245,107,0,0.14)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-70"
                 onclick={() => on_click_select_customer(customer_obj)}
                 aria-label={`${customer_obj.name} 얼굴분석 시작`}
                 disabled={g_is_customer_select_loading}
               >
                 <div class="min-w-0">
-                  <div class="flex items-center gap-2.5">
-                    <span class="truncate text-lg font-extrabold text-[var(--retina-text-800)]">
+                  <div class="flex items-center gap-3">
+                    <span class="truncate text-2xl font-extrabold text-[var(--retina-text-800)]">
                       {customer_obj.name}
                     </span>
                     <span class="text-[var(--retina-text-300)]" aria-hidden="true">|</span>
-                    <span class="truncate text-sm font-medium text-[var(--retina-text-700)]">
+                    <span class="truncate text-base font-medium text-[var(--retina-text-500)]">
                       {customer_obj.phone}
                     </span>
                   </div>
-                  <p class="m-0 mt-1.5 text-xs font-medium text-[var(--retina-text-500)]">
+                  <p class="m-0 mt-2 text-sm font-medium text-[var(--retina-text-500)]">
                     최근방문일 : {customer_obj.last_visit_dt}
                   </p>
                 </div>
 
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-3">
                   <img
                     src={is_face_done
                       ? '/icons/Property 1=Face, Property 2=Active.png'
                       : '/icons/Property 1=Face, Property 2=Default.png'}
                     alt={is_face_done ? '얼굴분석 완료' : '얼굴분석 진행 필요'}
-                    class="h-9 w-9 md:h-11 md:w-11 lg:h-12 lg:w-12"
+                    class="h-[76px] w-[76px]"
                   />
                   <img
                     src="/icons/Property 1=Life, Property 2=Default.png"
                     alt="생활패턴"
-                    class="h-9 w-9 md:h-11 md:w-11 lg:h-12 lg:w-12"
+                    class="h-[76px] w-[76px]"
                   />
                   <img
                     src="/icons/Property 1=Fitting, Property 2=Default.png"
                     alt="피팅시작"
-                    class="h-9 w-9 md:h-11 md:w-11 lg:h-12 lg:w-12"
+                    class="h-[76px] w-[76px]"
                   />
                 </div>
               </button>

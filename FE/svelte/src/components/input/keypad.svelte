@@ -52,7 +52,7 @@
 <div class="flex w-full flex-col items-center gap-5">
   <!-- 표시 영역 -->
   <div class="w-full text-center">
-    <p class="mb-3 text-sm font-bold tracking-wide text-zinc-500">휴대폰 번호를 입력해주세요.</p>
+    <p class="mb-1 text-2xl tracking-wide text-zinc-900">휴대폰 번호를 입력해주세요.</p>
     <div class="flex items-end justify-center border-b-2 border-zinc-800 pb-2 min-h-[4.5rem]">
       {#if value.length === 0}
         <img
