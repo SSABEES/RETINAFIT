@@ -219,6 +219,14 @@ a {
 }
 
 /*
+  왼쪽 끝까지만 확장. 2-컬럼 레이아웃의 왼쪽 컬럼이 viewport 왼쪽 빈 공간까지 배경을
+  확장할 때 사용. 우측은 건드리지 않아 오른쪽 컬럼 위로 깔리지 않는다.
+*/
+.app-bg-edge-extend-left {
+  margin-left: calc(-1 * var(--app-frame-edge-extend, 0px));
+}
+
+/*
   아래쪽으로 확장. viewport 가 .app-frame 보다 세로로 클 때 frame 아래 빈 공간까지 배경을 채운다.
   (App.svelte 가 갱신하는 --app-frame-edge-extend-y 사용)
 */
