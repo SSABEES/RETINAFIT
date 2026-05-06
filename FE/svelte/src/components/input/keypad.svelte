@@ -72,7 +72,7 @@
         type="button"
         onclick={() => on_click_digit(key_obj.digit)}
         aria-label={`${key_obj.digit} 입력`}
-        class="block aspect-[18/10] w-full cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-100 hover:shadow-[0_3px_12px_rgba(0,0,0,0.10)] active:translate-y-0.5"
+        class="block h-20 w-36 cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_3px_10px_rgba(0,0,0,0.08)] transition-all duration-100 hover:shadow-[0_4px_14px_rgba(0,0,0,0.12)] active:translate-y-0.5"
       >
         <img src={key_obj.src} alt={key_obj.digit} class="h-full w-full" />
       </button>
@@ -84,7 +84,7 @@
       onclick={on_click_prefix_010}
       disabled={value.length > 0}
       aria-label="010 입력"
-      class="block aspect-[18/10] w-full cursor-pointer overflow-hidden rounded-lg border border-[#dbe7ff] bg-[#eef3ff] p-0 shadow-[0_2px_8px_rgba(75,123,236,0.10)] transition-all duration-100 hover:shadow-[0_3px_12px_rgba(75,123,236,0.16)] active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+      class="block h-20 w-36 cursor-pointer overflow-hidden rounded-lg border border-[#dbe7ff] bg-[#eef3ff] p-0 shadow-[0_3px_10px_rgba(75,123,236,0.14)] transition-all duration-100 hover:shadow-[0_4px_14px_rgba(75,123,236,0.20)] active:translate-y-0.5 disabled:cursor-not-allowed"
     >
       <img src="/icons/keypad-9.png" alt="010" class="h-full w-full" />
     </button>
@@ -94,7 +94,7 @@
       type="button"
       onclick={() => on_click_digit('0')}
       aria-label="0 입력"
-      class="block aspect-[18/10] w-full cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-100 hover:shadow-[0_3px_12px_rgba(0,0,0,0.10)] active:translate-y-0.5"
+      class="block h-20 w-36 cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_3px_10px_rgba(0,0,0,0.08)] transition-all duration-100 hover:shadow-[0_4px_14px_rgba(0,0,0,0.12)] active:translate-y-0.5"
     >
       <img src="/icons/keypad-10.png" alt="0" class="h-full w-full" />
     </button>
@@ -105,7 +105,7 @@
       onclick={on_click_backspace}
       aria-label="한 자리 지우기"
       disabled={value.length === 0}
-      class="block h-20 w-36 cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-100 hover:shadow-[0_3px_12px_rgba(0,0,0,0.10)] active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+      class="block h-20 w-36 cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_3px_10px_rgba(0,0,0,0.08)] transition-all duration-100 hover:shadow-[0_4px_14px_rgba(0,0,0,0.12)] active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
     >
       <img src="/icons/keypad-11.png" alt="" class="h-full w-full" aria-hidden="true" />
     </button>

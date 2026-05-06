@@ -1,6 +1,6 @@
 <script>
   import { navigate } from '@maks11060/svelte5-router'
-  import { ChevronRight, CircleCheck, Plus, UserSearch } from 'lucide-svelte'
+  import { ChevronRight, CircleCheck, Plus } from 'lucide-svelte'
   import Header from '@/components/layout/header.svelte'
   import Keypad from '@/components/input/keypad.svelte'
   import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
@@ -373,11 +373,11 @@
       class="grid min-h-0 grid-rows-[1fr_auto] gap-5 border-r border-[var(--retina-text-200)] px-8 pt-6 pb-6"
       aria-label="고객 조회 키패드 영역"
     >
-      <div class="w-full max-w-[28rem] self-start justify-self-center">
+      <div class="w-full max-w-[30rem] self-start justify-self-center">
         <Keypad value={ref_search_phone} onchange={on_change_keypad} />
       </div>
 
-      <div class="grid w-full max-w-[28rem] justify-self-center gap-3">
+      <div class="grid w-full max-w-[30rem] justify-self-center gap-3">
         <button
           class="flex w-full cursor-pointer items-center gap-2 rounded-lg border-0 bg-[var(--retina-bg-1)] px-4 py-3 text-left text-sm font-bold text-[var(--retina-text-800)] transition hover:bg-[var(--retina-primary-200)]/40 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
           type="button"
@@ -426,12 +426,12 @@
         <p class="m-auto text-sm font-bold text-[var(--retina-text-700)]">조회 중...</p>
       {:else if ref_customer_arr.length === 0 && g_has_searched}
         <div class="m-auto grid justify-items-center gap-4 text-center">
-          <span
-            class="grid h-[100px] w-[100px] place-items-center rounded-full bg-[var(--retina-bg-1)] text-[var(--retina-primary-600)]/55"
+          <img
+            src="/icons/Stylized Empty State Illustration.png"
+            alt=""
+            class="h-[120px] w-[120px]"
             aria-hidden="true"
-          >
-            <UserSearch size={42} strokeWidth={1.5} />
-          </span>
+          />
           <p class="m-0 text-sm font-bold text-[var(--retina-text-800)]">검색결과가 없어요</p>
           <button
             class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--retina-primary-600)] bg-[var(--retina-surface)] px-4 py-2 text-sm font-bold text-[var(--retina-primary-600)] transition hover:bg-[var(--retina-bg-1)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
@@ -444,12 +444,12 @@
         </div>
       {:else if ref_customer_arr.length === 0}
         <div class="m-auto grid justify-items-center gap-3 text-center">
-          <span
-            class="grid h-[100px] w-[100px] place-items-center rounded-full bg-[var(--retina-bg-1)] text-[var(--retina-primary-600)]/55"
+          <img
+            src="/icons/Stylized Empty State Illustration.png"
+            alt=""
+            class="h-[120px] w-[120px]"
             aria-hidden="true"
-          >
-            <UserSearch size={42} strokeWidth={1.5} />
-          </span>
+          />
           <p class="m-0 text-sm font-bold text-[var(--retina-text-800)]">
             ← <br />먼저 휴대폰 번호로 고객을 조회해주세요.
           </p>
@@ -501,17 +501,17 @@
                       ? '/icons/Property 1=Face, Property 2=Active.png'
                       : '/icons/Property 1=Face, Property 2=Default.png'}
                     alt={is_face_done ? '얼굴분석 완료' : '얼굴분석 진행 필요'}
-                    class="h-12 w-12"
+                    class="h-9 w-9 md:h-11 md:w-11 lg:h-12 lg:w-12"
                   />
                   <img
                     src="/icons/Property 1=Life, Property 2=Default.png"
                     alt="생활패턴"
-                    class="h-12 w-12"
+                    class="h-9 w-9 md:h-11 md:w-11 lg:h-12 lg:w-12"
                   />
                   <img
                     src="/icons/Property 1=Fitting, Property 2=Default.png"
                     alt="피팅시작"
-                    class="h-12 w-12"
+                    class="h-9 w-9 md:h-11 md:w-11 lg:h-12 lg:w-12"
                   />
                 </div>
               </button>
