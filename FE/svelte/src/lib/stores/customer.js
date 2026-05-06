@@ -13,6 +13,7 @@ const SELECTED_VISIT_STORAGE_KEY = 'retinal_selected_visit_obj'
  *   email?: string,
  *   gender?: string,
  *   birth_dt?: string,
+ *   age?: number | string,
  *   visit_count: number,
  *   last_visit_dt: string,
  *   face_shape?: string,

@@ -44,7 +44,10 @@ function project_oval_to_canvas(landmarks) {
   if (!landmarks || landmarks.length < 468) return null
 
   // 정규화 좌표 (0-1) 그대로 face_oval x/y bbox 계산.
-  let x_min = Infinity, x_max = -Infinity, y_min = Infinity, y_max = -Infinity
+  let x_min = Infinity,
+    x_max = -Infinity,
+    y_min = Infinity,
+    y_max = -Infinity
   for (const idx of FACE_OVAL_INDICES) {
     const lm = landmarks[idx]
     if (!lm) continue

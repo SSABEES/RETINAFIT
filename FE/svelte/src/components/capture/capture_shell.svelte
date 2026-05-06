@@ -199,10 +199,7 @@
           </button>
         </div>
       </section>
-      <StepIndicator
-        steps_arr={g_session.steps_arr}
-        current_index={g_session.current_step_index}
-      />
+      <StepIndicator steps_arr={g_session.steps_arr} current_index={g_session.current_step_index} />
       <StepStatusBar
         step={g_current_step}
         is_capturing={g_is_capturing}

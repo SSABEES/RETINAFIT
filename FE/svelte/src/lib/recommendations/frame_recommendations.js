@@ -120,13 +120,11 @@ export const SKIN_TONE_META = {
  * @returns {SkinToneKey}
  */
 export function normalize_skin_tone_key(skin_tone_value) {
-  const local_value = String(skin_tone_value ?? '').trim().toUpperCase()
+  const local_value = String(skin_tone_value ?? '')
+    .trim()
+    .toUpperCase()
   if (local_value === 'COOL' || local_value.includes('쿨')) return 'COOL'
-  if (
-    local_value === 'NEUTRAL' ||
-    local_value.includes('뉴트럴') ||
-    local_value.includes('중성')
-  ) {
+  if (local_value === 'NEUTRAL' || local_value.includes('뉴트럴') || local_value.includes('중성')) {
     return 'NEUTRAL'
   }
   return 'WARM'
@@ -155,7 +153,9 @@ export function get_skin_tone_recommendation(skin_tone_value) {
  * @returns {FrameStyleEntry[]}
  */
 export function get_frame_styles_for_face_shape(face_shape_key) {
-  const local_key = String(face_shape_key ?? '').trim().toLowerCase()
+  const local_key = String(face_shape_key ?? '')
+    .trim()
+    .toLowerCase()
   return FACE_SHAPE_FRAME_MAP[/** @type {FaceShapeKey} */ (local_key)] ?? []
 }
 
@@ -243,9 +243,7 @@ function pick_random_one(arr) {
 function filter_glasses_by_face_shape(glass_arr, face_shape_value) {
   const local_style_value_set = get_face_shape_frame_style_value_set(face_shape_value)
   if (local_style_value_set.size === 0) return []
-  return glass_arr.filter((local_glass) =>
-    local_style_value_set.has(local_glass.frame_style ?? ''),
-  )
+  return glass_arr.filter((local_glass) => local_style_value_set.has(local_glass.frame_style ?? ''))
 }
 
 /**

@@ -143,7 +143,9 @@
     </section>
   </section>
 
-  <p class="m-0 justify-self-center text-center text-sm font-medium text-[var(--retina-primary-900)]/80">
+  <p
+    class="m-0 justify-self-center text-center text-sm font-medium text-[var(--retina-primary-900)]/80"
+  >
     © 2026 RETINA Co,Ltd. All rights reserved.
   </p>
 </main>

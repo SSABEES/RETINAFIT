@@ -25,10 +25,13 @@ function serve_ort_public_assets() {
 
         const local_ext = extname(local_file_path).toLowerCase()
         const local_mime =
-          local_ext === '.wasm' ? 'application/wasm' :
-          local_ext === '.mjs'  ? 'application/javascript' :
-          local_ext === '.js'   ? 'application/javascript' :
-          'application/octet-stream'
+          local_ext === '.wasm'
+            ? 'application/wasm'
+            : local_ext === '.mjs'
+              ? 'application/javascript'
+              : local_ext === '.js'
+                ? 'application/javascript'
+                : 'application/octet-stream'
 
         // server.headers 는 Vite 내부 정적 미들웨어에서 주입되므로, 우리 미들웨어가 먼저 응답하는
         // 경우 COOP/COEP 가 빠진다. cross-origin-isolated 유지를 위해 직접 같은 값으로 추가.

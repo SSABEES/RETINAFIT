@@ -39,15 +39,19 @@
 
   // 활성 양자화 variant. 토글로 fp32 / dynamic / static 비교. 변경 시 새 variant 의 세션이
   // lazy 로드 — 한 번 로드된 variant 는 메모리에 캐시되어 재토글 시 재다운로드 없음.
-  let g_variant = $state(/** @type {import('@/lib/sixdrepnet360/inference.js').ModelVariant} */ ('fp32'))
+  let g_variant = $state(
+    /** @type {import('@/lib/sixdrepnet360/inference.js').ModelVariant} */ ('fp32'),
+  )
 
   // variant 별 최근 latency — 같은 자세에서 토글 즉시 비교용. 새 추론이 들어오면 해당 variant
   // 칸을 갱신. variant 변경 직후 첫 추론 전까지는 이전 값 유지(stale 으로 보일 수 있으나 비교에 유용).
-  let g_latency_per_variant_obj = $state(/** @type {Record<string, number | null>} */ ({
-    fp32: null,
-    dynamic: null,
-    static: null,
-  }))
+  let g_latency_per_variant_obj = $state(
+    /** @type {Record<string, number | null>} */ ({
+      fp32: null,
+      dynamic: null,
+      static: null,
+    }),
+  )
 
   // 얼굴 검출 여부 + 추적 bbox (정규화 0-1).
   let g_face_detected = $state(false)
@@ -361,8 +365,14 @@
   // 좌표계: x=right, y=down (이미지 컨벤션), z=out-of-screen. 캔버스가 video 와 함께 scaleX(-1)
   // 미러링되므로 별도 부호 보정 없이 그리면 사용자 perception 과 일치.
   const CUBE_VERTICES = [
-    [-1, -1, -1], [+1, -1, -1], [+1, +1, -1], [-1, +1, -1], // 뒤 면 (z=-1, 머리 뒤쪽)
-    [-1, -1, +1], [+1, -1, +1], [+1, +1, +1], [-1, +1, +1], // 앞 면 (z=+1, 얼굴 쪽)
+    [-1, -1, -1],
+    [+1, -1, -1],
+    [+1, +1, -1],
+    [-1, +1, -1], // 뒤 면 (z=-1, 머리 뒤쪽)
+    [-1, -1, +1],
+    [+1, -1, +1],
+    [+1, +1, +1],
+    [-1, +1, +1], // 앞 면 (z=+1, 얼굴 쪽)
   ]
 
   // 회전행렬 R 을 정점에 곱하고 perspective 로 투영해 2D 좌표 8 개 반환.
@@ -461,7 +471,9 @@
   }
 </script>
 
-<main class="app-frame-page mx-auto flex w-full max-w-[1200px] flex-col gap-4 p-4 md:flex-row md:items-start">
+<main
+  class="app-frame-page mx-auto flex w-full max-w-[1200px] flex-col gap-4 p-4 md:flex-row md:items-start"
+>
   <!-- 좌측 사이드바: 제어 + 정보. mobile 에선 위쪽 column 으로 자연 흐름. -->
   <div class="flex w-full flex-col gap-4 md:w-96 md:flex-shrink-0">
     <header class="flex items-baseline justify-between">
@@ -492,7 +504,7 @@
     >
       <div class="flex items-center gap-1.5" role="radiogroup" aria-label="양자화 variant 선택">
         <span class="mr-auto text-zinc-400">양자화</span>
-        {#each MODEL_VARIANT_ARR as variant}
+        {#each MODEL_VARIANT_ARR as variant (variant)}
           <button
             type="button"
             role="radio"
@@ -511,7 +523,7 @@
 
       <!-- variant 별 최근 latency 비교 — 토글 후 같은 자세에서 한 사이클 추론 들어오면 채워짐. -->
       <div class="grid grid-cols-3 gap-1 text-[10px] tabular-nums">
-        {#each MODEL_VARIANT_ARR as variant}
+        {#each MODEL_VARIANT_ARR as variant (variant)}
           <div
             class="flex flex-col gap-0.5 rounded-sm border px-1.5 py-1 {g_variant === variant
               ? 'border-fuchsia-500/30 bg-fuchsia-950/15'
@@ -574,7 +586,9 @@
     {/if}
 
     {#if g_init_error}
-      <div class="rounded-lg border border-red-500 bg-zinc-900 p-3 text-sm font-semibold text-red-400">
+      <div
+        class="rounded-lg border border-red-500 bg-zinc-900 p-3 text-sm font-semibold text-red-400"
+      >
         <p>{g_init_error}</p>
         {#if g_permission_denied}
           <p class="mt-1 text-xs font-normal text-zinc-400">
@@ -587,13 +601,14 @@
     <section class="flex flex-col gap-1 text-xs leading-relaxed text-zinc-400">
       <p>
         <b class="text-zinc-200">자동 캡처.</b>
-        yaw 가 ±{TARGET_DEG}°(허용 오차 ±{TARGET_TOLERANCE}°) 영역에서 {HOLD_DURATION_MS / 1000}초 동안 유지되면 자동으로 캡처됩니다.
-        좌우 어느 쪽이든 인식하며, 캡처 후엔 "다시 시도" 버튼으로 재트리거.
+        yaw 가 ±{TARGET_DEG}°(허용 오차 ±{TARGET_TOLERANCE}°) 영역에서 {HOLD_DURATION_MS / 1000}초
+        동안 유지되면 자동으로 캡처됩니다. 좌우 어느 쪽이든 인식하며, 캡처 후엔 "다시 시도" 버튼으로
+        재트리거.
       </p>
       <p>
         <b class="text-zinc-200">측정 빈도.</b>
-        추론은 단일 비행 가드로 throttling — 모델 latency 가 곧 실효 빈도입니다 (300ms 면 ≈3Hz).
-        모바일에서 어느 정도 따라오는지 latency 표시로 확인하세요.
+        추론은 단일 비행 가드로 throttling — 모델 latency 가 곧 실효 빈도입니다 (300ms 면 ≈3Hz). 모바일에서
+        어느 정도 따라오는지 latency 표시로 확인하세요.
       </p>
     </section>
   </div>
@@ -606,105 +621,109 @@
       aspect-[3/4] 는 width 결정 시 height 자동인데, max-h 가 발동하면 거꾸로 height cap →
       비율 유지를 위해 width 가 줄어든다. 220px 는 헤더 + 다시 시도 버튼 + 페이지 패딩 여유.
     -->
-    <div class="relative aspect-[3/4] w-full max-h-[calc(100vh-220px)] max-w-[480px] overflow-hidden rounded-lg bg-black">
-    <!-- 라이브 뷰 — 캡처 후에도 video 엘리먼트는 유지(언마운트 → MediaStream 재시작 비용 회피) -->
-    <video
-      bind:this={ref_this_video_el}
-      class="absolute inset-0 h-full w-full object-cover {g_captured ? 'invisible' : ''}"
-      style="transform: scaleX(-1);"
-      playsinline
-      autoplay
-      muted
-    ></video>
-    <canvas
-      bind:this={ref_this_canvas_el}
-      class="pointer-events-none absolute inset-0 h-full w-full object-cover {g_captured
-        ? 'invisible'
-        : ''}"
-      style="transform: scaleX(-1);"
-    ></canvas>
+    <div
+      class="relative aspect-[3/4] w-full max-h-[calc(100vh-220px)] max-w-[480px] overflow-hidden rounded-lg bg-black"
+    >
+      <!-- 라이브 뷰 — 캡처 후에도 video 엘리먼트는 유지(언마운트 → MediaStream 재시작 비용 회피) -->
+      <video
+        bind:this={ref_this_video_el}
+        class="absolute inset-0 h-full w-full object-cover {g_captured ? 'invisible' : ''}"
+        style="transform: scaleX(-1);"
+        playsinline
+        autoplay
+        muted
+      ></video>
+      <canvas
+        bind:this={ref_this_canvas_el}
+        class="pointer-events-none absolute inset-0 h-full w-full object-cover {g_captured
+          ? 'invisible'
+          : ''}"
+        style="transform: scaleX(-1);"
+      ></canvas>
 
-    {#if g_captured}
-      <!-- 캡처 결과 -->
-      <img
-        src={g_captured.image_url}
-        alt="captured side profile"
-        class="absolute inset-0 h-full w-full object-cover"
-      />
-      <div
-        class="pointer-events-none absolute right-2.5 top-2.5 z-10 grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 rounded-lg border border-emerald-400/50 bg-black/65 px-3 py-2 text-[11px] tabular-nums text-zinc-100 backdrop-blur-sm"
-        aria-label="캡처 결과"
-      >
-        <div class="col-span-2 mb-0.5 text-[10px] font-bold text-emerald-300">
-          ✓ {g_captured.side === 'right' ? '오른쪽' : '왼쪽'} 측면 캡처
-        </div>
-        <span class="text-white/65">yaw</span><b class="text-right tabular-nums"
-          >{g_captured.yaw.toFixed(1)}°</b
-        >
-        <span class="text-white/65">pitch</span><b class="text-right tabular-nums"
-          >{g_captured.pitch.toFixed(1)}°</b
-        >
-        <span class="text-white/65">roll</span><b class="text-right tabular-nums"
-          >{g_captured.roll.toFixed(1)}°</b
-        >
-      </div>
-    {:else}
-      <!-- 우측 상단: 6DRepNet360 라이브 결과 -->
-      <div
-        class="pointer-events-none absolute right-2.5 top-2.5 z-10 grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 rounded-lg border border-white/20 bg-black/55 px-3 py-2 text-[11px] tabular-nums text-zinc-100 backdrop-blur-sm"
-        aria-label="6DRepNet360 결과"
-      >
-        <div class="col-span-2 mb-0.5 text-[10px] font-bold text-fuchsia-300">6DRepNet360</div>
-        <span class="text-white/65">yaw</span><b class="text-right tabular-nums">{fmt_deg(g_yaw)}</b
-        >
-        <span class="text-white/65">pitch</span><b class="text-right tabular-nums"
-          >{fmt_deg(g_pitch)}</b
-        >
-        <span class="text-white/65">roll</span><b class="text-right tabular-nums"
-          >{fmt_deg(g_roll)}</b
-        >
-      </div>
-
-      <!-- 좌측 상단: 90° 홀드 진행률 (타깃 영역 진입 시에만 표시) -->
-      {#if g_capture_progress > 0}
+      {#if g_captured}
+        <!-- 캡처 결과 -->
+        <img
+          src={g_captured.image_url}
+          alt="captured side profile"
+          class="absolute inset-0 h-full w-full object-cover"
+        />
         <div
-          class="pointer-events-none absolute left-2.5 top-2.5 z-10 flex w-44 flex-col gap-1 rounded-lg border border-emerald-400/50 bg-black/65 px-3 py-2 text-[11px] backdrop-blur-sm"
-          aria-live="polite"
+          class="pointer-events-none absolute right-2.5 top-2.5 z-10 grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 rounded-lg border border-emerald-400/50 bg-black/65 px-3 py-2 text-[11px] tabular-nums text-zinc-100 backdrop-blur-sm"
+          aria-label="캡처 결과"
         >
-          <div class="flex items-baseline justify-between text-emerald-300">
-            <span class="font-bold">측면 자세 유지 중</span>
-            <span class="tabular-nums">{Math.round(g_capture_progress)}%</span>
+          <div class="col-span-2 mb-0.5 text-[10px] font-bold text-emerald-300">
+            ✓ {g_captured.side === 'right' ? '오른쪽' : '왼쪽'} 측면 캡처
           </div>
-          <div class="h-1.5 overflow-hidden rounded-sm bg-emerald-900/50">
-            <div
-              class="h-full bg-emerald-400 transition-[width] duration-100"
-              style="width: {g_capture_progress}%;"
-            ></div>
+          <span class="text-white/65">yaw</span><b class="text-right tabular-nums"
+            >{g_captured.yaw.toFixed(1)}°</b
+          >
+          <span class="text-white/65">pitch</span><b class="text-right tabular-nums"
+            >{g_captured.pitch.toFixed(1)}°</b
+          >
+          <span class="text-white/65">roll</span><b class="text-right tabular-nums"
+            >{g_captured.roll.toFixed(1)}°</b
+          >
+        </div>
+      {:else}
+        <!-- 우측 상단: 6DRepNet360 라이브 결과 -->
+        <div
+          class="pointer-events-none absolute right-2.5 top-2.5 z-10 grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 rounded-lg border border-white/20 bg-black/55 px-3 py-2 text-[11px] tabular-nums text-zinc-100 backdrop-blur-sm"
+          aria-label="6DRepNet360 결과"
+        >
+          <div class="col-span-2 mb-0.5 text-[10px] font-bold text-fuchsia-300">6DRepNet360</div>
+          <span class="text-white/65">yaw</span><b class="text-right tabular-nums"
+            >{fmt_deg(g_yaw)}</b
+          >
+          <span class="text-white/65">pitch</span><b class="text-right tabular-nums"
+            >{fmt_deg(g_pitch)}</b
+          >
+          <span class="text-white/65">roll</span><b class="text-right tabular-nums"
+            >{fmt_deg(g_roll)}</b
+          >
+        </div>
+
+        <!-- 좌측 상단: 90° 홀드 진행률 (타깃 영역 진입 시에만 표시) -->
+        {#if g_capture_progress > 0}
+          <div
+            class="pointer-events-none absolute left-2.5 top-2.5 z-10 flex w-44 flex-col gap-1 rounded-lg border border-emerald-400/50 bg-black/65 px-3 py-2 text-[11px] backdrop-blur-sm"
+            aria-live="polite"
+          >
+            <div class="flex items-baseline justify-between text-emerald-300">
+              <span class="font-bold">측면 자세 유지 중</span>
+              <span class="tabular-nums">{Math.round(g_capture_progress)}%</span>
+            </div>
+            <div class="h-1.5 overflow-hidden rounded-sm bg-emerald-900/50">
+              <div
+                class="h-full bg-emerald-400 transition-[width] duration-100"
+                style="width: {g_capture_progress}%;"
+              ></div>
+            </div>
           </div>
+        {/if}
+
+        <!-- 하단: 검출/안내 상태 -->
+        <div class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2">
+          <span
+            class="inline-block rounded-full border-[1.5px] px-3 py-1.5 text-[11px] font-bold backdrop-blur-sm {g_use_mediapipe &&
+            g_face_detected
+              ? 'border-emerald-400/70 text-emerald-300'
+              : 'border-white/25 text-zinc-200'}"
+            style="background: rgba(0,0,0,0.55);"
+          >
+            {#if g_capture_progress > 0}
+              그대로 유지하세요
+            {:else if !g_use_mediapipe}
+              중앙 박스에 얼굴을 맞추고 좌우 90°로 돌리세요
+            {:else if !g_face_detected}
+              얼굴이 감지되지 않습니다
+            {:else}
+              고개를 좌우 90°로 천천히 돌리세요
+            {/if}
+          </span>
         </div>
       {/if}
-
-      <!-- 하단: 검출/안내 상태 -->
-      <div class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2">
-        <span
-          class="inline-block rounded-full border-[1.5px] px-3 py-1.5 text-[11px] font-bold backdrop-blur-sm {g_use_mediapipe && g_face_detected
-            ? 'border-emerald-400/70 text-emerald-300'
-            : 'border-white/25 text-zinc-200'}"
-          style="background: rgba(0,0,0,0.55);"
-        >
-          {#if g_capture_progress > 0}
-            그대로 유지하세요
-          {:else if !g_use_mediapipe}
-            중앙 박스에 얼굴을 맞추고 좌우 90°로 돌리세요
-          {:else if !g_face_detected}
-            얼굴이 감지되지 않습니다
-          {:else}
-            고개를 좌우 90°로 천천히 돌리세요
-          {/if}
-        </span>
-      </div>
-    {/if}
-  </div>
+    </div>
 
     {#if g_captured}
       <button

@@ -8,6 +8,7 @@
   import { save_visit_recommend } from '@/lib/api/visit'
   import { selected_customer_obj } from '@/lib/stores/customer'
   import { push_error_toast } from '@/lib/stores/toast'
+  import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
 
   // 질문 = option_category, 답변 = { option_no, option_name } 으로 매핑된다.
   let g_question_arr = $state([])
@@ -33,7 +34,7 @@
   }
 
   // 슬라이더 UI 로 표시할 마지막 질문(스마트폰·모니터·TV 시청 시간) 식별 키워드
-  const g_slider_question_keyword_arr = ['스마트폰', '모니터', 'TV', '보는 시간']
+  const _g_slider_question_keyword_arr = ['스마트폰', '모니터', 'TV', '보는 시간']
 
   function is_slider_question_text(question_text) {
     const local_text = String(question_text ?? '')
@@ -109,9 +110,7 @@
     for (const question_obj of question_arr) {
       const local_first_answer_obj = question_obj.answer_arr?.[0]
       local_selected_obj[question_obj.question_text] =
-        question_obj.is_slider && local_first_answer_obj
-          ? [local_first_answer_obj.option_no]
-          : []
+        question_obj.is_slider && local_first_answer_obj ? [local_first_answer_obj.option_no] : []
     }
     ref_selected_obj = local_selected_obj
   }
@@ -155,9 +154,7 @@
     if (local_selected_arr.includes(option_no)) {
       ref_selected_obj = {
         ...ref_selected_obj,
-        [question_text]: local_selected_arr.filter(
-          (local_no) => local_no !== option_no,
-        ),
+        [question_text]: local_selected_arr.filter((local_no) => local_no !== option_no),
       }
       return
     }
@@ -186,8 +183,7 @@
 
       // result.svelte 에서 표시할 수 있도록 질문/답변 라벨까지 함께 PATCH 한다.
       const local_lens_selection_arr = g_question_arr.map((local_question_obj) => {
-        const local_selected_no_arr =
-          ref_selected_obj[local_question_obj.question_text] ?? []
+        const local_selected_no_arr = ref_selected_obj[local_question_obj.question_text] ?? []
         const local_label_arr = local_selected_no_arr
           .map((local_no) => {
             const local_answer_obj = local_question_obj.answer_arr.find(
@@ -247,7 +243,7 @@
 <main class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-zinc-950">
   <Header />
 
-  <section class="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--retina-text-100)] ">
+  <section class="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--retina-text-100)]">
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-7 pt-3 pb-2">
       <div class="text-center">
         <h1 class="m-0 text-[18px] font-extrabold tracking-[-0.02em] text-zinc-950">
@@ -273,9 +269,13 @@
             등록된 질문이 없습니다.
           </p>
         {:else}
-          <div class="rounded-[16px] border border-slate-200 bg-white px-6 py-4 text-left shadow-[0_6px_16px_rgba(15,23,42,0.05)]">
+          <div
+            class="rounded-[16px] border border-slate-200 bg-white px-6 py-4 text-left shadow-[0_6px_16px_rgba(15,23,42,0.05)]"
+          >
             {#each g_question_arr as question_obj, question_index (question_obj.question_text)}
-              <section class={`text-left ${question_index === 0 ? '' : 'mt-3 border-t border-slate-100 pt-3'}`}>
+              <section
+                class={`text-left ${question_index === 0 ? '' : 'mt-3 border-t border-slate-100 pt-3'}`}
+              >
                 <h2 class="m-0 text-left text-[13px] font-extrabold text-zinc-950">
                   Q{question_index + 1}. {question_obj.question_text}
                 </h2>
@@ -323,7 +323,10 @@
                 {:else}
                   <div class="mt-2 flex flex-wrap justify-start gap-1.5">
                     {#each question_obj.answer_arr as answer_obj (answer_obj.option_no)}
-                      {@const local_active = is_selected(question_obj.question_text, answer_obj.option_no)}
+                      {@const local_active = is_selected(
+                        question_obj.question_text,
+                        answer_obj.option_no,
+                      )}
                       <button
                         class={`inline-flex min-h-8 cursor-pointer items-center rounded-lg border px-4 text-[12px] font-bold transition ${
                           local_active
@@ -344,7 +347,6 @@
             {/each}
           </div>
         {/if}
-
       </div>
     </div>
 
@@ -369,4 +371,6 @@
       </div>
     </div>
   </section>
+
+  <LoadingOverlay open={g_loading} label="추천 옵션 저장 중..." />
 </main>
