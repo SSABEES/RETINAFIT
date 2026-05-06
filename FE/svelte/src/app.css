@@ -45,6 +45,11 @@
   --retina-bg-2: #bcc2cc;
   --app-frame-width: 1024px;
   --app-frame-height: 640px;
+  /*
+    1024×640 을 디자인 베이스로 두고, viewport 가 더 크면 JS 가 같은 비율로 scale 값을
+    덮어써 UI 가 균일하게 멀어져 보이게 한다. 기본값은 1 (스케일 없음).
+  */
+  --app-frame-scale: 1;
 }
 
 * {
@@ -155,9 +160,23 @@ a {
   position: relative;
   width: min(100vw, var(--app-frame-width));
   height: min(100svh, var(--app-frame-height));
+  /*
+    1024×640 (16:10) 을 최소 프레임 크기로 못박아 안드로이드 태블릿 가로모드 ·
+    iPad 가로모드 등 주요 태블릿에서 디자인이 절대 압축되지 않도록 한다.
+    이보다 작은 viewport 는 shell 의 overflow: auto 가 가로/세로 스크롤로 처리.
+  */
+  min-width: var(--app-frame-width);
+  min-height: var(--app-frame-height);
   flex: none;
   overflow: hidden;
   background: var(--retina-page);
+  /*
+    --app-frame-scale 가 1 보다 크면 1024×640 레이아웃이 그대로인 상태에서
+    visual 만 확대되어 모든 UI 가 화면 비율에 맞게 떨어진다. transform-origin 가운데로
+    잡아 shell 의 grid 센터링이 그대로 유지되도록.
+  */
+  transform: scale(var(--app-frame-scale));
+  transform-origin: center center;
 }
 
 .app-frame-content {
@@ -194,7 +213,8 @@ a {
 
   .app-frame {
     width: 100vw;
-    min-height: 100svh;
+    min-width: var(--app-frame-width);
+    min-height: var(--app-frame-height);
     height: auto;
     max-width: 1024px;
     margin: 0 auto;
