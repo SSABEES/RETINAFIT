@@ -4,6 +4,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { fileURLToPath, URL } from 'node:url'
 import { createReadStream, existsSync } from 'node:fs'
 import { resolve as path_resolve, extname } from 'node:path'
+import { js_aruco2_global_fix } from './scripts/vite_plugin_js_aruco2.js'
 
 // dev 서버가 /ort/* 요청을 Vite 의 transform 미들웨어에 흘려보내지 않게 한다.
 // onnxruntime-web 의 proxy worker 가 ort-wasm-simd-threaded.jsep.mjs 같은 파일을
@@ -53,7 +54,7 @@ function serve_ort_public_assets() {
 // 자산 경로를 명시(`wasmPaths` / `FilesetResolver.forVisionTasks`) 해 같은 origin 으로 fetch.
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [tailwindcss(), svelte(), serve_ort_public_assets()],
+  plugins: [js_aruco2_global_fix(), tailwindcss(), svelte(), serve_ort_public_assets()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

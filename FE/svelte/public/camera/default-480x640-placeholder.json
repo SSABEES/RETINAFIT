@@ -1,0 +1,11 @@
+{
+  "device": "default-480x640-placeholder",
+  "_note": "PLACEHOLDER intrinsics for the normalized 480x640 capture format produced by capture_utils.video_to_blob (NORMALIZED_W=480, NORMALIZED_H=640). fx=fy=500 from scaling iPhone XS rear-wide spec (~1500 at 1920px long edge → 500 at 640px long edge). Principal point = image center. distCoeffs=0. POSIT depth values are approximate — replace with a real per-device checkerboard calibration before trusting absolute mm without an ArUco marker.",
+  "imageSize": [480, 640],
+  "cameraMatrix": [
+    [500, 0, 240],
+    [0, 500, 320],
+    [0, 0, 1]
+  ],
+  "distCoeffs": [0, 0, 0, 0, 0]
+}
