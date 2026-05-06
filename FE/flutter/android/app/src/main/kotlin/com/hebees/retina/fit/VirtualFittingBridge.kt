@@ -1,4 +1,4 @@
-package com.retinafit.retinafit_shell
+package com.hebees.retina.fit
 
 import android.content.Context
 import android.util.Log

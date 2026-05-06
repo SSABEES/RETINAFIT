@@ -31,7 +31,7 @@ import 'native/virtual_fitting.dart';
 // 운영 Svelte 사이트 URL (HTTPS). dev/staging 은 빌드 시점에 갈아끼움:
 //   flutter build apk --dart-define=WEB_APP_URL=https://staging.example.com
 // `String.fromEnvironment` 는 컴파일 타임 상수만 읽기 때문에 핫리로드로는 못 바꿈.
-const String _defaultWebAppUrl = 'https://k14s107.p.ssafy.io/';
+const String _defaultWebAppUrl = 'https://fit.adminschool.net/';
 const String _webAppUrl = String.fromEnvironment(
   'WEB_APP_URL',
   defaultValue: _defaultWebAppUrl,

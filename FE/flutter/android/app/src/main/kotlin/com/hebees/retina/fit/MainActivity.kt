@@ -1,4 +1,4 @@
-package com.retinafit.retinafit_shell
+package com.hebees.retina.fit
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
