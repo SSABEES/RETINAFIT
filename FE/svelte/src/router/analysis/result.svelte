@@ -160,15 +160,44 @@
     )
   })
 
-  // report_json 의 인사이트 bullet 배열 추출 — summary_arr 또는 insight_arr 또는 string[] 형태 모두 지원
+  // AI 응답 items 의 항목별 멘트를 펼칠 때 표시 순서.
+  // 키 순서가 흔들려도 화면이 일정하도록 고정. items 키와 1:1 매칭.
+  const REPORT_ITEM_KEY_ARR = [
+    'face_shape',
+    'face_width',
+    'face_height',
+    'face_ratio',
+    'pd',
+    'skin_tone',
+  ]
+
+  // report_json 의 인사이트 bullet 배열 추출
+  // - 배열/summary_arr/insight_arr/bullet_arr 형태는 그대로 펼침
+  // - { summary, items } 형태는 summary 다음에 items 의 각 멘트를 차례로 붙임
+  // - 키 자체는 화면에 노출하지 않고, 멘트 문자열만 bullet 으로 보여준다.
   const g_report_bullet_arr = $derived.by(() => {
     if (!g_report_json) return /** @type {string[]} */ ([])
-    if (Array.isArray(g_report_json)) return g_report_json.map(String)
-    if (Array.isArray(g_report_json.summary_arr)) return g_report_json.summary_arr.map(String)
-    if (Array.isArray(g_report_json.insight_arr)) return g_report_json.insight_arr.map(String)
-    if (Array.isArray(g_report_json.bullet_arr)) return g_report_json.bullet_arr.map(String)
-    if (typeof g_report_json.summary === 'string') return [g_report_json.summary]
-    return /** @type {string[]} */ ([])
+    if (Array.isArray(g_report_json)) return g_report_json.map(String).filter(Boolean)
+    if (Array.isArray(g_report_json.summary_arr)) return g_report_json.summary_arr.map(String).filter(Boolean)
+    if (Array.isArray(g_report_json.insight_arr)) return g_report_json.insight_arr.map(String).filter(Boolean)
+    if (Array.isArray(g_report_json.bullet_arr)) return g_report_json.bullet_arr.map(String).filter(Boolean)
+
+    /** @type {string[]} */
+    const local_bullet_arr = []
+    const local_summary = g_report_json.summary
+    if (typeof local_summary === 'string' && local_summary.trim()) {
+      local_bullet_arr.push(local_summary.trim())
+    }
+    const local_items_obj = g_report_json.items
+    if (local_items_obj && typeof local_items_obj === 'object') {
+      for (const local_key of REPORT_ITEM_KEY_ARR) {
+        const local_value = local_items_obj[local_key]
+        if (typeof local_value === 'string' && local_value.trim()) {
+          local_bullet_arr.push(local_value.trim())
+        }
+      }
+    }
+    return local_bullet_arr
   })
 
   // 측정 상세 — visit.test_json 에 저장된 측정값/측정점/이미지 dims 를 읽어 인터랙티브 화면을 합성.
