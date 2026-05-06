@@ -5,6 +5,7 @@ face_script: 얼굴 측정값 6항목 → 상담사 스크립트(JSON) 생성. �
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from app.api.schemas import FaceScriptItems, FaceScriptRequest, FaceScriptResponse
@@ -104,11 +105,29 @@ def _value_mm(measurement: Any) -> float | None:
     return None
 
 
+def _strip_code_fence(text: str) -> str:
+    """Gemini 등이 ```json ... ``` 펜스로 감싸 오는 경우를 벗긴다.
+
+    펜스 없으면 원문 그대로 반환. 첫 번째 { ~ 마지막 } 블록만 추출.
+    """
+    if not text:
+        return text
+    stripped = text.strip()
+    fence_match = re.search(r"```(?:json)?\s*(.*?)```", stripped, flags=re.DOTALL)
+    if fence_match:
+        stripped = fence_match.group(1).strip()
+    first_brace = stripped.find("{")
+    last_brace = stripped.rfind("}")
+    if first_brace != -1 and last_brace > first_brace:
+        return stripped[first_brace : last_brace + 1]
+    return stripped
+
+
 def _parse_face_script(raw_answer: str, *, include_debug: bool) -> FaceScriptResponse:
     """LLM JSON 문자열 → FaceScriptResponse. 실패 시 폴백."""
     raw_answer_for_debug = raw_answer if include_debug else None
     try:
-        data = json.loads(raw_answer)
+        data = json.loads(_strip_code_fence(raw_answer))
         if not isinstance(data, dict):
             raise ValueError("face script payload is not an object")
         items_raw = data.get("items") or {}
