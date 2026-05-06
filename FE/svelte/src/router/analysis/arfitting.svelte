@@ -3,6 +3,7 @@
   import { navigate } from '@maks11060/svelte5-router'
   import { fade, fly } from 'svelte/transition'
   import { Glasses, CheckCheck, X, ChevronRight, RefreshCw, Save, FileText } from 'lucide-svelte'
+  import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
   import {
     load_normalized_glasses,
@@ -611,22 +612,22 @@
         class:ring-[var(--retina-primary-200)]={g_guide_step === 3}
         class:ring-inset={g_guide_step === 3}
       >
-        <h2 class="mb-2 text-[11px] font-extrabold tracking-wide text-slate-500">촬영 상태</h2>
-        <div class="grid grid-cols-3 gap-2">
+        <h2 class="mb-2 text-[11px] font-extrabold tracking-wide text-[#374151]">촬영 기록</h2>
+        <div class="grid grid-cols-3 gap-2 pr-1">
           {#each g_capture_slot_arr as slot, idx (idx)}
             <div class="group relative flex flex-col items-center gap-1">
               <div
-                class={`relative flex h-[120px] w-full items-center justify-center rounded-lg border transition-all ${
+                class={`relative flex h-[120px] w-full items-center justify-center rounded-none border transition-all ${
                   slot
                     ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)]'
-                    : 'border-dashed border-slate-300 bg-slate-50'
+                    : 'border-[#F1F3F5] bg-[#F1F3F5]'
                 }`}
               >
                 {#if slot}
                   <img
                     src={slot.object_url}
                     alt={SLOT_LABEL_ARR[idx]}
-                    class="h-full w-full rounded-lg object-contain"
+                    class="h-full w-full object-contain"
                   />
                   <button
                     type="button"
@@ -662,18 +663,18 @@
         class:ring-[var(--retina-primary-200)]={g_guide_step === 1}
         class:ring-inset={g_guide_step === 1}
       >
-        <div class="mb-2 flex items-center justify-between">
+        <div class="mb-2 flex items-center justify-between pr-1">
           <h2 class="text-[13px] font-extrabold text-zinc-900">추천 안경</h2>
           <button
             type="button"
             onclick={on_click_refresh_glasses}
-            class="flex items-center gap-0.5 rounded-md border border-[var(--retina-primary-500)] bg-white px-1.5 py-0.5 text-[9px] font-bold text-[var(--retina-primary-500)] transition-colors hover:bg-[var(--retina-bg-1)]"
+            aria-label="프레임 변경"
+            class="relative flex items-center cursor-pointer border-0 bg-transparent p-0 transition-opacity hover:opacity-80"
           >
-            <RefreshCw size={9} />
-            <span>프레임 변경</span>
+            <img src="/icons/Sum.png" alt="프레임 변경" class="h-7 w-auto" />
             {#if g_active_filter_count > 0}
               <span
-                class="flex h-3 w-3 items-center justify-center rounded-full bg-[var(--retina-primary-300)] text-[8px] font-black text-white"
+                class="absolute -top-1 right-0 flex h-3 w-3 items-center justify-center rounded-full bg-[var(--retina-primary-300)] text-[8px] font-black text-white"
               >
                 {g_active_filter_count}
               </span>
@@ -708,7 +709,7 @@
                 <button
                   type="button"
                   onclick={() => on_click_select_glasses(item.id)}
-                  class={`group relative flex items-center gap-2.5 rounded-xl border p-2 text-left transition-all ${
+                  class={`group relative flex items-center gap-2.5 rounded-sm border p-2 text-left transition-all ${
                     active
                       ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)] shadow-sm'
                       : 'border-slate-200 bg-white hover:border-[var(--retina-primary-100)]'
@@ -721,15 +722,14 @@
                   </div>
                   <div class="flex flex-1 flex-col overflow-hidden">
                     {#if active}
-                      <span
-                        class="mb-0.5 inline-flex items-center gap-1 self-start text-[10px] font-extrabold text-[var(--retina-primary-500)]"
-                      >
-                        <span
-                          class="h-3 w-3 shrink-0 bg-[var(--retina-primary-500)]"
-                          style="mask: url('/circle-check-red.png') center/contain no-repeat; -webkit-mask: url('/circle-check-red.png') center/contain no-repeat;"
-                          aria-label="피팅중 체크"
-                        ></span>
-                        피팅중
+                      <span class="mb-0.5 inline-flex items-center gap-0.5 self-start">
+                        <img
+                          src="/icons/CheckActive.png"
+                          alt=""
+                          class="h-[10px] w-[10px] shrink-0"
+                          aria-hidden="true"
+                        />
+                        <img src="/icons/fitting.png" alt="피팅중" class="h-[8px] w-auto" />
                       </span>
                     {/if}
                     <p class="truncate text-[12px] font-extrabold text-zinc-900">{item.model}</p>
@@ -807,16 +807,16 @@
             type="button"
             disabled={!g_can_save || g_submit_loading}
             onclick={on_click_save_fitting}
-            class="flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-[var(--retina-primary-300)] bg-white py-1.5 text-[12px] font-extrabold text-[var(--retina-primary-300)] shadow-sm transition-all hover:bg-[var(--retina-bg-1)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
+            aria-label="피팅 결과 저장"
+            class="block aspect-[31/13] w-full cursor-pointer overflow-hidden rounded-lg border-0 bg-transparent p-0 transition-all disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
           >
             {#if g_submit_loading}
-              <span
-                class="h-3 w-3 animate-spin rounded-full border-2 border-[var(--retina-primary-300)] border-t-transparent"
-              ></span>
-              <span>저장 중</span>
+              <span class="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-[var(--retina-primary-300)] bg-white text-[12px] font-extrabold text-[var(--retina-primary-300)]">
+                <span class="h-3 w-3 animate-spin rounded-full border-2 border-[var(--retina-primary-300)] border-t-transparent"></span>
+                <span>저장 중</span>
+              </span>
             {:else}
-              <Save size={14} />
-              <span>피팅 결과 저장</span>
+              <img src="/icons/BtnSave.png" alt="피팅 결과 저장" class="h-full w-full" />
             {/if}
           </button>
 
@@ -824,10 +824,10 @@
             type="button"
             disabled={!g_can_submit}
             onclick={on_click_submit_report}
-            class="flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-lg border-0 bg-[var(--retina-primary-300)] py-1.5 text-[12px] font-extrabold text-white shadow-md transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
+            aria-label="리포트 확인"
+            class="block aspect-[31/13] w-full cursor-pointer overflow-hidden rounded-lg border-0 bg-transparent p-0 transition-all disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
           >
-            <FileText size={14} />
-            <span>리포트 확인</span>
+            <img src="/icons/BtnReport.png" alt="리포트 확인" class="h-full w-full" />
           </button>
         </div>
       </div>
