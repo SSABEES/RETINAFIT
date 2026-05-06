@@ -112,14 +112,14 @@ LocalAsset 분기는 그대로 (asset 상대경로 유지). RemoteModel만 file 
 
 캐시 위치 (앱 패키지 기준):
 ```
-/data/user/0/com.retinal.retinal_shell/cache/virtual-fitting-models/{cacheKey}.glb
+/data/user/0/com.hebees.retina.fit/cache/virtual-fitting-models/{cacheKey}.glb
 ```
 
 캐시 키는 Svelte에서 `glasses-{id}` 형태로 생성. 같은 안경 재선택 시 다운로드 재실행 안 함.
 
 캐시 비우려면:
 ```bash
-adb shell run-as com.retinal.retinal_shell rm -rf cache/virtual-fitting-models
+adb shell run-as com.hebees.retina.fit rm -rf cache/virtual-fitting-models
 ```
 
 ## 빌드 / 테스트

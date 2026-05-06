@@ -6,8 +6,8 @@ import Foundation
 // Svelte WebView 가 같은 채널을 호출했을 때 깨지지 않도록 같은 인터페이스로
 // 응답만 해주고, 실제 AR 은 비활성 상태(UNSUPPORTED_DEVICE) 로 알린다.
 final class VirtualFittingBridge: NSObject {
-    static let methodChannelName = "retinal/virtual_fitting/method"
-    static let eventChannelName = "retinal/virtual_fitting/events"
+    static let methodChannelName = "retinafit/virtual_fitting/method"
+    static let eventChannelName = "retinafit/virtual_fitting/events"
 
     private var methodChannel: FlutterMethodChannel?
     private var eventChannel: FlutterEventChannel?
