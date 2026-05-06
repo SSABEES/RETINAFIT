@@ -6,12 +6,13 @@
 // 측면 자세 감지 임계값. test.svelte 에서 검증된 값 그대로 채택.
 // 실제 튜닝은 prod 실측 후. 변경 시 테스트도 함께 갱신.
 export const PROFILE_CONSTANTS = Object.freeze({
-  ORT_FRAME_SKIP: 5, // tick() 호출 5번마다 1번 추론 → 12Hz rAF 에서 ~2.4Hz
-  TARGET_DEG: 90, // ±90° 가 측면 정자세
-  TOLERANCE: 15, // 영역 폭 ±15° — 사용자 자세 흔들림 허용 (10° 는 너무 빡빡)
-  YAW_STD_THR: 5, // 안정성 표준편차 임계 (도)
-  STABILITY_FRAMES: 12, // 12 frames @ 12Hz ≈ 1초 hold
-  YAW_BUFFER_SIZE: 10, // 표준편차 계산용 슬라이딩 윈도우
+  ORT_FRAME_SKIP: 5,           // tick() 호출 5번마다 1번 추론 → 12Hz rAF 에서 ~2.4Hz
+  TARGET_DEG: 90,              // ±90° 가 측면 정자세
+  TOLERANCE: 15,               // 영역 폭 ±15° — 사용자 자세 흔들림 허용 (10° 는 너무 빡빡)
+  YAW_STD_THR: 5,              // 안정성 표준편차 임계 (도)
+  STABILITY_FRAMES: 12,        // 12 frames @ 12Hz ≈ 1초 hold
+  YAW_BUFFER_SIZE: 10,         // 표준편차 계산용 슬라이딩 윈도우
+  IMAGE_TILT_BUFFER_SIZE: 5,   // 이미지 평면 기울기 평균화용 — ~0.4초 윈도우, 모델 jitter 완화
 })
 
 /**
@@ -62,6 +63,29 @@ export function update_stability_step({ stable_count, yaw_buffer, yaw, target_de
 }
 
 /**
+ * 이미지 평면 머리 기울기 슬라이딩 윈도우에 새 값을 추가한 새 배열을 반환한다. 모델 출력 jitter 가
+ * 매 프레임 ±몇 도씩 흔들려 raw 값을 화면/보정에 그대로 쓰면 사용자 체감 불안정. 캡처 시점 단일값에도
+ * 영향을 주므로 단순 산술 평균으로 완화. yaw_buffer 와 달리 std 게이팅 없음 — 평균값만 쓴다.
+ *
+ * @param {number[]} buffer
+ * @param {number} value
+ * @returns {number[]}
+ */
+export function next_image_tilt_buffer(buffer, value) {
+  return [...buffer.slice(-(PROFILE_CONSTANTS.IMAGE_TILT_BUFFER_SIZE - 1)), value]
+}
+
+/**
+ * 배열의 산술 평균. 빈 배열은 null 반환.
+ * @param {number[]} arr
+ * @returns {number | null}
+ */
+export function average_or_null(arr) {
+  if (arr.length === 0) return null
+  return arr.reduce((a, b) => a + b, 0) / arr.length
+}
+
+/**
  * 사용자에게 보일 측면 단계 힌트 텍스트. null 반환 시 호출자가 기본 힌트로 폴백.
  *
  * 분기 순서:
@@ -81,10 +105,7 @@ export function compute_hint_text({ session_ready, last_yaw, target_deg, is_stab
 
   const distance = Math.abs(last_yaw - target_deg)
   if (distance >= PROFILE_CONSTANTS.TOLERANCE) {
-    // 음성 안내(turn_left_for_right_capture / turn_head_right_for_left_capture) 와 방향 일치.
-    // right_profile (target=+90) → 사용자는 고개를 왼쪽으로 돌려야 우측 면이 카메라에 노출됨.
-    // left_profile (target=-90) → 사용자는 고개를 오른쪽으로 돌려야 좌측 면이 카메라에 노출됨.
-    const direction = target_deg > 0 ? '왼쪽' : '오른쪽'
+    const direction = target_deg > 0 ? '오른쪽' : '왼쪽'
     return `고개를 ${direction}으로 더 돌려주세요`
   }
   if (is_stable) return '✓ 측정 중…'

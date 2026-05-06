@@ -34,6 +34,7 @@
    * @property {FaceMeasurements | null} measurements_obj
    * @property {Record<string, [Point2D, Point2D]> | null} measurement_points_obj
    * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[] | null} landmarks
+   * @property {import('@/lib/stores/capture_session.svelte.js').HeadPoseSnapshot | null} head_pose
    */
 
   /** @type {{
@@ -575,6 +576,17 @@
       const measurement_points_obj = landmarks
         ? compute_measurement_points(landmarks, width, height)
         : null
+      // 측면 캡처 시점의 머리 자세를 동결 — 전경각 보정에 쓰인다. last_image_tilt 가 buffer 평균
+      // 후 안정화된 값이므로 캡처 직전 jitter 영향이 작은 값을 그대로 보관. 정면 캡처거나 추론 결과가
+      // 아직 없으면 null (보정 없이 raw 림 각도가 측정값으로 사용됨).
+      const head_pose = pose_target !== 'front' && profile_pose.last_image_tilt !== null
+        ? {
+            image_tilt_deg: profile_pose.last_image_tilt,
+            pitch_deg: profile_pose.last_pitch,
+            yaw_deg: profile_pose.last_yaw,
+            roll_deg: profile_pose.last_roll,
+          }
+        : null
       oncapture?.({
         blob,
         object_url,
@@ -584,6 +596,7 @@
         measurements_obj: measurements_obj ?? null,
         measurement_points_obj,
         landmarks,
+        head_pose,
       })
     } catch (err) {
       // 촬영 실패 시 재시도 가능하도록 dispatched 플래그 해제 + 소비자에게 에러 알림.
@@ -773,7 +786,19 @@
 
   // pitch / roll 은 정면용 angle_style 그대로 사용 — 0 에서 멀어질수록 'not ok'. 측면 자세에서도
   // 사용자 머리가 위/아래/기울어짐 없이 수평으로 돌아가는 게 이상적이라 같은 의미로 적용 가능.
-  const g_profile_pitch_style = $derived(angle_style(profile_pose.last_pitch ?? 0, PITCH_THR))
+  // 단 측면(yaw≈±90°) 에서 ZYX Euler 분해의 pitch 는 gimbal lock 으로 ±180° 부근까지 튐 — 화면에는
+  // 회전행렬에서 직접 사영한 image_plane_tilt(특이점 무관, 정자세=0°) 를 대신 노출.
+  //
+  // Dead zone: 정자세 유지 시 모델 R jitter 로 ±1° 안쪽 흔들림이 남는다. 표시값에만 dead band
+  // 적용해 |값| < 1° 면 0° 로 잠금. 캡처 시점 동결되는 raw last_image_tilt 는 그대로 사용해 보정
+  // 정확도 유지.
+  const IMAGE_TILT_DEADBAND_DEG = 1.0
+  const g_image_tilt_display = $derived.by(() => {
+    const v = profile_pose.last_image_tilt
+    if (v === null) return 0
+    return Math.abs(v) < IMAGE_TILT_DEADBAND_DEG ? 0 : v
+  })
+  const g_profile_pitch_style = $derived(angle_style(g_image_tilt_display, PITCH_THR))
   const g_profile_roll_style = $derived(angle_style(profile_pose.last_roll ?? 0, ROLL_THR))
 </script>
 
@@ -978,7 +1003,7 @@
             class="w-12 text-right font-bold tabular-nums"
             style="color: {g_profile_pitch_style.text_color};"
           >
-            {(profile_pose.last_pitch ?? 0).toFixed(1)}°
+            {g_image_tilt_display.toFixed(1)}°
           </span>
         </div>
         <div class="flex items-center gap-2">

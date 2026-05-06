@@ -99,7 +99,7 @@
    * @param {[{x: number, y: number}, {x: number, y: number}]} points
    */
   function on_points_set(item_id, points) {
-    set_item_points(item_id, points)
+    set_item_points(item_id, points, g_view)
   }
 
   // 캔버스 ESC → active 해제.
@@ -188,6 +188,7 @@
               capture={g_selected_capture}
               items_arr={g_items_arr}
               active_item_id={g_active_item_id}
+              view={g_view}
               onpoints_set={on_points_set}
               oncancel={on_cancel}
             />
