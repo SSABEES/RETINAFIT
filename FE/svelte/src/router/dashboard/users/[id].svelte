@@ -86,8 +86,15 @@
     </Link>
   {/snippet}
 
-  <section class="px-8 py-8">
-    <div class="mx-auto max-w-[944px]">
+  <!--
+    flex min-h-full items-center → 컨텐츠를 스크롤 영역 안에서 세로 중앙 정렬.
+    bg-[#F7F8FA] → 부모 main 의 회색 bg 가 스크롤 영역까지 확실히 보이도록 명시.
+    .app-bg-edge-extend → 좌우 viewport 끝까지 bg 확장.
+  -->
+  <section
+    class="app-bg-edge-extend flex min-h-full items-center bg-[#F7F8FA] px-8 py-8"
+  >
+    <div class="mx-auto w-full max-w-[944px]">
       <section
         class="grid min-h-[194px] grid-cols-[1fr_auto] items-center gap-8 rounded-2xl border border-[#E8EAF0] bg-white px-8 py-7 text-left"
       >

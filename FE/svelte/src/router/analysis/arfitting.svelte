@@ -3,7 +3,6 @@
   import { navigate } from '@maks11060/svelte5-router'
   import { fade, fly } from 'svelte/transition'
   import { Glasses, CheckCheck, X, ChevronRight, RefreshCw, Save, FileText } from 'lucide-svelte'
-  import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
   import {
     load_normalized_glasses,
@@ -23,6 +22,7 @@
   import { push_error_toast, push_toast } from '@/lib/stores/toast'
   import { pick_recommended_glasses_arr } from '@/lib/recommendations/frame_recommendations'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
+  import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
 
   /**
    * @typedef {{
@@ -565,8 +565,7 @@
   let g_highlight_aside = $derived([1, 3, 4, 5].includes(g_guide_step))
 </script>
 
-<main class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-zinc-900">
-  <Header />
+<AnalysisPageLayout current_step={4} bg_class="bg-white text-zinc-900">
 
   <div class="flex min-h-0 flex-1 overflow-hidden bg-[var(--retina-text-100)]">
     <!-- 좌측: 카메라 -->
@@ -836,7 +835,7 @@
   </div>
 
   <LoadingOverlay open={g_submit_loading} label="피팅 결과 저장 중..." />
-</main>
+</AnalysisPageLayout>
 
 <!-- 가이드 오버레이 -->
 {#if g_guide_step > 0}
