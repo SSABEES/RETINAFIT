@@ -41,8 +41,8 @@
     onclose = undefined,
   } = $props()
 
-  /** @type {HTMLButtonElement | null} */
-  let ref_this_hit_area_el = $state(null)
+  /** @type {SVGSVGElement | null} */
+  let ref_this_svg_el = $state(null)
   let g_list_open = $state(false)
   /** @type {Point2D | null} */
   let g_pending_first = $state(null)
@@ -77,17 +77,25 @@
   })
 
   /**
-   * 클릭 좌표를 이미지 픽셀 좌표로 변환한다. capture.object_url 이 미러링 표시이므로 x 만 mirror_x.
+   * 클릭 좌표를 이미지 픽셀 좌표로 변환한다.
+   *
+   * SVG 의 getScreenCTM() 으로 viewport → SVG viewBox 좌표계 매트릭스 변환을 사용 — landscape
+   * orientation 일 때 모달이 CSS rotate(90deg) 로 회전되어도 자동 처리. (회전/스케일/translate
+   * 어떤 transform 이 걸려도 SVG 가 자기 좌표계로 unproject 해줌.)
+   *
+   * capture.object_url 이 미러링 표시이므로 최종 결과의 x 만 mirror_x 로 unmirror.
    * @param {MouseEvent} evt
    * @returns {Point2D | null}
    */
   function to_image_px(evt) {
-    if (!ref_this_hit_area_el || !capture) return null
-    const rect = ref_this_hit_area_el.getBoundingClientRect()
-    if (rect.width === 0 || rect.height === 0) return null
-    const visual_x = (evt.clientX - rect.left) * (capture.width / rect.width)
-    const y = (evt.clientY - rect.top) * (capture.height / rect.height)
-    return { x: capture.width - visual_x, y }
+    if (!ref_this_svg_el || !capture) return null
+    const ctm = ref_this_svg_el.getScreenCTM()
+    if (!ctm) return null
+    const pt = ref_this_svg_el.createSVGPoint()
+    pt.x = evt.clientX
+    pt.y = evt.clientY
+    const local = pt.matrixTransform(ctm.inverse())
+    return { x: capture.width - local.x, y: local.y }
   }
 
   /**
@@ -146,7 +154,7 @@
 
 {#if open}
   <div
-    class="fixed inset-0 z-50 bg-black/95"
+    class="zoom-modal-root z-50 bg-black/95"
     role="dialog"
     aria-modal="true"
     aria-label="측정 이미지 확대 보기"
@@ -187,7 +195,6 @@
             draggable="false"
           />
           <button
-            bind:this={ref_this_hit_area_el}
             class="absolute inset-0 z-10 border-0 bg-transparent p-0"
             class:cursor-crosshair={active_item_id}
             class:cursor-default={!active_item_id}
@@ -196,6 +203,7 @@
             onclick={on_click_canvas}
           ></button>
           <svg
+            bind:this={ref_this_svg_el}
             class="pointer-events-none absolute inset-0 h-full w-full"
             viewBox="0 0 {capture.width} {capture.height}"
             preserveAspectRatio="none"
@@ -290,3 +298,35 @@
     {/if}
   </div>
 {/if}
+
+<style>
+  /*
+   * Default: 모달이 viewport 를 그대로 채움 (portrait orientation 디바이스용 — 자연스러운 portrait 레이아웃).
+   */
+  .zoom-modal-root {
+    position: fixed;
+    inset: 0;
+  }
+
+  /*
+   * Landscape orientation: 모달은 portrait 좌표계 그대로 그리되 90deg 회전해 표시.
+   * 가로 모니터를 portrait 디바이스로 시뮬레이션 — PC 디버깅 + 가로 태블릿 세로 사용 모두 커버.
+   *
+   * 좌표 변환:
+   *   - element pre-transform 크기: width=100vh (모니터 height), height=100vw (모니터 width)
+   *   - rotate(90deg) about (0,0): rectangle (-H, 0) ~ (0, W)
+   *   - translate(100vw, 0): rectangle (0, 0) ~ (H, W) — viewport 정확히 덮음
+   *   - 클릭 좌표는 SVG getScreenCTM 으로 자동 unproject (to_image_px 참조)
+   */
+  @media (orientation: landscape) {
+    .zoom-modal-root {
+      inset: auto;
+      top: 0;
+      left: 0;
+      width: 100vh;
+      height: 100vw;
+      transform-origin: top left;
+      transform: translate(100vw, 0) rotate(90deg);
+    }
+  }
+</style>
