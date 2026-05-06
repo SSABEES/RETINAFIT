@@ -11,8 +11,10 @@
  * @typedef {'oval' | 'round' | 'heart' | 'square' | 'oblong'} FaceShapeKey
  *
  * @typedef {object} FrameColorChip
- * @property {string} label       // 칩에 표시할 컬러 명 (예: '골드')
- * @property {string} tone_class  // Tailwind/임의값 배경 클래스 (예: 'bg-[#D4A63F]')
+ * @property {string} label           // 칩에 표시할 컬러 명 (예: '골드')
+ * @property {string} tone_class      // Tailwind/임의값 단색 배경 (작은 dot/preview 용도)
+ * @property {string} gradient_class  // 칸 전체를 채우는 선형 그라데이션 (밝은 톤 → 진한 톤)
+ * @property {string} text_class      // 그라데이션 위 라벨 색 (어두운 끝쪽 기준 가독성)
  *
  * @typedef {object} FrameStyleEntry
  * @property {string} name                  // 프레임 형태명 (예: '라운드')
@@ -27,22 +29,75 @@
  *
  * @type {Record<SkinToneKey, FrameColorChip[]>}
  */
+// gradient_class 는 디자인 시안의 보라(#933ABC→#330046)와 동일한 결의 컬러별 변형 —
+// 칩 색을 from(밝은 변형), to(매우 어두운 변형)로 두어 톱-레프트→바텀-라이트 방향으로 깊어진다.
+// text_class 는 어두운 끝 톤을 기준으로 가독성이 보장되도록 모두 흰색으로 통일.
 export const SKIN_TONE_FRAME_COLOR_MAP = {
   WARM: [
-    { label: '골드', tone_class: 'bg-[#D4A63F]' },
-    { label: '브라운', tone_class: 'bg-[#8B5E3C]' },
-    { label: '버건디', tone_class: 'bg-[#7A1E3A]' },
-    { label: '토트이즈', tone_class: 'bg-[#B86B2C]' },
+    {
+      label: '골드',
+      tone_class: 'bg-[#D4A63F]',
+      gradient_class: 'bg-gradient-to-br from-[#E0B85C] to-[#4A3812]',
+      text_class: 'text-white',
+    },
+    {
+      label: '브라운',
+      tone_class: 'bg-[#8B5E3C]',
+      gradient_class: 'bg-gradient-to-br from-[#A37852] to-[#3A2614]',
+      text_class: 'text-white',
+    },
+    {
+      label: '버건디',
+      tone_class: 'bg-[#7A1E3A]',
+      gradient_class: 'bg-gradient-to-br from-[#9B2D4D] to-[#2E0A14]',
+      text_class: 'text-white',
+    },
+    {
+      label: '토트이즈',
+      tone_class: 'bg-[#B86B2C]',
+      gradient_class: 'bg-gradient-to-br from-[#CF8344] to-[#4D2D11]',
+      text_class: 'text-white',
+    },
   ],
   COOL: [
-    { label: '실버', tone_class: 'bg-[#A7B0BC]' },
-    { label: '블랙', tone_class: 'bg-[#111827]' },
-    { label: '블루', tone_class: 'bg-[#4A6CF7]' },
-    { label: '퍼플', tone_class: 'bg-[#8B5CF6]' },
+    {
+      label: '실버',
+      tone_class: 'bg-[#B0BAC8]',
+      gradient_class: 'bg-gradient-to-br from-[#CDD4DE] to-[#6B7A8D]',
+      text_class: 'text-white',
+    },
+    {
+      label: '블랙',
+      tone_class: 'bg-[#1A1D2E]',
+      gradient_class: 'bg-gradient-to-br from-[#2E3248] to-[#0A0B10]',
+      text_class: 'text-white',
+    },
+    {
+      label: '블루',
+      tone_class: 'bg-[#4B55D4]',
+      gradient_class: 'bg-gradient-to-br from-[#6874E8] to-[#1E2672]',
+      text_class: 'text-white',
+    },
+    {
+      label: '보라',
+      tone_class: 'bg-[#7B54B5]',
+      gradient_class: 'bg-gradient-to-br from-[#9B6FD6] to-[#3D1A6B]',
+      text_class: 'text-white',
+    },
   ],
   NEUTRAL: [
-    { label: '모든 색상 가능', tone_class: 'bg-[#64748B]' },
-    { label: '고객 선호 반영', tone_class: 'bg-[#9A1BFF]' },
+    {
+      label: '모든 색상 가능',
+      tone_class: 'bg-[#64748B]',
+      gradient_class: 'bg-gradient-to-br from-[#7B8AA1] to-[#2A3140]',
+      text_class: 'text-white',
+    },
+    {
+      label: '고객 선호 반영',
+      tone_class: 'bg-[#9A1BFF]',
+      gradient_class: 'bg-gradient-to-br from-[#B14EFF] to-[#330046]',
+      text_class: 'text-white',
+    },
   ],
 }
 
@@ -171,6 +226,26 @@ const FRAME_STYLE_NAME_TO_VALUE = {
   보잉: 'aviator',
   캣아이: 'cat_eye',
   브로우라인: 'browline',
+}
+
+/**
+ * 칩 객체에서 배경 클래스를 반환한다.
+ * gradient_class 가 없을 때 tone_class 로 폴백하므로 어떤 칩이 와도 안전하게 렌더링된다.
+ * @param {FrameColorChip} chip_obj
+ * @returns {string}
+ */
+export function get_chip_bg_class(chip_obj) {
+  return chip_obj.gradient_class || chip_obj.tone_class || 'bg-slate-400'
+}
+
+/**
+ * 칩 객체에서 텍스트 색상 클래스를 반환한다.
+ * text_class 가 없을 때 흰색으로 폴백.
+ * @param {FrameColorChip} chip_obj
+ * @returns {string}
+ */
+export function get_chip_text_class(chip_obj) {
+  return chip_obj.text_class || 'text-white'
 }
 
 /**

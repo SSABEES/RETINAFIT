@@ -167,7 +167,12 @@ a {
     확장될 수 있게 한다. 페이지 컨텐츠 자체는 main 의 overflow-hidden 으로 클리핑되므로 안전.
   */
   overflow: visible;
-  background: var(--retina-page);
+  /*
+    bg 는 .app-frame-shell 이 sync_shell_bg(App.svelte) 로 페이지 main 의 bg 에 맞춰주므로
+    여기서 별도 색을 깔면 main 의 .app-bg-edge-extend 확장 영역과 frame 1024px 경계에서
+    배경이 어긋나 세로 줄이 보인다. 항상 shell 색을 그대로 통과시킨다.
+  */
+  background: transparent;
   /*
     --app-frame-scale 이 viewport 에 따라 동적으로 갱신되어 frame 전체가 균일 확대/축소된다.
     1024×768 / 1280×800 / 1366×768 / 1920×1080 4개 대표 해상도에서 일관되게 동작.
