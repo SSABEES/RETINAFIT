@@ -1,5 +1,18 @@
 @import 'tailwindcss';
 
+/*
+  Pretendard Variable — public/font/Pretendard-1.3.9/web/variable/ 에 번들된 가변 폰트.
+  하나의 woff2 로 weight 45~920 전부 커버 (font-weight 무엇이든 같은 파일 재사용).
+  font-display: swap → 폰트 다운로드 동안 시스템 폰트로 즉시 렌더, 도착 후 교체.
+*/
+@font-face {
+  font-family: 'Pretendard Variable';
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url('/font/Pretendard-1.3.9/web/variable/woff2/PretendardVariable.woff2') format('woff2-variations');
+}
+
 :root {
   --retina-primary-100: #FFD8C2;
   --retina-primary-200: #FFB48F;
@@ -59,6 +72,8 @@ body::-webkit-scrollbar,
 
 html {
   font-family:
+    'Pretendard Variable',
+    Pretendard,
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
