@@ -9,6 +9,8 @@
  * @typedef {import('@/lib/mediapipe/face_types.js').Point2D} Point2D
  * @typedef {import('@/lib/measurements/measurement_utils.js').MeasurementItem} MeasurementItem
  * @typedef {import('@/lib/measurements/template.js').ViewAngle} ViewAngle
+ * @typedef {import('@/lib/measurements/aruco_detector.js').DetectedMarker} DetectedMarker
+ * @typedef {import('@/lib/measurements/camera_intrinsics.js').CameraIntrinsics} CameraIntrinsics
  *
  * @typedef {object} HeadPoseSnapshot
  * @property {number} image_tilt_deg                       보정에 직접 쓰는 값. atan2(R[1], R[4]) buffer 평균 후 동결.
@@ -27,6 +29,8 @@
  * @property {Record<string, [Point2D, Point2D]> | null} measurement_points_obj
  * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[] | null} landmarks
  * @property {HeadPoseSnapshot | null} [head_pose]         측면 캡처에서만 채워짐. 정면은 null/undefined
+ * @property {DetectedMarker | null} [marker]              ArUco 마커 검출 결과. add_capture 가 모든 단계에서 시도, 실패 시 null
+ * @property {CameraIntrinsics | null} [intrinsics]        marker 검출 성공 시 같이 보관 — mm_distance / 디버그 오버레이가 사용
  *
  * @typedef {'select_glasses' | 'capturing' | 'review'} Phase
  *
@@ -38,10 +42,14 @@
  * @property {import('@/lib/mediapipe/face_types.js').SkinToneResult | null} skin_tone
  * @property {import('@/lib/mediapipe/face_types.js').EarOffsets | null} ear_offsets_obj
  *
+ * @typedef {'aruco_marker' | 'pd_assumption_63mm'} ScaleSource
+ *
  * @typedef {object} ScaleInfo
  * @property {number} mm_per_px              환산 비율: value_mm = value_px * mm_per_px
- * @property {'pd_assumption_63mm'} source   환산 비율을 어떻게 구했는지 (현재는 PD 63mm 가정만 지원)
- * @property {number} pd_pixels_used         계산에 사용된 PD 픽셀값 (추적용)
+ * @property {ScaleSource} source            환산 비율을 어떻게 구했는지 — 'aruco_marker' 우선, 실패 시 'pd_assumption_63mm' fallback
+ * @property {number | null} pd_pixels_used  PD 기반일 때 사용한 PD 픽셀값. ArUco 일 때 null
+ * @property {string | null} aruco_step_id   ArUco 기반일 때 어느 캡처(step_id) 의 마커가 채택됐는지. PD 일 때 null
+ * @property {number | null} aruco_size_px   ArUco 기반일 때 마커의 평균 변 픽셀값 (디버그용). PD 일 때 null
  *
  * @typedef {object} CaptureSessionState
  * @property {Phase} phase
@@ -68,12 +76,23 @@ import {
   vertical_signed_angle_deg,
   apply_image_tilt_correction,
 } from '@/lib/measurements/measurement_utils.js'
+import { detect_marker_for_capture, MARKER_SIZE_MM } from '@/lib/measurements/aruco_capture.js'
 import { write_mirror, read_mirror, clear_mirror } from '@/lib/utils/session_storage_mirror.js'
 
 // 얼굴형 분류용 정면샷 우선순위. 맨얼굴(front_no_glasses)이 안경 왜곡 없이 광대/턱 폭을 가장 정확히 잡아낸다.
 const FRONT_STEP_PRIORITY = ['front_no_glasses', 'front_glasses']
 
-// PD 가정값 (성인 평균 동공간 거리). ArUco 마커 도입 전까지 임시 환산 기준.
+// 마커 우선 채택 순서 — 정면을 먼저, 그 다음 측면. ArUco 기반 mm_per_px 산출 시 첫 번째 매칭 사용.
+const ARUCO_STEP_PRIORITY = [
+  'front_no_glasses',
+  'front_glasses',
+  'left_no_glasses',
+  'left_glasses',
+  'right_no_glasses',
+  'right_glasses',
+]
+
+// PD 가정값 (성인 평균 동공간 거리). ArUco 마커 검출 실패 시 fallback 환산 기준.
 const ASSUMED_PD_MM = 63
 
 /** @type {CaptureSessionState} */
@@ -189,13 +208,25 @@ function apply_scale_to_ear_offsets() {
 /**
  * 현재 스텝에 캡쳐를 기록하고 다음 스텝으로 넘어간다.
  * 마지막 스텝이었으면 얼굴형/비대칭/피부톤/귀 높이를 계산하고 phase='review' 로 전환.
+ *
+ * ArUco 마커는 모든 단계에서 검출 시도. 결과는 capture.marker / capture.intrinsics 에 저장.
+ * 실패해도 캡처는 그대로 진행 — compute_scale 이 PD fallback 으로 처리.
+ *
  * @param {Capture} capture
  */
 export async function add_capture(capture) {
+  // 검출은 await — 마지막 스텝의 compute_scale 이 정면 마커를 즉시 참조할 수 있어야 한다.
+  // 정상 경로 ~50-100ms, 실패해도 이 함수는 throw 하지 않으므로 캡처 흐름이 막히지 않는다.
+  const aruco_result = await detect_marker_for_capture(capture)
+  capture.marker = aruco_result?.marker ?? null
+  capture.intrinsics = aruco_result?.intrinsics ?? null
+  log_marker_detection(capture)
+
   g_session.captures_obj[capture.step_id] = capture
   if (g_session.current_step_index + 1 >= g_session.steps_arr.length) {
     g_session.face_shape_result = await compute_face_shape_result()
     g_session.scale = compute_scale()
+    log_scale_decision(g_session.scale)
     apply_scale_to_ear_offsets()
     g_session.measurements_obj = build_initial_measurements(
       pick_front_auto_points(),
@@ -205,6 +236,42 @@ export async function add_capture(capture) {
     mirror_now()
   } else {
     g_session.current_step_index += 1
+  }
+}
+
+/**
+ * ArUco 검출 결과를 사람이 읽기 좋은 한 줄 로그로 출력한다. 운영자가 디버깅 시 즉시 파악 가능.
+ * @param {Capture} capture
+ */
+function log_marker_detection(capture) {
+  const step = capture.step_id
+  if (capture.marker) {
+    const m = capture.marker
+    console.log(
+      `[ArUco] 마커 검출 성공 — 단계=${step}, ID=${m.id}, 카메라거리=${m.translation[2].toFixed(0)}mm, 픽셀크기=${m.sizePx.toFixed(0)}px`,
+    )
+  } else {
+    console.log(`[ArUco] 마커 미검출 — 단계=${step} (사진에 마커가 없거나 인식 불가)`)
+  }
+}
+
+/**
+ * compute_scale 결과(어느 출처가 채택됐는지) 를 사람이 읽기 좋게 로그.
+ * @param {ScaleInfo | null} scale
+ */
+function log_scale_decision(scale) {
+  if (!scale) {
+    console.warn('[ArUco] mm 환산 비율 산출 실패 — 마커도 PD 측정값도 없음. 모든 측정이 px 로만 표시됩니다.')
+    return
+  }
+  if (scale.source === 'aruco_marker') {
+    console.log(
+      `[ArUco] mm 환산: ArUco 마커 사용 — 단계=${scale.aruco_step_id}, 마커 픽셀크기=${scale.aruco_size_px?.toFixed(0)}px, 1px=${scale.mm_per_px.toFixed(4)}mm`,
+    )
+  } else {
+    console.warn(
+      `[ArUco] mm 환산: PD 63mm 추정값으로 fallback — 어느 단계에서도 마커 미검출. PD 픽셀=${scale.pd_pixels_used}, 1px=${scale.mm_per_px.toFixed(4)}mm. 정확도 ↓ — UI 에 추정치 안내 노출.`,
+    )
   }
 }
 
@@ -224,11 +291,30 @@ function pick_front_auto_points() {
 }
 
 /**
- * 정면 캡쳐의 PD(동공간 거리) 픽셀값을 기준으로 px↔mm 환산 비율을 계산한다.
- * 성인 평균 PD 63mm 가정. 정면 캡쳐가 없거나 측정값이 없으면 null.
+ * px↔mm 환산 비율을 계산한다.
+ *
+ * 우선순위:
+ *   1. ArUco 마커 — ARUCO_STEP_PRIORITY 순으로 첫 검출 성공한 캡처 사용. mm_per_px = MARKER_SIZE_MM / sizePx.
+ *      (평면 근사 — mm_distance 가 더 정확하지만 단일 ratio API 와 호환 위해 sizePx 기반 단순 환산.)
+ *   2. PD 63mm 가정 — 정면 캡처의 pd_pixels 로 산출. 마커 미검출 시 fallback.
+ *
+ * 둘 다 실패하면 null.
  * @returns {ScaleInfo | null}
  */
 function compute_scale() {
+  for (const step_id of ARUCO_STEP_PRIORITY) {
+    const capture = g_session.captures_obj[step_id]
+    const marker = capture?.marker
+    if (marker && marker.sizePx > 0) {
+      return {
+        mm_per_px: MARKER_SIZE_MM / marker.sizePx,
+        source: 'aruco_marker',
+        pd_pixels_used: null,
+        aruco_step_id: step_id,
+        aruco_size_px: marker.sizePx,
+      }
+    }
+  }
   for (const step_id of FRONT_STEP_PRIORITY) {
     const capture = g_session.captures_obj[step_id]
     const pd_pixels = capture?.measurements_obj?.pd_pixels
@@ -237,6 +323,8 @@ function compute_scale() {
         mm_per_px: ASSUMED_PD_MM / pd_pixels,
         source: 'pd_assumption_63mm',
         pd_pixels_used: pd_pixels,
+        aruco_step_id: null,
+        aruco_size_px: null,
       }
     }
   }
