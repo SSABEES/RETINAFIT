@@ -3,7 +3,6 @@ import LoginPage from '@/router/auth/login.svelte'
 import OpticianSelectPage from '@/router/auth/optician_select.svelte'
 import VisitSelectPage from '@/router/auth/visit_select.svelte'
 import AnalysisPage from '@/router/analysis/index.svelte'
-import AnalysisFaceMeasurementPage from '@/router/analysis/face_measurement.svelte'
 import AnalysisResultPage from '@/router/analysis/result.svelte'
 import AnalysisReportPage from '@/router/analysis/report.svelte'
 import AnalysisLensConsultPage from '@/router/analysis/lens_consult.svelte'
@@ -26,7 +25,6 @@ export const routes = [
   { path: PATH.opticianSelect, component: OpticianSelectPage },
   { path: PATH.visitSelect, component: VisitSelectPage },
   { path: PATH.analysis, component: AnalysisPage },
-  { path: PATH.analysisFaceMeasurement, component: AnalysisFaceMeasurementPage },
   { path: PATH.analysisResult, component: AnalysisResultPage },
   { path: PATH.analysisReport, component: AnalysisReportPage },
   { path: PATH.analysisLensConsult, component: AnalysisLensConsultPage },

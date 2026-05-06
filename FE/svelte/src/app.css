@@ -213,8 +213,8 @@ a {
   height: 100%;
   /*
     fixed-positioned header(52px) 가 컨텐츠 상단을 가리지 않게 padding-top 으로 영역 예약.
-    AnalysisStepBar 는 분석 페이지 한정이라 .app-frame-page 에는 padding-bottom 을 두지 않고,
-    필요 페이지가 main 클래스에 `pb-[60px]` 를 직접 추가한다.
+    AnalysisStepBar 는 분석 페이지에서 normal flow 로 이 padding 영역 바로 아래 자식으로
+    렌더되어 자연스럽게 헤더 밑에 따라붙는다 (analysis_page_layout.svelte 참고).
   */
   padding-top: 52px;
 }
