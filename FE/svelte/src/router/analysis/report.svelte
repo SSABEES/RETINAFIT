@@ -18,6 +18,7 @@
     get_frame_styles_for_face_shape,
   } from '@/lib/recommendations/frame_recommendations.js'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
+  import AnalysisStepBar from '@/components/layout/analysis_step_bar.svelte'
 
   const g_session = $derived(get_session())
   const g_face_shape_result = $derived(get_face_shape_result())
@@ -390,6 +391,8 @@
       </div>
     </div>
   </section>
+
+  <AnalysisStepBar current_step={2} />
 
   <LoadingOverlay open={g_is_submitting} label="분석 결과 저장 중..." />
 </main>

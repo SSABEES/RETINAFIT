@@ -153,9 +153,13 @@
     -->
     <section
       aria-label="실시간 얼굴 분석"
-      class="col-span-8 grid min-h-0 items-start justify-items-center overflow-hidden border-r border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-6 pt-2 pb-2"
+      class="col-span-8 grid min-h-0 items-start justify-items-center overflow-hidden border-r border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-4 pt-1 pb-1"
     >
-      <div class="w-full max-w-[420px]">
+      <!--
+        max-w 를 360px 로 축소 → 3:4 비율상 높이 ~480px 로 떨어져 step bar 가 차지하는 영역을
+        제외한 남은 row 안에 카메라가 잘 들어간다.
+      -->
+      <div class="w-full max-w-[360px]">
         <CameraView
           bind:this={ref_this_camera}
           active={true}
@@ -169,7 +173,7 @@
     </section>
 
     <aside
-      class="col-span-4 flex min-h-0 flex-col gap-3 overflow-hidden bg-[var(--retina-surface)] px-3 py-3"
+      class="col-span-4 flex min-h-0 flex-col gap-2 overflow-hidden bg-[var(--retina-surface)] px-3 py-2"
     >
       <section class="border-b border-[var(--retina-text-200)] pb-3">
         <div class="flex items-center justify-between gap-3">

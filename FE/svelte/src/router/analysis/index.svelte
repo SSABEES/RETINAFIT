@@ -3,6 +3,7 @@
   import { navigate } from '@maks11060/svelte5-router'
   import CaptureShell from '@/components/capture/capture_shell.svelte'
   import Header from '@/components/layout/header.svelte'
+  import AnalysisStepBar from '@/components/layout/analysis_step_bar.svelte'
   import { PATH } from '@/config/path'
   import { selected_customer_obj } from '@/lib/stores/customer'
 
@@ -16,9 +17,11 @@
 </script>
 
 <main
-  class="app-frame-page grid min-h-full grid-rows-[auto_1fr] overflow-hidden bg-[var(--retina-surface)] text-[var(--retina-text)]"
+  class="app-frame-page grid min-h-full grid-rows-[auto_1fr_auto] overflow-hidden bg-[var(--retina-surface)] text-[var(--retina-text)]"
 >
   <Header onback={on_click_go_back} />
 
   <CaptureShell />
+
+  <AnalysisStepBar current_step={1} />
 </main>

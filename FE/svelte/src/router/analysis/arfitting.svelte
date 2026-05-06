@@ -23,6 +23,7 @@
   import { push_error_toast, push_toast } from '@/lib/stores/toast'
   import { pick_recommended_glasses_arr } from '@/lib/recommendations/frame_recommendations'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
+  import AnalysisStepBar from '@/components/layout/analysis_step_bar.svelte'
 
   /**
    * @typedef {{
@@ -834,6 +835,8 @@
       </div>
     </aside>
   </div>
+
+  <AnalysisStepBar current_step={4} />
 
   <LoadingOverlay open={g_submit_loading} label="피팅 결과 저장 중..." />
 </main>

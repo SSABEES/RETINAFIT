@@ -9,6 +9,7 @@
   import { selected_customer_obj } from '@/lib/stores/customer'
   import { push_error_toast } from '@/lib/stores/toast'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
+  import AnalysisStepBar from '@/components/layout/analysis_step_bar.svelte'
 
   // 질문 = option_category, 답변 = { option_no, option_name } 으로 매핑된다.
   let g_question_arr = $state([])
@@ -371,6 +372,8 @@
       </div>
     </div>
   </section>
+
+  <AnalysisStepBar current_step={3} />
 
   <LoadingOverlay open={g_loading} label="추천 옵션 저장 중..." />
 </main>

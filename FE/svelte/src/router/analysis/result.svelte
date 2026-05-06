@@ -24,6 +24,7 @@
   import { MEASUREMENT_TEMPLATE } from '@/lib/measurements/template.js'
   import { pixel_distance } from '@/lib/measurements/measurement_utils.js'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
+  import AnalysisStepBar from '@/components/layout/analysis_step_bar.svelte'
   const FACE_SHAPE_LABEL_OBJ = {
     oval: '계란형',
     round: '둥근형',
@@ -758,6 +759,8 @@
       {/if}
     </div>
   </div>
+
+  <AnalysisStepBar current_step={5} />
 
   <CustomerCreateModal
     open={ref_customer_create_modal_open}
