@@ -6,6 +6,7 @@
   import { clear_auto_login_obj } from '@/lib/stores/auto_login'
   import { clear_visit_session_data } from '@/lib/stores/customer'
   import { reset as reset_capture_session } from '@/lib/stores/capture_session.svelte.js'
+  import ConfirmModal from '@/components/modal/confirm_modal.svelte'
 
   /** @type {{
    *   onback?: (() => void) | undefined,
@@ -14,6 +15,9 @@
    *   show_logout?: boolean,
    * }} */
   let { onback = undefined, onlogout = undefined, show_back = true, show_logout = true } = $props()
+
+  // 로그아웃 확인 모달 노출 여부.
+  let g_show_logout_modal = $state(false)
 
   // 기본 뒤로가기: 브라우저 히스토리를 거슬러 올라간다.
   // onback prop이 주어지면 그 동작을 우선 사용한다.
@@ -28,11 +32,24 @@
     }
   }
 
-  // 기본 로그아웃: 토큰/자동 로그인/로그인 선택 상태 + 방문/캡쳐 세션을 모두 비우고 로그인 화면으로 이동.
+  // 로그아웃 버튼 클릭 — 즉시 로그아웃하지 않고 확인 모달을 먼저 띄운다.
+  function on_click_open_logout_modal() {
+    g_show_logout_modal = true
+  }
+
+  // 모달의 "취소"/닫기 — 모달만 닫고 현재 화면 유지.
+  function on_click_cancel_logout() {
+    g_show_logout_modal = false
+  }
+
+  // 모달의 "확인" — 실제 로그아웃 진행.
+  // 토큰/자동 로그인/로그인 선택 상태 + 방문/캡쳐 세션을 모두 비우고 로그인 화면으로 이동.
   // capture_session 과 visit 데이터까지 비워 두지 않으면, SPA 인 특성상 모듈 상태가 살아남아 다음 로그인 사용자에게
   // 이전 사용자의 review phase 가 그대로 노출돼 얼굴 분석을 건너뛰고 report 로 튕기는 버그가 발생한다.
   // onlogout prop이 주어지면 그 동작을 우선 사용한다.
-  function handle_logout_click() {
+  function on_click_confirm_logout() {
+    g_show_logout_modal = false
+
     if (onlogout) {
       onlogout()
       return
@@ -118,7 +135,7 @@
         class="grid h-8 w-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
         type="button"
         aria-label="로그아웃"
-        onclick={handle_logout_click}
+        onclick={on_click_open_logout_modal}
       >
         <LogOut size={22} strokeWidth={2.2} aria-hidden="true" />
       </button>
@@ -127,3 +144,14 @@
     {/if}
   </div>
 </header>
+
+<ConfirmModal
+  open={g_show_logout_modal}
+  title="로그아웃"
+  message="정말 로그아웃하시겠습니까?"
+  cancelLabel="취소"
+  confirmLabel="로그아웃"
+  onclose={on_click_cancel_logout}
+  oncancel={on_click_cancel_logout}
+  onconfirm={on_click_confirm_logout}
+/>

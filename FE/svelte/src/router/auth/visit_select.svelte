@@ -110,8 +110,8 @@
 >
   <Header show_back={false} />
 
-  <section class="grid items-start justify-items-center px-6 pt-6 pb-6" aria-label="방문 유형 선택">
-    <div class="grid w-full max-w-[760px] gap-5">
+  <section class="grid items-start justify-items-center px-6 pt-12 pb-6" aria-label="방문 유형 선택">
+    <div class="grid w-full max-w-[760px] gap-10">
       <div class="grid justify-items-center gap-2 text-center">
         <h1 class="m-0 text-[34px] font-extrabold leading-tight text-[var(--retina-text)]">
           {g_store_name} 안경점

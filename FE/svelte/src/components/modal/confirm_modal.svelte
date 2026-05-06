@@ -32,7 +32,15 @@
 </script>
 
 {#if open}
-  <div class="fixed inset-0 z-50 grid place-items-center bg-black/45 px-5" role="presentation">
+  <!--
+    .app-frame 이 transform: scale 로 fixed containing block 을 만들기 때문에 inset-0 만으로는
+    .app-frame 영역까지만 덮이고 좌우 빈 공간이 노출된다. .app-edge-extend (negative left/right)
+    를 같이 걸어 viewport 좌우 끝까지 오버레이가 닿게 한다.
+  -->
+  <div
+    class="app-edge-extend fixed inset-y-0 z-50 grid place-items-center bg-black/45 px-5"
+    role="presentation"
+  >
     <section
       class="relative w-full max-w-sm rounded-[14px] border border-slate-200 bg-white p-6 text-left shadow-[0_8px_20px_rgba(15,23,42,0.07)]"
       role="dialog"
