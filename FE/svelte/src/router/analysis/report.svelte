@@ -99,11 +99,6 @@
     navigate(PATH.analysis)
   }
 
-  // 측정 상세 페이지로 이동. 캡처/측정 세션은 유지된 채 화면만 전환.
-  function on_click_view_measurements() {
-    navigate(PATH.analysisFaceMeasurement)
-  }
-
   // 로그아웃 — header.svelte 기본 로직과 동일하지만, capture/visit 비움이 page-local effect 의
   // /analysis 리다이렉트와 레이스하지 않도록 g_is_navigating_away 플래그를 먼저 켠다.
   function on_click_logout() {
@@ -167,6 +162,26 @@
         ? Number((local_face_height_obj.value_mm / local_face_width_obj.value_mm).toFixed(3))
         : null
 
+    // 측정 항목별 두 점의 픽셀 좌표를 함께 저장 — result.svelte 에서 BE 사진 위에 라인을
+    // 다시 그릴 수 있게 하기 위함. 좌표는 unmirrored(원본 캡쳐) 공간 기준.
+    /** @type {Record<string, [{x: number, y: number}, {x: number, y: number}]>} */
+    const local_points_obj = {}
+    for (const [local_id, local_item] of Object.entries(local_measurements_obj)) {
+      const local_points = local_item?.points ?? null
+      if (Array.isArray(local_points) && local_points.length === 2) {
+        local_points_obj[local_id] = [
+          { x: local_points[0].x, y: local_points[0].y },
+          { x: local_points[1].x, y: local_points[1].y },
+        ]
+      }
+    }
+
+    // BE 사진은 정면 미착용 캡쳐의 mirrored blob — viewBox 기준이 되는 원본 dimensions 를 함께 보존.
+    const local_front_capture = g_session.captures_obj?.front_no_glasses ?? null
+    const local_image_dims_obj = local_front_capture
+      ? { width: local_front_capture.width, height: local_front_capture.height }
+      : null
+
     return {
       schema_version: 3,
       face_shape: local_face_shape_value,
@@ -181,6 +196,8 @@
         right_pd: pick_measurement_value(local_measurements_obj.right_pd),
         left_pd: pick_measurement_value(local_measurements_obj.left_pd),
       },
+      measurement_points_obj: local_points_obj,
+      image_dims_obj: local_image_dims_obj,
       face_ratio: local_face_ratio_value,
       scale: g_session.scale,
     }
@@ -308,20 +325,13 @@
         </p>
       {/if}
 
-      <div class="mx-auto grid w-full max-w-[860px] grid-cols-[180px_180px_minmax(0,460px)] justify-center gap-4">
+      <div class="mx-auto grid w-full max-w-[860px] grid-cols-[180px_minmax(0,460px)] justify-center gap-4">
         <button
           type="button"
           class="grid min-h-[46px] cursor-pointer place-items-center rounded-xl border border-slate-300 bg-white text-[15px] font-extrabold text-slate-400 transition hover:border-slate-400 hover:text-slate-600"
           onclick={on_click_retry}
         >
           재분석
-        </button>
-        <button
-          type="button"
-          class="grid min-h-[46px] cursor-pointer place-items-center rounded-xl border border-slate-300 bg-white text-[15px] font-extrabold text-slate-400 transition hover:border-slate-400 hover:text-slate-600"
-          onclick={on_click_view_measurements}
-        >
-          측정 상세 보기
         </button>
         <button
           type="button"

@@ -19,6 +19,10 @@
     get_skin_tone_recommendation,
     get_frame_styles_for_face_shape,
   } from '@/lib/recommendations/frame_recommendations.js'
+  import MeasureCanvas from '@/components/analysis/measure_canvas.svelte'
+  import MeasurementList from '@/components/analysis/measurement_list.svelte'
+  import { MEASUREMENT_TEMPLATE } from '@/lib/measurements/template.js'
+  import { pixel_distance } from '@/lib/measurements/measurement_utils.js'
   const FACE_SHAPE_LABEL_OBJ = {
     oval: '계란형',
     round: '둥근형',
@@ -146,6 +150,94 @@
     if (typeof g_report_json.summary === 'string') return [g_report_json.summary]
     return /** @type {string[]} */ ([])
   })
+
+  // 측정 상세 — visit.test_json 에 저장된 측정값/측정점/이미지 dims 를 읽어 인터랙티브 화면을 합성.
+  const g_measurements_obj = $derived(g_test_json?.measurements ?? null)
+  const g_measurement_points_obj = $derived(g_test_json?.measurement_points_obj ?? null)
+  const g_image_dims_obj = $derived(g_test_json?.image_dims_obj ?? null)
+  const g_scale_obj = $derived(g_test_json?.scale ?? null)
+
+  // 사용자가 클릭으로 갱신할 수 있는 항목별 점 좌표. BE 저장본을 시드로 사용하고
+  // 이후 변경은 로컬에만 유지 (지금 화면에서는 BE 재저장은 하지 않음).
+  let g_local_points_obj = $state(
+    /** @type {Record<string, [{x:number,y:number}, {x:number,y:number}]>} */ ({}),
+  )
+  let g_local_active_item_id = $state(/** @type {string | null} */ (null))
+  // BE 응답이 들어온 후 한 번만 점 좌표를 시드. 사용자가 수정한 이후로는 덮어쓰지 않게 플래그.
+  let g_points_seeded = $state(false)
+
+  $effect(() => {
+    if (g_points_seeded) return
+    if (g_measurement_points_obj && Object.keys(g_measurement_points_obj).length > 0) {
+      g_local_points_obj = { ...g_measurement_points_obj }
+      g_points_seeded = true
+    }
+  })
+
+  // 정면 미착용 항목들만 추려 MeasureCanvas/MeasurementList 가 기대하는 형태로 빌드.
+  const g_items_arr = $derived.by(() => {
+    return MEASUREMENT_TEMPLATE.filter((local_entry) => local_entry.view === 'front_no_glasses').map(
+      (local_entry) => {
+        const local_points = g_local_points_obj?.[local_entry.item_id] ?? null
+        const local_value_px = local_points
+          ? pixel_distance(local_points[0], local_points[1])
+          : null
+        const local_mm_per_px = g_scale_obj?.mm_per_px ?? null
+        const local_saved_mm = g_measurements_obj?.[local_entry.item_id]?.value_mm ?? null
+        const local_value_mm =
+          local_value_px !== null && local_mm_per_px !== null
+            ? local_value_px * local_mm_per_px
+            : local_saved_mm
+        return {
+          item_id: local_entry.item_id,
+          label: local_entry.label,
+          view: local_entry.view,
+          source: local_entry.source,
+          points: local_points,
+          value_px: local_value_px,
+          value_mm: local_value_mm,
+        }
+      },
+    )
+  })
+
+  // MeasureCanvas 가 요구하는 capture-shape 객체를 BE 데이터로 합성.
+  // BE 사진은 업로드 시점에 좌우 반전된 상태이므로 MeasureCanvas 의 mirror_x 로직과 정합.
+  const g_synthesized_capture = $derived.by(() => {
+    if (!g_visit_obj?.main_file || !g_image_dims_obj?.width || !g_image_dims_obj?.height) {
+      return null
+    }
+    return /** @type {any} */ ({
+      object_url: g_visit_obj.main_file,
+      width: g_image_dims_obj.width,
+      height: g_image_dims_obj.height,
+    })
+  })
+
+  /** @param {string} item_id */
+  function on_select_measurement(item_id) {
+    g_local_active_item_id = g_local_active_item_id === item_id ? null : item_id
+  }
+
+  /** @param {string} item_id */
+  function on_clear_measurement(item_id) {
+    const local_next_obj = { ...g_local_points_obj }
+    delete local_next_obj[item_id]
+    g_local_points_obj = local_next_obj
+  }
+
+  /**
+   * @param {string} item_id
+   * @param {[{x:number,y:number}, {x:number,y:number}]} points
+   */
+  function on_points_set_measurement(item_id, points) {
+    g_local_points_obj = { ...g_local_points_obj, [item_id]: points }
+    g_local_active_item_id = null
+  }
+
+  function on_cancel_measurement() {
+    g_local_active_item_id = null
+  }
 
   // 고객 정보 표시용 (없는 값은 '-' 처리)
   const g_customer_phone = $derived($selected_customer_obj?.phone ?? '-')
@@ -427,6 +519,44 @@
             </div>
           </div>
         </div>
+      </section>
+
+      <!-- 2.4 얼굴 측정 상세 (사진 + 클릭으로 라인 표시) -->
+      <section class="rounded-[14px] border border-slate-200 bg-white px-5 py-4 shadow-sm">
+        <h2 class="m-0 text-[13px] font-extrabold text-zinc-900">얼굴 측정 상세</h2>
+
+        {#if g_visit_loading}
+          <p class="mt-3 text-[11px] font-semibold text-slate-400">측정 데이터 불러오는 중...</p>
+        {:else if !g_synthesized_capture}
+          <p class="mt-3 text-[11px] font-semibold text-slate-400">
+            저장된 사진 또는 측정 좌표가 없습니다.
+          </p>
+        {:else}
+          <div class="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-4">
+            <div class="flex items-center justify-center">
+              <div
+                class="flex aspect-[3/4] max-h-[420px] w-full max-w-[300px] overflow-hidden rounded-[10px] bg-slate-100 shadow-[0_6px_16px_rgba(15,23,42,0.06)]"
+              >
+                <MeasureCanvas
+                  capture={g_synthesized_capture}
+                  items_arr={g_items_arr}
+                  active_item_id={g_local_active_item_id}
+                  onpoints_set={on_points_set_measurement}
+                  oncancel={on_cancel_measurement}
+                />
+              </div>
+            </div>
+            <div class="flex max-h-[420px] min-h-0 flex-col">
+              <MeasurementList
+                items_arr={g_items_arr}
+                active_item_id={g_local_active_item_id}
+                view_label="정면 (미착용)"
+                onselect={on_select_measurement}
+                onclear={on_clear_measurement}
+              />
+            </div>
+          </div>
+        {/if}
       </section>
 
       <!-- 2.5 AI 분석 인사이트 (report_json) -->
