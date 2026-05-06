@@ -245,7 +245,7 @@
   <Header />
 
   <section class="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--retina-text-100)]">
-    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-7 pt-3 pb-2">
+    <div class="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto px-7 pt-3 pb-2">
       <div class="text-center">
         <h1 class="m-0 text-[18px] font-extrabold tracking-[-0.02em] text-zinc-950">
           {g_customer_name}의 생활패턴

@@ -100,7 +100,6 @@
   const g_recommended_frame_arr = $derived(
     get_frame_styles_for_face_shape(g_face_shape_key).slice(0, 6),
   )
-  const g_color_placeholder_count = $derived(Math.max(0, 4 - g_recommended_color_arr.length))
 
   const g_photo_src = $derived(
     g_session.captures_obj.front_no_glasses?.object_url ??
@@ -256,12 +255,12 @@
 </script>
 
 <main
-  class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-[var(--retina-text)]"
+  class="app-frame-page flex h-full flex-col overflow-hidden bg-white pb-[60px] text-[var(--retina-text)]"
 >
   <Header onback={on_click_back} onlogout={on_click_logout} />
 
   <section class="flex min-h-0 flex-1 flex-col overflow-hidden">
-    <div class="flex min-h-0 flex-1 flex-col px-7 pt-2.5 pb-1">
+    <div class="flex min-h-0 flex-1 flex-col justify-center px-7 pt-2.5 pb-1">
       <h1 class="m-0 text-center text-[18px] font-extrabold tracking-[-0.02em] text-zinc-950">
         {g_customer_name}의 얼굴 분석 결과
       </h1>
@@ -289,22 +288,22 @@
 
         <section class="flex min-h-0 items-center justify-center">
           <article
-            class="flex h-full max-h-[458px] w-full max-w-[368px] flex-col rounded-[14px] border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.07)]"
+            class="flex h-full min-h-0 w-full max-w-[368px] flex-col overflow-hidden rounded-[14px] border border-slate-200 bg-white px-4 py-3 shadow-[0_8px_20px_rgba(15,23,42,0.07)]"
           >
-            <div class="grid grid-cols-2 gap-2.5">
+            <div class="grid shrink-0 grid-cols-2 gap-2">
               <div
-                class="rounded-[10px] border border-[#F3E2CC] bg-[#FFF6EB] px-4 py-2.5 text-center"
+                class="rounded-[10px] border border-[#F3E2CC] bg-[#FFF6EB] px-3 py-1.5 text-center"
               >
-                <p class="m-0 text-[12px] font-bold text-slate-700">얼굴형</p>
-                <p class="m-0 mt-2.5 text-[14px] font-extrabold text-[#F97316]">
+                <p class="m-0 text-[11px] font-bold text-slate-700">얼굴형</p>
+                <p class="m-0 mt-1 text-[13px] font-extrabold text-[#F97316]">
                   {g_face_shape_label}
                 </p>
               </div>
               <div
-                class="rounded-[10px] border border-[#CFD7F7] bg-[#EEF2FF] px-4 py-2.5 text-center"
+                class="rounded-[10px] border border-[#CFD7F7] bg-[#EEF2FF] px-3 py-1.5 text-center"
               >
-                <p class="m-0 text-[12px] font-bold text-slate-700">피부톤</p>
-                <p class="m-0 mt-1.5 text-[13px] font-black leading-snug text-[#1660C7]">
+                <p class="m-0 text-[11px] font-bold text-slate-700">피부톤</p>
+                <p class="m-0 mt-0.5 text-[12px] font-black leading-tight text-[#1660C7]">
                   {g_skin_tone_recommendation_obj.label}
                   <br />
                   {SKIN_TONE_DESCRIPTION_OBJ[g_skin_tone_recommendation_obj.key] ?? '중성 톤'}
@@ -312,39 +311,47 @@
               </div>
             </div>
 
-            <div class="my-4 h-px bg-slate-200"></div>
+            <div class="my-2 h-px shrink-0 bg-slate-200"></div>
 
-            <section class="flex-1">
-              <h2 class="m-0 text-center text-[13px] font-extrabold text-slate-800">
+            <section class="flex min-h-0 flex-1 flex-col">
+              <h2 class="m-0 shrink-0 text-center text-[12px] font-extrabold text-slate-800">
                 추천 안경테 컬러
               </h2>
-              <div class="mt-2.5 grid grid-cols-2 gap-2">
-                {#each g_recommended_color_arr as color_obj (`${color_obj.label}-${color_obj.tone_class}`)}
-                  <div
-                    class="flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-[10px] border border-slate-200 bg-white px-4 py-2 text-center shadow-sm shadow-slate-100"
-                  >
-                    <div class={`h-[12px] w-[24px] rounded-full ${color_obj.tone_class}`}></div>
-                    <p class="m-0 text-[12px] font-bold text-slate-500">{color_obj.label}</p>
-                  </div>
-                {/each}
-                {#each Array.from( { length: g_color_placeholder_count }, ) as _, index (`placeholder-${index}`)}
-                  <div
-                    class="min-h-[52px] rounded-[10px] border border-transparent bg-transparent"
-                  ></div>
+              <!--
+                기본 4개 슬롯 (2×2) 고정 — 데이터가 없어도 그리드 자리는 예약되지만 chip 시각화는
+                노출하지 않아 레이아웃은 일정하면서도 빈 chip 잔재가 안 보인다.
+              -->
+              <div class="mt-2 grid grid-cols-2 grid-rows-2 gap-2">
+                {#each Array.from({ length: 4 }) as _, color_index (color_index)}
+                  {@const local_color_obj = g_recommended_color_arr[color_index]}
+                  {#if local_color_obj}
+                    <div
+                      class="flex flex-col items-center justify-center gap-1.5 rounded-[10px] border border-slate-200 bg-white px-4 py-2.5 text-center shadow-sm shadow-slate-100"
+                    >
+                      <div
+                        class={`h-[12px] w-[24px] rounded-full ${local_color_obj.tone_class}`}
+                      ></div>
+                      <p class="m-0 text-[12px] font-bold text-slate-500">
+                        {local_color_obj.label}
+                      </p>
+                    </div>
+                  {:else}
+                    <div aria-hidden="true"></div>
+                  {/if}
                 {/each}
               </div>
             </section>
 
-            <div class="my-4 h-px bg-slate-200"></div>
+            <div class="my-2 h-px shrink-0 bg-slate-200"></div>
 
-            <section class="flex-1">
-              <h2 class="m-0 text-center text-[13px] font-extrabold text-slate-800">
+            <section class="flex min-h-0 flex-1 flex-col">
+              <h2 class="m-0 shrink-0 text-center text-[13px] font-extrabold text-slate-800">
                 추천 안경테 모양
               </h2>
-              <div class="mt-2.5 grid grid-cols-3 gap-1.5">
+              <div class="mt-2.5 grid grid-cols-3 gap-2.5">
                 {#each g_recommended_frame_arr as frame_obj (`${frame_obj.name}-${frame_obj.priority}`)}
                   <div
-                    class={`flex min-h-[38px] items-center justify-center rounded-[10px] border px-3 py-1 text-center text-[11px] font-extrabold ${
+                    class={`flex min-h-[42px] items-center justify-center rounded-[12px] border px-3 py-2.5 text-center text-[13px] font-extrabold ${
                       frame_obj.priority === 1
                         ? 'border-[#F97316] bg-[#FFF7ED] text-[#F97316]'
                         : 'border-slate-200 bg-[#F8FAFC] text-slate-400'

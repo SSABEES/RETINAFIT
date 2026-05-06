@@ -160,79 +160,85 @@
 >
   <Header onback={on_click_go_back} />
 
-  <div class="grid min-h-0 grid-cols-12 overflow-hidden">
+  <!--
+    카메라(좌) + 컨트롤 패널(우) 을 하나의 wrapper 로 묶고 그 wrapper 를 화면 가운데에 배치.
+    flex items-center justify-center 가 wrapper 를 가로/세로 모두 중앙 정렬.
+  -->
+  <div class="flex min-h-0 items-center justify-center overflow-hidden">
     {#if g_session.phase === 'capturing' && g_current_step}
       <!--
-        Default.png 형태의 9:3 레이아웃:
-        - 좌측 9: 카메라 뷰 (가운데 정렬, 좌측 영역 차지)
-        - 우측 3: 스텝 인디케이터 + 촬영 컨트롤 + 촬영 기록 (흰 배경 패널)
-        - 두 컬럼 사이 세로 보더로 구분
+        merged wrapper — 카메라(2fr) + 패널(1fr) 가 함께 가운데에 자리. max-w 로 너무 넓어지지 않게
+        제한하고, h-full 로 row 높이는 채운다.
       -->
-      <section
-        aria-label="실시간 얼굴 분석"
-        class="col-span-8 grid min-h-0 items-start justify-items-center overflow-hidden border-r border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-4 pt-1 pb-1"
+      <div
+        class="grid h-full w-full max-w-[820px] grid-cols-[2fr_1fr] items-stretch overflow-hidden"
       >
-        <!--
-          max-w 를 360px 로 축소 → 3:4 비율상 높이 ~480px 로 떨어져 step bar 가 차지하는 영역을
-          제외한 남은 row 안에 카메라가 잘 들어간다.
-        -->
-        <div class="w-full max-w-[360px]">
-          <CameraView
-            bind:this={ref_this_camera}
-            active={true}
-            pose_target={g_current_step.pose_type}
-            capture_mode={g_current_step.capture_mode}
-            is_landmark_visible={g_is_landmark_visible}
-            oncapture={on_capture}
-            oncapture_error={on_capture_error}
-          />
-        </div>
-      </section>
-
-      <aside
-        class="col-span-4 flex min-h-0 flex-col gap-1 overflow-hidden bg-[var(--retina-surface)] px-2 py-1"
-      >
-        <section class="border-b border-[var(--retina-text-200)] pb-1">
-          <div class="flex items-center justify-between gap-2">
-            <div>
-              <p class="text-[11px] font-extrabold text-[var(--retina-text-800)]">가이드 표시</p>
-            </div>
-            <button
-              type="button"
-              class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
-              class:bg-[var(--retina-primary-300)]={g_is_landmark_visible}
-              class:border-[var(--retina-primary-300)]={g_is_landmark_visible}
-              class:bg-[var(--retina-text-300)]={!g_is_landmark_visible}
-              class:border-[var(--retina-text-300)]={!g_is_landmark_visible}
-              aria-pressed={g_is_landmark_visible}
-              aria-label="얼굴 랜드마크 표시 전환"
-              onclick={() => {
-                g_is_landmark_visible = !g_is_landmark_visible
-              }}
-            >
-              <span
-                class="absolute left-[1px] top-[1px] h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200"
-                class:translate-x-4={g_is_landmark_visible}
-              ></span>
-              <span class="sr-only">
-                {g_is_landmark_visible ? '얼굴 랜드마크 켜짐' : '얼굴 랜드마크 꺼짐'}
-              </span>
-            </button>
+        <section
+          aria-label="실시간 얼굴 분석"
+          class="grid min-h-0 items-center justify-items-center overflow-hidden border-r border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-4 pt-1 pb-1"
+        >
+          <!--
+            max-w 를 360px 로 축소 → 3:4 비율상 높이 ~480px 로 떨어져 step bar 가 차지하는 영역을
+            제외한 남은 row 안에 카메라가 잘 들어간다.
+          -->
+          <div class="w-full max-w-[360px]">
+            <CameraView
+              bind:this={ref_this_camera}
+              active={true}
+              pose_target={g_current_step.pose_type}
+              capture_mode={g_current_step.capture_mode}
+              is_landmark_visible={g_is_landmark_visible}
+              oncapture={on_capture}
+              oncapture_error={on_capture_error}
+            />
           </div>
         </section>
-        <StepIndicator
-          steps_arr={g_session.steps_arr}
-          current_index={g_session.current_step_index}
-        />
-        <StepStatusBar
-          step={g_current_step}
-          is_capturing={g_is_capturing}
-          oncapture_click={on_manual_capture_click}
-        />
-        <div class="min-h-0">
-          <CaptureThumbnails />
-        </div>
-      </aside>
+
+        <aside
+          class="flex min-h-0 flex-col justify-center gap-1 overflow-hidden bg-[var(--retina-surface)] px-2 py-1"
+        >
+          <section class="border-b border-[var(--retina-text-200)] pb-1">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <p class="text-[11px] font-extrabold text-[var(--retina-text-800)]">가이드 표시</p>
+              </div>
+              <button
+                type="button"
+                class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
+                class:bg-[var(--retina-primary-300)]={g_is_landmark_visible}
+                class:border-[var(--retina-primary-300)]={g_is_landmark_visible}
+                class:bg-[var(--retina-text-300)]={!g_is_landmark_visible}
+                class:border-[var(--retina-text-300)]={!g_is_landmark_visible}
+                aria-pressed={g_is_landmark_visible}
+                aria-label="얼굴 랜드마크 표시 전환"
+                onclick={() => {
+                  g_is_landmark_visible = !g_is_landmark_visible
+                }}
+              >
+                <span
+                  class="absolute left-[1px] top-[1px] h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200"
+                  class:translate-x-4={g_is_landmark_visible}
+                ></span>
+                <span class="sr-only">
+                  {g_is_landmark_visible ? '얼굴 랜드마크 켜짐' : '얼굴 랜드마크 꺼짐'}
+                </span>
+              </button>
+            </div>
+          </section>
+          <StepIndicator
+            steps_arr={g_session.steps_arr}
+            current_index={g_session.current_step_index}
+          />
+          <StepStatusBar
+            step={g_current_step}
+            is_capturing={g_is_capturing}
+            oncapture_click={on_manual_capture_click}
+          />
+          <div class="min-h-0">
+            <CaptureThumbnails />
+          </div>
+        </aside>
+      </div>
     {/if}
 
     {#if g_toast_message}
