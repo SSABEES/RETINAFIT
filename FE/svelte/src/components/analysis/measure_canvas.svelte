@@ -5,12 +5,14 @@
    * @typedef {import('@/lib/stores/capture_session.svelte.js').Capture} Capture
    * @typedef {import('@/lib/measurements/measurement_utils.js').MeasurementItem} MeasurementItem
    * @typedef {import('@/lib/mediapipe/face_types.js').Point2D} Point2D
+   * @typedef {import('@/lib/measurements/template.js').ViewAngle} ViewAngle
    */
 
   /** @type {{
    *   capture?: Capture | null,
    *   items_arr?: MeasurementItem[],
    *   active_item_id?: string | null,
+   *   view?: ViewAngle | null,
    *   onpoints_set?: ((item_id: string, points: [Point2D, Point2D]) => void) | undefined,
    *   oncancel?: (() => void) | undefined,
    * }}
@@ -19,6 +21,7 @@
     capture = null,
     items_arr = [],
     active_item_id = null,
+    view = null,
     onpoints_set = undefined,
     oncancel = undefined,
   } = $props()
@@ -85,6 +88,12 @@
   onDestroy(() => {
     window.removeEventListener('keydown', on_keydown_global)
   })
+
+  // 활성 항목이 angle 인지 여부 — 진행 중 첫 점에서 수직 가이드선을 그려주기 위한 플래그.
+  const g_active_is_angle = $derived(
+    items_arr.find((it) => it.item_id === active_item_id)?.kind === 'angle',
+  )
+
 
   // 활성 항목만 오버레이 표시 — 측정 항목 전체를 한꺼번에 그리면 가독성/정확도 둘 다 떨어짐.
   // 사용자가 측정 리스트에서 항목을 선택하면 그 항목만 사진 위에 표시.
@@ -166,6 +175,20 @@
       {/if}
 
       {#if g_pending_first}
+        <!-- 각도 모드: 첫 점 중심으로 수직 가이드선(점선)을 그어 사용자가 수직 기준을 시각적으로 인지하도록.
+             거리 모드는 가이드선 없음 — 두 점 자유 직선. -->
+        {#if g_active_is_angle}
+          <line
+            x1={mirror_x(g_pending_first.x)}
+            y1={g_pending_first.y - 80}
+            x2={mirror_x(g_pending_first.x)}
+            y2={g_pending_first.y + 80}
+            stroke="white"
+            stroke-width="3"
+            stroke-dasharray="6 6"
+            opacity="0.85"
+          />
+        {/if}
         <circle
           cx={mirror_x(g_pending_first.x)}
           cy={g_pending_first.y}

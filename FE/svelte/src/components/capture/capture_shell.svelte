@@ -90,6 +90,7 @@
       measurements_obj: result.measurements_obj,
       measurement_points_obj: result.measurement_points_obj,
       landmarks: result.landmarks,
+      head_pose: result.head_pose,
     }
     await add_capture(capture)
   }

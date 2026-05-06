@@ -10,6 +10,12 @@
  * @typedef {import('@/lib/measurements/measurement_utils.js').MeasurementItem} MeasurementItem
  * @typedef {import('@/lib/measurements/template.js').ViewAngle} ViewAngle
  *
+ * @typedef {object} HeadPoseSnapshot
+ * @property {number} image_tilt_deg                       보정에 직접 쓰는 값. atan2(R[1], R[4]) buffer 평균 후 동결.
+ * @property {number | null} pitch_deg                     참조용 (측면 자세에서 gimbal lock 영향, 디버깅·로깅 목적).
+ * @property {number | null} yaw_deg
+ * @property {number | null} roll_deg
+ *
  * @typedef {object} Capture
  * @property {string} step_id
  * @property {Blob} blob
@@ -20,6 +26,7 @@
  * @property {FaceMeasurements | null} measurements_obj
  * @property {Record<string, [Point2D, Point2D]> | null} measurement_points_obj
  * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[] | null} landmarks
+ * @property {HeadPoseSnapshot | null} [head_pose]         측면 캡처에서만 채워짐. 정면은 null/undefined
  *
  * @typedef {'select_glasses' | 'capturing' | 'review'} Phase
  *
@@ -55,7 +62,12 @@ import { compute_ear_offsets } from '@/lib/mediapipe/measurements.js'
 import { detect_keypoints_from_image } from '@/lib/mediapipe/face_detector.js'
 import { compute_asymmetry_score } from '@/lib/mediapipe/asymmetry.js'
 import { compute_skin_tone } from '@/lib/mediapipe/skin_tone.js'
-import { build_initial_measurements, pixel_distance } from '@/lib/measurements/measurement_utils.js'
+import {
+  build_initial_measurements,
+  pixel_distance,
+  vertical_signed_angle_deg,
+  apply_image_tilt_correction,
+} from '@/lib/measurements/measurement_utils.js'
 import { write_mirror, read_mirror, clear_mirror } from '@/lib/utils/session_storage_mirror.js'
 
 // 얼굴형 분류용 정면샷 우선순위. 맨얼굴(front_no_glasses)이 안경 왜곡 없이 광대/턱 폭을 가장 정확히 잡아낸다.
@@ -308,7 +320,14 @@ export function hydrate_from_mirror() {
   }
   const mirror = read_mirror()
   if (!mirror) return false
-  if (mirror.measurements_obj) g_session.measurements_obj = mirror.measurements_obj
+  if (mirror.measurements_obj) {
+    // view 필드 string → string[] 마이그레이션 호환 — 구 mirror 가 단일 문자열로 저장된 경우 배열로 감싼다.
+    for (const m of Object.values(mirror.measurements_obj)) {
+      if (typeof m.view === 'string') m.view = [m.view]
+      if (m.kind === undefined) m.kind = 'distance'
+    }
+    g_session.measurements_obj = mirror.measurements_obj
+  }
   if (mirror.scale !== undefined) g_session.scale = mirror.scale
   if (mirror.face_shape_result !== undefined) g_session.face_shape_result = mirror.face_shape_result
   if (mirror.active_item_id !== undefined) g_session.active_item_id = mirror.active_item_id
@@ -336,11 +355,12 @@ export function px_to_mm(value_px) {
 /**
  * 주어진 뷰에 속한 측정 항목 배열을 반환한다.
  * 배열 순서는 MEASUREMENT_TEMPLATE 의 원래 순서를 따른다.
+ * view 필드는 배열이라 한 항목이 여러 뷰에 노출될 수 있다 (예: 전경각이 좌·우 측면 둘 다).
  * @param {ViewAngle} view
  * @returns {MeasurementItem[]}
  */
 export function get_measurement_items(view) {
-  return Object.values(g_session.measurements_obj).filter((m) => m.view === view)
+  return Object.values(g_session.measurements_obj).filter((m) => m.view.includes(view))
 }
 
 /**
@@ -389,14 +409,38 @@ export function set_active_item_id(item_id) {
 }
 
 /**
- * 지정 항목에 두 점을 기록하고 value_px 를 재계산한다.
- * 수동으로 찍은 것이므로 source 는 항상 'manual' 로 전환.
+ * 지정 항목에 두 점을 기록하고 측정값을 재계산한다. 수동으로 찍은 것이므로 source 는 'manual' 로 전환.
+ *
+ * kind 별 분기:
+ *   - distance: pixel_distance → value_px / value_mm
+ *   - angle: vertical_signed_angle_deg → value_deg_raw, source_view 의 capture.head_pose.image_tilt_deg
+ *     로 보정해 value_deg_corrected 산출. head_pose 가 없으면 보정 없이 raw 값을 corrected 에 동일 저장
+ *     하고 head_image_tilt_deg_used = null 로 표시.
+ *
  * @param {string} item_id
  * @param {[Point2D, Point2D]} points
+ * @param {ViewAngle} source_view                 측정한 뷰 — angle 항목 보정 시 capture 조회 키
  */
-export function set_item_points(item_id, points) {
+export function set_item_points(item_id, points, source_view) {
   const item = g_session.measurements_obj[item_id]
   if (!item) return
+
+  if (item.kind === 'angle') {
+    const raw = vertical_signed_angle_deg(points[0], points[1], source_view)
+    const head_pose = g_session.captures_obj[source_view]?.head_pose ?? null
+    const image_tilt = head_pose?.image_tilt_deg ?? null
+    item.points = points
+    item.value_px = null
+    item.value_mm = null
+    item.value_deg_raw = raw
+    item.value_deg_corrected = image_tilt !== null ? apply_image_tilt_correction(raw, image_tilt) : raw
+    item.head_image_tilt_deg_used = image_tilt
+    item.source = 'manual'
+    mirror_now()
+    return
+  }
+
+  // distance
   const value_px = pixel_distance(points[0], points[1])
   item.points = points
   item.value_px = value_px
@@ -415,5 +459,10 @@ export function clear_item_points(item_id) {
   item.points = null
   item.value_px = null
   item.value_mm = null
+  if (item.kind === 'angle') {
+    item.value_deg_raw = null
+    item.value_deg_corrected = null
+    item.head_image_tilt_deg_used = null
+  }
   mirror_now()
 }

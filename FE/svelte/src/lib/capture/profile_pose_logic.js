@@ -12,6 +12,7 @@ export const PROFILE_CONSTANTS = Object.freeze({
   YAW_STD_THR: 5,              // 안정성 표준편차 임계 (도)
   STABILITY_FRAMES: 12,        // 12 frames @ 12Hz ≈ 1초 hold
   YAW_BUFFER_SIZE: 10,         // 표준편차 계산용 슬라이딩 윈도우
+  IMAGE_TILT_BUFFER_SIZE: 5,   // 이미지 평면 기울기 평균화용 — ~0.4초 윈도우, 모델 jitter 완화
 })
 
 /**
@@ -59,6 +60,29 @@ export function update_stability_step({ stable_count, yaw_buffer, yaw, target_de
   }
 
   return { stable_count: next_count, yaw_buffer: next_buffer }
+}
+
+/**
+ * 이미지 평면 머리 기울기 슬라이딩 윈도우에 새 값을 추가한 새 배열을 반환한다. 모델 출력 jitter 가
+ * 매 프레임 ±몇 도씩 흔들려 raw 값을 화면/보정에 그대로 쓰면 사용자 체감 불안정. 캡처 시점 단일값에도
+ * 영향을 주므로 단순 산술 평균으로 완화. yaw_buffer 와 달리 std 게이팅 없음 — 평균값만 쓴다.
+ *
+ * @param {number[]} buffer
+ * @param {number} value
+ * @returns {number[]}
+ */
+export function next_image_tilt_buffer(buffer, value) {
+  return [...buffer.slice(-(PROFILE_CONSTANTS.IMAGE_TILT_BUFFER_SIZE - 1)), value]
+}
+
+/**
+ * 배열의 산술 평균. 빈 배열은 null 반환.
+ * @param {number[]} arr
+ * @returns {number | null}
+ */
+export function average_or_null(arr) {
+  if (arr.length === 0) return null
+  return arr.reduce((a, b) => a + b, 0) / arr.length
 }
 
 /**

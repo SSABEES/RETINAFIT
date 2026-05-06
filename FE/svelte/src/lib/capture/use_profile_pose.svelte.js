@@ -9,8 +9,14 @@
  */
 
 import { get_session, predict_pose, compute_center_square_bbox } from '@/lib/sixdrepnet360/inference.js'
-import { rotation_matrix_to_euler } from '@/lib/sixdrepnet360/pose.js'
-import { update_stability_step, compute_hint_text, PROFILE_CONSTANTS } from './profile_pose_logic.js'
+import { rotation_matrix_to_euler, image_plane_tilt_deg } from '@/lib/sixdrepnet360/pose.js'
+import {
+  update_stability_step,
+  compute_hint_text,
+  next_image_tilt_buffer,
+  average_or_null,
+  PROFILE_CONSTANTS,
+} from './profile_pose_logic.js'
 
 /**
  * @typedef {'front' | 'left_profile' | 'right_profile'} PoseTarget
@@ -25,6 +31,7 @@ import { update_stability_step, compute_hint_text, PROFILE_CONSTANTS } from './p
  * @property {number | null} last_yaw
  * @property {number | null} last_pitch
  * @property {number | null} last_roll
+ * @property {number | null} last_image_tilt   이미지 평면 머리 기울기 — gimbal lock 안전, 측면 보정용
  * @property {Float32Array | null} last_rotation
  */
 
@@ -39,18 +46,23 @@ import { update_stability_step, compute_hint_text, PROFILE_CONSTANTS } from './p
 export function create_profile_pose_detector({ get_pose_target, get_video_el, on_stable_reached }) {
   // reactive 상태 — UI 가 읽음
   let _stable_count  = $state(0)
-  let _last_yaw      = $state(/** @type {number | null} */ (null))
-  let _last_pitch    = $state(/** @type {number | null} */ (null))
-  let _last_roll     = $state(/** @type {number | null} */ (null))
-  let _last_rotation = $state(/** @type {Float32Array | null} */ (null))
+  let _last_yaw        = $state(/** @type {number | null} */ (null))
+  let _last_pitch      = $state(/** @type {number | null} */ (null))
+  let _last_roll       = $state(/** @type {number | null} */ (null))
+  let _last_image_tilt = $state(/** @type {number | null} */ (null))
+  let _last_rotation   = $state(/** @type {Float32Array | null} */ (null))
   let _session_ready = $state(false)
 
   // non-reactive — 내부용
   /** @type {number[]} */
-  let _yaw_buffer    = []
-  let _ort_inflight  = false
-  let _frame_counter = 0
-  let _reset_id      = 0
+  let _yaw_buffer        = []      // stability 판정용 (std 검사) — raw 값들
+  /** @type {number[]} */
+  let _yaw_smooth_buffer = []      // 화면 표시 평균용 — last_yaw jitter 완화
+  /** @type {number[]} */
+  let _image_tilt_buffer = []
+  let _ort_inflight      = false
+  let _frame_counter     = 0
+  let _reset_id          = 0
 
   async function tick() {
     if (get_pose_target() === 'front') return
@@ -77,9 +89,15 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
       const prev_count = _stable_count
 
       _session_ready = true
-      _last_yaw = yaw
+      _yaw_smooth_buffer = next_image_tilt_buffer(_yaw_smooth_buffer, yaw)
+      _last_yaw = average_or_null(_yaw_smooth_buffer) ?? yaw
       _last_pitch = pitch
       _last_roll = roll
+      _image_tilt_buffer = next_image_tilt_buffer(
+        _image_tilt_buffer,
+        image_plane_tilt_deg(result.rotation_matrix),
+      )
+      _last_image_tilt = average_or_null(_image_tilt_buffer)
       _last_rotation = result.rotation_matrix
 
       const target_deg = get_pose_target() === 'right_profile'
@@ -115,8 +133,11 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
     _last_yaw = null
     _last_pitch = null
     _last_roll = null
+    _last_image_tilt = null
     _last_rotation = null
     _yaw_buffer = []
+    _yaw_smooth_buffer = []
+    _image_tilt_buffer = []
     _frame_counter = 0
     _reset_id += 1
     // _session_ready 유지 — 세션은 앱 전역 캐시 (inference.js 의 g_session_promises_obj)
@@ -142,9 +163,10 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
       })
     },
     get session_ready()  { return _session_ready },
-    get last_yaw()       { return _last_yaw },
-    get last_pitch()     { return _last_pitch },
-    get last_roll()      { return _last_roll },
-    get last_rotation()  { return _last_rotation },
+    get last_yaw()        { return _last_yaw },
+    get last_pitch()      { return _last_pitch },
+    get last_roll()       { return _last_roll },
+    get last_image_tilt() { return _last_image_tilt },
+    get last_rotation()   { return _last_rotation },
   }
 }
