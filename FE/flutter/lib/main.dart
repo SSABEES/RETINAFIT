@@ -10,7 +10,7 @@
 //
 // 통신 사슬:
 //   Svelte (WebView)
-//      ↕  JS 채널 (RetinalFlutterBridgeChannel)  +  CustomEvent 'retinal:flutter_event'
+//      ↕  JS 채널 (RetinafitFlutterBridgeChannel)  +  CustomEvent 'retinafit:flutter_event'
 //   Flutter / Dart  (이 파일)
 //      ↕  MethodChannel + EventChannel  (lib/native/virtual_fitting.dart)
 //   Kotlin/Swift 네이티브 모듈  (android/app/.../VirtualFittingBridge.kt)
@@ -51,7 +51,7 @@ void main() async {
   // OS 레벨 권한이 없으면 시스템 다이얼로그도 못 띄우고 즉시 실패하는 환경 (특히 Android 13+) 대비.
   await _ensure_camera_permission();
 
-  runApp(const RetinalShellApp());
+  runApp(const RetinafitShellApp());
 }
 
 // 카메라 권한 상태 머신:
@@ -73,13 +73,13 @@ Future<PermissionStatus> _ensure_camera_permission() async {
   return Permission.camera.request();
 }
 
-class RetinalShellApp extends StatelessWidget {
-  const RetinalShellApp({super.key});
+class RetinafitShellApp extends StatelessWidget {
+  const RetinafitShellApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'RETINAL',
+      title: 'RetinaFit',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
@@ -100,11 +100,11 @@ class WebShellPage extends StatefulWidget {
 class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver {
   // ───── 브릿지 프로토콜 식별자 (Svelte 와 정확히 일치해야 함) ─────
   // JS → Dart 메시지를 받을 JavaScriptChannel 이름. Svelte 에선
-  // `RetinalFlutterBridgeChannel.postMessage(...)` 로 호출.
-  static const _bridge_channel_name = 'RetinalFlutterBridgeChannel';
+  // `RetinafitFlutterBridgeChannel.postMessage(...)` 로 호출.
+  static const _bridge_channel_name = 'RetinafitFlutterBridgeChannel';
   // Dart → JS 푸시 이벤트 (CustomEvent) 의 이름. Svelte 는
-  // `window.addEventListener('retinal:flutter_event', e => e.detail ...)` 로 구독.
-  static const _flutter_event_name = 'retinal:flutter_event';
+  // `window.addEventListener('retinafit:flutter_event', e => e.detail ...)` 로 구독.
+  static const _flutter_event_name = 'retinafit:flutter_event';
 
   // WebView 본체. setNavigationDelegate / addJavaScriptChannel / loadRequest 등 chained 설정.
   late final WebViewController _controller;
@@ -170,7 +170,7 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
           // 페이지 로드 전 잠깐 보이는 백그라운드. 검은색이면 깜빡임이 거슬려서 흰색으로.
           ..setBackgroundColor(Colors.white)
           // ───── ③ Svelte → Dart 메시지 입구 (JS 채널 등록) ─────
-          // Svelte 가 `RetinalFlutterBridgeChannel.postMessage(JSON)` 를 부르면 onMessageReceived
+          // Svelte 가 `RetinafitFlutterBridgeChannel.postMessage(JSON)` 를 부르면 onMessageReceived
           // 가 호출된다. 메시지는 _handle_bridge_message 에서 라우팅.
           ..addJavaScriptChannel(
             _bridge_channel_name,
@@ -193,7 +193,7 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
                   setState(() => _loadError = null);
                 }
               },
-              // 페이지 로드 완료 시점에 JS 측 브릿지 객체 (`window.__retinal_flutter_bridge__`)
+              // 페이지 로드 완료 시점에 JS 측 브릿지 객체 (`window.__retinafit_flutter_bridge__`)
               // 를 주입. 페이지 새로고침 / 라우팅 후 매번 호출되어 SPA 라우팅 후에도 브릿지가 살아 있음.
               onPageFinished: (_) {
                 unawaited(_install_flutter_bridge());
@@ -281,7 +281,7 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
   // ========================================================================
   // _install_flutter_bridge — 페이지 로드 후 JS 측 브릿지 객체 주입
   // ------------------------------------------------------------------------
-  // Svelte 입장에서는 그냥 `await window.__retinal_flutter_bridge__.invoke('launch', {...})`
+  // Svelte 입장에서는 그냥 `await window.__retinafit_flutter_bridge__.invoke('launch', {...})`
   // 한 줄로 끝나도록 만든 추상화. 내부적으로는 메시지 큐 + Promise 매핑 로직.
   //
   // 동작 단계:
@@ -300,7 +300,7 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
       (() => {
         const g_pending_request_map_obj = new Map()
 
-        window.__retinal_flutter_bridge__ = {
+        window.__retinafit_flutter_bridge__ = {
           is_ready: true,
           invoke(method_name, params_obj = {}) {
             return new Promise((resolve, reject) => {
@@ -428,7 +428,7 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
     });
 
     await _controller.runJavaScript('''
-      window.__retinal_flutter_bridge__?.resolve_request(
+      window.__retinafit_flutter_bridge__?.resolve_request(
         ${jsonEncode(request_id)},
         $local_payload_text,
       )
@@ -450,7 +450,7 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
     });
 
     await _controller.runJavaScript('''
-      window.__retinal_flutter_bridge__?.reject_request(
+      window.__retinafit_flutter_bridge__?.reject_request(
         ${jsonEncode(request_id)},
         $local_payload_text,
       )
@@ -464,7 +464,7 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
   // Closed / Error 등) 를 그대로 DOM CustomEvent 로 브로드캐스트한다.
   //
   // Svelte 측 수신 (예시):
-  //   window.addEventListener('retinal:flutter_event', (e) => {
+  //   window.addEventListener('retinafit:flutter_event', (e) => {
   //     const { requestId, event, data } = e.detail   // 표준화된 평탄 모양
   //     if (event === 'captured') { /* data.slot, data.image_base64 */ }
   //   })

@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
-const _methodChannel = MethodChannel('retinal/virtual_fitting/method');
-const _eventChannel = EventChannel('retinal/virtual_fitting/events');
+const _methodChannel = MethodChannel('retinafit/virtual_fitting/method');
+const _eventChannel = EventChannel('retinafit/virtual_fitting/events');
 
 /// Native ARCore 가상 피팅 모듈을 호출하는 dart 측 클라이언트.
 ///

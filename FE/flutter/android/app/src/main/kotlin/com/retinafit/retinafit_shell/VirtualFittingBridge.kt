@@ -1,4 +1,4 @@
-package com.retinal.retinal_shell
+package com.retinafit.retinafit_shell
 
 import android.content.Context
 import android.util.Log
@@ -16,8 +16,8 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 private const val TAG = "VirtualFittingBridge"
-private const val METHOD_CHANNEL = "retinal/virtual_fitting/method"
-private const val EVENT_CHANNEL = "retinal/virtual_fitting/events"
+private const val METHOD_CHANNEL = "retinafit/virtual_fitting/method"
+private const val EVENT_CHANNEL = "retinafit/virtual_fitting/events"
 
 class VirtualFittingBridge(context: Context) {
 
