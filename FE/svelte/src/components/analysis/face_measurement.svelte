@@ -21,6 +21,7 @@
   import { EAR_HEIGHT_DIFF_THRESHOLD_MM } from '@/lib/measurements/thresholds.js'
   import Header from '@/components/layout/header.svelte'
   import MeasureCanvas from '@/components/analysis/measure_canvas.svelte'
+  import ZoomMeasureModal from '@/components/analysis/zoom_measure_modal.svelte'
   import MeasurementList from '@/components/analysis/measurement_list.svelte'
   import PhotoSwitcher from '@/components/analysis/photo_switcher.svelte'
   import ConfirmModal from '@/components/modal/confirm_modal.svelte'
@@ -136,6 +137,16 @@
   // "측정값 초기화" 확인 모달 — 사용자가 동작 의미를 정확히 인지 후 진행하도록 분리.
   let g_show_clear_modal = $state(false)
 
+  // 확대 모달 open 상태 — 가로 active 와 무관, 가로의 ESC 핸들러는 keyboard_enabled 로 일시 비활성화.
+  let g_zoom_open = $state(false)
+
+  function on_open_zoom() {
+    g_zoom_open = true
+  }
+  function on_close_zoom() {
+    g_zoom_open = false
+  }
+
   // 버튼 클릭은 모달만 띄움. 실제 초기화는 모달의 onconfirm 에서.
   function on_click_clear_all() {
     g_show_clear_modal = true
@@ -202,16 +213,25 @@
             유지하며 axisflip. content 변동 면역.
           -->
           <div
-            class="flex aspect-[3/4] max-h-full w-full max-w-[348px] overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_8px_20px_rgba(15,23,42,0.07)]"
+            class="relative flex aspect-[3/4] max-h-full w-full max-w-[348px] overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_8px_20px_rgba(15,23,42,0.07)]"
           >
             <MeasureCanvas
               capture={g_selected_capture}
               items_arr={g_items_arr}
               active_item_id={g_active_item_id}
               view={g_view}
+              keyboard_enabled={!g_zoom_open}
               onpoints_set={on_points_set}
               oncancel={on_cancel}
             />
+            <button
+              type="button"
+              class="absolute top-2 right-2 z-20 rounded-full bg-white/85 px-3 py-1 text-xs font-extrabold text-slate-700 shadow-md backdrop-blur-sm transition hover:bg-white"
+              onclick={on_open_zoom}
+              aria-label="이미지를 크게 보기"
+            >
+              크게보기
+            </button>
           </div>
         </section>
 
@@ -338,5 +358,18 @@
     onclose={on_cancel_clear}
     oncancel={on_cancel_clear}
     onconfirm={on_confirm_clear}
+  />
+  <ZoomMeasureModal
+    open={g_zoom_open}
+    capture={g_selected_capture}
+    items_arr={g_items_arr}
+    active_item_id={g_active_item_id}
+    view={g_view}
+    session={g_session}
+    onpoints_set={on_points_set}
+    onselect_item={on_select_item}
+    onclear_item={on_clear_item}
+    onview_change={on_view_change}
+    onclose={on_close_zoom}
   />
 </main>
