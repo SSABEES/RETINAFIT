@@ -44,6 +44,14 @@
       '--app-frame-edge-extend',
       `${local_edge_extend_px}px`,
     )
+
+    // y 축도 동일 — vertical 빈 공간 each side = (vh - 768*scale) / 2 (pre-scale = (vh/scale - 768) / 2).
+    // negative margin-top/bottom 으로 컨텐츠 배경을 viewport 위/아래 끝까지 확장할 때 사용.
+    const local_edge_extend_y_px = Math.max(0, (local_h / local_scale - 768) / 2)
+    document.documentElement.style.setProperty(
+      '--app-frame-edge-extend-y',
+      `${local_edge_extend_y_px}px`,
+    )
   }
 
   // onMount 콜백은 sync cleanup 함수만 반환 가능 — async 함수가 cleanup 을 Promise 로

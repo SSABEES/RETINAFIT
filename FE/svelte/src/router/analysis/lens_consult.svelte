@@ -285,18 +285,18 @@
   bg_class="bg-[var(--retina-text-100)] text-zinc-950"
   edge_extend_bg
 >
-  <section class="flex min-h-0 flex-1 flex-col justify-center overflow-hidden">
-    <div class="flex min-h-0 flex-col overflow-y-auto px-4 py-0">
+  <section class="flex min-h-0 flex-1 flex-col justify-center overflow-clip [overflow-clip-margin:9999px]">
+    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 mt-2">
       <div class="text-center">
-        <h1 class="m-0 text-[15px] font-extrabold tracking-[-0.02em] text-zinc-950">
+        <h1 class="m-0 text-[26px] font-extrabold tracking-[-0.02em] text-zinc-950">
           {g_customer_name}의 생활패턴
         </h1>
-        <p class="m-0 mt-0.5 text-[11px] font-semibold text-slate-500">
+        <p class="m-0 text-[15px] font-semibold text-slate-500">
           고객님이 안경을 착용하는 평소의 생활 환경을 알려주세요. (중복 선택 가능)
         </p>
       </div>
 
-      <div class="mx-auto mt-1 w-full max-w-[820px]">
+      <div class="mx-auto mt-2 w-full max-w-[820px]">
         {#if g_options_loading}
           <div class="grid place-items-center py-12">
             <span
@@ -306,19 +306,19 @@
           </div>
         {:else if g_question_arr.length === 0}
           <p
-            class="mx-auto max-w-[640px] rounded-xl bg-slate-50 px-5 py-3 text-center text-xs font-bold text-slate-500"
+            class="mx-auto max-w-[640px] rounded-xl bg-slate-50 px-5 text-center text-xs font-bold text-slate-500"
           >
             등록된 질문이 없습니다.
           </p>
         {:else}
           <div
-            class="rounded-[12px] border border-slate-200 bg-white px-3 py-4 text-left shadow-[0_6px_16px_rgba(15,23,42,0.05)]"
+            class="rounded-[18px] border border-slate-200 bg-white px-5 py-7 text-left shadow-[0_6px_16px_rgba(15,23,42,0.05)]"
           >
             {#each g_question_arr as question_obj, question_index (question_obj.question_text)}
               <section
-                class={`text-left ${question_index === 0 ? '' : 'mt-2 border-t border-slate-100 pt-2'}`}
+                class={`text-left ${question_index === 0 ? '' : 'mt-1.5 border-t border-slate-100 pt-1.5'}`}
               >
-                <h2 class="m-0 text-left text-[12px] font-extrabold text-zinc-950">
+                <h2 class="m-0 text-left text-[18px] font-extrabold text-zinc-950">
                   Q{question_index + 1}. {question_obj.question_text}
                 </h2>
 
@@ -329,7 +329,7 @@
                   {@const local_progress_pct =
                     local_max_index === 0 ? 100 : (local_value_index / local_max_index) * 100}
                   <div class="mt-2 px-1">
-                    <div class="relative h-3 rounded-full bg-[var(--retina-primary-100)]">
+                    <div class="relative h-4 rounded-full bg-[var(--retina-primary-100)]">
                       <div
                         class="absolute top-0 left-0 h-full rounded-full bg-[var(--retina-primary-300)] transition-[width] duration-150"
                         style={`width: ${local_progress_pct}%`}
@@ -345,12 +345,12 @@
                         oninput={(local_event) => on_input_slider_answer(question_obj, local_event)}
                       />
                       <span
-                        class="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-white shadow-[0_2px_6px_rgba(249,115,22,0.45)] transition"
+                        class="pointer-events-none absolute top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-white shadow-[0_2px_6px_rgba(249,115,22,0.45)] transition"
                         style={`left: ${local_progress_pct}%`}
                         aria-hidden="true"
                       ></span>
                     </div>
-                    <div class="mt-1 flex justify-between text-[10px] font-bold text-slate-500">
+                    <div class="mt-1 flex justify-between text-[13px] font-bold text-slate-500">
                       {#each question_obj.answer_arr as answer_obj, answer_index (answer_obj.option_no)}
                         <span
                           class={answer_index === local_selected_index
@@ -363,14 +363,14 @@
                     </div>
                   </div>
                 {:else}
-                  <div class="mt-1.5 flex flex-wrap justify-start gap-1">
+                  <div class="mt-2 flex flex-wrap justify-start gap-1.5">
                     {#each question_obj.answer_arr as answer_obj (answer_obj.option_no)}
                       {@const local_active = is_selected(
                         question_obj.question_text,
                         answer_obj.option_no,
                       )}
                       <button
-                        class={`inline-flex min-h-7 cursor-pointer items-center rounded-md border px-3 text-[11px] font-bold transition ${
+                        class={`inline-flex min-h-10 cursor-pointer items-center rounded-md border px-4 text-[15px] font-bold transition ${
                           local_active
                             ? 'border-[var(--retina-primary-300)] bg-white text-[var(--retina-primary-300)] shadow-[0_3px_8px_rgba(249,115,22,0.18)]'
                             : 'border-slate-200 bg-white text-slate-500 hover:border-[var(--retina-primary-300)]/60 hover:text-[var(--retina-primary-300)]'
@@ -392,24 +392,27 @@
       </div>
     </div>
 
-    <div class="shrink-0 px-4 py-0.5">
-      <div class="mx-auto w-full max-w-[820px]">
-        <button
-          class="mt-5 inline-flex min-h-[40px] w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border-0 bg-[var(--retina-primary-300)] px-5 text-[14px] font-extrabold text-white transition hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-60"
-          type="button"
-          disabled={g_loading}
-          onclick={on_click_submit}
-        >
-          {#if g_loading}
-            <span
-              class="h-4 w-4 animate-spin rounded-full border-[2.5px] border-white border-t-transparent"
-              aria-hidden="true"
-            ></span>
-            <span>저장 중...</span>
-          {:else}
-            <span>AR 피팅하기</span>
-          {/if}
-        </button>
+    <div class="app-bg-edge-extend shrink-0 bg-white">
+      <div class="h-px w-full bg-slate-200"></div>
+      <div class="px-4 py-3">
+        <div class="mx-auto w-full max-w-[400px]">
+          <button
+            class="inline-flex h-[64px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[var(--retina-primary-300)] px-5 text-[26px] tracking-tight text-[var(--retina-surface)] transition hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-60"
+            type="button"
+            disabled={g_loading}
+            onclick={on_click_submit}
+          >
+            {#if g_loading}
+              <span
+                class="h-5 w-5 animate-spin rounded-full border-[2.5px] border-white border-t-transparent"
+                aria-hidden="true"
+              ></span>
+              <span>저장 중...</span>
+            {:else}
+              <span>AR 피팅하기</span>
+            {/if}
+          </button>
+        </div>
       </div>
     </div>
   </section>
