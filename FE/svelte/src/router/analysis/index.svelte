@@ -6,8 +6,7 @@
   import StepIndicator from '@/components/capture/step_indicator.svelte'
   import StepStatusBar from '@/components/capture/step_status_bar.svelte'
   import CaptureThumbnails from '@/components/capture/capture_thumbnails.svelte'
-  import Header from '@/components/layout/header.svelte'
-  import AnalysisStepBar from '@/components/layout/analysis_step_bar.svelte'
+  import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
   import {
     get_session,
     set_glasses_mode,
@@ -155,16 +154,16 @@
   })
 </script>
 
-<main
-  class="app-frame-page grid min-h-full grid-rows-[auto_1fr_auto] overflow-hidden bg-[var(--retina-surface)] text-[var(--retina-text)]"
+<AnalysisPageLayout
+  current_step={1}
+  bg_class="bg-[var(--retina-surface)] text-[var(--retina-text)]"
+  onback={on_click_go_back}
 >
-  <Header onback={on_click_go_back} />
-
   <!--
     카메라(좌) + 컨트롤 패널(우) 을 하나의 wrapper 로 묶고 그 wrapper 를 화면 가운데에 배치.
     flex items-center justify-center 가 wrapper 를 가로/세로 모두 중앙 정렬.
   -->
-  <div class="flex min-h-0 items-center justify-center overflow-hidden">
+  <div class="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
     {#if g_session.phase === 'capturing' && g_current_step}
       <!--
         merged wrapper — 카메라(2fr) + 패널(1fr) 가 함께 가운데에 자리. max-w 로 너무 넓어지지 않게
@@ -251,6 +250,4 @@
       </div>
     {/if}
   </div>
-
-  <AnalysisStepBar current_step={1} />
-</main>
+</AnalysisPageLayout>

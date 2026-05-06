@@ -1,7 +1,6 @@
 <script>
   import { onMount } from 'svelte'
   import { navigate } from '@maks11060/svelte5-router'
-  import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
   import { ensure_session_auth_tokens } from '@/lib/api/session_auth'
   import { get_recommend_option_arr } from '@/lib/api/recommend_options'
@@ -9,7 +8,7 @@
   import { selected_customer_obj } from '@/lib/stores/customer'
   import { push_error_toast } from '@/lib/stores/toast'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
-  import AnalysisStepBar from '@/components/layout/analysis_step_bar.svelte'
+  import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
 
   /**
    * @typedef {{
@@ -281,12 +280,12 @@
   })
 </script>
 
-<main class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-zinc-950">
-  <Header />
-
-  <section
-    class="flex min-h-0 flex-1 flex-col justify-center overflow-hidden bg-[var(--retina-text-100)]"
-  >
+<AnalysisPageLayout
+  current_step={3}
+  bg_class="bg-[var(--retina-text-100)] text-zinc-950"
+  edge_extend_bg
+>
+  <section class="flex min-h-0 flex-1 flex-col justify-center overflow-hidden">
     <div class="flex min-h-0 flex-col overflow-y-auto px-4 py-0">
       <div class="text-center">
         <h1 class="m-0 text-[15px] font-extrabold tracking-[-0.02em] text-zinc-950">
@@ -415,7 +414,5 @@
     </div>
   </section>
 
-  <AnalysisStepBar current_step={3} />
-
   <LoadingOverlay open={g_loading} label="추천 옵션 저장 중..." />
-</main>
+</AnalysisPageLayout>

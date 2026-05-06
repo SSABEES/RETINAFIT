@@ -3,7 +3,6 @@
   import { navigate } from '@maks11060/svelte5-router'
   import { Glasses, UserRound, UserPlus } from 'lucide-svelte'
   import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
-  import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
   import { create_customer, search_customer } from '@/lib/api/customers'
   import { create_visit, get_visit, update_visit } from '@/lib/api/visit'
@@ -24,7 +23,7 @@
   import { MEASUREMENT_TEMPLATE } from '@/lib/measurements/template.js'
   import { pixel_distance } from '@/lib/measurements/measurement_utils.js'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
-  import AnalysisStepBar from '@/components/layout/analysis_step_bar.svelte'
+  import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
   const FACE_SHAPE_LABEL_OBJ = {
     oval: '계란형',
     round: '둥근형',
@@ -455,14 +454,18 @@
   })
 </script>
 
-<main class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-zinc-950">
-  <Header />
+<AnalysisPageLayout
+  current_step={5}
+  bg_class="bg-[var(--retina-text-100)] text-zinc-950"
+  edge_extend_bg
+>
 
   <!--
     페이지 헤더: 제목 + 탭 네비. 한 화면에 모든 섹션을 펼치는 대신 탭 단위로 분리해
     각 영역을 페이지처럼 전환해서 본다. 탭바는 shrink-0 으로 고정.
+    .app-bg-edge-extend 로 좌우 viewport 끝까지 흰색 배경 확장.
   -->
-  <div class="shrink-0 border-b border-slate-200 bg-white px-6 pt-3">
+  <div class="app-bg-edge-extend shrink-0 border-b border-slate-200 bg-white px-6 pt-3">
     <h1 class="m-0 text-center text-[18px] font-extrabold tracking-[-0.02em] text-zinc-950">
       {g_customer_name_label}의 최종 분석 리포트
     </h1>
@@ -488,10 +491,8 @@
     </nav>
   </div>
 
-  <!-- 활성 탭 컨텐츠 — 탭 내부에서만 세로 스크롤. -->
-  <section
-    class="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--retina-text-100)] px-6 py-4"
-  >
+  <!-- 활성 탭 컨텐츠 — 탭 내부에서만 세로 스크롤. main 의 회색 bg 를 그대로 상속. -->
+  <section class="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-4">
     <div class="mx-auto flex w-full max-w-[940px] flex-col gap-3">
       {#if g_active_tab === 'overview'}
         <!-- 1. 고객 정보 -->
@@ -726,8 +727,8 @@
     </div>
   </section>
 
-  <!-- 하단 액션바 — 어떤 탭에 있든 항상 노출. -->
-  <div class="shrink-0 border-t border-slate-200 bg-white px-6 py-3">
+  <!-- 하단 액션바 — 어떤 탭에 있든 항상 노출. .app-bg-edge-extend 로 좌우 viewport 끝까지 확장. -->
+  <div class="app-bg-edge-extend shrink-0 border-t border-slate-200 bg-white px-6 py-3">
     <div
       class={`mx-auto grid w-full max-w-[940px] gap-2 ${
         g_is_guest_visit ? 'grid-cols-3' : 'grid-cols-2'
@@ -760,8 +761,6 @@
     </div>
   </div>
 
-  <AnalysisStepBar current_step={5} />
-
   <CustomerCreateModal
     open={ref_customer_create_modal_open}
     onclose={on_click_close_customer_create_modal}
@@ -769,4 +768,4 @@
   />
 
   <LoadingOverlay open={g_is_registering_customer} label="고객 정보 등록 중..." />
-</main>
+</AnalysisPageLayout>

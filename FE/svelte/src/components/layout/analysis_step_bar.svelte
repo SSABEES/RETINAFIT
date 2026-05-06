@@ -16,8 +16,11 @@
   ]
 </script>
 
+<!--
+  position: fixed + .app-edge-extend → .app-frame 좌우 빈 공간까지 viewport 끝까지 확장.
+-->
 <footer
-  class="mt-auto shrink-0 border-t border-slate-200 bg-white px-6 py-3.5"
+  class="app-edge-extend fixed bottom-0 z-30 border-t border-slate-200 bg-white px-6 py-3.5"
   aria-label="얼굴 분석 진행 단계"
 >
   <ol class="mx-auto flex w-full max-w-[860px] items-center gap-2">

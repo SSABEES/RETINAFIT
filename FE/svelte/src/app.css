@@ -44,10 +44,10 @@
   --retina-bg-1: #fff3eb;
   --retina-bg-2: #bcc2cc;
   --app-frame-width: 1024px;
-  --app-frame-height: 640px;
+  --app-frame-height: 768px;
   /*
-    1024×640 을 디자인 베이스로 두고, viewport 가 더 크면 JS 가 같은 비율로 scale 값을
-    덮어써 UI 가 균일하게 멀어져 보이게 한다. 기본값은 1 (스케일 없음).
+    1024×768 (4:3) 을 디자인 베이스로 두고, viewport 에 맞춰 JS 가 균일 scale 을 덮어써
+    UI 가 화면에 맞게 자연스럽게 떨어져 보이게 한다. 기본값은 1 (스케일 없음).
   */
   --app-frame-scale: 1;
 }
@@ -156,25 +156,42 @@ a {
 
 .app-frame {
   position: relative;
-  width: min(100vw, var(--app-frame-width));
-  height: min(100svh, var(--app-frame-height));
-  /*
-    1024×640 (16:10) 을 최소 프레임 크기로 못박아 안드로이드 태블릿 가로모드 ·
-    iPad 가로모드 등 주요 태블릿에서 디자인이 절대 압축되지 않도록 한다.
-    이보다 작은 viewport 는 shell 의 overflow: auto 가 가로/세로 스크롤로 처리.
-  */
+  /* 항상 1024×768 고정 레이아웃. viewport 대응은 transform: scale 로만 처리. */
+  width: var(--app-frame-width);
+  height: var(--app-frame-height);
   min-width: var(--app-frame-width);
   min-height: var(--app-frame-height);
   flex: none;
-  overflow: hidden;
+  /*
+    overflow visible — 자식의 .app-edge-extend (header/stepbar) 가 .app-frame 좌우 빈 공간까지
+    확장될 수 있게 한다. 페이지 컨텐츠 자체는 main 의 overflow-hidden 으로 클리핑되므로 안전.
+  */
+  overflow: visible;
   background: var(--retina-page);
   /*
-    --app-frame-scale 가 1 보다 크면 1024×640 레이아웃이 그대로인 상태에서
-    visual 만 확대되어 모든 UI 가 화면 비율에 맞게 떨어진다. transform-origin 가운데로
-    잡아 shell 의 grid 센터링이 그대로 유지되도록.
+    --app-frame-scale 이 viewport 에 따라 동적으로 갱신되어 frame 전체가 균일 확대/축소된다.
+    1024×768 / 1280×800 / 1366×768 / 1920×1080 4개 대표 해상도에서 일관되게 동작.
   */
   transform: scale(var(--app-frame-scale));
   transform-origin: center center;
+}
+
+/*
+  header / step bar (position: fixed) 가 .app-frame 좌우 빈 공간까지 visual 로 확장.
+  App.svelte 가 갱신하는 --app-frame-edge-extend 를 negative left/right offset 으로 사용.
+*/
+.app-edge-extend {
+  left: calc(-1 * var(--app-frame-edge-extend, 0px));
+  right: calc(-1 * var(--app-frame-edge-extend, 0px));
+}
+
+/*
+  in-flow 요소(예: 페이지 안의 회색 섹션 배경) 를 좌우 viewport 끝까지 확장.
+  negative margin 으로 .app-frame 의 좌우 빈 공간을 메운다.
+*/
+.app-bg-edge-extend {
+  margin-left: calc(-1 * var(--app-frame-edge-extend, 0px));
+  margin-right: calc(-1 * var(--app-frame-edge-extend, 0px));
 }
 
 .app-frame-content {
@@ -183,13 +200,23 @@ a {
   text-align: center;
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  /*
+    overflow visible — main 이 .app-bg-edge-extend (negative margin) 로 좌우 viewport 까지
+    확장될 수 있게. 컨텐츠 자체의 클리핑은 main 의 overflow-hidden 이 담당.
+  */
+  overflow: visible;
 }
 
 .app-frame-page {
   width: 100%;
   min-height: 100%;
   height: 100%;
+  /*
+    fixed-positioned header(52px) 가 컨텐츠 상단을 가리지 않게 padding-top 으로 영역 예약.
+    AnalysisStepBar 는 분석 페이지 한정이라 .app-frame-page 에는 padding-bottom 을 두지 않고,
+    필요 페이지가 main 클래스에 `pb-[60px]` 를 직접 추가한다.
+  */
+  padding-top: 52px;
 }
 
 .app-page-scroll {
@@ -199,39 +226,3 @@ a {
   -ms-overflow-style: none;
 }
 
-@media (max-width: 1280px), (max-height: 820px) {
-  :root {
-    --app-frame-width: 1024px;
-    --app-frame-height: 640px;
-  }
-
-  .app-frame-shell {
-    place-items: stretch;
-  }
-
-  .app-frame {
-    width: 100vw;
-    min-width: var(--app-frame-width);
-    min-height: var(--app-frame-height);
-    height: auto;
-    max-width: 1024px;
-    margin: 0 auto;
-    overflow-y: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .app-frame::-webkit-scrollbar {
-    display: none;
-  }
-
-  .app-frame-content {
-    min-height: 100svh;
-    height: auto;
-  }
-
-  .app-frame-page {
-    min-height: 100svh;
-    height: auto;
-  }
-}

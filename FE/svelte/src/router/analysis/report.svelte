@@ -2,7 +2,6 @@
   import { onMount } from 'svelte'
   import { navigate } from '@maks11060/svelte5-router'
   import { PATH } from '@/config/path'
-  import Header from '@/components/layout/header.svelte'
   import { clear_visit_session_data, selected_customer_obj } from '@/lib/stores/customer'
   import { clear_login_select_data } from '@/lib/stores/admin'
   import { clear_auto_login_obj } from '@/lib/stores/auto_login'
@@ -18,7 +17,7 @@
     get_frame_styles_for_face_shape,
   } from '@/lib/recommendations/frame_recommendations.js'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
-  import AnalysisStepBar from '@/components/layout/analysis_step_bar.svelte'
+  import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
 
   const g_session = $derived(get_session())
   const g_face_shape_result = $derived(get_face_shape_result())
@@ -254,11 +253,12 @@
   }
 </script>
 
-<main
-  class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-[var(--retina-text)]"
+<AnalysisPageLayout
+  current_step={2}
+  bg_class="bg-white text-[var(--retina-text)]"
+  onback={on_click_back}
+  onlogout={on_click_logout}
 >
-  <Header onback={on_click_back} onlogout={on_click_logout} />
-
   <section class="flex min-h-0 flex-1 flex-col overflow-hidden">
     <div class="flex min-h-0 flex-1 flex-col justify-center px-7 pt-2.5 pb-1">
       <h1 class="m-0 text-center text-[18px] font-extrabold tracking-[-0.02em] text-zinc-950">
@@ -399,7 +399,5 @@
     </div>
   </section>
 
-  <AnalysisStepBar current_step={2} />
-
   <LoadingOverlay open={g_is_submitting} label="분석 결과 저장 중..." />
-</main>
+</AnalysisPageLayout>

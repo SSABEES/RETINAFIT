@@ -81,8 +81,12 @@
   }
 </script>
 
+<!--
+  position: fixed + .app-edge-extend → .app-frame 좌우 빈 공간까지 viewport 끝까지 확장.
+  .app-edge-extend 의 left/right 가 JS 로 갱신되는 --app-frame-edge-extend 변수를 negative 로 사용.
+-->
 <header
-  class="grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 px-6"
+  class="app-edge-extend fixed top-0 z-30 grid h-[52px] grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-[var(--retina-surface)] px-6"
 >
   <div class="flex justify-start">
     {#if show_back}
