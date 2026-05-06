@@ -67,4 +67,3 @@ export const update_visit = ({ visit_no, body }) => {
     body,
   })
 }
-

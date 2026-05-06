@@ -25,8 +25,11 @@
   }
 </script>
 
-<nav class="flex flex-col gap-0.5 border-b border-[var(--retina-text-200)] pb-2" aria-label="촬영 진행도">
-  <h3 class="m-0 mt-2 text-center text-sm  font-extrabold text-[var(--retina-text-800)]">
+<nav
+  class="flex flex-col gap-0.5 border-b border-[var(--retina-text-200)] pb-2"
+  aria-label="촬영 진행도"
+>
+  <h3 class="m-0 mt-2 text-center text-sm font-extrabold text-[var(--retina-text-800)]">
     촬영 단계
   </h3>
   {#each steps_arr as step, i (step.step_id)}

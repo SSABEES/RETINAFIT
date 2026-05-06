@@ -29,8 +29,18 @@
 
   const WEEKDAY_LABEL_ARR = ['일', '월', '화', '수', '목', '금', '토']
   const MONTH_LABEL_ARR = [
-    '1월', '2월', '3월', '4월', '5월', '6월',
-    '7월', '8월', '9월', '10월', '11월', '12월',
+    '1월',
+    '2월',
+    '3월',
+    '4월',
+    '5월',
+    '6월',
+    '7월',
+    '8월',
+    '9월',
+    '10월',
+    '11월',
+    '12월',
   ]
 
   let g_open = $state(false)
@@ -80,11 +90,7 @@
   let g_day_cell_arr = $derived.by(() => {
     const local_first_day_obj = new Date(g_view_year, g_view_month, 1)
     const local_first_weekday = local_first_day_obj.getDay()
-    const local_grid_start_obj = new Date(
-      g_view_year,
-      g_view_month,
-      1 - local_first_weekday,
-    )
+    const local_grid_start_obj = new Date(g_view_year, g_view_month, 1 - local_first_weekday)
     const local_selected_obj = parse_value(value)
 
     return Array.from({ length: 42 }, (_, local_index) => {
@@ -118,11 +124,7 @@
   let g_display_label = $derived.by(() => {
     const local_parsed_obj = parse_value(value)
     if (!local_parsed_obj) return placeholder
-    return format_value(
-      local_parsed_obj.year,
-      local_parsed_obj.month,
-      local_parsed_obj.day,
-    )
+    return format_value(local_parsed_obj.year, local_parsed_obj.month, local_parsed_obj.day)
   })
 
   let g_has_value = $derived(parse_value(value) !== null)
@@ -202,9 +204,7 @@
     {id}
     type="button"
     class={`flex min-h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-md border px-3 text-sm font-semibold outline-none transition disabled:cursor-not-allowed disabled:bg-[var(--retina-text-200)]/40 ${
-      g_has_value
-        ? 'text-[var(--retina-text-800)]'
-        : 'text-[var(--retina-text-500)]'
+      g_has_value ? 'text-[var(--retina-text-800)]' : 'text-[var(--retina-text-500)]'
     } ${
       g_open
         ? 'border-[var(--retina-text-800)] bg-[var(--retina-bg-1)]/40'
@@ -280,13 +280,11 @@
       <div class="grid grid-cols-7 gap-0.5 text-center text-[10px] font-bold">
         {#each WEEKDAY_LABEL_ARR as weekday_label, weekday_index (weekday_index)}
           <span
-            class={
-              weekday_index === 0
-                ? 'text-[#dc2626]'
-                : weekday_index === 6
-                  ? 'text-[#1660C7]'
-                  : 'text-[var(--retina-text-500)]'
-            }
+            class={weekday_index === 0
+              ? 'text-[#dc2626]'
+              : weekday_index === 6
+                ? 'text-[#1660C7]'
+                : 'text-[var(--retina-text-500)]'}
           >
             {weekday_label}
           </span>

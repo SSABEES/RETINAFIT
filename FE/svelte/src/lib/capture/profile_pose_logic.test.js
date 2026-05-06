@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { yaw_std, update_stability_step, compute_hint_text, PROFILE_CONSTANTS } from './profile_pose_logic.js'
+import {
+  yaw_std,
+  update_stability_step,
+  compute_hint_text,
+  PROFILE_CONSTANTS,
+} from './profile_pose_logic.js'
 
 describe('yaw_std', () => {
   it('빈 배열은 Infinity 반환 (holding 검사 자동 실패)', () => {
@@ -51,7 +56,7 @@ describe('update_stability_step', () => {
   })
 
   it('영역 안 충분히 유지 → STABILITY_FRAMES 도달', () => {
-    const yaws = Array(50).fill(89)  // 충분히 길게
+    const yaws = Array(50).fill(89) // 충분히 길게
     const result = feed(ZERO, yaws, +90)
     expect(result.stable_count).toBe(PROFILE_CONSTANTS.STABILITY_FRAMES)
   })
@@ -98,48 +103,66 @@ describe('update_stability_step', () => {
 describe('compute_hint_text', () => {
   it('세션 미준비 → 준비 중 메시지', () => {
     const text = compute_hint_text({
-      session_ready: false, last_yaw: null, target_deg: +90,
-      is_stable: false, progress: 0,
+      session_ready: false,
+      last_yaw: null,
+      target_deg: +90,
+      is_stable: false,
+      progress: 0,
     })
     expect(text).toBe('측정 모델 준비 중…')
   })
 
   it('세션 준비됨 + 첫 추론 전 → null (기본 힌트로 폴백)', () => {
     const text = compute_hint_text({
-      session_ready: true, last_yaw: null, target_deg: +90,
-      is_stable: false, progress: 0,
+      session_ready: true,
+      last_yaw: null,
+      target_deg: +90,
+      is_stable: false,
+      progress: 0,
     })
     expect(text).toBeNull()
   })
 
   it('right_profile + yaw 0 → 오른쪽 안내', () => {
     const text = compute_hint_text({
-      session_ready: true, last_yaw: 0, target_deg: +90,
-      is_stable: false, progress: 0,
+      session_ready: true,
+      last_yaw: 0,
+      target_deg: +90,
+      is_stable: false,
+      progress: 0,
     })
     expect(text).toBe('고개를 오른쪽으로 더 돌려주세요')
   })
 
   it('left_profile + yaw 0 → 왼쪽 안내', () => {
     const text = compute_hint_text({
-      session_ready: true, last_yaw: 0, target_deg: -90,
-      is_stable: false, progress: 0,
+      session_ready: true,
+      last_yaw: 0,
+      target_deg: -90,
+      is_stable: false,
+      progress: 0,
     })
     expect(text).toBe('고개를 왼쪽으로 더 돌려주세요')
   })
 
   it('영역 안 + 진행 중 → 진행률 표시', () => {
     const text = compute_hint_text({
-      session_ready: true, last_yaw: 89, target_deg: +90,
-      is_stable: false, progress: 50,
+      session_ready: true,
+      last_yaw: 89,
+      target_deg: +90,
+      is_stable: false,
+      progress: 50,
     })
     expect(text).toBe('자세 유지 중 50%')
   })
 
   it('영역 안 + stable → 측정 중', () => {
     const text = compute_hint_text({
-      session_ready: true, last_yaw: 89, target_deg: +90,
-      is_stable: true, progress: 100,
+      session_ready: true,
+      last_yaw: 89,
+      target_deg: +90,
+      is_stable: true,
+      progress: 100,
     })
     expect(text).toBe('✓ 측정 중…')
   })
