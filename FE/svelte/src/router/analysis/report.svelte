@@ -263,7 +263,7 @@
   onlogout={on_click_logout}
 >
   <section class="flex min-h-0 flex-1 flex-col overflow-hidden">
-    <div class="flex min-h-0 flex-1 flex-col justify-center px-7 pt-2.5 pb-1">
+    <div class="flex min-h-0 flex-1 flex-col justify-center px-7 pt-8 pb-6">
       <h1 class="m-0 text-center text-[18px] font-extrabold tracking-[-0.02em] text-zinc-950">
         {g_customer_name}의 얼굴 분석 결과
       </h1>
