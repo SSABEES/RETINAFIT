@@ -14,6 +14,7 @@
    *   items_arr?: MeasurementItem[],
    *   active_item_id?: string | null,
    *   view?: ViewAngle | null,
+   *   keyboard_enabled?: boolean,
    *   onpoints_set?: ((item_id: string, points: [Point2D, Point2D]) => void) | undefined,
    *   oncancel?: (() => void) | undefined,
    * }}
@@ -23,6 +24,7 @@
     items_arr = [],
     active_item_id = null,
     view = null,
+    keyboard_enabled = true,
     onpoints_set = undefined,
     oncancel = undefined,
   } = $props()
@@ -74,9 +76,12 @@
 
   /**
    * ESC 입력 시 현재 측정을 취소한다.
+   * keyboard_enabled === false 일 때는 다른 컴포넌트(예: 확대 모달)가 키 입력을
+   * 책임지는 동안 가로 캔버스의 ESC 가 active_item_id 를 의도치 않게 해제하지 않게 한다.
    * @param {KeyboardEvent} evt
    */
   function on_keydown_global(evt) {
+    if (!keyboard_enabled) return
     if (evt.key !== 'Escape') return
     g_pending_first = null
     oncancel?.()
