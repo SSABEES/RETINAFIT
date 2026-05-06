@@ -68,9 +68,12 @@
     g_pending_first = null
   })
 
-  // 모달 닫힘 → pending 폐기 (다음 진입 시 깨끗한 상태).
+  // 모달 닫힘 → 로컬 상태 폐기 (다음 진입 시 깨끗한 상태). pending 첫 점 + bottom sheet 모두 초기화.
   $effect(() => {
-    if (!open) g_pending_first = null
+    if (!open) {
+      g_pending_first = null
+      g_list_open = false
+    }
   })
 
   /**
