@@ -44,10 +44,14 @@
   --retina-measure-manual: #f56b00;
   --retina-bg-1: #FAFAFB;
   --retina-bg-2: #bcc2cc;
+  --app-frame-width: 1024px;
+  --app-frame-height: 768px;
   /*
-    프레임 고정 해제 — frame 이 viewport 를 직접 채우므로 width/height/scale 변수는 더 이상 사용하지 않음.
-    edge-extend(-y) 변수는 0 으로 두어 기존 .app-edge-extend / .app-bg-edge-extend* 유틸리티가 no-op 동작.
+    1024×768 (4:3) 을 디자인 베이스로 두고, viewport 에 맞춰 JS 가 균일 scale 을 덮어써
+    UI 가 화면에 맞게 자연스럽게 떨어져 보이게 한다. 기본값은 1 (스케일 없음).
+    4개 대표 해상도 (1024×768 / 1280×800 / 1366×768 / 1920×1080) 에 일관되게 동작.
   */
+  --app-frame-scale: 1;
   --app-frame-edge-extend: 0px;
   --app-frame-edge-extend-y: 0px;
 }
@@ -163,16 +167,29 @@ a {
 
 .app-frame {
   position: relative;
+  /* 항상 1024×768 고정 레이아웃. viewport 대응은 transform: scale 로만 처리. */
+  width: var(--app-frame-width);
+  height: var(--app-frame-height);
+  min-width: var(--app-frame-width);
+  min-height: var(--app-frame-height);
+  flex: none;
   /*
-    프레임 고정 해제 — 1024×768 + transform:scale 대신 viewport 를 그대로 채운다.
-    width/height 100svh 로 shell 안에서 풀 사이즈로 렌더되며, 페이지 내부의
-    `.app-edge-extend` / `.app-bg-edge-extend*` 유틸리티는 --app-frame-edge-extend(-y)
-    값이 0 이라 자연스럽게 no-op 동작.
+    overflow visible — 자식의 .app-edge-extend (header/stepbar) 가 .app-frame 좌우 빈 공간까지
+    확장될 수 있게 한다. 페이지 컨텐츠 자체는 main 의 overflow-hidden 으로 클리핑되므로 안전.
   */
-  width: 100%;
-  height: 100svh;
   overflow: visible;
+  /*
+    bg 는 .app-frame-shell 이 sync_shell_bg(App.svelte) 로 페이지 main 의 bg 에 맞춰주므로
+    여기서 별도 색을 깔면 main 의 .app-bg-edge-extend 확장 영역과 frame 1024px 경계에서
+    배경이 어긋나 세로 줄이 보인다. 항상 shell 색을 그대로 통과시킨다.
+  */
   background: transparent;
+  /*
+    --app-frame-scale 이 viewport 에 따라 동적으로 갱신되어 frame 전체가 균일 확대/축소된다.
+    1024×768 / 1280×800 / 1366×768 / 1920×1080 4개 대표 해상도에서 일관되게 동작.
+  */
+  transform: scale(var(--app-frame-scale));
+  transform-origin: center center;
 }
 
 /*

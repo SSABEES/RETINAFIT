@@ -384,14 +384,13 @@
 
   <div class="grid min-h-0 grid-cols-2">
     <section
-      class="grid min-h-0 grid-rows-[1fr_auto] gap-5 border-r border-[var(--retina-text-200)] px-8 pt-6 pb-6"
+      class="flex min-h-0 flex-col items-center justify-center border-r border-[var(--retina-text-200)] px-8 pt-6 pb-6"
       aria-label="고객 조회 키패드 영역"
     >
-      <div class="w-full max-w-[30rem] self-center justify-self-center">
+      <div class="flex w-full max-w-[30rem] flex-col gap-4">
         <Keypad value={ref_search_phone} onchange={on_change_keypad} />
-      </div>
 
-      <div class="grid w-full max-w-[30rem] justify-self-center gap-3">
+        <div class="grid w-full gap-3">
         <button
           class="flex w-full cursor-pointer items-center gap-3 rounded-none border-0 bg-[var(--retina-primary-50)] px-4 py-1.5 text-left text-base font-bold text-[var(--retina-text-800)] transition hover:bg-[var(--retina-primary-200)]/40 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
           type="button"
@@ -430,6 +429,7 @@
         >
           {g_is_search_loading ? '조회 중' : '조 회'}
         </button>
+        </div>
       </div>
     </section>
 
