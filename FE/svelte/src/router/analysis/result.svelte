@@ -555,9 +555,11 @@
   <!--
     활성 탭 컨텐츠 — 탭 내부에서만 세로 스크롤. main 의 회색 bg 를 그대로 상속.
     좌우 스와이프(터치 + 마우스 드래그) 로 탭 전환.
+    a11y: aria-label 만으로도 <section> 이 implicit region role 을 가지므로 role="region" 은 중복.
   -->
   <section
     class="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-4 touch-pan-y"
+    aria-label="리포트 컨텐츠 (좌우 스와이프로 탭 전환)"
     ontouchstart={on_touchstart_swipe}
     ontouchend={on_touchend_swipe}
     onpointerdown={on_pointerdown_swipe}

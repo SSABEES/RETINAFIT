@@ -28,8 +28,8 @@
     </Link>
   {/snippet}
 
-  <section class="px-8 py-8">
-    <div class="mx-auto max-w-[944px]">
+  <section class="app-bg-edge-extend flex min-h-full items-center bg-[#F7F8FA] px-8 py-8">
+    <div class="mx-auto w-full max-w-[944px]">
       <section class="grid gap-8">
         <div
           class="flex min-h-36 items-center justify-between rounded-2xl bg-[#4B0055] px-8 py-7 text-left text-white"
