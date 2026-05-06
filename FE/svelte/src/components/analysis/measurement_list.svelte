@@ -42,7 +42,11 @@
   }
 
   /**
-   * 항목 값을 표시용 문자열로 변환한다. kind 분기 — distance: mm/px, angle: 부호 있는 °.
+   * 항목 값을 표시용 문자열로 변환한다. kind 분기 — distance: mm/px, angle: 절댓값 °.
+   * 각도 표시는 절댓값을 쓰는 이유:
+   *   1) 좌·우 측면 측정 결과가 시각적으로 일치 (사용자가 같은 안경에 같은 값 기대).
+   *   2) 일반 안경 전경각은 항상 양수 영역(8~12°) 이라 부호가 노출되면 오히려 노이즈.
+   * 부호 정보는 내부 value_deg_corrected/raw 에 그대로 보관 — 평가 로직·측정 오류 검증에서 활용.
    * @param {MeasurementItem} item
    * @returns {string}
    */
@@ -50,8 +54,7 @@
     if (item.kind === 'angle') {
       const v = item.value_deg_corrected ?? item.value_deg_raw
       if (v === null || v === undefined) return '—'
-      const sign = v >= 0 ? '+' : ''
-      return `${sign}${v.toFixed(1)}°`
+      return `${Math.abs(v).toFixed(1)}°`
     }
     if (item.value_mm !== null && item.value_mm !== undefined) {
       return `${item.value_mm.toFixed(1)} mm`
