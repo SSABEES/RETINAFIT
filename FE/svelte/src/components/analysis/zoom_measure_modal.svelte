@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from 'svelte'
   import { fade, fly } from 'svelte/transition'
   import PhotoSwitcher from '@/components/analysis/photo_switcher.svelte'
+  import { is_aruco_overlay_enabled } from '@/lib/measurements/aruco_debug_overlay.svelte.js'
 
   /**
    * @typedef {import('@/lib/stores/capture_session.svelte.js').Capture} Capture
@@ -38,6 +39,77 @@
     onview_change = undefined,
     onclose = undefined,
   } = $props()
+
+  /** @type {HTMLButtonElement | null} */
+  let ref_this_hit_area_el = $state(null)
+  /** @type {Point2D | null} */
+  let g_pending_first = $state(null)
+
+  // active 가 바뀌면 pending 초기화 — 가로 캔버스와 동일 패턴.
+  $effect(() => {
+    active_item_id
+    g_pending_first = null
+  })
+
+  // view 가 바뀌면 pending 폐기 — spec 3.3 view 변경 동작.
+  $effect(() => {
+    view
+    g_pending_first = null
+  })
+
+  // 모달 닫힘 → pending 폐기 (다음 진입 시 깨끗한 상태).
+  $effect(() => {
+    if (!open) g_pending_first = null
+  })
+
+  /**
+   * 클릭 좌표를 이미지 픽셀 좌표로 변환한다. capture.object_url 이 미러링 표시이므로 x 만 mirror_x.
+   * @param {MouseEvent} evt
+   * @returns {Point2D | null}
+   */
+  function to_image_px(evt) {
+    if (!ref_this_hit_area_el || !capture) return null
+    const rect = ref_this_hit_area_el.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return null
+    const visual_x = (evt.clientX - rect.left) * (capture.width / rect.width)
+    const y = (evt.clientY - rect.top) * (capture.height / rect.height)
+    return { x: capture.width - visual_x, y }
+  }
+
+  /**
+   * 두 번 클릭으로 측정 점을 지정한다.
+   * @param {MouseEvent} evt
+   */
+  function on_click_canvas(evt) {
+    if (!active_item_id || !capture) return
+    const p = to_image_px(evt)
+    if (!p) return
+    if (!g_pending_first) {
+      g_pending_first = p
+      return
+    }
+    onpoints_set?.(active_item_id, [g_pending_first, p])
+    g_pending_first = null
+  }
+
+  /**
+   * mirrored display 의 x 좌표 변환.
+   * @param {number} x
+   */
+  function mirror_x(x) {
+    return capture ? capture.width - x : x
+  }
+
+  const g_active_is_angle = $derived(
+    items_arr.find((it) => it.item_id === active_item_id)?.kind === 'angle',
+  )
+
+  const g_active_item = $derived(
+    items_arr.find((it) => it.item_id === active_item_id && it.points) ?? null,
+  )
+
+  const g_show_aruco_overlay = $derived(is_aruco_overlay_enabled())
+  const g_aruco_marker = $derived(capture?.marker ?? null)
 
   /**
    * ESC 키 → 모달 닫기.
@@ -86,5 +158,95 @@
         닫기
       </button>
     </div>
+
+    <!-- 측정 캔버스 영역 — 상단 바 높이(h-14 = 56px) 빼고 화면 채움. portrait 3:4 fit. -->
+    {#if capture}
+      <div class="absolute top-14 right-0 bottom-0 left-0 grid place-items-center px-2 pb-2">
+        <div
+          class="relative h-full max-h-full"
+          style="aspect-ratio: 3 / 4;"
+        >
+          <img
+            class="absolute inset-0 block h-full w-full select-none"
+            src={capture.object_url}
+            alt="측정 대상 사진"
+            draggable="false"
+          />
+          <button
+            bind:this={ref_this_hit_area_el}
+            class="absolute inset-0 z-10 border-0 bg-transparent p-0"
+            class:cursor-crosshair={active_item_id}
+            class:cursor-default={!active_item_id}
+            aria-label="측정 캔버스에서 두 점을 클릭해 거리를 잽니다"
+            type="button"
+            onclick={on_click_canvas}
+          ></button>
+          <svg
+            class="pointer-events-none absolute inset-0 h-full w-full"
+            viewBox="0 0 {capture.width} {capture.height}"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            {#if g_active_item}
+              {@const p1 = g_active_item.points[0]}
+              {@const p2 = g_active_item.points[1]}
+              {@const x1 = mirror_x(p1.x)}
+              {@const x2 = mirror_x(p2.x)}
+              {@const dash = g_active_item.source === 'auto' ? '8 6' : undefined}
+              <line {x1} y1={p1.y} {x2} y2={p2.y} stroke="white" stroke-width="5" stroke-linecap="round" stroke-dasharray={dash} opacity="0.85" />
+              <line {x1} y1={p1.y} {x2} y2={p2.y} stroke="#F97316" stroke-width="2.5" stroke-linecap="round" stroke-dasharray={dash} />
+              <circle cx={x1} cy={p1.y} r="5" fill="#F97316" stroke="white" stroke-width="1.5" />
+              <circle cx={x2} cy={p2.y} r="5" fill="#F97316" stroke="white" stroke-width="1.5" />
+            {/if}
+
+            {#if g_show_aruco_overlay && g_aruco_marker}
+              <polygon
+                points={g_aruco_marker.corners.map((c) => `${mirror_x(c.x)},${c.y}`).join(' ')}
+                fill="rgba(0,200,83,0.15)"
+                stroke="#00c853"
+                stroke-width="3"
+              />
+              <text
+                x={mirror_x(g_aruco_marker.corners[0].x)}
+                y={g_aruco_marker.corners[0].y - 6}
+                fill="#00c853"
+                font-size="20"
+                font-weight="700"
+              >
+                ID {g_aruco_marker.id} z={g_aruco_marker.translation[2].toFixed(0)}mm
+              </text>
+            {/if}
+
+            {#if g_pending_first}
+              {#if g_active_is_angle}
+                <line
+                  x1={mirror_x(g_pending_first.x)}
+                  y1={g_pending_first.y - 80}
+                  x2={mirror_x(g_pending_first.x)}
+                  y2={g_pending_first.y + 80}
+                  stroke="white"
+                  stroke-width="3"
+                  stroke-dasharray="6 6"
+                  opacity="0.85"
+                />
+              {/if}
+              <circle
+                cx={mirror_x(g_pending_first.x)}
+                cy={g_pending_first.y}
+                r="5"
+                fill="#F97316"
+                stroke="white"
+                stroke-width="1.5"
+              />
+            {/if}
+          </svg>
+        </div>
+      </div>
+    {:else}
+      <!-- capture 가 null 이면 안내 placeholder -->
+      <div class="absolute top-14 right-0 bottom-0 left-0 grid place-items-center text-sm font-semibold text-slate-300">
+        사진이 선택되지 않았습니다.
+      </div>
+    {/if}
   </div>
 {/if}
