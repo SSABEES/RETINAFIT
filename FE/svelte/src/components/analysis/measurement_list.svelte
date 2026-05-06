@@ -11,6 +11,7 @@
    *   onselect?: ((item_id: string) => void) | undefined,
    *   onclear?: ((item_id: string) => void) | undefined,
    *   view_label?: string,
+   *   show_clear?: boolean,
    * }}
    */
   let {
@@ -19,6 +20,7 @@
     onselect = undefined,
     onclear = undefined,
     view_label = '',
+    show_clear = true,
   } = $props()
 
   /**
@@ -116,7 +118,7 @@
             >
               {item.source === 'auto' ? '자동' : '수동'}
             </span>
-            {#if has_value}
+            {#if has_value && show_clear}
               <button
                 class="grid h-6 w-6 flex-none cursor-pointer place-items-center rounded-full border-0 bg-transparent text-slate-500 transition hover:bg-red-100 hover:text-red-700"
                 type="button"

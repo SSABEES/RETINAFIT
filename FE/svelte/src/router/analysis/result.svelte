@@ -58,6 +58,67 @@
   ])
   let g_active_tab = $state(/** @type {TabId} */ ('overview'))
 
+  // 좌우 스와이프로 탭 전환 — touch + mouse drag 모두 지원.
+  // diff < 0 (왼쪽으로 끌기) → 다음 탭, diff > 0 (오른쪽으로 끌기) → 이전 탭.
+  const SWIPE_THRESHOLD_PX = 60
+  let g_swipe_start_x = /** @type {number | null} */ (null)
+  let g_swipe_start_y = /** @type {number | null} */ (null)
+
+  /**
+   * 활성 탭을 delta(+1: 다음, -1: 이전) 만큼 이동. 양 끝에서 멈춤.
+   * @param {number} delta
+   */
+  function shift_active_tab(delta) {
+    const local_current_idx = TAB_ARR.findIndex((local_tab) => local_tab.id === g_active_tab)
+    if (local_current_idx < 0) return
+    const local_next_idx = Math.max(0, Math.min(TAB_ARR.length - 1, local_current_idx + delta))
+    g_active_tab = TAB_ARR[local_next_idx].id
+  }
+
+  /** @param {TouchEvent} local_event */
+  function on_touchstart_swipe(local_event) {
+    const local_touch = local_event.touches[0]
+    if (!local_touch) return
+    g_swipe_start_x = local_touch.clientX
+    g_swipe_start_y = local_touch.clientY
+  }
+
+  /** @param {TouchEvent} local_event */
+  function on_touchend_swipe(local_event) {
+    if (g_swipe_start_x === null || g_swipe_start_y === null) return
+    const local_touch = local_event.changedTouches[0]
+    if (!local_touch) return
+    const local_dx = local_touch.clientX - g_swipe_start_x
+    const local_dy = local_touch.clientY - g_swipe_start_y
+    g_swipe_start_x = null
+    g_swipe_start_y = null
+    // 세로 움직임이 더 크면 스크롤 의도 — 무시.
+    if (Math.abs(local_dy) > Math.abs(local_dx)) return
+    if (Math.abs(local_dx) < SWIPE_THRESHOLD_PX) return
+    shift_active_tab(local_dx < 0 ? 1 : -1)
+  }
+
+  /** @param {PointerEvent} local_event */
+  function on_pointerdown_swipe(local_event) {
+    // 터치는 touchstart 가 먼저 처리하므로 mouse 만 추적.
+    if (local_event.pointerType !== 'mouse') return
+    g_swipe_start_x = local_event.clientX
+    g_swipe_start_y = local_event.clientY
+  }
+
+  /** @param {PointerEvent} local_event */
+  function on_pointerup_swipe(local_event) {
+    if (local_event.pointerType !== 'mouse') return
+    if (g_swipe_start_x === null || g_swipe_start_y === null) return
+    const local_dx = local_event.clientX - g_swipe_start_x
+    const local_dy = local_event.clientY - g_swipe_start_y
+    g_swipe_start_x = null
+    g_swipe_start_y = null
+    if (Math.abs(local_dy) > Math.abs(local_dx)) return
+    if (Math.abs(local_dx) < SWIPE_THRESHOLD_PX) return
+    shift_active_tab(local_dx < 0 ? 1 : -1)
+  }
+
   // 비회원(cust_no = 0) 으로 진입한 경우에만 고객정보등록 버튼을 노출한다.
   const g_is_guest_visit = $derived(Number($selected_customer_obj?.id) === 0)
 
@@ -491,8 +552,17 @@
     </nav>
   </div>
 
-  <!-- 활성 탭 컨텐츠 — 탭 내부에서만 세로 스크롤. main 의 회색 bg 를 그대로 상속. -->
-  <section class="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-4">
+  <!--
+    활성 탭 컨텐츠 — 탭 내부에서만 세로 스크롤. main 의 회색 bg 를 그대로 상속.
+    좌우 스와이프(터치 + 마우스 드래그) 로 탭 전환.
+  -->
+  <section
+    class="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-4 touch-pan-y"
+    ontouchstart={on_touchstart_swipe}
+    ontouchend={on_touchend_swipe}
+    onpointerdown={on_pointerdown_swipe}
+    onpointerup={on_pointerup_swipe}
+  >
     <div class="mx-auto flex w-full max-w-[940px] flex-col gap-3">
       {#if g_active_tab === 'overview'}
         <!-- 1. 고객 정보 -->
@@ -610,6 +680,7 @@
                   view_label="정면 (미착용)"
                   onselect={on_select_measurement}
                   onclear={on_clear_measurement}
+                  show_clear={false}
                 />
               </div>
             </div>
