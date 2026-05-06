@@ -29,10 +29,28 @@
   function on_click_close() {
     onclose?.()
   }
+
+  // .app-frame 에 걸린 transform: scale 이 fixed 자식의 containing block 을 viewport 가 아닌
+  // 프레임(1024×768)으로 만들어 버려, 그대로 두면 모달 backdrop 이 프레임 안쪽까지만 덮인다.
+  // 이를 우회하기 위해 모달 노드를 document.body 직속으로 이동시킨다.
+  function portal_to_body(node) {
+    document.body.appendChild(node)
+    return {
+      destroy() {
+        if (node.parentNode === document.body) {
+          document.body.removeChild(node)
+        }
+      },
+    }
+  }
 </script>
 
 {#if open}
-  <div class="fixed inset-0 z-50 grid place-items-center bg-black/45 px-5" role="presentation">
+  <div
+    use:portal_to_body
+    class="fixed inset-0 z-50 grid place-items-center bg-black/45 px-5"
+    role="presentation"
+  >
     <section
       class="relative w-full max-w-sm rounded-[14px] border border-slate-200 bg-white p-6 text-left shadow-[0_8px_20px_rgba(15,23,42,0.07)]"
       role="dialog"
