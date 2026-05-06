@@ -1,5 +1,6 @@
 <script>
   import { onDestroy, onMount } from 'svelte'
+  import { is_aruco_overlay_enabled } from '@/lib/measurements/aruco_debug_overlay.svelte.js'
 
   /**
    * @typedef {import('@/lib/stores/capture_session.svelte.js').Capture} Capture
@@ -108,6 +109,11 @@
   function mirror_x(x) {
     return capture ? capture.width - x : x
   }
+
+  // ArUco 디버그 오버레이 — 운영 UI 에선 기본 OFF. 콘솔에서 window.aruco_overlay(true) 로 켠다.
+  // is_aruco_overlay_enabled 는 $state 기반이라 자동 reactive 갱신.
+  const g_show_aruco_overlay = $derived(is_aruco_overlay_enabled())
+  const g_aruco_marker = $derived(capture?.marker ?? null)
 </script>
 
 {#if capture}
@@ -172,6 +178,25 @@
         />
         <circle cx={x1} cy={p1.y} r="5" fill="#F97316" stroke="white" stroke-width="1.5" />
         <circle cx={x2} cy={p2.y} r="5" fill="#F97316" stroke="white" stroke-width="1.5" />
+      {/if}
+
+      {#if g_show_aruco_overlay && g_aruco_marker}
+        <!-- 검출된 마커 corner 다각형 + ID/거리 라벨. 좌표는 unmirrored 이므로 mirror_x 로 변환. -->
+        <polygon
+          points={g_aruco_marker.corners.map((c) => `${mirror_x(c.x)},${c.y}`).join(' ')}
+          fill="rgba(0,200,83,0.15)"
+          stroke="#00c853"
+          stroke-width="3"
+        />
+        <text
+          x={mirror_x(g_aruco_marker.corners[0].x)}
+          y={g_aruco_marker.corners[0].y - 6}
+          fill="#00c853"
+          font-size="20"
+          font-weight="700"
+        >
+          ID {g_aruco_marker.id} z={g_aruco_marker.translation[2].toFixed(0)}mm
+        </text>
       {/if}
 
       {#if g_pending_first}
