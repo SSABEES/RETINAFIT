@@ -33,6 +33,7 @@
   )
   let g_search_request_id = 0
 
+  /** @param {string | null | undefined} test_dt */
   function get_analysis_status_obj(test_dt) {
     if (!test_dt) {
       return {
@@ -67,6 +68,11 @@
     }
   }
 
+  /**
+   * @param {string | null | undefined} primary_date
+   * @param {string | null | undefined} secondary_date
+   * @param {string | null | undefined} fallback_date
+   */
   function get_latest_visit_date(primary_date, secondary_date, fallback_date) {
     const local_primary_time = primary_date ? new Date(primary_date).getTime() : Number.NaN
     const local_secondary_time = secondary_date ? new Date(secondary_date).getTime() : Number.NaN
@@ -86,6 +92,7 @@
     return fallback_date ?? ''
   }
 
+  /** @param {string | number | Date | null | undefined} date_value */
   function format_visit_dt(date_value) {
     if (!date_value) {
       return '-'
@@ -100,6 +107,7 @@
     return local_date_obj.toLocaleDateString('ko-KR')
   }
 
+  /** @param {Record<string, any>} customer_obj */
   function get_visit_customer_payload(customer_obj) {
     return {
       cust_no: customer_obj.id,
@@ -111,8 +119,9 @@
     }
   }
 
+  /** @param {Array<Record<string, any>>} customer_arr */
   function normalize_customer_arr(customer_arr) {
-    return customer_arr.map((customer_obj, local_index) => ({
+    return customer_arr.map((/** @type {Record<string, any>} */ customer_obj, local_index) => ({
       id: Number(customer_obj.cust_no ?? customer_obj.CUST_NO ?? local_index + 1),
       name: String(customer_obj.cust_name ?? customer_obj.CUST_NAME ?? '고객'),
       phone: String(customer_obj.phone1 ?? customer_obj.PHONE1 ?? ''),
@@ -128,9 +137,10 @@
     }))
   }
 
+  /** @param {Array<Record<string, any>>} customer_arr */
   async function enrich_customer_arr_with_visit_status(customer_arr) {
     const local_customer_result_arr = await Promise.all(
-      customer_arr.map(async (customer_obj) => {
+      customer_arr.map(async (/** @type {Record<string, any>} */ customer_obj) => {
         try {
           const local_result_obj = await get_visit_list({
             cust_no: customer_obj.id,
@@ -171,6 +181,7 @@
   }
 
   // 얼굴분석 버튼을 클릭하면 매번 새 방문 정보를 생성한 뒤 분석 화면으로 이동한다.
+  /** @param {Record<string, any>} customer_obj */
   async function on_click_select_customer(customer_obj) {
     if (g_is_customer_select_loading) return
 
@@ -232,6 +243,7 @@
     }
   }
 
+  /** @param {string} local_phone */
   async function run_phone_search(local_phone) {
     if (!$selected_opt_store_obj?.opt_no) {
       push_error_toast('선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.')
@@ -284,6 +296,7 @@
     }
   }
 
+  /** @param {string} local_value */
   function on_change_keypad(local_value) {
     ref_search_phone = local_value.replace(/[^0-9]/g, '')
     g_has_searched = false
@@ -316,6 +329,7 @@
     navigate(PATH.visitSelect)
   }
 
+  /** @param {{ name: string, gender: string, birth_dt: string, phone1: string, phone2: string }} customer_obj */
   async function on_create_customer(customer_obj) {
     if (!$selected_opt_store_obj?.opt_no) {
       push_error_toast('선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.')
@@ -364,7 +378,7 @@
 </script>
 
 <main
-  class="app-frame-page grid min-h-full grid-rows-[auto_1fr] overflow-hidden bg-[var(--retina-surface)] text-[var(--retina-text)]"
+  class="app-frame-page grid min-h-full grid-rows-[1fr] overflow-clip [overflow-clip-margin:9999px] bg-[var(--retina-surface)] text-[var(--retina-text)]"
 >
   <Header onback={on_click_back} />
 
@@ -373,35 +387,42 @@
       class="grid min-h-0 grid-rows-[1fr_auto] gap-5 border-r border-[var(--retina-text-200)] px-8 pt-6 pb-6"
       aria-label="고객 조회 키패드 영역"
     >
-      <div class="w-full max-w-[30rem] self-start justify-self-center">
+      <div class="w-full max-w-[30rem] self-center justify-self-center">
         <Keypad value={ref_search_phone} onchange={on_change_keypad} />
       </div>
 
       <div class="grid w-full max-w-[30rem] justify-self-center gap-3">
         <button
-          class="flex w-full cursor-pointer items-center gap-2 rounded-lg border-0 bg-[var(--retina-bg-1)] px-4 py-3 text-left text-sm font-bold text-[var(--retina-text-800)] transition hover:bg-[var(--retina-primary-200)]/40 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
+          class="flex w-full cursor-pointer items-center gap-3 rounded-none border-0 bg-[var(--retina-primary-50)] px-4 py-1.5 text-left text-base font-bold text-[var(--retina-text-800)] transition hover:bg-[var(--retina-primary-200)]/40 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
           type="button"
           aria-pressed={ref_consent_agreed}
           onclick={on_click_toggle_consent}
         >
-          <CircleCheck
-            class={`flex-none transition ${
-              ref_consent_agreed
-                ? 'text-[var(--retina-primary-700)]'
-                : 'text-[var(--retina-text-300)]'
-            }`}
-            size={20}
-            strokeWidth={2}
-            aria-hidden="true"
-          />
-          <span>개인정보 수집 및 이용에 동의합니다.</span>
+          {#if ref_consent_agreed}
+            <img
+              src="/icons/circle-check-purple.png"
+              alt=""
+              class="h-7 w-7 flex-none"
+              width="28"
+              height="28"
+              aria-hidden="true"
+            />
+          {:else}
+            <CircleCheck
+              class="flex-none text-[var(--retina-text-300)] transition"
+              size={28}
+              strokeWidth={2}
+              aria-hidden="true"
+            />
+          {/if}
+          <span class="text-lg font-bold">개인정보 수집 및 이용에 동의합니다.</span>
         </button>
 
         <button
-          class={`min-h-16 w-full cursor-pointer rounded-xl border-0 text-2xl font-bold tracking-[0.3em] text-white transition disabled:cursor-not-allowed ${
+          class={`min-h-18 w-full cursor-pointer rounded-xl border-0 text-2xl leading-none font-bold tracking-[0.3em] text-white transition disabled:cursor-not-allowed ${
             is_search_active
-              ? 'bg-[var(--retina-primary-600)] hover:bg-[var(--retina-primary-700)]'
-              : 'bg-[var(--retina-primary-300)]/60 text-white/90'
+              ? 'bg-[var(--retina-primary-500)] hover:bg-[var(--retina-primary-600)]'
+              : 'bg-[#E3B68E]'
           }`}
           type="button"
           onclick={on_click_search_submit}
@@ -419,7 +440,7 @@
         → 카드 개수가 많아져도 섹션 밖으로 흘러넘치지 않고 내부 스크롤로 처리
     -->
     <section
-      class="flex min-h-0 flex-col bg-[var(--retina-text-100)] px-6 py-6"
+      class="app-bg-edge-extend-right app-bg-edge-extend-bottom flex min-h-0 flex-col bg-[var(--retina-bg-1)] px-6 py-6"
       aria-label="고객 조회 결과 영역"
     >
       {#if g_is_search_loading && ref_customer_arr.length === 0}
@@ -450,15 +471,15 @@
             class="h-[120px] w-[120px]"
             aria-hidden="true"
           />
-          <p class="m-0 text-sm font-bold text-[var(--retina-text-800)]">
+          <p class="m-0 text-2xl font-bold text-[var(--retina-text-800)]">
             ← <br />먼저 휴대폰 번호로 고객을 조회해주세요.
           </p>
         </div>
       {:else}
-        <div class="mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col gap-4 py-2">
+        <div class="mx-auto mt-10 flex min-h-0 w-full max-w-[520px] flex-1 flex-col gap-4 py-2">
           <div class="flex shrink-0 items-center justify-between">
             <p class="m-0 text-sm font-bold text-[var(--retina-text-500)]">
-              총 <span class="text-[var(--retina-text-700)]">{ref_customer_arr.length}명</span>
+              총 <span class="text-[var(--retina-primary-400)]">{ref_customer_arr.length}명</span>
             </p>
             <button
               class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--retina-primary-600)] bg-[var(--retina-surface)] px-3 py-1.5 text-sm font-bold text-[var(--retina-primary-600)] transition hover:bg-[var(--retina-bg-1)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"

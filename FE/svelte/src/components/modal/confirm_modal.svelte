@@ -33,6 +33,10 @@
   // .app-frame 에 걸린 transform: scale 이 fixed 자식의 containing block 을 viewport 가 아닌
   // 프레임(1024×768)으로 만들어 버려, 그대로 두면 모달 backdrop 이 프레임 안쪽까지만 덮인다.
   // 이를 우회하기 위해 모달 노드를 document.body 직속으로 이동시킨다.
+  /**
+   * @param {HTMLElement} node
+   * @returns {{ destroy: () => void }}
+   */
   function portal_to_body(node) {
     document.body.appendChild(node)
     return {

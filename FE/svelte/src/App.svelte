@@ -25,26 +25,8 @@
     if (local_bg) ref_shell_el.style.background = local_bg
   }
 
-  // 1024×768 베이스 레이아웃을 viewport 에 맞게 균일 스케일.
-  // 4개 대표 해상도 (1024×768 / 1280×800 / 1366×768 / 1920×1080) 에 일관되게 동작하도록
-  // 임계치 없이 항상 min(vw/1024, vh/768) 로 계산. scale < 1 도 허용해 작은 viewport 에선 축소.
-  // 추가로 header/step bar 가 .app-frame 좌우 빈 공간까지 visual 로 확장되도록
-  // pre-scale 좌표상 negative offset 을 CSS 변수(`--app-frame-edge-extend`) 로 노출.
-  function update_app_frame_scale() {
-    const local_w = window.innerWidth
-    const local_h = window.innerHeight
-    const local_scale = Math.min(local_w / 1024, local_h / 768)
-    document.documentElement.style.setProperty('--app-frame-scale', String(local_scale))
-
-    // 시각적 빈 공간 each side = (vw - 1024*scale) / 2
-    // pre-scale 환산 (header/stepbar 가 .app-frame 안에 있으므로 layout 좌표로 변환):
-    // (vw/scale - 1024) / 2
-    const local_edge_extend_px = Math.max(0, (local_w / local_scale - 1024) / 2)
-    document.documentElement.style.setProperty(
-      '--app-frame-edge-extend',
-      `${local_edge_extend_px}px`,
-    )
-  }
+  // 프레임 고정 해제 후 — frame 이 viewport 를 직접 채우므로 scale/edge-extend 계산은 불필요.
+  // (CSS 변수는 :root 에서 0px / 1 로 고정.)
 
   // onMount 콜백은 sync cleanup 함수만 반환 가능 — async 함수가 cleanup 을 Promise 로
   // 감싸 반환하면 타입 에러가 난다. 비동기 작업(Flutter 브리지 감지) 은 fire-and-forget IIFE 로
@@ -57,9 +39,6 @@
     local_observer.observe(ref_content_el, { childList: true })
     sync_shell_bg()
 
-    update_app_frame_scale()
-    window.addEventListener('resize', update_app_frame_scale)
-
     // Flutter WebView 환경에서만 모델 사전 다운로드 splash 노출. 일반 웹은 skip.
     void (async () => {
       const local_is_flutter = await wait_for_flutter_bridge(300, 100)
@@ -69,7 +48,6 @@
 
     return () => {
       local_observer.disconnect()
-      window.removeEventListener('resize', update_app_frame_scale)
     }
   })
 

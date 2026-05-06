@@ -14,6 +14,7 @@
 }
 
 :root {
+  --retina-primary-50: #fff3eb;
   --retina-primary-100: #ffd8c2;
   --retina-primary-200: #ffb48f;
   --retina-primary-300: #f98a4a;
@@ -41,15 +42,14 @@
   --retina-success-soft: #e8f5e9;
   --retina-measure-auto: #1f7a3a;
   --retina-measure-manual: #f56b00;
-  --retina-bg-1: #fff3eb;
+  --retina-bg-1: #FAFAFB;
   --retina-bg-2: #bcc2cc;
-  --app-frame-width: 1024px;
-  --app-frame-height: 768px;
   /*
-    1024×768 (4:3) 을 디자인 베이스로 두고, viewport 에 맞춰 JS 가 균일 scale 을 덮어써
-    UI 가 화면에 맞게 자연스럽게 떨어져 보이게 한다. 기본값은 1 (스케일 없음).
+    프레임 고정 해제 — frame 이 viewport 를 직접 채우므로 width/height/scale 변수는 더 이상 사용하지 않음.
+    edge-extend(-y) 변수는 0 으로 두어 기존 .app-edge-extend / .app-bg-edge-extend* 유틸리티가 no-op 동작.
   */
-  --app-frame-scale: 1;
+  --app-frame-edge-extend: 0px;
+  --app-frame-edge-extend-y: 0px;
 }
 
 * {
@@ -109,11 +109,18 @@ body {
   -ms-overflow-style: none;
 }
 
-button,
-input,
-textarea,
-select {
-  font: inherit;
+@layer base {
+  /*
+    네이티브 폼 요소가 OS 기본 폰트가 아니라 페이지 폰트를 따르게 한다.
+    @layer base 안에 두는 이유: Tailwind utilities (@layer utilities) 보다 낮은 우선순위라
+    `text-3xl` 같은 utility 로 자유롭게 덮어쓸 수 있다. unlayered 면 utility 가 다 무시된다.
+  */
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
 }
 
 a {
@@ -156,29 +163,16 @@ a {
 
 .app-frame {
   position: relative;
-  /* 항상 1024×768 고정 레이아웃. viewport 대응은 transform: scale 로만 처리. */
-  width: var(--app-frame-width);
-  height: var(--app-frame-height);
-  min-width: var(--app-frame-width);
-  min-height: var(--app-frame-height);
-  flex: none;
   /*
-    overflow visible — 자식의 .app-edge-extend (header/stepbar) 가 .app-frame 좌우 빈 공간까지
-    확장될 수 있게 한다. 페이지 컨텐츠 자체는 main 의 overflow-hidden 으로 클리핑되므로 안전.
+    프레임 고정 해제 — 1024×768 + transform:scale 대신 viewport 를 그대로 채운다.
+    width/height 100svh 로 shell 안에서 풀 사이즈로 렌더되며, 페이지 내부의
+    `.app-edge-extend` / `.app-bg-edge-extend*` 유틸리티는 --app-frame-edge-extend(-y)
+    값이 0 이라 자연스럽게 no-op 동작.
   */
+  width: 100%;
+  height: 100svh;
   overflow: visible;
-  /*
-    bg 는 .app-frame-shell 이 sync_shell_bg(App.svelte) 로 페이지 main 의 bg 에 맞춰주므로
-    여기서 별도 색을 깔면 main 의 .app-bg-edge-extend 확장 영역과 frame 1024px 경계에서
-    배경이 어긋나 세로 줄이 보인다. 항상 shell 색을 그대로 통과시킨다.
-  */
   background: transparent;
-  /*
-    --app-frame-scale 이 viewport 에 따라 동적으로 갱신되어 frame 전체가 균일 확대/축소된다.
-    1024×768 / 1280×800 / 1366×768 / 1920×1080 4개 대표 해상도에서 일관되게 동작.
-  */
-  transform: scale(var(--app-frame-scale));
-  transform-origin: center center;
 }
 
 /*
@@ -197,6 +191,22 @@ a {
 .app-bg-edge-extend {
   margin-left: calc(-1 * var(--app-frame-edge-extend, 0px));
   margin-right: calc(-1 * var(--app-frame-edge-extend, 0px));
+}
+
+/*
+  오른쪽 끝까지만 확장. 2-컬럼 레이아웃의 오른쪽 컬럼이 viewport 오른쪽 빈 공간까지 배경을
+  확장할 때 사용. 좌측은 건드리지 않아 왼쪽 컬럼 위로 깔리지 않는다.
+*/
+.app-bg-edge-extend-right {
+  margin-right: calc(-1 * var(--app-frame-edge-extend, 0px));
+}
+
+/*
+  아래쪽으로 확장. viewport 가 .app-frame 보다 세로로 클 때 frame 아래 빈 공간까지 배경을 채운다.
+  (App.svelte 가 갱신하는 --app-frame-edge-extend-y 사용)
+*/
+.app-bg-edge-extend-bottom {
+  margin-bottom: calc(-1 * var(--app-frame-edge-extend-y, 0px));
 }
 
 .app-frame-content {
