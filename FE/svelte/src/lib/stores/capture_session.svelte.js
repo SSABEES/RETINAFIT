@@ -428,7 +428,13 @@ export function set_item_points(item_id, points, source_view) {
   if (item.kind === 'angle') {
     const raw = vertical_signed_angle_deg(points[0], points[1], source_view)
     const head_pose = g_session.captures_obj[source_view]?.head_pose ?? null
-    const image_tilt = head_pose?.image_tilt_deg ?? null
+    // image_plane_tilt_deg 는 raw 카메라 좌표계 부호라 좌·우 측면에서 같은 머리 자세도 반대 부호로
+    // 나옴. vertical_signed_angle_deg 는 이미 좌측면 부호를 반전해 광학 표준 컨벤션(좌·우 일치)으로
+    // 맞추므로, 보정 입력값도 같은 컨벤션이 되도록 좌측면일 때 image_tilt 부호 반전.
+    const raw_image_tilt = head_pose?.image_tilt_deg ?? null
+    const image_tilt = raw_image_tilt !== null && source_view.startsWith('left_')
+      ? -raw_image_tilt
+      : raw_image_tilt
     item.points = points
     item.value_px = null
     item.value_mm = null

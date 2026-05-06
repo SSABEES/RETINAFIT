@@ -102,6 +102,11 @@ export function compute_measurement_points(landmarks, width, height) {
    * @returns {import('./face_types.js').Point2D}
    */
   const px = (idx) => ({ x: landmarks[idx].x * width, y: landmarks[idx].y * height })
+  // 단안 PD 의 코 정중선 점 — x 좌표는 nasion(168) 로 하되 y 좌표를 동공 y 와 같이 맞춰 측정선이
+  // 수평으로 보이게 한다. 광학 표준 단안 PD 는 수평 거리만 사용하므로 y 좌표를 옮겨도 수치 영향 없음.
+  const nose_midline_x = landmarks[168].x * width
+  const right_midline = { x: nose_midline_x, y: landmarks[right_pupil_idx].y * height }
+  const left_midline  = { x: nose_midline_x, y: landmarks[left_pupil_idx].y  * height }
   return {
     pd:              [px(left_pupil_idx),  px(right_pupil_idx)],
     face_width:      [px(234), px(454)],
@@ -109,8 +114,8 @@ export function compute_measurement_points(landmarks, width, height) {
     jaw_width:       [px(172), px(397)],
     forehead_width:  [px(67),  px(297)],
     cheekbone_width: [px(116), px(345)],
-    right_pd:        [px(168), px(right_pupil_idx)],
-    left_pd:         [px(left_pupil_idx),  px(168)],
+    right_pd:        [right_midline, px(right_pupil_idx)],
+    left_pd:         [px(left_pupil_idx), left_midline],
   }
 }
 
