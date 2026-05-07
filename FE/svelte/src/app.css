@@ -96,19 +96,24 @@ html {
   -moz-osx-font-smoothing: grayscale;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  /* viewport 밖으로 흘러나가는 .app-frame 자연 1024×768 박스를 body 까지 못 올라오게 차단. */
+  overflow: hidden;
+  height: 100svh;
 }
 
 body {
   min-width: 320px;
-  min-height: 100svh;
+  height: 100svh;
   margin: 0;
   background: #131928;
+  overflow: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
 #app {
-  min-height: 100svh;
+  height: 100svh;
+  overflow: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -159,37 +164,37 @@ a {
 
 .app-frame-shell {
   display: grid;
-  min-height: 100svh;
-  place-items: center;
-  overflow: auto;
-  background: radial-gradient(circle at 50% 0%, rgba(255, 138, 69, 0.2), transparent 34%), #131928;
+  height: 100svh;
+  /*
+    place-items: start center — frame 을 viewport 상단(세로 start) + 가로 중앙으로.
+    center 였다면 viewport 가 frame 보다 세로로 클 때 frame 이 중앙으로 밀려 fixed-position 헤더의
+    containing block(transform: scale 영향) 까지 같이 밀려 헤더 위에 빈 공간 노출.
+  */
+  place-items: start center;
+  overflow: hidden;
+  background: #131928;
 }
 
 .app-frame {
   position: relative;
-  /* 항상 1024×768 고정 레이아웃. viewport 대응은 transform: scale 로만 처리. */
+  /*
+    1024×768 디자인 베이스 + transform: scale 로 viewport 에 맞게 균일 축소.
+    viewport 가 1024×768 보다 작을 때 UI 전체가 비율 유지하며 줄어들어 컨텐츠가 안 튀어나간다.
+    overflow visible — 자식 .app-edge-extend (header/stepbar) 가 좌우 빈 공간까지 확장 가능.
+  */
   width: var(--app-frame-width);
   height: var(--app-frame-height);
   min-width: var(--app-frame-width);
   min-height: var(--app-frame-height);
   flex: none;
-  /*
-    overflow visible — 자식의 .app-edge-extend (header/stepbar) 가 .app-frame 좌우 빈 공간까지
-    확장될 수 있게 한다. 페이지 컨텐츠 자체는 main 의 overflow-hidden 으로 클리핑되므로 안전.
-  */
   overflow: visible;
-  /*
-    bg 는 .app-frame-shell 이 sync_shell_bg(App.svelte) 로 페이지 main 의 bg 에 맞춰주므로
-    여기서 별도 색을 깔면 main 의 .app-bg-edge-extend 확장 영역과 frame 1024px 경계에서
-    배경이 어긋나 세로 줄이 보인다. 항상 shell 색을 그대로 통과시킨다.
-  */
   background: transparent;
-  /*
-    --app-frame-scale 이 viewport 에 따라 동적으로 갱신되어 frame 전체가 균일 확대/축소된다.
-    1024×768 / 1280×800 / 1366×768 / 1920×1080 4개 대표 해상도에서 일관되게 동작.
-  */
   transform: scale(var(--app-frame-scale));
-  transform-origin: center center;
+  /*
+    transform-origin: top center — shell 의 place-items: start center 와 짝.
+    center origin 이면 scale 후 visual 위치가 다시 중앙으로 밀려 빈 공간이 다시 위에 생긴다.
+  */
+  transform-origin: top center;
 }
 
 /*

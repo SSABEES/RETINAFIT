@@ -18,6 +18,9 @@ export const PATH = {
   adminFace: '/admin/face',
   adminLens: '/admin/lens',
   adminGlass: '/admin/glass',
+  adminVisits: '/admin/visits',
+  /** @param {string | number} visit_no */
+  adminVisitDetail: (visit_no) => `/admin/visits/${String(visit_no)}`,
   /** @param {string | number} id */
   userMeasurement: (id) => `/dashboard/users/${String(id)}/measurement`,
   /** @param {string | number} id */
@@ -30,4 +33,5 @@ export const ROUTE_PATH = {
   userMeasurement: '/dashboard/users/:id/measurement',
   userRecords: '/dashboard/users/:id/records',
   userAnalysisHistory: '/dashboard/users/:id/analysis-history',
+  adminVisitDetail: '/admin/visits/:visit_no',
 }
