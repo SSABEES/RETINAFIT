@@ -10,6 +10,7 @@ import AnalysisArFittingPage from '@/router/analysis/arfitting.svelte'
 import AnalysisRealFittingPage from '@/router/analysis/real_fitting.svelte'
 import TestPage from '@/router/test.svelte'
 import UsersPage from '@/router/dashboard/users.svelte'
+import UserDetailPage from '@/router/dashboard/users/[id].svelte'
 import UserAnalysisHistoryPage from '@/router/dashboard/users/[id]/analysis_history.svelte'
 import UserMeasurementPage from '@/router/dashboard/users/[id]/measurement.svelte'
 import UserRecordsPage from '@/router/dashboard/users/[id]/records.svelte'
@@ -48,4 +49,6 @@ export const routes = [
   { path: ROUTE_PATH.userMeasurement, component: UserMeasurementPage },
   { path: ROUTE_PATH.userRecords, component: UserRecordsPage },
   { path: ROUTE_PATH.userAnalysisHistory, component: UserAnalysisHistoryPage },
+  // userDetail(:id) 은 sub path 들보다 매칭이 느슨하므로 마지막에 등록.
+  { path: ROUTE_PATH.userDetail, component: UserDetailPage },
 ]
