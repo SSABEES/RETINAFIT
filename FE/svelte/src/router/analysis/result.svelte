@@ -49,12 +49,13 @@
   let g_is_registering_customer = $state(false)
 
   // 리포트 페이지 탭 네비게이션 — 한 화면에 모든 섹션을 펼치는 대신 탭으로 분리해 페이지처럼 전환.
-  /** @typedef {'overview' | 'measurement' | 'lifestyle' | 'fitting' | 'insight'} TabId */
+  /** @typedef {'overview' | 'measurement' | 'lifestyle' | 'fitting' | 'real_fitting' | 'insight'} TabId */
   const TAB_ARR = /** @type {{ id: TabId, label: string }[]} */ ([
     { id: 'overview', label: '분석 요약' },
     { id: 'measurement', label: '측정 상세' },
     { id: 'lifestyle', label: '선택한 생활 패턴' },
     { id: 'fitting', label: 'AR 피팅' },
+    { id: 'real_fitting', label: '실제 착용 사진' },
     { id: 'insight', label: 'AI 인사이트' },
   ])
   let g_active_tab = $state(/** @type {TabId} */ ('overview'))
@@ -131,6 +132,12 @@
 
   // visit_obj.vp_json (AR 피팅 결과 — fitting_arr 포함)
   const g_vp_json = $derived(g_visit_obj?.vp_json ?? null)
+
+  // visit_obj.real_vp_json (실 착용 사진 세트 — sets[]: { front_url, left_url, right_url, ... })
+  const g_real_vp_set_arr = $derived.by(() => {
+    const local_sets = g_visit_obj?.real_vp_json?.sets
+    return Array.isArray(local_sets) ? local_sets : []
+  })
 
   // visit_obj.report_json (BE 가 생성하는 최종 인사이트)
   const g_report_json = $derived(g_visit_obj?.report_json ?? null)
@@ -812,6 +819,63 @@
                     <p class="m-0 truncate text-[16px] font-extrabold text-zinc-900">
                       {fitting_obj.model || '-'}
                     </p>
+                  </div>
+                </article>
+              {/each}
+            </div>
+          {/if}
+        </section>
+      {:else if g_active_tab === 'real_fitting'}
+        <!-- 실 착용 사진 세트 (정면 / 좌 / 우) -->
+        <section
+          class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm"
+        >
+          <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">실제 착용 사진</h2>
+
+          {#if g_real_vp_set_arr.length === 0}
+            <div class="mt-2 grid flex-1 place-items-center gap-3 rounded-[10px] bg-slate-50 py-8">
+              <Glasses size={40} class="text-slate-300" />
+              <p class="m-0 text-[14px] font-bold text-slate-400">
+                저장된 실제 착용 사진이 없습니다.
+              </p>
+            </div>
+          {:else}
+            <div class="mt-2 flex flex-col gap-3">
+              {#each g_real_vp_set_arr as set_obj, set_index (set_obj.set_no ?? set_index)}
+                {@const local_photo_arr = [
+                  { key: 'front', url: set_obj.front_url ?? '', label: '정면' },
+                  { key: 'left', url: set_obj.left_url ?? '', label: '좌측' },
+                  { key: 'right', url: set_obj.right_url ?? '', label: '우측' },
+                ]}
+                <article class="rounded-[12px] border border-slate-100 bg-slate-50 p-3">
+                  <header class="mb-2 flex items-center justify-between px-0.5">
+                    <span class="text-[13px] font-extrabold text-slate-700">
+                      세트 {set_obj.set_no ?? set_index + 1}
+                    </span>
+                  </header>
+                  <div class="grid grid-cols-3 gap-2.5">
+                    {#each local_photo_arr as photo_obj (photo_obj.key)}
+                      <div
+                        class="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-slate-200 bg-white"
+                      >
+                        {#if photo_obj.url}
+                          <img
+                            src={photo_obj.url}
+                            alt={`세트 ${set_obj.set_no ?? set_index + 1} ${photo_obj.label}`}
+                            class="h-full w-full object-cover"
+                          />
+                        {:else}
+                          <div class="grid h-full w-full place-items-center text-slate-300">
+                            <UserRound size={32} strokeWidth={1.7} />
+                          </div>
+                        {/if}
+                        <span
+                          class="absolute bottom-1 left-1 rounded-sm bg-black/55 px-1 py-0.5 text-[11px] font-extrabold text-white"
+                        >
+                          {photo_obj.label}
+                        </span>
+                      </div>
+                    {/each}
                   </div>
                 </article>
               {/each}

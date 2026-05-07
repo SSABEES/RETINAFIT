@@ -12,7 +12,7 @@
     { num: 1, label: '얼굴 분석' },
     { num: 2, label: '생활 패턴 분석' },
     { num: 3, label: 'AR 피팅' },
-    { num: 4, label: '실제 안경 피팅' },
+    { num: 4, label: '실제 안경 분석' },
   ]
 </script>
 
