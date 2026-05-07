@@ -15,6 +15,23 @@ export const PROFILE_CONSTANTS = Object.freeze({
 })
 
 /**
+ * pose_target → 목표 yaw (도). 6DRepNet360 yaw 부호 규약: 사용자 POV 기준 고개를
+ * 오른쪽으로 돌리면 yaw 증가 (+).
+ * - left_profile (좌측면 촬영) = 사용자 좌측 얼굴 노출 → 사용자가 고개 오른쪽으로 → +TARGET_DEG
+ * - right_profile (우측면 촬영) = 사용자 우측 얼굴 노출 → 사용자가 고개 왼쪽으로 → -TARGET_DEG
+ *
+ * 음성 안내 (turn_head_right_for_left_capture / turn_left_for_right_capture) 와 부호 일치.
+ *
+ * @param {string} pose_target - 'front' | 'left_profile' | 'right_profile'
+ * @returns {number} 목표 yaw (도). 'front' 은 0 (이 함수는 측면용이므로 보통 호출 안 됨).
+ */
+export function compute_target_deg(pose_target) {
+  if (pose_target === 'left_profile') return +PROFILE_CONSTANTS.TARGET_DEG
+  if (pose_target === 'right_profile') return -PROFILE_CONSTANTS.TARGET_DEG
+  return 0
+}
+
+/**
  * 배열의 표준편차. 빈 배열은 Infinity 반환 — holding 검사가 자동 실패하도록.
  * @param {number[]} arr
  * @returns {number}
@@ -81,10 +98,9 @@ export function compute_hint_text({ session_ready, last_yaw, target_deg, is_stab
 
   const distance = Math.abs(last_yaw - target_deg)
   if (distance >= PROFILE_CONSTANTS.TOLERANCE) {
-    // 음성 안내(turn_left_for_right_capture / turn_head_right_for_left_capture) 와 방향 일치.
-    // right_profile (target=+90) → 사용자는 고개를 왼쪽으로 돌려야 우측 면이 카메라에 노출됨.
-    // left_profile (target=-90) → 사용자는 고개를 오른쪽으로 돌려야 좌측 면이 카메라에 노출됨.
-    const direction = target_deg > 0 ? '왼쪽' : '오른쪽'
+    // compute_target_deg 의 부호 규약 기준 — left_profile (+90) 일 때 "오른쪽", right_profile (-90)
+    // 일 때 "왼쪽". 음성 안내 (turn_head_right_for_left_capture / turn_left_for_right_capture) 와 일치.
+    const direction = target_deg > 0 ? '오른쪽' : '왼쪽'
     return `고개를 ${direction}으로 더 돌려주세요`
   }
   if (is_stable) return '✓ 측정 중…'

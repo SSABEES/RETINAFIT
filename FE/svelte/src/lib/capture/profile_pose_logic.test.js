@@ -123,22 +123,24 @@ describe('compute_hint_text', () => {
     expect(text).toBeNull()
   })
 
-  it('right_profile + yaw 0 → 왼쪽 안내 (음성 turn_left_for_right_capture 와 일치)', () => {
+  it('right_profile (target -90) + yaw 0 → 왼쪽 안내', () => {
+    // compute_target_deg('right_profile') = -TARGET_DEG. 사용자가 고개 왼쪽으로 → yaw 감소.
     const text = compute_hint_text({
       session_ready: true,
       last_yaw: 0,
-      target_deg: +90,
+      target_deg: -90,
       is_stable: false,
       progress: 0,
     })
     expect(text).toBe('고개를 왼쪽으로 더 돌려주세요')
   })
 
-  it('left_profile + yaw 0 → 오른쪽 안내 (음성 turn_head_right_for_left_capture 와 일치)', () => {
+  it('left_profile (target +90) + yaw 0 → 오른쪽 안내', () => {
+    // compute_target_deg('left_profile') = +TARGET_DEG. 사용자가 고개 오른쪽으로 → yaw 증가.
     const text = compute_hint_text({
       session_ready: true,
       last_yaw: 0,
-      target_deg: -90,
+      target_deg: +90,
       is_stable: false,
       progress: 0,
     })
