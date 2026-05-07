@@ -336,13 +336,19 @@
       }
     }
 
+    // 영역을 벗어나면 안내 발사 플래그 해제 — 다시 영역 안으로 들어오면 face_recognition_in_progress
+    // 가 재생되도록. (한 step 내에서도 진입/이탈 반복 시마다 안내가 나오는 동작.)
+    if (!local_pose_ok && g_did_announce_in_progress) {
+      g_did_announce_in_progress = false
+    }
+
     if (next_audio_key) {
       void play_voice(next_audio_key)
       return
     }
 
     // 자세 OK + 아직 안내 미발사 — 정면/측면 모두 진행 중인 intro/start_capture 음성을 즉시 끊고
-    // face_recognition_in_progress 를 priority 'high' 로 preempt 재생. step 단위 1회.
+    // face_recognition_in_progress 를 priority 'high' 로 preempt 재생. 영역 진입할 때마다 1회.
     // 플래그는 await 전에 동기적으로 set — effect 가 매 프레임 재실행되며 stop_voice+play_voice 를
     // 반복 호출해 직전 재생을 끊어버리는 race 를 차단한다 (이전: played 후 set → 음성이 끝까지 안 들림).
     if (local_pose_ok && !g_did_announce_in_progress) {
