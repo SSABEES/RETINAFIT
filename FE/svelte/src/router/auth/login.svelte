@@ -114,7 +114,7 @@
 
     set_selected_opt_store(local_opt_store_obj, local_admin_arr)
     set_selected_admin(local_admin_arr[0])
-    navigate(PATH.opticianSelect)
+    navigate(PATH.visitSelect)
   }
 
   async function on_submit_login(local_event) {
@@ -281,7 +281,7 @@
         <span
           class={`grid h-7 w-7 place-items-center rounded-full transition ${
             ref_auto_login
-              ? 'bg-[var(--retina-primary-600)] text-[var(--retina-text-100)]'
+              ? 'bg-[var(--retina-primary-300)] text-[var(--retina-text-100)]'
               : 'bg-[var(--retina-bg-2)] text-[var(--retina-text-100)]/60'
           }`}
           aria-hidden="true"

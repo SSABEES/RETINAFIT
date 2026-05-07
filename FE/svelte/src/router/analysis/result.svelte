@@ -3,7 +3,6 @@
   import { navigate } from '@maks11060/svelte5-router'
   import { Glasses, UserRound, UserPlus } from 'lucide-svelte'
   import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
-  import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
   import { create_customer, search_customer } from '@/lib/api/customers'
   import { create_visit, get_visit, update_visit } from '@/lib/api/visit'
@@ -24,6 +23,7 @@
   import { MEASUREMENT_TEMPLATE } from '@/lib/measurements/template.js'
   import { pixel_distance } from '@/lib/measurements/measurement_utils.js'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
+  import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
   const FACE_SHAPE_LABEL_OBJ = {
     oval: '계란형',
     round: '둥근형',
@@ -57,6 +57,67 @@
     { id: 'insight', label: 'AI 인사이트' },
   ])
   let g_active_tab = $state(/** @type {TabId} */ ('overview'))
+
+  // 좌우 스와이프로 탭 전환 — touch + mouse drag 모두 지원.
+  // diff < 0 (왼쪽으로 끌기) → 다음 탭, diff > 0 (오른쪽으로 끌기) → 이전 탭.
+  const SWIPE_THRESHOLD_PX = 60
+  let g_swipe_start_x = /** @type {number | null} */ (null)
+  let g_swipe_start_y = /** @type {number | null} */ (null)
+
+  /**
+   * 활성 탭을 delta(+1: 다음, -1: 이전) 만큼 이동. 양 끝에서 멈춤.
+   * @param {number} delta
+   */
+  function shift_active_tab(delta) {
+    const local_current_idx = TAB_ARR.findIndex((local_tab) => local_tab.id === g_active_tab)
+    if (local_current_idx < 0) return
+    const local_next_idx = Math.max(0, Math.min(TAB_ARR.length - 1, local_current_idx + delta))
+    g_active_tab = TAB_ARR[local_next_idx].id
+  }
+
+  /** @param {TouchEvent} local_event */
+  function on_touchstart_swipe(local_event) {
+    const local_touch = local_event.touches[0]
+    if (!local_touch) return
+    g_swipe_start_x = local_touch.clientX
+    g_swipe_start_y = local_touch.clientY
+  }
+
+  /** @param {TouchEvent} local_event */
+  function on_touchend_swipe(local_event) {
+    if (g_swipe_start_x === null || g_swipe_start_y === null) return
+    const local_touch = local_event.changedTouches[0]
+    if (!local_touch) return
+    const local_dx = local_touch.clientX - g_swipe_start_x
+    const local_dy = local_touch.clientY - g_swipe_start_y
+    g_swipe_start_x = null
+    g_swipe_start_y = null
+    // 세로 움직임이 더 크면 스크롤 의도 — 무시.
+    if (Math.abs(local_dy) > Math.abs(local_dx)) return
+    if (Math.abs(local_dx) < SWIPE_THRESHOLD_PX) return
+    shift_active_tab(local_dx < 0 ? 1 : -1)
+  }
+
+  /** @param {PointerEvent} local_event */
+  function on_pointerdown_swipe(local_event) {
+    // 터치는 touchstart 가 먼저 처리하므로 mouse 만 추적.
+    if (local_event.pointerType !== 'mouse') return
+    g_swipe_start_x = local_event.clientX
+    g_swipe_start_y = local_event.clientY
+  }
+
+  /** @param {PointerEvent} local_event */
+  function on_pointerup_swipe(local_event) {
+    if (local_event.pointerType !== 'mouse') return
+    if (g_swipe_start_x === null || g_swipe_start_y === null) return
+    const local_dx = local_event.clientX - g_swipe_start_x
+    const local_dy = local_event.clientY - g_swipe_start_y
+    g_swipe_start_x = null
+    g_swipe_start_y = null
+    if (Math.abs(local_dy) > Math.abs(local_dx)) return
+    if (Math.abs(local_dx) < SWIPE_THRESHOLD_PX) return
+    shift_active_tab(local_dx < 0 ? 1 : -1)
+  }
 
   // 비회원(cust_no = 0) 으로 진입한 경우에만 고객정보등록 버튼을 노출한다.
   const g_is_guest_visit = $derived(Number($selected_customer_obj?.id) === 0)
@@ -483,14 +544,18 @@
   })
 </script>
 
-<main class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-zinc-950">
-  <Header />
+<AnalysisPageLayout
+  current_step={5}
+  bg_class="bg-[var(--retina-text-100)] text-zinc-950"
+  edge_extend_bg
+>
 
   <!--
     페이지 헤더: 제목 + 탭 네비. 한 화면에 모든 섹션을 펼치는 대신 탭 단위로 분리해
     각 영역을 페이지처럼 전환해서 본다. 탭바는 shrink-0 으로 고정.
+    .app-bg-edge-extend 로 좌우 viewport 끝까지 흰색 배경 확장.
   -->
-  <div class="shrink-0 border-b border-slate-200 bg-white px-6 pt-3">
+  <div class="app-bg-edge-extend shrink-0 border-b border-slate-200 bg-white px-6 pt-3">
     <h1 class="m-0 text-center text-[18px] font-extrabold tracking-[-0.02em] text-zinc-950">
       {g_customer_name_label}의 최종 분석 리포트
     </h1>
@@ -516,9 +581,18 @@
     </nav>
   </div>
 
-  <!-- 활성 탭 컨텐츠 — 탭 내부에서만 세로 스크롤. -->
+  <!--
+    활성 탭 컨텐츠 — 탭 내부에서만 세로 스크롤. main 의 회색 bg 를 그대로 상속.
+    좌우 스와이프(터치 + 마우스 드래그) 로 탭 전환.
+    a11y: aria-label 만으로도 <section> 이 implicit region role 을 가지므로 role="region" 은 중복.
+  -->
   <section
-    class="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--retina-text-100)] px-6 py-4"
+    class="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-4 touch-pan-y"
+    aria-label="리포트 컨텐츠 (좌우 스와이프로 탭 전환)"
+    ontouchstart={on_touchstart_swipe}
+    ontouchend={on_touchend_swipe}
+    onpointerdown={on_pointerdown_swipe}
+    onpointerup={on_pointerup_swipe}
   >
     <div class="mx-auto flex w-full max-w-[940px] flex-col gap-3">
       {#if g_active_tab === 'overview'}
@@ -637,6 +711,7 @@
                   view_label="정면 (미착용)"
                   onselect={on_select_measurement}
                   onclear={on_clear_measurement}
+                  show_clear={false}
                 />
               </div>
             </div>
@@ -754,8 +829,8 @@
     </div>
   </section>
 
-  <!-- 하단 액션바 — 어떤 탭에 있든 항상 노출. -->
-  <div class="shrink-0 border-t border-slate-200 bg-white px-6 py-3">
+  <!-- 하단 액션바 — 어떤 탭에 있든 항상 노출. .app-bg-edge-extend 로 좌우 viewport 끝까지 확장. -->
+  <div class="app-bg-edge-extend shrink-0 border-t border-slate-200 bg-white px-6 py-3">
     <div
       class={`mx-auto grid w-full max-w-[940px] gap-2 ${
         g_is_guest_visit ? 'grid-cols-3' : 'grid-cols-2'
@@ -795,4 +870,4 @@
   />
 
   <LoadingOverlay open={g_is_registering_customer} label="고객 정보 등록 중..." />
-</main>
+</AnalysisPageLayout>

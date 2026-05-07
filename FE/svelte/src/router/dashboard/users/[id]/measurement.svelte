@@ -46,8 +46,8 @@
     </Link>
   {/snippet}
 
-  <section class="px-8 py-8">
-    <div class="mx-auto max-w-[944px]">
+  <section class="app-bg-edge-extend flex min-h-full items-center bg-[#F7F8FA] px-8 py-8">
+    <div class="mx-auto w-full max-w-[944px]">
       <form class="grid gap-8" onsubmit={on_submit_measurement}>
         <section class="rounded-2xl border border-[#E8EAF0] bg-white px-8 py-8 text-left">
           <h1 class="m-0 inline-flex items-center gap-3 text-2xl font-extrabold text-zinc-950">
