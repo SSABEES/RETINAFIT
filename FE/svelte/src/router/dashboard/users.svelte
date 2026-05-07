@@ -426,10 +426,10 @@
 
   <div class="grid min-h-0 grid-cols-2">
     <section
-      class="flex min-h-0 flex-col items-center justify-center border-r border-[var(--retina-text-200)] px-8 pt-6 pb-6"
+      class="app-bg-edge-extend-left app-bg-edge-extend-bottom flex h-full min-h-0 flex-col items-center justify-center border-r border-[var(--retina-text-200)] px-8 pt-6 pb-6"
       aria-label="고객 조회 키패드 영역"
     >
-      <div class="flex max-w-[30rem] flex-col gap-4">
+      <div class="flex w-fit max-w-[30rem] flex-col items-center gap-4">
         <Keypad value={ref_search_phone} onchange={on_change_keypad} />
 
         <div class="grid w-full gap-3">
