@@ -26,27 +26,20 @@
   }
 
   // 1024×768 베이스 레이아웃을 viewport 에 맞게 균일 스케일.
-  // 4개 대표 해상도 (1024×768 / 1280×800 / 1366×768 / 1920×1080) 에 일관되게 동작하도록
-  // 임계치 없이 항상 min(vw/1024, vh/768) 로 계산. scale < 1 도 허용해 작은 viewport 에선 축소.
-  // 추가로 header/step bar 가 .app-frame 좌우 빈 공간까지 visual 로 확장되도록
-  // pre-scale 좌표상 negative offset 을 CSS 변수(`--app-frame-edge-extend`) 로 노출.
+  // scale = min(vw/1024, vh/768) — 작은 viewport 에선 축소, 큰 viewport 에선 확대.
+  // edge-extend 변수는 좌우/하단 viewport 끝까지 배경 확장에 쓰는 negative offset.
   function update_app_frame_scale() {
     const local_w = window.innerWidth
     const local_h = window.innerHeight
     const local_scale = Math.min(local_w / 1024, local_h / 768)
     document.documentElement.style.setProperty('--app-frame-scale', String(local_scale))
 
-    // 시각적 빈 공간 each side = (vw - 1024*scale) / 2
-    // pre-scale 환산 (header/stepbar 가 .app-frame 안에 있으므로 layout 좌표로 변환):
-    // (vw/scale - 1024) / 2
     const local_edge_extend_px = Math.max(0, (local_w / local_scale - 1024) / 2)
     document.documentElement.style.setProperty(
       '--app-frame-edge-extend',
       `${local_edge_extend_px}px`,
     )
 
-    // y 축도 동일 — vertical 빈 공간 each side = (vh - 768*scale) / 2 (pre-scale = (vh/scale - 768) / 2).
-    // negative margin-top/bottom 으로 컨텐츠 배경을 viewport 위/아래 끝까지 확장할 때 사용.
     const local_edge_extend_y_px = Math.max(0, (local_h / local_scale - 768) / 2)
     document.documentElement.style.setProperty(
       '--app-frame-edge-extend-y',

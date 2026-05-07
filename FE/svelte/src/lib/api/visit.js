@@ -1,5 +1,5 @@
 import { apiRequest } from '@/lib/api/client'
-import { get_session_auth_headers } from '@/lib/api/session_auth'
+import { get_admin_auth_headers, get_session_auth_headers } from '@/lib/api/session_auth'
 
 /**
  * 고객 방문 이력을 최신순으로 조회한다.
@@ -12,10 +12,33 @@ export const get_visit_list = ({ cust_no }) => {
 }
 
 /**
+ * (관리자) 전체 방문 데이터 조회.
+ * 응답: { total: number, visits: VisitObj[] }
+ * VisitObj 필드명은 phone_no1/phone_no2 (안경사용 visit 응답의 phone1/phone2 와 다름).
+ */
+export const get_admin_all_visits = () => {
+  return apiRequest('/api/v1/admin/visits', {
+    headers: get_admin_auth_headers(),
+  })
+}
+
+/**
  * 방문 단건 상세를 조회한다.
  * @param {{ visit_no: number | string }} param_obj
  */
 export const get_visit = ({ visit_no }) => {
+  return apiRequest(`/api/v1/visits/${visit_no}`, {
+    headers: get_session_auth_headers(),
+  })
+}
+
+/**
+ * (관리자 화면용) 방문 단건 상세를 세션 토큰(token / token-no) 으로 조회한다.
+ * BE /api/v1/visits/{visit_no} 가 admin 토큰이 아닌 안경사 세션 헤더(token, token-no)를 요구하므로
+ * sessionStorage 의 token / token_no 를 그대로 보낸다 (= get_visit 와 동일한 헤더, 별칭).
+ * @param {{ visit_no: number | string }} param_obj
+ */
+export const get_admin_visit = ({ visit_no }) => {
   return apiRequest(`/api/v1/visits/${visit_no}`, {
     headers: get_session_auth_headers(),
   })

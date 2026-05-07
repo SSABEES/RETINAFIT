@@ -81,7 +81,10 @@ export function compute_hint_text({ session_ready, last_yaw, target_deg, is_stab
 
   const distance = Math.abs(last_yaw - target_deg)
   if (distance >= PROFILE_CONSTANTS.TOLERANCE) {
-    const direction = target_deg > 0 ? '오른쪽' : '왼쪽'
+    // 음성 안내(turn_left_for_right_capture / turn_head_right_for_left_capture) 와 방향 일치.
+    // right_profile (target=+90) → 사용자는 고개를 왼쪽으로 돌려야 우측 면이 카메라에 노출됨.
+    // left_profile (target=-90) → 사용자는 고개를 오른쪽으로 돌려야 좌측 면이 카메라에 노출됨.
+    const direction = target_deg > 0 ? '왼쪽' : '오른쪽'
     return `고개를 ${direction}으로 더 돌려주세요`
   }
   if (is_stable) return '✓ 측정 중…'
