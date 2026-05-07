@@ -49,6 +49,9 @@ import com.example.virtualfitting.arcore.assets.ResolvedAsset
 import com.example.virtualfitting.arcore.contract.ErrorCode
 import com.example.virtualfitting.arcore.contract.VirtualFittingEvent
 import com.example.virtualfitting.arcore.contract.VirtualFittingRequest
+import com.example.virtualfitting.arcore.fitting.FaceCalibration
+import com.example.virtualfitting.arcore.fitting.measure
+import com.example.virtualfitting.arcore.fitting.withCalibration
 import com.example.virtualfitting.arcore.fitting.toPreset
 import com.example.virtualfitting.arcore.ui.StatusOverlay
 import com.google.android.filament.RenderableManager
@@ -69,7 +72,6 @@ import io.github.sceneview.math.Position
 import io.github.sceneview.math.Scale
 import io.github.sceneview.math.Transform
 import io.github.sceneview.math.toQuaternion
-import kotlin.math.sqrt
 import io.github.sceneview.node.ModelNode as ModelNodeImpl
 import io.github.sceneview.rememberEngine
 import io.github.sceneview.rememberMaterialLoader
@@ -77,19 +79,6 @@ import io.github.sceneview.rememberModelInstance
 import io.github.sceneview.rememberModelLoader
 
 private const val TAG = "FaceFittingScreen"
-
-/**
- * 얼굴 자동 스케일 비율. 안경 GLB 의 max extent 를 `FOREHEAD_LEFT <-> FOREHEAD_RIGHT` 거리의
- * 몇 배로 맞출지.
- *
- * - 1.0 = 이마 폭과 동일
- * - 1.1 = 이마 폭보다 10% 넓게 (실제 안경은 이마 폭보다 살짝 넓은 경우가 많음)
- * - 0.9 = 이마 폭보다 10% 좁게
- *
- * GLB 의 max extent 가 프레임 폭(X) 인지 템플 길이(Z) 인지에 따라 체감이 달라진다. 샘플 GLB
- * 에서 안경이 너무 넓어 보이면 줄이고, 좁아 보이면 늘린다.
- */
-private const val FACE_WIDTH_RATIO = 2.04f
 
 /**
  * yaw (좌우 회전각, degrees) 가 이 값을 넘으면 반대편 temple 을 hide.
@@ -219,6 +208,8 @@ fun FaceFittingScreen(
     // scaleToUnits 로 초기 계산된 scale 을 첫 프레임에 캡처. 이후 이를 baseline 으로 얼굴
     // 폭에 맞춰 multiplier 를 곱한다.
     var baseScale by remember { mutableStateOf<Scale?>(null) }
+    val calibration = remember { FaceCalibration() }
+    var appliedPostLock by remember { mutableStateOf(false) }
     // 디버그: 현재 yaw 와 temple 가시성을 status overlay 에 표시.
     var debugYawDeg by remember { mutableStateOf(0f) }
     var debugLeftVisible by remember { mutableStateOf(true) }
@@ -292,33 +283,30 @@ fun FaceFittingScreen(
                 val face = tracking.firstOrNull()
                 val node = glassesNode
                 if (face != null && node != null) {
-                    // 첫 프레임에 scaleToUnits 로 세팅된 baseline scale 캡처.
                     if (baseScale == null) baseScale = node.scale
 
-                    // 얼굴 폭 = 좌/우 이마 region 의 월드 공간 유클리드 거리 (meter).
-                    val leftPose = face.getRegionPose(
-                        AugmentedFace.RegionType.FOREHEAD_LEFT
-                    )
-                    val rightPose = face.getRegionPose(
-                        AugmentedFace.RegionType.FOREHEAD_RIGHT
-                    )
-                    val dx = leftPose.tx() - rightPose.tx()
-                    val dy = leftPose.ty() - rightPose.ty()
-                    val dz = leftPose.tz() - rightPose.tz()
-                    val faceWidth = sqrt(dx * dx + dy * dy + dz * dz)
+                    // 매 프레임 측정 — lock 전엔 누적, lock 후엔 no-op.
+                    val m = measure(face)
+                    calibration.submit(m, nowMs = System.currentTimeMillis())
 
-                    // baseline: scaleToUnits 로 glasses max extent 가 preset.scaleToUnits (meter).
-                    // 여기에 (faceWidth * FACE_WIDTH_RATIO / baselineExtent) 를 곱하면
-                    // glasses max extent 가 faceWidth * FACE_WIDTH_RATIO 로 맞춰진다.
-                    baseScale?.let { base ->
-                        val multiplier =
-                            (faceWidth * FACE_WIDTH_RATIO) / preset.scaleToUnits
-                        node.scale = base * multiplier
+                    // lock 시점에 한 번 calibrated preset 적용. 이후엔 ModelNode 의
+                    // scale/position 이 그 값을 유지하므로 매 프레임 재적용 불필요.
+                    val locked = calibration.locked
+                    val activeOffset = if (locked != null) {
+                        if (!appliedPostLock) {
+                            val calibrated = preset.withCalibration(locked)
+                            baseScale?.let { base ->
+                                node.scale = base * (calibrated.scaleToUnits / preset.scaleToUnits)
+                            }
+                            appliedPostLock = true
+                        }
+                        translation(preset.withCalibration(locked).localPosition) *
+                            rotation(preset.localRotation.toQuaternion())
+                    } else {
+                        localOffset
                     }
 
-                    // worldTransform = ... 를 직접 세팅하면 scale 이 덮어써지므로,
-                    // position/quaternion 만 반영한다.
-                    val composed = face.centerPose.transform * localOffset
+                    val composed = face.centerPose.transform * activeOffset
                     node.position = composed.position
                     node.quaternion = composed.toQuaternion()
                     node.isVisible = true
@@ -329,7 +317,6 @@ fun FaceFittingScreen(
                         val rm = engine.renderableManager
                         val leftVisible = yawDeg < TEMPLE_HIDE_YAW_DEG
                         val rightVisible = yawDeg > -TEMPLE_HIDE_YAW_DEG
-                        // 양수 yaw → 착용자 왼쪽으로 고개 돌림 → temple_left 가 머리 뒤로.
                         setEntityVisible(rm, templeEntities.left, leftVisible)
                         setEntityVisible(rm, templeEntities.right, rightVisible)
                         debugYawDeg = yawDeg
