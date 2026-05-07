@@ -23,6 +23,7 @@
   const PLACEHOLDER = '010 - 1234 - 5678'
 
   // 한 자리 숫자를 끝에 추가하고 onchange 로 알린다.
+  /** @param {string} digit */
   function on_click_digit(digit) {
     if (value.length >= MAX_LENGTH) return
     onchange?.(value + digit)
@@ -51,16 +52,16 @@
 <div class="flex w-full flex-col items-center gap-5">
   <!-- 표시 영역 -->
   <div class="w-full text-center">
-    <p class="mb-3 text-sm font-bold tracking-wide text-zinc-500">휴대폰 번호를 입력해주세요.</p>
-    <div class="flex items-end justify-center border-b-2 border-zinc-800 pb-2 min-h-[3rem]">
+    <p class="mb-1 text-2xl tracking-wide text-zinc-900">휴대폰 번호를 입력해주세요.</p>
+    <div class="flex items-end justify-center border-b-2 border-zinc-800 pb-2 min-h-[4.5rem]">
       {#if value.length === 0}
         <img
           src="/icons/Property 1=Default.png"
           alt={PLACEHOLDER}
-          class="h-8 w-auto"
+          class="h-12 w-auto"
         />
       {:else}
-        <span class="text-[2rem] font-bold tracking-[0.02em] text-zinc-900 leading-none">{g_formatted_value}</span>
+        <span class="text-[3rem] tracking-[0.02em] text-zinc-900 leading-none">{g_formatted_value}</span>
       {/if}
     </div>
   </div>

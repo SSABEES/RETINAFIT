@@ -17,6 +17,7 @@
   import {
     get_skin_tone_recommendation,
     get_frame_styles_for_face_shape,
+    get_chip_text_class,
   } from '@/lib/recommendations/frame_recommendations.js'
   import MeasureCanvas from '@/components/analysis/measure_canvas.svelte'
   import MeasurementList from '@/components/analysis/measurement_list.svelte'
@@ -594,106 +595,131 @@
     onpointerdown={on_pointerdown_swipe}
     onpointerup={on_pointerup_swipe}
   >
-    <div class="mx-auto flex w-full max-w-[940px] flex-col gap-3">
+    <div class="mx-auto flex min-h-full w-full max-w-[940px] flex-col gap-3">
       {#if g_active_tab === 'overview'}
         <!-- 1. 고객 정보 -->
-        <section class="rounded-[14px] border border-slate-200 bg-white px-5 py-4 shadow-sm">
-          <h2 class="m-0 text-[13px] font-extrabold text-zinc-900">고객 정보</h2>
-          <div class="mt-3 grid grid-cols-4 gap-3">
+        <section class="rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm">
+          <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">고객 정보</h2>
+          <div class="mt-2 grid grid-cols-4 gap-4">
             <div>
-              <p class="m-0 text-[10px] font-bold text-slate-400">고객명</p>
-              <p class="mt-0.5 text-[13px] font-extrabold text-zinc-900">{g_customer_name_label}</p>
+              <p class="m-0 text-[13px] font-bold text-slate-400">고객명</p>
+              <p class="mt-1 text-[18px] font-extrabold text-zinc-900">{g_customer_name_label}</p>
             </div>
             <div>
-              <p class="m-0 text-[10px] font-bold text-slate-400">연령</p>
-              <p class="mt-0.5 text-[13px] font-extrabold text-zinc-900">{g_customer_age_label}</p>
+              <p class="m-0 text-[13px] font-bold text-slate-400">연령</p>
+              <p class="mt-1 text-[18px] font-extrabold text-zinc-900">{g_customer_age_label}</p>
             </div>
             <div>
-              <p class="m-0 text-[10px] font-bold text-slate-400">연락처</p>
-              <p class="mt-0.5 text-[13px] font-extrabold text-zinc-900">{g_customer_phone}</p>
+              <p class="m-0 text-[13px] font-bold text-slate-400">연락처</p>
+              <p class="mt-1 text-[18px] font-extrabold text-zinc-900">{g_customer_phone}</p>
             </div>
             <div>
-              <p class="m-0 text-[10px] font-bold text-slate-400">방문일</p>
-              <p class="mt-0.5 text-[13px] font-extrabold text-zinc-900">{g_visit_dt_label}</p>
+              <p class="m-0 text-[13px] font-bold text-slate-400">방문일</p>
+              <p class="mt-1 text-[18px] font-extrabold text-zinc-900">{g_visit_dt_label}</p>
             </div>
           </div>
         </section>
 
-        <!-- 2. 얼굴 분석 결과 -->
-        <section class="rounded-[14px] border border-slate-200 bg-white px-5 py-4 shadow-sm">
-          <h2 class="m-0 text-[13px] font-extrabold text-zinc-900">얼굴 분석 결과</h2>
+        <!-- 2. 얼굴 분석 결과 — report.svelte 우측 패널과 동일한 구성 (얼굴형/피부톤 박스 → 추천 컬러 칩 → 추천 모양) -->
+        <section class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm">
+          <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">얼굴 분석 결과</h2>
 
-          <div class="mt-3 grid grid-cols-2 gap-2">
-            <div
-              class="rounded-[10px] border border-[#F3E2CC] bg-[var(--retina-bg-1)] px-3 py-2 text-center"
-            >
-              <p class="m-0 text-[11px] font-bold text-slate-700">얼굴형</p>
-              <p class="mt-1 text-[14px] font-extrabold text-[var(--retina-primary-400)]">
-                {g_face_shape_label}
-              </p>
-            </div>
-            <div class="rounded-[10px] border border-[#CFD7F7] bg-[#EEF2FF] px-3 py-2 text-center">
-              <p class="m-0 text-[11px] font-bold text-slate-700">피부톤</p>
-              <p class="mt-1 text-[13px] font-black leading-tight text-[#1660C7]">
-                {g_skin_tone_recommendation_obj.label}
-                <span class="block text-[10px] font-bold">
+          <article class="mt-2 flex min-h-0 flex-1 flex-col">
+            <div class="grid shrink-0 grid-cols-2 gap-3">
+              <div
+                class="flex flex-col justify-center rounded-[8px] border border-[#FFEDD5] bg-[#FFF7ED] px-3 py-2.5 text-center"
+              >
+                <p class="m-0 text-[12px] font-bold text-slate-700">얼굴형</p>
+                <p class="m-0 mt-1 text-[15px] text-[#F97316]">
+                  {g_face_shape_label}
+                </p>
+              </div>
+              <div
+                class="flex flex-col justify-center rounded-[8px] border border-[#D8E2FF] bg-[#EDF0FF] px-3 py-2.5 text-center"
+              >
+                <p class="m-0 text-[12px] font-bold text-slate-700">피부톤</p>
+                <p class="m-0 mt-1 text-[14px] leading-tight text-[#1660C7]">
+                  {g_skin_tone_recommendation_obj.label}
+                  <br />
                   {SKIN_TONE_DESCRIPTION_OBJ[g_skin_tone_recommendation_obj.key] ?? '중성 톤'}
-                </span>
-              </p>
-            </div>
-          </div>
-
-          <div class="mt-3 grid grid-cols-2 gap-3">
-            <div>
-              <h3 class="m-0 text-[11px] font-extrabold text-slate-700">추천 안경테 컬러</h3>
-              <div class="mt-1.5 grid grid-cols-2 gap-1.5">
-                {#each g_recommended_color_arr as color_obj (`${color_obj.label}-${color_obj.tone_class}`)}
-                  <div
-                    class="flex min-h-[36px] items-center gap-2 rounded-[8px] border border-slate-200 bg-white px-2.5"
-                  >
-                    <span class={`h-3 w-5 shrink-0 rounded-full ${color_obj.tone_class}`}></span>
-                    <span class="truncate text-[11px] font-bold text-slate-600"
-                      >{color_obj.label}</span
-                    >
-                  </div>
-                {/each}
+                </p>
               </div>
             </div>
 
-            <div>
-              <h3 class="m-0 text-[11px] font-extrabold text-slate-700">추천 안경테 모양</h3>
-              <div class="mt-1.5 grid grid-cols-3 gap-1.5">
-                {#each g_recommended_frame_arr as frame_obj (`${frame_obj.name}-${frame_obj.priority}`)}
-                  <div
-                    class={`flex min-h-[36px] items-center justify-center rounded-[8px] border px-2 text-center text-[11px] font-extrabold ${
-                      frame_obj.priority === 1
-                        ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)] text-[var(--retina-primary-400)]'
-                        : 'border-slate-200 bg-slate-50 text-slate-400'
-                    }`}
-                  >
-                    {frame_obj.name}
-                  </div>
-                {/each}
-              </div>
+            <div class="my-2 h-px shrink-0 bg-slate-200"></div>
+
+            <!-- 추천 컬러 / 추천 모양 같은 행에 배치. 모양은 1순위만 노출. -->
+            <div class="grid min-h-0 flex-1 grid-cols-2 gap-4">
+              <section class="flex min-h-0 flex-col">
+                <h3 class="m-0 shrink-0 text-center text-[13px] font-extrabold text-slate-800">
+                  추천 안경테 컬러
+                </h3>
+                <!--
+                  기본 4개 슬롯 (2×2) 고정 — 데이터가 없어도 그리드 자리는 예약되지만 chip 시각화는
+                  노출하지 않아 레이아웃은 일정하면서도 빈 chip 잔재가 안 보인다.
+                -->
+                <div class="mt-2 grid grid-cols-2 gap-2" style="grid-template-rows: repeat(2, 52px)">
+                  {#each Array.from({ length: 4 }) as _, color_index (color_index)}
+                    {@const local_color_obj = g_recommended_color_arr[color_index]}
+                    {#if local_color_obj}
+                      <div
+                        class={`flex items-center justify-center rounded-[10px] border border-black/5 px-3 py-2 text-center shadow-sm ${local_color_obj.gradient_class ?? local_color_obj.tone_class}`}
+                      >
+                        <p
+                          class={`m-0 text-[14px] font-black ${get_chip_text_class(local_color_obj)}`}
+                        >
+                          {local_color_obj.label}
+                        </p>
+                      </div>
+                    {:else}
+                      <div aria-hidden="true"></div>
+                    {/if}
+                  {/each}
+                </div>
+              </section>
+
+              <section class="flex min-h-0 flex-col">
+                <h3 class="m-0 shrink-0 text-center text-[13px] font-extrabold text-slate-800">
+                  추천 안경테 모양
+                </h3>
+                <div class="mt-2 grid grid-cols-2 gap-2" style="grid-template-rows: repeat(2, 52px)">
+                  {#each Array.from({ length: 4 }) as _, frame_index (frame_index)}
+                    {@const local_frame_obj = g_recommended_frame_arr.filter(
+                      (local_obj) => local_obj.priority === 1,
+                    )[frame_index]}
+                    {#if local_frame_obj}
+                      <div
+                        class="flex items-center justify-center rounded-[10px] border border-[#F97316] bg-white px-3 py-2 text-center shadow-sm"
+                      >
+                        <p class="m-0 text-[14px] font-black text-[#F97316]">
+                          {local_frame_obj.name}
+                        </p>
+                      </div>
+                    {:else}
+                      <div aria-hidden="true"></div>
+                    {/if}
+                  {/each}
+                </div>
+              </section>
             </div>
-          </div>
+          </article>
         </section>
       {:else if g_active_tab === 'measurement'}
         <!-- 얼굴 측정 상세 (사진 + 클릭으로 라인 표시) -->
-        <section class="rounded-[14px] border border-slate-200 bg-white px-5 py-4 shadow-sm">
-          <h2 class="m-0 text-[13px] font-extrabold text-zinc-900">얼굴 측정 상세</h2>
+        <section class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white px-7 py-1.5 shadow-sm">
+          <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">얼굴 측정 상세</h2>
 
           {#if g_visit_loading}
-            <p class="mt-3 text-[11px] font-semibold text-slate-400">측정 데이터 불러오는 중...</p>
+            <p class="mt-2 text-[14px] font-semibold text-slate-400">측정 데이터 불러오는 중...</p>
           {:else if !g_synthesized_capture}
-            <p class="mt-3 text-[11px] font-semibold text-slate-400">
+            <p class="mt-2 text-[14px] font-semibold text-slate-400">
               저장된 사진 또는 측정 좌표가 없습니다.
             </p>
           {:else}
-            <div class="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-4">
-              <div class="flex items-center justify-center">
+            <div class="mt-2 grid flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-4">
+              <div class="flex items-start justify-center">
                 <div
-                  class="flex aspect-[3/4] max-h-[320px] w-full max-w-[240px] overflow-hidden rounded-[10px] bg-slate-100 shadow-[0_6px_16px_rgba(15,23,42,0.06)]"
+                  class="flex aspect-[3/4] h-full max-h-[400px] w-full max-w-[300px] overflow-hidden rounded-[10px] bg-slate-100 shadow-[0_6px_16px_rgba(15,23,42,0.06)]"
                 >
                   <MeasureCanvas
                     capture={g_synthesized_capture}
@@ -719,25 +745,25 @@
         </section>
       {:else if g_active_tab === 'lifestyle'}
         <!-- 선택한 생활 패턴 -->
-        <section class="rounded-[14px] border border-slate-200 bg-white px-5 py-4 shadow-sm">
-          <h2 class="m-0 text-[13px] font-extrabold text-zinc-900">선택한 생활 패턴</h2>
+        <section class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm">
+          <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">선택한 생활 패턴</h2>
 
           {#if g_lens_selection_arr.length === 0}
-            <p class="mt-3 text-[11px] font-semibold text-slate-400">선택한 항목이 없습니다.</p>
+            <p class="mt-2 text-[14px] font-semibold text-slate-400">선택한 항목이 없습니다.</p>
           {:else}
-            <div class="mt-3 grid grid-cols-2 gap-2">
+            <div class="mt-2 grid grid-cols-2 gap-2">
               {#each g_lens_selection_arr as selection_obj, selection_index (selection_index)}
-                <div class="rounded-[10px] border border-slate-100 bg-slate-50 px-3 py-2">
-                  <p class="m-0 text-[11px] font-bold text-slate-500">
+                <div class="rounded-[10px] border border-slate-100 bg-slate-50 px-4 py-2">
+                  <p class="m-0 text-[14px] font-bold text-slate-500">
                     Q{selection_index + 1}. {selection_obj.question_text}
                   </p>
-                  <div class="mt-1.5 flex flex-wrap gap-1">
+                  <div class="mt-2.5 flex flex-wrap gap-1.5">
                     {#if selection_obj.label_arr.length === 0}
-                      <span class="text-[11px] font-semibold text-slate-400">-</span>
+                      <span class="text-[14px] font-semibold text-slate-400">-</span>
                     {:else}
                       {#each selection_obj.label_arr as label_text, label_index (`${selection_index}-${label_index}`)}
                         <span
-                          class="inline-flex items-center rounded-md border border-[var(--retina-primary-300)] bg-white px-2 py-0.5 text-[11px] font-bold text-[var(--retina-primary-400)]"
+                          class="inline-flex items-center rounded-md border border-[var(--retina-primary-300)] bg-white px-3 py-1 text-[14px] font-bold text-[var(--retina-primary-400)]"
                         >
                           {label_text}
                         </span>
@@ -751,21 +777,21 @@
         </section>
       {:else if g_active_tab === 'fitting'}
         <!-- AR 피팅 결과 -->
-        <section class="rounded-[14px] border border-slate-200 bg-white px-5 py-4 shadow-sm">
-          <h2 class="m-0 text-[13px] font-extrabold text-zinc-900">AR 피팅 결과</h2>
+        <section class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm">
+          <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">AR 피팅 결과</h2>
 
           {#if g_saved_fitting_arr.length === 0}
-            <div class="mt-3 grid place-items-center gap-2 rounded-[10px] bg-slate-50 py-8">
-              <Glasses size={28} class="text-slate-300" />
-              <p class="m-0 text-[11px] font-bold text-slate-400">저장된 피팅이 없습니다.</p>
+            <div class="mt-2 grid flex-1 place-items-center gap-3 rounded-[10px] bg-slate-50 py-8">
+              <Glasses size={40} class="text-slate-300" />
+              <p class="m-0 text-[14px] font-bold text-slate-400">저장된 피팅이 없습니다.</p>
             </div>
           {:else}
-            <div class="mt-3 grid grid-cols-3 gap-3">
+            <div class="mt-2 grid grid-cols-3 gap-3">
               {#each g_saved_fitting_arr as fitting_obj, fitting_index (fitting_index)}
                 {@const local_front_capture_obj = fitting_obj.capture_arr?.[0]}
-                <article class="rounded-[10px] border border-slate-100 bg-slate-50 p-2">
+                <article class="rounded-[12px] border border-slate-100 bg-slate-50 p-3">
                   <div
-                    class="relative aspect-[3/4] w-full overflow-hidden rounded-[8px] border border-slate-200 bg-white"
+                    class="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-slate-200 bg-white"
                   >
                     {#if local_front_capture_obj?.url}
                       <img
@@ -775,15 +801,15 @@
                       />
                     {:else}
                       <div class="grid h-full w-full place-items-center text-slate-300">
-                        <UserRound size={24} strokeWidth={1.7} />
+                        <UserRound size={32} strokeWidth={1.7} />
                       </div>
                     {/if}
                   </div>
-                  <div class="mt-1.5 flex flex-col">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <div class="mt-2.5 flex flex-col">
+                    <span class="text-[12px] font-bold uppercase tracking-wider text-slate-400">
                       {fitting_obj.brand || 'BRAND'}
                     </span>
-                    <p class="m-0 truncate text-[12px] font-extrabold text-zinc-900">
+                    <p class="m-0 truncate text-[16px] font-extrabold text-zinc-900">
                       {fitting_obj.model || '-'}
                     </p>
                   </div>
@@ -794,21 +820,21 @@
         </section>
       {:else if g_active_tab === 'insight'}
         <!-- AI 분석 인사이트 (탭바의 가장 오른쪽) -->
-        <section class="rounded-[14px] border border-slate-200 bg-white px-5 py-4 shadow-sm">
-          <h2 class="m-0 text-[13px] font-extrabold text-zinc-900">AI 분석 인사이트</h2>
+        <section class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm">
+          <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">AI 분석 인사이트</h2>
 
           {#if g_visit_loading}
-            <p class="mt-3 text-[11px] font-semibold text-slate-400">리포트 불러오는 중...</p>
+            <p class="mt-2 text-[14px] font-semibold text-slate-400">리포트 불러오는 중...</p>
           {:else if g_report_bullet_arr.length === 0}
-            <p class="mt-3 text-[11px] font-semibold text-slate-400">
+            <p class="mt-2 text-[14px] font-semibold text-slate-400">
               아직 생성된 인사이트가 없습니다.
             </p>
           {:else}
-            <ul class="mt-3 grid gap-2 text-[12px] leading-relaxed text-slate-700">
+            <ul class="mt-2 grid gap-2 text-[15px] leading-relaxed text-slate-700">
               {#each g_report_bullet_arr as bullet_text, bullet_index (bullet_index)}
-                <li class="flex gap-2">
+                <li class="flex gap-3">
                   <span
-                    class="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--retina-primary-300)]"
+                    class="mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--retina-primary-300)]"
                     aria-hidden="true"
                   ></span>
                   <span class="whitespace-pre-line">{bullet_text}</span>
@@ -818,7 +844,7 @@
           {/if}
         </section>
 
-        <p class="m-0 px-1 text-center text-[10px] font-medium leading-relaxed text-slate-400">
+        <p class="m-0 px-1 text-center text-[12px] font-medium leading-relaxed text-slate-400">
           본 리포트는 AI 기반 얼굴 분석 결과를 토대로 자동 생성되었으며, 참고용 추천 자료입니다.
           실제 시야·착용감·도수 등은 개인차가 있을 수 있으니
           <span class="font-bold text-[var(--retina-primary-400)]"
@@ -832,21 +858,21 @@
   <!-- 하단 액션바 — 어떤 탭에 있든 항상 노출. .app-bg-edge-extend 로 좌우 viewport 끝까지 확장. -->
   <div class="app-bg-edge-extend shrink-0 border-t border-slate-200 bg-white px-6 py-3">
     <div
-      class={`mx-auto grid w-full max-w-[940px] gap-2 ${
+      class={`mx-auto grid w-full max-w-[940px] gap-4 ${
         g_is_guest_visit ? 'grid-cols-3' : 'grid-cols-2'
       }`}
     >
       <button
         type="button"
         onclick={on_click_back}
-        class="grid min-h-[42px] cursor-pointer place-items-center rounded-[10px] border border-slate-300 bg-white text-[13px] font-extrabold text-slate-500 transition hover:border-slate-400 hover:text-slate-700"
+        class="grid h-[64px] cursor-pointer place-items-center rounded-lg border border-slate-300 bg-white text-[22px] text-[var(--retina-text-500)] transition hover:border-slate-400 hover:text-[var(--retina-text-700)]"
       >
         뒤로가기
       </button>
       <button
         type="button"
         onclick={on_click_go_main}
-        class="grid min-h-[42px] cursor-pointer place-items-center rounded-[10px] border-0 bg-[var(--retina-primary-300)] text-[13px] font-extrabold text-white shadow-sm transition hover:bg-[var(--retina-primary-400)]"
+        class="grid h-[64px] cursor-pointer place-items-center rounded-lg border-0 bg-[var(--retina-primary-300)] text-[26px] tracking-tight text-[var(--retina-surface)] shadow-sm transition hover:bg-[var(--retina-primary-400)]"
       >
         메인으로 이동
       </button>
@@ -854,9 +880,9 @@
         <button
           type="button"
           onclick={on_click_open_customer_create_modal}
-          class="inline-flex min-h-[42px] cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[var(--retina-primary-600)] bg-white text-[13px] font-extrabold text-[var(--retina-primary-600)] transition hover:bg-[var(--retina-bg-1)]"
+          class="inline-flex h-[64px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--retina-primary-600)] bg-white text-[22px] text-[var(--retina-primary-600)] transition hover:bg-[var(--retina-bg-1)]"
         >
-          <UserPlus size={16} strokeWidth={2.4} aria-hidden="true" />
+          <UserPlus size={22} strokeWidth={2.4} aria-hidden="true" />
           <span>고객정보등록하기</span>
         </button>
       {/if}

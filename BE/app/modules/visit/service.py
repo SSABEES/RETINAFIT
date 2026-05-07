@@ -47,6 +47,7 @@ async def search_customer(
     opt_no: int,
     token: str,
     token_no: str,
+    db: AsyncSession,
 ) -> list[CustomerSearchResponse]:
     """전화번호로 고객 검색 (외부 Retina API 중계)"""
     async with httpx.AsyncClient() as client:
@@ -78,18 +79,22 @@ async def search_customer(
     _check_external_error(data)
 
     customers = data.get("data", {}).get("out1", [])
-    return [
-        CustomerSearchResponse(
+
+    result = []
+    for c in customers:
+        visits = await repository.get_visits_by_cust(db, int(c["CUST_NO"]))
+
+        result.append(CustomerSearchResponse(
             cust_no=c["CUST_NO"],
             cust_name=c["CUST_NAME"],
             phone1=c["PHONE1"],
             phone2=c.get("PHONE2"),
             birthday=c["BIRTHDAY"],
             sex=int(c["SEX"]),
-        )
-        for c in customers
-    ]
-
+            has_face_analysis=any(v.test_json is not None for v in visits),
+            has_lifestyle=any(v.opt_recommend_json is not None for v in visits),
+        ))
+    return result
 
 # ─── 고객 등록 ────────────────────────────────────────────────
 
