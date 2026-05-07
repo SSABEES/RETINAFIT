@@ -100,7 +100,7 @@
 
   const g_recommended_color_arr = $derived(g_skin_tone_recommendation_obj.chip_arr.slice(0, 4))
   const g_recommended_frame_arr = $derived(
-    get_frame_styles_for_face_shape(g_face_shape_key).slice(0, 3),
+    get_frame_styles_for_face_shape(g_face_shape_key).slice(0, 6),
   )
 
   const g_photo_src = $derived(
@@ -322,14 +322,16 @@
               기본 4개 슬롯 (2×2) 고정 — 데이터가 없어도 그리드 자리는 예약되지만 chip 시각화는
               노출하지 않아 레이아웃은 일정하면서도 빈 chip 잔재가 안 보인다.
             -->
-            <div class="mt-2 grid grid-cols-2 gap-3" style="grid-template-rows: repeat(2, 64px)">
+            <div class="mt-2 grid grid-cols-2 gap-3" style="grid-template-rows: repeat(2, 52px)">
               {#each Array.from({ length: 4 }) as _, color_index (color_index)}
                 {@const local_color_obj = g_recommended_color_arr[color_index]}
                 {#if local_color_obj}
                   <div
                     class={`flex items-center justify-center rounded-[10px] border border-black/5 px-3 py-2 text-center shadow-sm ${local_color_obj.tone_class}`}
                   >
-                    <p class={`m-0 text-[14px] font-black ${get_chip_text_class(local_color_obj)}`}>
+                    <p
+                      class={`m-0 text-[14px] font-normal ${get_chip_text_class(local_color_obj)}`}
+                    >
                       {local_color_obj.label}
                     </p>
                   </div>
@@ -340,20 +342,16 @@
             </div>
           </section>
 
-          <div class="my-3 h-px shrink-0 bg-slate-200"></div>
+          <div class="my-5 h-px shrink-0 bg-slate-200"></div>
 
           <section class="flex min-h-0 flex-1 flex-col">
             <h2 class="m-0 shrink-0 text-center text-[13px] font-extrabold text-slate-800">
               추천 안경테 모양
             </h2>
-            <div class="mt-2 grid grid-cols-3 gap-2">
+            <div class="mt-2 grid grid-cols-3 gap-1.5 px-2">
               {#each g_recommended_frame_arr as frame_obj (`${frame_obj.name}-${frame_obj.priority}`)}
                 <div
-                  class={`flex items-center justify-center rounded-[6px] border bg-white px-3 py-1.5 text-center text-[15px] font-bold ${
-                    frame_obj.priority === 1
-                      ? 'border-[#F97316] text-[#F97316]'
-                      : 'border-slate-300 text-slate-500'
-                  }`}
+                  class="flex items-center justify-center rounded-[6px] border border-[#F97316] bg-white px-3 py-1 text-center text-[15px] font-bold text-[#F97316]"
                 >
                   {frame_obj.name}
                 </div>
