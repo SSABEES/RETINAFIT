@@ -216,3 +216,11 @@ async def update_visit(
         )
 
     return _convert_visit_urls(VisitResponse.model_validate(visit))
+
+async def get_all_visits(db: AsyncSession) -> dict:
+    """전체 방문 조회 (관리자용)"""
+    visits = await repository.get_all_visits(db)
+    return {
+        "total": len(visits),
+        "visits": [_convert_visit_urls(VisitResponse.model_validate(v)) for v in visits],
+    }
