@@ -63,6 +63,20 @@ export async function request_test_presigned_urls(visit_no, type) {
 }
 
 /**
+ * 실 착용(real-wearing) 사진 presigned PUT URL 묶음을 발급받는다.
+ * 한 번 호출 = 한 세트(front/left/right 3슬롯)분. 여러 세트면 세트 수만큼 호출.
+ *
+ * @param {number | string} visit_no
+ * @returns {Promise<{ front_url: string, left_url: string, right_url: string, front_key: string, left_key: string, right_key: string }>}
+ */
+export async function request_real_wearing_presigned_urls(visit_no) {
+  return apiRequest(`/api/v1/visits/${visit_no}/files/real-wearing-photos`, {
+    method: 'POST',
+    headers: get_session_auth_headers(),
+  })
+}
+
+/**
  * Blob 을 presigned URL 로 직접 PUT 한다 (FE → S3 직접 통신).
  * BE 를 거치지 않으므로 BE 대역폭/메모리 부담 없음.
  * Content-Type 은 blob.type 우선, 없으면 image/jpeg 로 강제 지정한다.

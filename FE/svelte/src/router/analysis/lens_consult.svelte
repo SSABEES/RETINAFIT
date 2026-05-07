@@ -281,7 +281,7 @@
 </script>
 
 <AnalysisPageLayout
-  current_step={3}
+  current_step={2}
   bg_class="bg-[var(--retina-text-100)] text-zinc-950"
   edge_extend_bg
 >
