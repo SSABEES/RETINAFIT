@@ -32,11 +32,11 @@
   }
 
   function on_input_store_id(local_event) {
-    ref_store_id = get_input_value(local_event)
+    ref_store_id = get_input_value(local_event).replace(/\s/g, '')
   }
 
   function on_input_password(local_event) {
-    ref_password = get_input_value(local_event)
+    ref_password = get_input_value(local_event).replace(/\s/g, '')
   }
 
   function on_change_auto_login(local_event) {
