@@ -53,7 +53,7 @@
   const TAB_ARR = /** @type {{ id: TabId, label: string }[]} */ ([
     { id: 'overview', label: '분석 요약' },
     { id: 'measurement', label: '측정 상세' },
-    { id: 'lifestyle', label: '선택한 생활 패턴' },
+    { id: 'lifestyle', label: '생활 패턴' },
     { id: 'fitting', label: 'AR 피팅' },
     { id: 'real_fitting', label: '실제 착용 사진' },
     { id: 'insight', label: 'AI 인사이트' },
@@ -750,9 +750,9 @@
           {/if}
         </section>
       {:else if g_active_tab === 'lifestyle'}
-        <!-- 선택한 생활 패턴 -->
+        <!-- 생활 패턴 -->
         <section class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm">
-          <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">선택한 생활 패턴</h2>
+          <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">생활 패턴</h2>
 
           {#if g_lens_selection_arr.length === 0}
             <p class="mt-2 text-[14px] font-semibold text-slate-400">선택한 항목이 없습니다.</p>
