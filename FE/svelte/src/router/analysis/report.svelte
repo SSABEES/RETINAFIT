@@ -268,9 +268,12 @@
         {g_customer_name}의 얼굴 분석 결과
       </h1>
 
-      <div class="mx-auto mt-2 grid min-h-0 h-full w-full max-w-[820px] grid-cols-2 gap-5 px-1">
-        <!-- 왼쪽: 촬영 사진 — grid stretch 로 오른쪽 카드와 동일 높이 -->
-        <div class="min-h-0 overflow-hidden rounded-[14px] bg-slate-100 shadow-sm">
+      <div
+        class="mx-auto mt-2 grid w-fit px-1"
+        style="grid-template-columns: 360px 300px; gap: 40px;"
+      >
+        <!-- 왼쪽: 촬영 사진 — 카메라와 동일한 3:4 비율, max-w-[360px] -->
+        <div class="aspect-[3/4] w-[360px] overflow-hidden rounded-[14px] bg-slate-100 shadow-sm">
           {#if g_photo_src}
             <img
               class="h-full w-full object-cover"
@@ -291,13 +294,13 @@
           <div class="grid shrink-0 grid-cols-2 gap-3">
             <div class="rounded-[8px] border border-[#FFEDD5] bg-[#FFF7ED] px-3 py-2 text-center">
               <p class="m-0 text-[12px] font-bold text-slate-700">얼굴형</p>
-              <p class="m-0 mt-1 text-[15px] text-[#F97316]">
+              <p class="m-0 mt-1 text-[13px] font-bold text-[#F97316]">
                 {g_face_shape_label}
               </p>
             </div>
             <div class="rounded-[8px] border border-[#D8E2FF] bg-[#EDF0FF] px-3 py-2 text-center">
               <p class="m-0 text-[12px] font-bold text-slate-700">피부톤</p>
-              <p class="m-0 mt-1 text-[14px] leading-tight text-[#1660C7]">
+              <p class="m-0 mt-1 text-[13px] font-bold leading-tight text-[#1660C7]">
                 {g_skin_tone_recommendation_obj.label}
                 <br />
                 {SKIN_TONE_DESCRIPTION_OBJ[g_skin_tone_recommendation_obj.key] ?? '중성 톤'}
@@ -309,18 +312,18 @@
 
           <section class="flex min-h-0 flex-1 flex-col">
             <h2 class="m-0 shrink-0 text-center text-[13px] font-extrabold text-slate-800">
-              추천 안경테 컬러
+              추천 컬러
             </h2>
             <!--
               기본 4개 슬롯 (2×2) 고정 — 데이터가 없어도 그리드 자리는 예약되지만 chip 시각화는
               노출하지 않아 레이아웃은 일정하면서도 빈 chip 잔재가 안 보인다.
             -->
-            <div class="mt-2 grid grid-cols-2 gap-2" style="grid-template-rows: repeat(2, 52px)">
+            <div class="mt-2 grid grid-cols-2 gap-3" style="grid-template-rows: repeat(2, 64px)">
               {#each Array.from({ length: 4 }) as _, color_index (color_index)}
                 {@const local_color_obj = g_recommended_color_arr[color_index]}
                 {#if local_color_obj}
                   <div
-                    class={`flex items-center justify-center rounded-[10px] border border-black/5 px-3 py-2 text-center shadow-sm ${local_color_obj.gradient_class ?? local_color_obj.tone_class}`}
+                    class={`flex items-center justify-center rounded-[10px] border border-black/5 px-3 py-2 text-center shadow-sm ${local_color_obj.tone_class}`}
                   >
                     <p class={`m-0 text-[14px] font-black ${get_chip_text_class(local_color_obj)}`}>
                       {local_color_obj.label}
@@ -342,7 +345,7 @@
             <div class="mt-2 grid grid-cols-3 gap-2">
               {#each g_recommended_frame_arr as frame_obj (`${frame_obj.name}-${frame_obj.priority}`)}
                 <div
-                  class={`flex items-center justify-center rounded-[12px] border bg-white px-3 py-3 text-center text-[15px] font-bold ${
+                  class={`flex items-center justify-center rounded-[6px] border bg-white px-3 py-1.5 text-center text-[15px] font-bold ${
                     frame_obj.priority === 1
                       ? 'border-[#F97316] text-[#F97316]'
                       : 'border-slate-300 text-slate-500'
