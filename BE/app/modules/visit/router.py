@@ -24,6 +24,7 @@ async def search_customer(
     phone_no: str,                              # Query parameter: ?phone_no=01012341234
     opt_no: int,                                # Query parameter: ?opt_no=190
     auth: dict = Depends(get_token),            # 헤더에서 token, token_no 추출
+    db: AsyncSession = Depends(get_db),
 ):
     """
     전화번호로 고객 검색 (외부 Retina API 중계)
@@ -35,6 +36,7 @@ async def search_customer(
         opt_no=opt_no,
         token=auth["token"],
         token_no=auth["token_no"],
+        db=db,
     )
 
 
