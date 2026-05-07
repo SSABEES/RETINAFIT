@@ -12,6 +12,7 @@
   const g_admin_page_arr = [
     { key: 'lens', label: '렌즈조건 설정', href: PATH.adminLens },
     { key: 'glass', label: '안경 정보', href: PATH.adminGlass },
+    { key: 'visits', label: '방문자 정보', href: PATH.adminVisits },
   ]
 
   let g_admin_page_dropdown_open = $state(false)

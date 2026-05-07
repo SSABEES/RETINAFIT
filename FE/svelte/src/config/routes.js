@@ -17,6 +17,8 @@ import BranchesPage from '@/router/dashboard/branches.svelte'
 import AdminLoginPage from '@/router/auth/admin/login.svelte'
 import AdminLensPage from '@/router/auth/admin/lens.svelte'
 import AdminGlassPage from '@/router/auth/admin/glass.svelte'
+import AdminVisitsPage from '@/router/auth/admin/visits.svelte'
+import AdminVisitDetailPage from '@/router/auth/admin/visit_detail.svelte'
 import { PATH, ROUTE_PATH } from '@/config/path'
 
 export const routes = [
@@ -39,6 +41,8 @@ export const routes = [
   { path: PATH.admin, component: AdminLensPage },
   { path: PATH.adminLens, component: AdminLensPage },
   { path: PATH.adminGlass, component: AdminGlassPage },
+  { path: PATH.adminVisits, component: AdminVisitsPage },
+  { path: ROUTE_PATH.adminVisitDetail, component: AdminVisitDetailPage },
   { path: ROUTE_PATH.userMeasurement, component: UserMeasurementPage },
   { path: ROUTE_PATH.userRecords, component: UserRecordsPage },
   { path: ROUTE_PATH.userAnalysisHistory, component: UserAnalysisHistoryPage },

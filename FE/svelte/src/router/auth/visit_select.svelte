@@ -132,11 +132,13 @@
     {/if}
 
     <!--
-      카드 행: 1024 프레임 안에 두 카드를 양 끝으로 밀어 가운데 gap 을 넓게.
-      카드 880px (440 × 2) + 양쪽 패딩 32px 씩 = 944px 사용 → 가운데 gap 80px.
-      gap 을 조절하려면 px-[N] 의 N 만 바꾸면 됨 (N 줄이면 gap ↑, 늘리면 gap ↓).
+      카드 두 장을 하나의 section 으로 묶어 viewport 가운데로 모은다.
+      justify-center + gap 으로 카드 사이만 일정 간격 유지하고, 양 옆은 자동 여백.
     -->
-    <div class="flex w-full justify-between px-[32px]">
+    <section
+      class="flex w-full flex-wrap justify-center gap-10 px-8"
+      aria-label="방문 유형 카드"
+    >
       <button
         class="group flex w-[440px] cursor-pointer flex-col items-center gap-10 rounded-[32px] bg-white px-8 py-16 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.10)] transition duration-150 ease-out hover:-translate-y-1 hover:shadow-[0_16px_36px_-12px_rgba(245,107,0,0.20)] active:translate-y-0 active:scale-[0.99] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-60"
         type="button"
@@ -181,6 +183,6 @@
           </span>
         </span>
       </button>
-    </div>
+    </section>
   </section>
 </main>

@@ -92,64 +92,64 @@
     .app-bg-edge-extend → 좌우 viewport 끝까지 bg 확장.
   -->
   <section
-    class="app-bg-edge-extend flex min-h-full items-center bg-[#F7F8FA] px-8 py-8"
+    class="app-bg-edge-extend flex min-h-full items-center bg-[#F7F8FA] px-6 py-2"
   >
     <div class="mx-auto w-full max-w-[944px]">
       <section
-        class="grid min-h-[194px] grid-cols-[1fr_auto] items-center gap-8 rounded-2xl border border-[#E8EAF0] bg-white px-8 py-7 text-left"
+        class="grid min-h-[80px] grid-cols-[1fr_auto] items-center gap-4 rounded-2xl border border-[#E8EAF0] bg-white px-5 py-2.5 text-left"
       >
         <div>
-          <h1 class="m-0 text-[42px] font-extrabold leading-tight text-zinc-950">
+          <h1 class="m-0 text-[20px] font-extrabold leading-tight text-zinc-950">
             {g_customer_obj.name}
           </h1>
 
           <div
-            class="mt-6 flex max-w-[640px] items-center gap-8 text-base font-semibold text-slate-600"
+            class="mt-1.5 flex max-w-[640px] items-center gap-4 text-[12px] font-semibold text-slate-600"
           >
-            <span class="inline-flex items-center gap-2 whitespace-nowrap">
-              <Phone size={20} strokeWidth={2.1} aria-hidden="true" />
+            <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <Phone size={13} strokeWidth={2.1} aria-hidden="true" />
               {g_customer_obj.phone}
             </span>
-            <span class="inline-flex items-center gap-2 whitespace-nowrap">
-              <UserRound size={20} strokeWidth={2.1} aria-hidden="true" />
+            <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <UserRound size={13} strokeWidth={2.1} aria-hidden="true" />
               {g_customer_obj.gender}
             </span>
-            <span class="inline-flex items-center gap-2 whitespace-nowrap">
-              <CalendarDays size={20} strokeWidth={2.1} aria-hidden="true" />
+            <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <CalendarDays size={13} strokeWidth={2.1} aria-hidden="true" />
               {g_customer_obj.birth_dt}
             </span>
           </div>
         </div>
 
-        <div class="grid justify-items-center gap-3">
-          <div class="grid min-h-24 min-w-[142px] place-items-center rounded-2xl bg-[#F1E4F2] px-7">
-            <p class="m-0 text-sm font-bold text-[#4B0055]">총 방문</p>
-            <p class="m-0 text-4xl font-extrabold text-[#4B0055]">{g_customer_obj.visit_count}회</p>
+        <div class="flex items-center gap-3">
+          <div class="grid min-h-12 min-w-[96px] place-items-center rounded-xl bg-[#F1E4F2] px-3 py-1">
+            <p class="m-0 text-[10px] font-bold text-[#4B0055]">총 방문</p>
+            <p class="m-0 text-base font-extrabold text-[#4B0055]">{g_customer_obj.visit_count}회</p>
           </div>
-          <p class="m-0 text-sm font-semibold text-slate-500">
-            최근 방문: {g_customer_obj.last_visit_dt}
+          <p class="m-0 text-[11px] font-semibold whitespace-nowrap text-slate-500">
+            최근: {g_customer_obj.last_visit_dt}
           </p>
         </div>
       </section>
 
       {#if g_is_analysis_completed}
         <section
-          class="mt-8 flex min-h-[108px] items-center justify-between gap-8 rounded-2xl bg-[#F3E8F5] px-7 py-6 text-left"
+          class="mt-2 flex min-h-[52px] items-center justify-between gap-4 rounded-xl bg-[#F3E8F5] px-4 py-2 text-left"
         >
-          <div class="flex items-center gap-4">
-            <div class="grid h-12 w-12 place-items-center rounded-full bg-[#4B0055] text-white">
-              <ScanFace size={25} strokeWidth={2.3} aria-hidden="true" />
+          <div class="flex items-center gap-2.5">
+            <div class="grid h-8 w-8 place-items-center rounded-full bg-[#4B0055] text-white">
+              <ScanFace size={16} strokeWidth={2.3} aria-hidden="true" />
             </div>
             <div>
-              <h2 class="m-0 text-xl font-extrabold text-[#4B0055]">얼굴형 분석 완료</h2>
-              <div class="mt-2 flex flex-wrap gap-2">
+              <h2 class="m-0 text-[13px] font-extrabold text-[#4B0055]">얼굴형 분석 완료</h2>
+              <div class="mt-0.5 flex flex-wrap gap-1">
                 <span
-                  class="rounded-full bg-white/70 px-3 py-1 text-sm font-extrabold text-[#6D1B7B]"
+                  class="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-extrabold text-[#6D1B7B]"
                 >
                   미분석
                 </span>
                 <span
-                  class="rounded-full bg-[#FFE7D4] px-3 py-1 text-sm font-extrabold text-[#C2410C]"
+                  class="rounded-full bg-[#FFE7D4] px-2 py-0.5 text-[10px] font-extrabold text-[#C2410C]"
                 >
                   미분석
                 </span>
@@ -158,35 +158,35 @@
           </div>
 
           <button
-            class="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border-0 bg-[#4B0055] px-7 text-base font-extrabold text-white transition hover:bg-[#65006F] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/30"
+            class="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border-0 bg-[#4B0055] px-4 text-[12px] font-extrabold text-white transition hover:bg-[#65006F] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#4B0055]/30"
             type="button"
           >
-            <Sparkles size={20} strokeWidth={2.5} aria-hidden="true" />
+            <Sparkles size={13} strokeWidth={2.5} aria-hidden="true" />
             <span>AR 피팅 시작</span>
           </button>
         </section>
       {/if}
 
-      <div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-3">
+      <div class="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
         {#each action_card_arr as action_obj (action_obj.title)}
           <Link
-            class="relative min-h-[206px] rounded-2xl border border-[#E8EAF0] bg-white px-8 py-8 text-left transition hover:border-[#DCC9E2] hover:shadow-md hover:shadow-slate-200/60 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#9A1BFF]/20"
+            class="relative min-h-[88px] rounded-xl border border-[#E8EAF0] bg-white px-4 py-3 text-left transition hover:border-[#DCC9E2] hover:shadow-md hover:shadow-slate-200/60 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[#9A1BFF]/20"
             href={action_obj.href}
           >
             {#if action_obj.status}
               <span
-                class="absolute right-5 top-5 rounded-full bg-[#DCFCE7] px-3 py-1 text-xs font-extrabold text-[#16A34A]"
+                class="absolute right-3 top-3 rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10px] font-extrabold text-[#16A34A]"
               >
                 {action_obj.status}
               </span>
             {/if}
 
-            <div class={`grid h-16 w-16 place-items-center rounded-xl ${action_obj.color_class}`}>
-              <action_obj.icon size={31} strokeWidth={2.2} aria-hidden="true" />
+            <div class={`grid h-9 w-9 place-items-center rounded-lg ${action_obj.color_class}`}>
+              <action_obj.icon size={18} strokeWidth={2.2} aria-hidden="true" />
             </div>
 
-            <h2 class="m-0 mt-5 text-2xl font-extrabold text-zinc-950">{action_obj.title}</h2>
-            <p class="m-0 mt-2 text-base font-semibold text-slate-500">
+            <h2 class="m-0 mt-1.5 text-[14px] font-extrabold text-zinc-950">{action_obj.title}</h2>
+            <p class="m-0 mt-0.5 text-[12px] font-semibold text-slate-500">
               {action_obj.description}
             </p>
           </Link>
