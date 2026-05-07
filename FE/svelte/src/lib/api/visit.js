@@ -12,6 +12,16 @@ export const get_visit_list = ({ cust_no }) => {
 }
 
 /**
+ * 안경원 전체 방문 목록을 조회한다 (관리자 페이지용).
+ * BE 가 페이지네이션 없이 전체 리스트를 반환한다는 가정. 필터는 FE 에서 처리.
+ */
+export const get_all_visits = () => {
+  return apiRequest('/api/v1/visits', {
+    headers: get_session_auth_headers(),
+  })
+}
+
+/**
  * 방문 단건 상세를 조회한다.
  * @param {{ visit_no: number | string }} param_obj
  */

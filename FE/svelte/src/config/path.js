@@ -18,6 +18,7 @@ export const PATH = {
   adminFace: '/admin/face',
   adminLens: '/admin/lens',
   adminGlass: '/admin/glass',
+  adminVisits: '/admin/visits',
   /** @param {string | number} id */
   userMeasurement: (id) => `/dashboard/users/${String(id)}/measurement`,
   /** @param {string | number} id */
