@@ -5,6 +5,7 @@ import VisitSelectPage from '@/router/auth/visit_select.svelte'
 import AnalysisPage from '@/router/analysis/index.svelte'
 import AnalysisResultPage from '@/router/analysis/result.svelte'
 import AnalysisReportPage from '@/router/analysis/report.svelte'
+import AnalysisFaceMeasurementPage from '@/components/analysis/face_measurement.svelte'
 import AnalysisLensConsultPage from '@/router/analysis/lens_consult.svelte'
 import AnalysisArFittingPage from '@/router/analysis/arfitting.svelte'
 import AnalysisRealFittingPage from '@/router/analysis/real_fitting.svelte'
@@ -30,6 +31,7 @@ export const routes = [
   { path: PATH.analysis, component: AnalysisPage },
   { path: PATH.analysisResult, component: AnalysisResultPage },
   { path: PATH.analysisReport, component: AnalysisReportPage },
+  { path: PATH.analysisFaceMeasurement, component: AnalysisFaceMeasurementPage },
   { path: PATH.analysisLensConsult, component: AnalysisLensConsultPage },
   { path: PATH.analysisLensConsultLegacy, component: AnalysisLensConsultPage },
   { path: PATH.analysisArFitting, component: AnalysisArFittingPage },
