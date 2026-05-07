@@ -555,7 +555,7 @@
 
   let g_guide_info = $derived(GUIDE_STEP_ARR[g_guide_step])
 
-  function _on_click_guide_open() {
+  function on_click_guide_open() {
     g_guide_step = 1
   }
   function on_click_guide_close() {
@@ -591,19 +591,47 @@
       >
         <!-- native AR 이 화면을 takeover 하므로 이 영역은 안내 placeholder 만 표시한다. -->
         <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-          <Glasses size={48} class="mb-3 text-white/40" />
-          <p class="text-[14px] font-bold leading-relaxed text-white/85">
-            {#if g_ar_unavailable}
+          <Glasses size={64} class="mb-4 text-white/40" />
+
+          {#if g_ar_unavailable}
+            <!-- AR 불가 기기: 가이드 버튼 숨기고 redirect 안내만 노출. -->
+            <p class="text-[20px] font-extrabold leading-relaxed text-white/90">
               해당 기기는 AR 피팅 사용이 불가합니다<br />
-              (Android 기기로 접속해주세요)
-            {:else if g_selected_id === null}
-              오른쪽 목록에서 안경을 선택하면 AR 피팅이 시작됩니다
-            {:else if g_flutter_launch_loading}
-              AR 피팅 화면을 여는 중...
-            {:else}
-              AR 화면에서 정면 → 좌측 → 우측 순서로 촬영해주세요
+              <span class="text-[16px] font-bold text-white/70">(Android 기기로 접속해주세요)</span>
+            </p>
+            <p
+              class="mt-5 max-w-[560px] text-[17px] font-semibold leading-relaxed text-[var(--retina-primary-200)]"
+            >
+              대신 우측 하단의 <span class="font-extrabold text-white">실제 착용 분석하기</span>
+              버튼으로 매장에서 직접 착용한 안경 사진을 <br> 촬영해 분석을 이어갈 수 있어요.
+            </p>
+          {:else}
+            <!-- AR 사용 가능(또는 확인 중): Glasses 아이콘 아래 가이드 버튼 표시. -->
+            <button
+              type="button"
+              onclick={on_click_guide_open}
+              aria-label="AR 피팅 사용 가이드 열기"
+              class="inline-flex cursor-pointer items-center gap-2.5 rounded-full border-2 border-[var(--retina-primary-300)] bg-white/10 px-7 py-3.5 text-[18px] font-extrabold text-white shadow-[0_8px_20px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:bg-[var(--retina-primary-300)] hover:text-white"
+            >
+              <span
+                class="grid h-7 w-7 place-items-center rounded-full bg-[var(--retina-primary-300)] text-[15px] font-black text-white"
+                aria-hidden="true"
+              >
+                ?
+              </span>
+              AR 피팅이 처음이신가요?
+            </button>
+
+            {#if g_ar_check_done && g_selected_id !== null}
+              <p class="mt-5 text-[18px] font-extrabold leading-relaxed text-white/90">
+                {#if g_flutter_launch_loading}
+                  AR 피팅 화면을 여는 중...
+                {:else}
+                  AR 화면에서 정면 → 좌측 → 우측 순서로 촬영해주세요
+                {/if}
+              </p>
             {/if}
-          </p>
+          {/if}
         </div>
       </div>
     </section>
@@ -622,14 +650,6 @@
       >
         <div class="mb-2 flex items-center justify-between">
           <h2 class="text-[11px] font-extrabold tracking-wide text-[#374151]">촬영 기록</h2>
-          <button
-            type="button"
-            onclick={_on_click_guide_open}
-            aria-label="사용 가이드"
-            class="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 text-[10px] font-black text-slate-400 transition-colors hover:border-[var(--retina-primary-200)] hover:text-[var(--retina-primary-300)]"
-          >
-            ?
-          </button>
         </div>
         <div class="grid grid-cols-3 gap-2 pr-1">
           {#each g_capture_slot_arr as slot, idx (idx)}

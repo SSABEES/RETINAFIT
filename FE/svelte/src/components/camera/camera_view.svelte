@@ -129,6 +129,15 @@
     Math.min(100, Math.round((g_stable_count / STABILITY_FRAMES) * 100)),
   )
 
+  // 정면 단계: 얼굴 검출 + 영역 내 + 정면 자세 일 때 "정면 영역 진입" 으로 간주.
+  // 좌측상단 게이지 + face_recognition_in_progress 음성 트리거 기준 (측면의 in-zone 과 의미 일치).
+  const g_front_in_zone = $derived(
+    pose_target === 'front' &&
+      g_face_detected &&
+      g_complete_obj.is_complete &&
+      !!g_frontal_obj?.is_frontal,
+  )
+
   // 정면 / 측면 모두 capture_mode==='auto' 일 때 자동 발사 활성화. pose_target 별 stable 계산은
   // 각 파이프라인이 담당하고, 통합 게이트(g_can_auto_fire) 가 분기.
   const g_is_auto_capture = $derived(capture_mode === 'auto')
@@ -159,25 +168,30 @@
       const distance = Math.abs(profile_pose.last_yaw - target_deg)
       // 영역 밖 — 더 돌려야 함 (정면의 "not frontal" 과 동일 의미)
       if (distance >= PROFILE_CONSTANTS.TOLERANCE) return 'rgba(255,193,7,0.85)'
-      // 영역 안 + 안정 도달 → 초록
-      if (profile_pose.is_stable) return 'rgba(0,230,118,0.9)'
-      // 영역 안 + 진행 중 → 노랑
-      return 'rgba(255,193,7,0.85)'
+      // 영역 안 진입 시점부터 즉시 초록 (인식 시작 시각화) — 안정화 완료 후에도 동일.
+      return 'rgba(0,230,118,0.9)'
     }
 
-    // 정면 — 기존 로직 그대로
+    // 정면 — 얼굴이 영역 안 + frontal 진입 시 즉시 초록(인식 시작 시각화), 안정화 완료 후에도 초록 유지.
     if (!g_face_detected) return 'rgba(200,200,200,0.5)'
     if (!g_complete_obj.is_complete) return 'rgba(244,67,54,0.85)'
     if (!g_frontal_obj?.is_frontal) return 'rgba(255,193,7,0.85)'
-    if (g_is_stable) return 'rgba(0,230,118,0.9)'
-    return 'rgba(255,193,7,0.85)'
+    return 'rgba(0,230,118,0.9)'
   })
 
   // 사용자에게 보여줄 힌트 문자열을 pose_target 과 상태에 따라 결정한다.
   const g_hint_text = $derived.by(() => {
     // 측면: composable 이 자체 hint 계산. null 이면 기본 가이드로 폴백.
+    // 영역 진입 이후 ('자세 유지 중 N%' 또는 '✓ 측정 중…') 는 게이지로 대체되므로 hint 숨김.
     if (pose_target !== 'front') {
-      return profile_pose.hint_text ?? '카메라 앞에 자세를 잡아주세요'
+      const local_hint = profile_pose.hint_text ?? '카메라 앞에 자세를 잡아주세요'
+      if (
+        local_hint.startsWith('자세 유지 중') ||
+        local_hint.startsWith('✓')
+      ) {
+        return ''
+      }
+      return local_hint
     }
 
     // 정면 — 기존 로직 그대로 (측면 분기는 위에서 이미 return 했으므로 여기서 pose_target='front' 로 narrowing 됨).
@@ -185,7 +199,8 @@
     if (!g_complete_obj.is_complete) return '얼굴 전체가 화면에 나오도록 해주세요'
     if (!g_frontal_obj) return '정면을 바라봐 주세요'
     if (g_frontal_obj.is_frontal) {
-      return g_is_stable ? '✓ 측정 중...' : `안정화 중 ${g_stability_progress}%`
+      // 정면 영역 진입 후엔 게이지가 진행률을 보여주므로 하단 hint 는 노출 X.
+      return ''
     }
     if (g_frontal_obj.reason === 'yaw') {
       return g_frontal_obj.yaw > 0 ? '고개를 오른쪽으로 돌려주세요' : '고개를 왼쪽으로 돌려주세요'
@@ -321,18 +336,26 @@
       }
     }
 
+    // 영역을 벗어나면 안내 발사 플래그 해제 — 다시 영역 안으로 들어오면 face_recognition_in_progress
+    // 가 재생되도록. (한 step 내에서도 진입/이탈 반복 시마다 안내가 나오는 동작.)
+    if (!local_pose_ok && g_did_announce_in_progress) {
+      g_did_announce_in_progress = false
+    }
+
     if (next_audio_key) {
       void play_voice(next_audio_key)
       return
     }
 
-    // 자세 OK + 아직 안정화 미달 — 사용자가 가만히 있어야 한다는 안내. step 단위 1회.
-    // intro/start_capture 등이 진행 중이면 play_voice 가 false 반환 — 이 effect 는 매 프레임 재실행
-    // 되므로 audio 가 풀리는 다음 frame 에 자연스럽게 재시도된다.
+    // 자세 OK + 아직 안내 미발사 — 정면/측면 모두 진행 중인 intro/start_capture 음성을 즉시 끊고
+    // face_recognition_in_progress 를 priority 'high' 로 preempt 재생. 영역 진입할 때마다 1회.
+    // 플래그는 await 전에 동기적으로 set — effect 가 매 프레임 재실행되며 stop_voice+play_voice 를
+    // 반복 호출해 직전 재생을 끊어버리는 race 를 차단한다 (이전: played 후 set → 음성이 끝까지 안 들림).
     if (local_pose_ok && !g_did_announce_in_progress) {
+      g_did_announce_in_progress = true
       void (async () => {
-        const played = await play_voice('face_recognition_in_progress')
-        if (played) g_did_announce_in_progress = true
+        stop_voice()
+        await play_voice('face_recognition_in_progress', { priority: 'high' })
       })()
     }
   })
@@ -429,18 +452,6 @@
   async function run_auto_capture_sequence() {
     const my_token = ++g_capture_sequence_token
 
-    // 정면/측면 공통 시퀀스: 안정화 도달 → face_recognition_complete → 셔터음+캡처 동시 발사.
-    // 셔터음은 await 하지 않는다 — "찰칵" 시작 시점에 사진이 캡처되어 썸네일에 즉시 반영되도록.
-    if (
-      my_token !== g_capture_sequence_token ||
-      !active ||
-      !g_is_auto_capture ||
-      g_already_dispatched
-    ) {
-      return
-    }
-    await play_voice('face_recognition_complete', { priority: 'high' })
-
     if (
       my_token !== g_capture_sequence_token ||
       !active ||
@@ -450,13 +461,32 @@
       return
     }
 
-    // 셔터음 fire-and-forget — 재생 시작과 동시에 아래 캡처가 진행되어 시청각 동기화.
-    void play_voice('camera_shutter_sound', { priority: 'high' })
+    // 정면/측면 공통 시퀀스 — "셔터음 → 캡처 → 인식 완료 음성" 을 한 세트로 보장한다.
+    // 직전 face_recognition_in_progress (priority high) 가 아직 재생 중이면 동등 priority 의 셔터음이
+    // play() 시점에 false 로 차단된다. 따라서 시퀀스 시작 직전에 stop_voice() 로 active 를 비워둔다.
+    // 각 음성은 끝까지 await — 어떤 음성도 스킵되지 않게 "동기 시퀀스" 화.
+    stop_voice()
 
-    // 측면은 MediaPipe 측정값 없음 → measurements_obj=null. capture_shell.on_capture 가 이미 null
-    // 허용 (현행 manual 측면 캡처도 동일 경로).
+    // 1) 셔터음 (await — 끝까지 들려야 함)
+    await play_voice('camera_shutter_sound', { priority: 'high' })
+
+    if (
+      my_token !== g_capture_sequence_token ||
+      !active ||
+      !g_is_auto_capture ||
+      g_already_dispatched
+    ) {
+      return
+    }
+
+    // 2) 캡처 — 측면은 MediaPipe 측정값 없음 → measurements_obj=null.
     const meas = pose_target === 'front' ? get_average() : null
     await trigger_capture_internal(meas)
+
+    if (my_token !== g_capture_sequence_token || !active || !g_is_auto_capture) return
+
+    // 3) 인식 완료 음성 (await — 끝까지 들려야 함)
+    await play_voice('face_recognition_complete', { priority: 'high' })
   }
 
   /**
@@ -1031,8 +1061,8 @@
     -->
     {#if pose_target !== 'front' && profile_pose.progress > 0 && !g_already_dispatched}
       <div
-        class="pointer-events-none absolute left-2.5 top-2.5 z-10 flex w-44 flex-col gap-1
-               rounded-lg border border-emerald-400/50 bg-black/65 px-3 py-2 text-[11px] backdrop-blur-sm"
+        class="pointer-events-none absolute bottom-3 left-1/2 z-10 flex w-56 -translate-x-1/2 flex-col gap-1
+               rounded-lg border border-emerald-400/50 bg-black/65 px-3 py-2 text-[12px] backdrop-blur-sm"
         aria-live="polite"
       >
         <div class="flex items-baseline justify-between text-emerald-300">
@@ -1048,7 +1078,30 @@
       </div>
     {/if}
 
-    {#if show_overlay && active}
+    <!--
+      정면 단계 진행률 게이지 — 측면과 동일 디자인. 정면 영역 진입(g_front_in_zone) 시점부터
+      face dimension std 기반 g_stability_progress 노출. dispatched 후엔 숨김. 위치는 하단 중앙.
+    -->
+    {#if pose_target === 'front' && g_front_in_zone && g_stability_progress > 0 && !g_already_dispatched}
+      <div
+        class="pointer-events-none absolute bottom-3 left-1/2 z-10 flex w-56 -translate-x-1/2 flex-col gap-1
+               rounded-lg border border-emerald-400/50 bg-black/65 px-3 py-2 text-[12px] backdrop-blur-sm"
+        aria-live="polite"
+      >
+        <div class="flex items-baseline justify-between text-emerald-300">
+          <span class="font-bold">정면 자세 유지 중</span>
+          <span class="tabular-nums">{g_stability_progress}%</span>
+        </div>
+        <div class="h-1.5 overflow-hidden rounded-sm bg-emerald-900/50">
+          <div
+            class="h-full bg-emerald-400 transition-[width] duration-100"
+            style="width: {g_stability_progress}%;"
+          ></div>
+        </div>
+      </div>
+    {/if}
+
+    {#if show_overlay && active && g_hint_text}
       <div class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2">
         <span
           class="inline-block whitespace-nowrap rounded-full border-[1.5px] px-4 py-2 text-sm font-bold backdrop-blur-sm"

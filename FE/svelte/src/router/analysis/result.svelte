@@ -16,8 +16,8 @@
   } from '@/lib/stores/customer'
   import {
     get_skin_tone_recommendation,
-    get_frame_styles_for_face_shape,
     get_chip_text_class,
+    SKIN_TONE_FRAME_COLOR_MAP,
   } from '@/lib/recommendations/frame_recommendations.js'
   import MeasureCanvas from '@/components/analysis/measure_canvas.svelte'
   import MeasurementList from '@/components/analysis/measurement_list.svelte'
@@ -172,48 +172,67 @@
     return local_name.endsWith('님') ? local_name : `${local_name}님`
   })
 
+  // 얼굴형 — 실제 데이터(visit.test_json or 고객 메타) 가 있을 때만 정규화 / 라벨 매핑.
+  const g_face_shape_raw = $derived(
+    g_test_json?.face_shape ?? $selected_customer_obj?.face_shape ?? null,
+  )
   const g_face_shape_key = $derived(
-    normalize_face_shape_key(
-      g_test_json?.face_shape ?? $selected_customer_obj?.face_shape ?? 'oval',
-    ),
+    g_face_shape_raw ? normalize_face_shape_key(g_face_shape_raw) : null,
+  )
+  const g_face_shape_label = $derived(
+    g_face_shape_key ? (FACE_SHAPE_LABEL_OBJ[g_face_shape_key] ?? null) : null,
   )
 
-  const g_face_shape_label = $derived(FACE_SHAPE_LABEL_OBJ[g_face_shape_key] ?? '계란형')
-
+  // 피부톤 — 실제 데이터가 있을 때만 추천 객체 산출. 없으면 null → 화면에서 '-'.
+  const g_skin_tone_raw = $derived(
+    g_test_json?.skin_tone?.tone ?? $selected_customer_obj?.skin_tone ?? null,
+  )
   const g_skin_tone_recommendation_obj = $derived(
-    get_skin_tone_recommendation(
-      g_test_json?.skin_tone?.tone ?? $selected_customer_obj?.skin_tone ?? 'NEUTRAL',
-    ),
+    g_skin_tone_raw ? get_skin_tone_recommendation(g_skin_tone_raw) : null,
   )
 
-  // BE 가 추천 칩 배열을 보내줬으면 그걸 우선 사용, 아니면 FE 로컬 매핑으로 fallback
+  // 라벨 → tone_class 글로벌 lookup (모든 톤의 칩 합집합). BE 가 라벨만 보내도 색이 입혀지도록.
+  const LABEL_TO_TONE_CLASS_OBJ = (() => {
+    /** @type {Record<string, string>} */
+    const local_obj = {}
+    for (const local_tone_key of Object.keys(SKIN_TONE_FRAME_COLOR_MAP)) {
+      for (const local_chip of SKIN_TONE_FRAME_COLOR_MAP[local_tone_key]) {
+        local_obj[local_chip.label] = local_chip.tone_class
+      }
+    }
+    return local_obj
+  })()
+
+  // BE 가 보내준 추천 칩 배열만 사용. tone_class 가 없으면 라벨로 FE 매핑에서 보충.
   const g_recommended_color_arr = $derived.by(() => {
     const local_be_arr = Array.isArray(g_test_json?.skin_tone_recommendations)
       ? g_test_json.skin_tone_recommendations
       : []
-    if (local_be_arr.length > 0) {
-      return local_be_arr
-        .slice(0, 4)
-        .map((/** @type {{ label?: string, tone_class?: string }} */ local_chip) => ({
-          label: String(local_chip.label ?? ''),
+    if (local_be_arr.length === 0) return []
+    return local_be_arr
+      .slice(0, 4)
+      .map((/** @type {{ label?: string, tone_class?: string }} */ local_chip) => {
+        const local_label = String(local_chip.label ?? '')
+        return {
+          label: local_label,
           tone_class:
-            local_chip.tone_class ??
-            g_skin_tone_recommendation_obj.chip_arr.find(
-              (local_default) => local_default.label === local_chip.label,
-            )?.tone_class ??
-            'bg-slate-300',
-        }))
-    }
-    return g_skin_tone_recommendation_obj.chip_arr.slice(0, 4)
+            local_chip.tone_class ?? LABEL_TO_TONE_CLASS_OBJ[local_label] ?? 'bg-slate-300',
+        }
+      })
   })
 
+  // BE 가 보내준 추천 모양 배열만 사용. FE 로컬 매핑 fallback 제거.
   const g_recommended_frame_arr = $derived.by(() => {
     const local_be_arr = Array.isArray(g_test_json?.face_shape_recommendations)
       ? g_test_json.face_shape_recommendations
       : []
-    if (local_be_arr.length > 0) return local_be_arr.slice(0, 6)
-    return get_frame_styles_for_face_shape(g_face_shape_key).slice(0, 6)
+    return local_be_arr.length > 0 ? local_be_arr.slice(0, 6) : []
   })
+
+  // 1순위만 추출 — 추천 모양 슬롯에 4개까지 채울 후보.
+  const g_priority_one_frame_arr = $derived(
+    g_recommended_frame_arr.filter((local_obj) => local_obj.priority === 1),
+  )
 
   // 렌즈 상담 답변 (BE 가 selection_arr 로 저장한다)
   const g_lens_selection_arr = $derived.by(() => {
@@ -637,7 +656,7 @@
               >
                 <p class="m-0 text-[12px] font-bold text-slate-700">얼굴형</p>
                 <p class="m-0 mt-1 text-[15px] text-[#F97316]">
-                  {g_face_shape_label}
+                  {g_face_shape_label ?? '-'}
                 </p>
               </div>
               <div
@@ -645,9 +664,13 @@
               >
                 <p class="m-0 text-[12px] font-bold text-slate-700">피부톤</p>
                 <p class="m-0 mt-1 text-[14px] leading-tight text-[#1660C7]">
-                  {g_skin_tone_recommendation_obj.label}
-                  <br />
-                  {SKIN_TONE_DESCRIPTION_OBJ[g_skin_tone_recommendation_obj.key] ?? '중성 톤'}
+                  {#if g_skin_tone_recommendation_obj}
+                    {g_skin_tone_recommendation_obj.label}
+                    <br />
+                    {SKIN_TONE_DESCRIPTION_OBJ[g_skin_tone_recommendation_obj.key] ?? '-'}
+                  {:else}
+                    -
+                  {/if}
                 </p>
               </div>
             </div>
@@ -661,51 +684,60 @@
                   추천 안경테 컬러
                 </h3>
                 <!--
-                  기본 4개 슬롯 (2×2) 고정 — 데이터가 없어도 그리드 자리는 예약되지만 chip 시각화는
-                  노출하지 않아 레이아웃은 일정하면서도 빈 chip 잔재가 안 보인다.
+                  기본 4개 슬롯 (2×2). 데이터가 있을 때만 chip 노출, 없으면 grid 영역에 '-' 한 번만.
                 -->
-                <div class="mt-2 grid grid-cols-2 gap-2" style="grid-template-rows: repeat(2, 52px)">
-                  {#each Array.from({ length: 4 }) as _, color_index (color_index)}
-                    {@const local_color_obj = g_recommended_color_arr[color_index]}
-                    {#if local_color_obj}
-                      <div
-                        class={`flex items-center justify-center rounded-[10px] border border-black/5 px-3 py-2 text-center shadow-sm ${local_color_obj.gradient_class ?? local_color_obj.tone_class}`}
-                      >
-                        <p
-                          class={`m-0 text-[14px] font-black ${get_chip_text_class(local_color_obj)}`}
+                {#if g_recommended_color_arr.length === 0}
+                  <div class="mt-2 grid place-items-center text-[18px] font-extrabold text-slate-400" style="grid-template-rows: repeat(2, 52px)">
+                    -
+                  </div>
+                {:else}
+                  <div class="mt-2 grid grid-cols-2 gap-2" style="grid-template-rows: repeat(2, 52px)">
+                    {#each Array.from({ length: 4 }) as _, color_index (color_index)}
+                      {@const local_color_obj = g_recommended_color_arr[color_index]}
+                      {#if local_color_obj}
+                        <div
+                          class={`flex items-center justify-center rounded-[10px] border border-black/5 px-3 py-2 text-center shadow-sm ${local_color_obj.gradient_class ?? local_color_obj.tone_class}`}
                         >
-                          {local_color_obj.label}
-                        </p>
-                      </div>
-                    {:else}
-                      <div aria-hidden="true"></div>
-                    {/if}
-                  {/each}
-                </div>
+                          <p
+                            class={`m-0 text-[14px] font-black ${get_chip_text_class(local_color_obj)}`}
+                          >
+                            {local_color_obj.label}
+                          </p>
+                        </div>
+                      {:else}
+                        <div aria-hidden="true"></div>
+                      {/if}
+                    {/each}
+                  </div>
+                {/if}
               </section>
 
               <section class="flex min-h-0 flex-col">
                 <h3 class="m-0 shrink-0 text-center text-[13px] font-extrabold text-slate-800">
                   추천 안경테 모양
                 </h3>
-                <div class="mt-2 grid grid-cols-2 gap-2" style="grid-template-rows: repeat(2, 52px)">
-                  {#each Array.from({ length: 4 }) as _, frame_index (frame_index)}
-                    {@const local_frame_obj = g_recommended_frame_arr.filter(
-                      (local_obj) => local_obj.priority === 1,
-                    )[frame_index]}
-                    {#if local_frame_obj}
-                      <div
-                        class="flex items-center justify-center rounded-[10px] border border-[#F97316] bg-white px-3 py-2 text-center shadow-sm"
-                      >
-                        <p class="m-0 text-[14px] font-black text-[#F97316]">
-                          {local_frame_obj.name}
-                        </p>
-                      </div>
-                    {:else}
-                      <div aria-hidden="true"></div>
-                    {/if}
-                  {/each}
-                </div>
+                {#if g_priority_one_frame_arr.length === 0}
+                  <div class="mt-2 grid place-items-center text-[18px] font-extrabold text-slate-400" style="grid-template-rows: repeat(2, 52px)">
+                    -
+                  </div>
+                {:else}
+                  <div class="mt-2 grid grid-cols-2 gap-2" style="grid-template-rows: repeat(2, 52px)">
+                    {#each Array.from({ length: 4 }) as _, frame_index (frame_index)}
+                      {@const local_frame_obj = g_priority_one_frame_arr[frame_index]}
+                      {#if local_frame_obj}
+                        <div
+                          class="flex items-center justify-center rounded-[10px] border border-[#F97316] bg-white px-3 py-2 text-center shadow-sm"
+                        >
+                          <p class="m-0 text-[14px] font-black text-[#F97316]">
+                            {local_frame_obj.name}
+                          </p>
+                        </div>
+                      {:else}
+                        <div aria-hidden="true"></div>
+                      {/if}
+                    {/each}
+                  </div>
+                {/if}
               </section>
             </div>
           </article>

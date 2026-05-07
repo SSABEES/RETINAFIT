@@ -7,9 +7,9 @@
 // 실제 튜닝은 prod 실측 후. 변경 시 테스트도 함께 갱신.
 export const PROFILE_CONSTANTS = Object.freeze({
   ORT_FRAME_SKIP: 5, // tick() 호출 5번마다 1번 추론 → 12Hz rAF 에서 ~2.4Hz
-  TARGET_DEG: 90, // ±90° 가 측면 정자세
-  TOLERANCE: 15, // 영역 폭 ±15° — 사용자 자세 흔들림 허용 (10° 는 너무 빡빡)
-  YAW_STD_THR: 5, // 안정성 표준편차 임계 (도)
+  TARGET_DEG: 77.5, // 좌/우 측면 인정 영역 중심값. left=+77.5°, right=-77.5°.
+  TOLERANCE: 32.5, // ±32.5° → 좌측 +45~+110°, 우측 -110~-45° 범위 (사용자 측면 자세 폭 확대)
+  YAW_STD_THR: 20, // 안정성 표준편차 임계 (도) — 머리 흔들림 허용폭 확장
   STABILITY_FRAMES: 12, // 12 frames @ 12Hz ≈ 1초 hold
   YAW_BUFFER_SIZE: 10, // 표준편차 계산용 슬라이딩 윈도우
 })
