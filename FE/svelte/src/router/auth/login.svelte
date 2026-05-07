@@ -188,7 +188,7 @@
 </script>
 
 <main
-  class="app-frame-page grid min-h-full grid-rows-[1fr_auto] overflow-hidden bg-[var(--retina-bg-1)] px-6 pt-6 pb-4 text-[var(--retina-text)]"
+  class="app-frame-page grid min-h-full grid-rows-[1fr_auto] overflow-hidden bg-[#FFF3EB] px-6 pt-6 pb-4 text-[var(--retina-text)]"
 >
   <section
     class="grid w-full max-w-[460px] justify-self-center self-center"
@@ -301,9 +301,7 @@
     </form>
   </section>
 
-  <p
-    class="m-0 justify-self-center text-center text-sm font-medium text-[var(--retina-primary-900)]/80"
-  >
+  <p class="m-0 justify-self-center text-center text-sm font-medium text-[#6E2E05]">
     © 2026 RETINA Co,Ltd. All rights reserved.
   </p>
 </main>
