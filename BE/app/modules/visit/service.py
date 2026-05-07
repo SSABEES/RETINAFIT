@@ -26,6 +26,14 @@ def _convert_visit_urls(visit: VisitResponse) -> VisitResponse:
         visit.test_file_arr = [get_presigned_download_url(k) for k in visit.test_file_arr]
     if visit.vp_file_arr:
         visit.vp_file_arr = [get_presigned_download_url(k) for k in visit.vp_file_arr]
+
+    if visit.real_vp_json and "sets" in visit.real_vp_json:
+        for s in visit.real_vp_json["sets"]:
+            for side in ("front", "left", "right"):
+                key = s.get(f"{side}_key")
+                if key:
+                    s[f"{side}_url"] = get_presigned_download_url(key)
+
     return visit
 
 def _check_token_expired(data: dict):
