@@ -105,3 +105,10 @@ class VisitHistoryResponse(BaseModel):
     """고객 방문 이력 목록"""
     cust_no: int
     visits: list[VisitResponse]
+
+# ─── 관리자용 전체 방문 조회 ──────────────────────────────────
+
+class AdminVisitListResponse(BaseModel):
+    """관리자용 전체 방문 목록 응답"""
+    total: int
+    visits: list[VisitResponse]
