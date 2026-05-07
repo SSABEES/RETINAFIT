@@ -49,12 +49,13 @@
   let g_is_registering_customer = $state(false)
 
   // 리포트 페이지 탭 네비게이션 — 한 화면에 모든 섹션을 펼치는 대신 탭으로 분리해 페이지처럼 전환.
-  /** @typedef {'overview' | 'measurement' | 'lifestyle' | 'fitting' | 'insight'} TabId */
+  /** @typedef {'overview' | 'measurement' | 'lifestyle' | 'fitting' | 'real_fitting' | 'insight'} TabId */
   const TAB_ARR = /** @type {{ id: TabId, label: string }[]} */ ([
     { id: 'overview', label: '분석 요약' },
     { id: 'measurement', label: '측정 상세' },
-    { id: 'lifestyle', label: '선택한 생활 패턴' },
+    { id: 'lifestyle', label: '생활 패턴' },
     { id: 'fitting', label: 'AR 피팅' },
+    { id: 'real_fitting', label: '실제 착용 사진' },
     { id: 'insight', label: 'AI 인사이트' },
   ])
   let g_active_tab = $state(/** @type {TabId} */ ('overview'))
@@ -132,6 +133,12 @@
   // visit_obj.vp_json (AR 피팅 결과 — fitting_arr 포함)
   const g_vp_json = $derived(g_visit_obj?.vp_json ?? null)
 
+  // visit_obj.real_vp_json (실 착용 사진 세트 — sets[]: { front_url, left_url, right_url, ... })
+  const g_real_vp_set_arr = $derived.by(() => {
+    const local_sets = g_visit_obj?.real_vp_json?.sets
+    return Array.isArray(local_sets) ? local_sets : []
+  })
+
   // visit_obj.report_json (BE 가 생성하는 최종 인사이트)
   const g_report_json = $derived(g_visit_obj?.report_json ?? null)
 
@@ -158,6 +165,8 @@
   }
 
   const g_customer_name_label = $derived.by(() => {
+    // 비회원(cust_no=0) 으로 진입한 경우엔 실제 이름("비회원") 대신 "고객님" 으로 표시.
+    if (Number($selected_customer_obj?.id) === 0) return '고객님'
     const local_name = $selected_customer_obj?.name?.trim()
     if (!local_name) return '고객'
     return local_name.endsWith('님') ? local_name : `${local_name}님`
@@ -375,10 +384,6 @@
     }).format(local_date)
   })
 
-  function on_click_back() {
-    window.history.back()
-  }
-
   function on_click_go_main() {
     navigate(PATH.visitSelect)
   }
@@ -549,6 +554,7 @@
   current_step={5}
   bg_class="bg-[var(--retina-text-100)] text-zinc-950"
   edge_extend_bg
+  show_step_bar={false}
 >
 
   <!--
@@ -561,17 +567,17 @@
       {g_customer_name_label}의 최종 분석 리포트
     </h1>
     <nav
-      class="mt-3 flex items-end justify-center gap-1 overflow-x-auto"
+      class="mt-3 flex items-end justify-center gap-2 overflow-x-auto"
       aria-label="리포트 섹션 네비게이션"
     >
       {#each TAB_ARR as tab_obj (tab_obj.id)}
         {@const local_is_active = g_active_tab === tab_obj.id}
         <button
           type="button"
-          class={`shrink-0 cursor-pointer border-b-2 px-4 py-2.5 text-[13px] font-extrabold transition ${
+          class={`shrink-0 cursor-pointer border-b-[3px] px-5 py-3 text-[16px] font-extrabold transition ${
             local_is_active
-              ? 'border-[var(--retina-primary-300)] text-[var(--retina-primary-400)]'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
+              ? 'border-[var(--retina-primary-500)] text-[var(--retina-primary-600)]'
+              : 'border-transparent text-slate-400 hover:text-slate-700'
           }`}
           aria-pressed={local_is_active}
           onclick={() => (g_active_tab = tab_obj.id)}
@@ -744,9 +750,9 @@
           {/if}
         </section>
       {:else if g_active_tab === 'lifestyle'}
-        <!-- 선택한 생활 패턴 -->
+        <!-- 생활 패턴 -->
         <section class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm">
-          <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">선택한 생활 패턴</h2>
+          <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">생활 패턴</h2>
 
           {#if g_lens_selection_arr.length === 0}
             <p class="mt-2 text-[14px] font-semibold text-slate-400">선택한 항목이 없습니다.</p>
@@ -818,6 +824,75 @@
             </div>
           {/if}
         </section>
+      {:else if g_active_tab === 'real_fitting'}
+        <!-- 실 착용 사진 세트 (정면 / 좌 / 우) -->
+        <section
+          class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm"
+        >
+          <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">실제 착용 사진</h2>
+
+          {#if g_real_vp_set_arr.length === 0}
+            <div class="mt-2 grid flex-1 place-items-center gap-3 rounded-[10px] bg-slate-50 py-8">
+              <Glasses size={40} class="text-slate-300" />
+              <p class="m-0 text-[14px] font-bold text-slate-400">
+                저장된 실제 착용 사진이 없습니다.
+              </p>
+            </div>
+          {:else}
+            <div class="mt-2 flex flex-col gap-3">
+              {#each g_real_vp_set_arr as set_obj, set_index (set_obj.set_no ?? set_index)}
+                {@const local_photo_arr = [
+                  {
+                    key: 'front',
+                    url: set_obj.front_url ?? set_obj.front_key ?? '',
+                    label: '정면',
+                  },
+                  {
+                    key: 'left',
+                    url: set_obj.left_url ?? set_obj.left_key ?? '',
+                    label: '좌측',
+                  },
+                  {
+                    key: 'right',
+                    url: set_obj.right_url ?? set_obj.right_key ?? '',
+                    label: '우측',
+                  },
+                ]}
+                <article class="rounded-[12px] border border-slate-100 bg-slate-50 p-3">
+                  <header class="mb-2 flex items-center justify-between px-0.5">
+                    <span class="text-[13px] font-extrabold text-slate-700">
+                      세트 {set_obj.set_no ?? set_index + 1}
+                    </span>
+                  </header>
+                  <div class="grid grid-cols-3 gap-2.5">
+                    {#each local_photo_arr as photo_obj (photo_obj.key)}
+                      <div
+                        class="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-slate-200 bg-white"
+                      >
+                        {#if photo_obj.url}
+                          <img
+                            src={photo_obj.url}
+                            alt={`세트 ${set_obj.set_no ?? set_index + 1} ${photo_obj.label}`}
+                            class="h-full w-full object-cover"
+                          />
+                        {:else}
+                          <div class="grid h-full w-full place-items-center text-slate-300">
+                            <UserRound size={32} strokeWidth={1.7} />
+                          </div>
+                        {/if}
+                        <span
+                          class="absolute bottom-1 left-1 rounded-sm bg-black/55 px-1 py-0.5 text-[11px] font-extrabold text-white"
+                        >
+                          {photo_obj.label}
+                        </span>
+                      </div>
+                    {/each}
+                  </div>
+                </article>
+              {/each}
+            </div>
+          {/if}
+        </section>
       {:else if g_active_tab === 'insight'}
         <!-- AI 분석 인사이트 (탭바의 가장 오른쪽) -->
         <section class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm">
@@ -859,16 +934,9 @@
   <div class="app-bg-edge-extend shrink-0 border-t border-slate-200 bg-white px-6 py-3">
     <div
       class={`mx-auto grid w-full max-w-[940px] gap-4 ${
-        g_is_guest_visit ? 'grid-cols-3' : 'grid-cols-2'
+        g_is_guest_visit ? 'grid-cols-2' : 'grid-cols-1'
       }`}
     >
-      <button
-        type="button"
-        onclick={on_click_back}
-        class="grid h-[64px] cursor-pointer place-items-center rounded-lg border border-slate-300 bg-white text-[22px] text-[var(--retina-text-500)] transition hover:border-slate-400 hover:text-[var(--retina-text-700)]"
-      >
-        뒤로가기
-      </button>
       <button
         type="button"
         onclick={on_click_go_main}

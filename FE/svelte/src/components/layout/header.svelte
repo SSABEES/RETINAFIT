@@ -106,15 +106,15 @@
   <div class="flex justify-start">
     {#if show_back}
       <button
-        class="grid h-8 w-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent transition hover:bg-slate-100"
+        class="grid h-12 w-12 cursor-pointer place-items-center rounded-full border-0 bg-transparent transition hover:bg-slate-100"
         type="button"
         aria-label="뒤로가기"
         onclick={handle_back_click}
       >
-        <img src="/icons/DivLeft.png" alt="" class="h-6 w-6" aria-hidden="true" />
+        <img src="/icons/DivLeft.png" alt="" class="h-9 w-9" aria-hidden="true" />
       </button>
     {:else}
-      <span class="h-8 w-8" aria-hidden="true"></span>
+      <span class="h-12 w-12" aria-hidden="true"></span>
     {/if}
   </div>
 
@@ -130,7 +130,7 @@
   <div class="flex justify-end">
     {#if show_logout}
       <button
-        class="grid h-10 w-10 cursor-pointer place-items-center rounded-full border-0 bg-transparent transition hover:bg-slate-100"
+        class="grid h-12 w-12 cursor-pointer place-items-center rounded-full border-0 bg-transparent transition hover:bg-slate-100"
         type="button"
         aria-label="로그아웃"
         onclick={on_click_logout_button}
@@ -138,12 +138,12 @@
         <img
           src="/icons/BtnLogout.png"
           alt=""
-          class="h-7 w-7 [filter:brightness(0.5)]"
+          class="h-9 w-9 [filter:brightness(0.5)]"
           aria-hidden="true"
         />
       </button>
     {:else}
-      <span class="h-8 w-8" aria-hidden="true"></span>
+      <span class="h-12 w-12" aria-hidden="true"></span>
     {/if}
   </div>
 </header>

@@ -404,7 +404,8 @@
   async function run_auto_capture_sequence() {
     const my_token = ++g_capture_sequence_token
 
-    // 정면/측면 공통 시퀀스: 안정화 도달 → face_good (위치 OK 안내) → count_click (셔터음) → 캡처.
+    // 정면/측면 공통 시퀀스: 안정화 도달 → face_recognition_complete → 셔터음+캡처 동시 발사.
+    // 셔터음은 await 하지 않는다 — "찰칵" 시작 시점에 사진이 캡처되어 썸네일에 즉시 반영되도록.
     if (
       my_token !== g_capture_sequence_token ||
       !active ||
@@ -423,16 +424,9 @@
     ) {
       return
     }
-    await play_voice('camera_shutter_sound', { priority: 'high' })
 
-    if (
-      my_token !== g_capture_sequence_token ||
-      !active ||
-      !g_is_auto_capture ||
-      g_already_dispatched
-    ) {
-      return
-    }
+    // 셔터음 fire-and-forget — 재생 시작과 동시에 아래 캡처가 진행되어 시청각 동기화.
+    void play_voice('camera_shutter_sound', { priority: 'high' })
 
     // 측면은 MediaPipe 측정값 없음 → measurements_obj=null. capture_shell.on_capture 가 이미 null
     // 허용 (현행 manual 측면 캡처도 동일 경로).
@@ -859,8 +853,8 @@
     <!--
       측면 단계 화살표 안내 — 정면과 동일 위치/스타일. yaw 가 target ± TOLERANCE 영역 밖이면
       target 방향으로 회전하라는 화살표 표시. 영역 안 (도달 직전~stable) 이면 숨김.
-      방향: yaw < target → '→', yaw > target → '←' (사용자 POV 기준 — 미러 표시와 무관하게
-      사용자는 화살표를 절대 방향으로 해석).
+      방향은 음성 안내와 일치 — right_profile (우측 촬영) 은 왼쪽(←), left_profile (좌측 촬영)
+      은 오른쪽(→). 오버슈트(타깃 초과) 시 반대 화살표로 되돌림 안내.
     -->
     {#if show_overlay && active && pose_target !== 'front' && profile_pose.session_ready && profile_pose.last_yaw !== null && !g_already_dispatched}
       {@const local_arrow_target_deg =
@@ -873,7 +867,7 @@
           class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse text-[7rem] leading-none text-orange-400 drop-shadow-[0_2px_16px_rgba(0,0,0,0.65)]"
           aria-hidden="true"
         >
-          {profile_pose.last_yaw < local_arrow_target_deg ? '→' : '←'}
+          {profile_pose.last_yaw < local_arrow_target_deg ? '←' : '→'}
         </div>
       {/if}
     {/if}

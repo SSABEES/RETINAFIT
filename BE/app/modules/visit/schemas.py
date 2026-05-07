@@ -23,8 +23,8 @@ class CustomerCreateRequest(BaseModel):
     cust_name: str
     phone1: str
     phone2: Optional[str] = None
-    birthday: str   # YYYY-MM-DD
-    sex: int        # 0: 남자, 1: 여자
+    birthday: Optional[str] = None   # YYYY-MM-DD
+    sex: Optional[int] = None        # 0: 남자, 1: 여자
 
     @field_validator("phone1", "phone2", mode="before")
     @classmethod
@@ -104,4 +104,11 @@ class VisitUpdateRequest(BaseModel):
 class VisitHistoryResponse(BaseModel):
     """고객 방문 이력 목록"""
     cust_no: int
+    visits: list[VisitResponse]
+
+# ─── 관리자용 전체 방문 조회 ──────────────────────────────────
+
+class AdminVisitListResponse(BaseModel):
+    """관리자용 전체 방문 목록 응답"""
+    total: int
     visits: list[VisitResponse]

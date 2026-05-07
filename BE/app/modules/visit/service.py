@@ -26,6 +26,14 @@ def _convert_visit_urls(visit: VisitResponse) -> VisitResponse:
         visit.test_file_arr = [get_presigned_download_url(k) for k in visit.test_file_arr]
     if visit.vp_file_arr:
         visit.vp_file_arr = [get_presigned_download_url(k) for k in visit.vp_file_arr]
+
+    if visit.real_vp_json and "sets" in visit.real_vp_json:
+        for s in visit.real_vp_json["sets"]:
+            for side in ("front", "left", "right"):
+                key = s.get(f"{side}_key")
+                if key:
+                    s[f"{side}_url"] = get_presigned_download_url(key)
+
     return visit
 
 def _check_token_expired(data: dict):
@@ -116,8 +124,8 @@ async def create_customer(
                         "in2": request.cust_name,
                         "in3": request.phone1,
                         "in4": request.phone2 or "",
-                        "in5": request.birthday,
-                        "in6": str(request.sex),
+                        "in5": request.birthday or "",
+                        "in6": str(request.sex) if request.sex is not None else "",
                         "out1": "num",
                         "out2": "num",
                         "out3": "num",
@@ -216,3 +224,11 @@ async def update_visit(
         )
 
     return _convert_visit_urls(VisitResponse.model_validate(visit))
+
+async def get_all_visits(db: AsyncSession) -> dict:
+    """전체 방문 조회 (관리자용)"""
+    visits = await repository.get_all_visits(db)
+    return {
+        "total": len(visits),
+        "visits": [_convert_visit_urls(VisitResponse.model_validate(v)) for v in visits],
+    }
