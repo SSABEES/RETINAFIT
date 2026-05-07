@@ -151,6 +151,10 @@
       status_key: 'needs_analysis',
       status: '',
       status_box_class: 'bg-[#FFF4E5] text-[#C2410C]',
+      // BE 가 응답에 has_face_analysis / has_lifestyle 플래그를 포함해 보내준다.
+      // 카드 우측 아이콘이 이 두 값으로 Active/Default 토글된다.
+      has_face_analysis: Boolean(customer_obj.has_face_analysis ?? customer_obj.HAS_FACE_ANALYSIS),
+      has_lifestyle: Boolean(customer_obj.has_lifestyle ?? customer_obj.HAS_LIFESTYLE),
       raw_obj: customer_obj,
     }))
   }
@@ -531,7 +535,8 @@
 
           <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
             {#each ref_customer_arr as customer_obj (customer_obj.id)}
-              {@const is_face_done = customer_obj.status_key === 'analysis_done'}
+              {@const is_face_done = Boolean(customer_obj.has_face_analysis)}
+              {@const is_lifestyle_done = Boolean(customer_obj.has_lifestyle)}
               {@const local_masked_name = mask_name(customer_obj.name)}
               <button
                 type="button"
@@ -564,8 +569,10 @@
                     class="h-[76px] w-[76px]"
                   />
                   <img
-                    src="/icons/Property 1=Life, Property 2=Default.png"
-                    alt="생활패턴"
+                    src={is_lifestyle_done
+                      ? '/icons/Property 1=Life, Property 2=Active.png'
+                      : '/icons/Property 1=Life, Property 2=Default.png'}
+                    alt={is_lifestyle_done ? '생활패턴 완료' : '생활패턴 진행 필요'}
                     class="h-[76px] w-[76px]"
                   />
                   <img

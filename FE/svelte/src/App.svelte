@@ -61,8 +61,16 @@
     // bind:this 가 채워지지 않은 비정상 상황 방어. 정상 경로에선 onMount 시점에 ref 가 모두 잡혀있다.
     if (!ref_content_el) return
 
+    // childList 만으로는 라우트 전환 시 Router 내부에서 일어나는 main 교체/class 변경을 못 잡아
+    // 페이지 bg 가 dark navy(.app-frame-shell 기본값) 그대로 남아 위아래 빈 공간이 어색해진다.
+    // subtree + attributes(class 만) 로 늘려 main.app-frame-page 가 마운트/리클래스될 때마다 동기화.
     const local_observer = new MutationObserver(sync_shell_bg)
-    local_observer.observe(ref_content_el, { childList: true })
+    local_observer.observe(ref_content_el, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class'],
+    })
     sync_shell_bg()
 
     update_app_frame_scale()
