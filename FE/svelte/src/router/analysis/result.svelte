@@ -165,6 +165,8 @@
   }
 
   const g_customer_name_label = $derived.by(() => {
+    // 비회원(cust_no=0) 으로 진입한 경우엔 실제 이름("비회원") 대신 "고객님" 으로 표시.
+    if (Number($selected_customer_obj?.id) === 0) return '고객님'
     const local_name = $selected_customer_obj?.name?.trim()
     if (!local_name) return '고객'
     return local_name.endsWith('님') ? local_name : `${local_name}님`
@@ -382,10 +384,6 @@
     }).format(local_date)
   })
 
-  function on_click_back() {
-    window.history.back()
-  }
-
   function on_click_go_main() {
     navigate(PATH.visitSelect)
   }
@@ -556,6 +554,7 @@
   current_step={5}
   bg_class="bg-[var(--retina-text-100)] text-zinc-950"
   edge_extend_bg
+  show_step_bar={false}
 >
 
   <!--
@@ -568,17 +567,17 @@
       {g_customer_name_label}의 최종 분석 리포트
     </h1>
     <nav
-      class="mt-3 flex items-end justify-center gap-1 overflow-x-auto"
+      class="mt-3 flex items-end justify-center gap-2 overflow-x-auto"
       aria-label="리포트 섹션 네비게이션"
     >
       {#each TAB_ARR as tab_obj (tab_obj.id)}
         {@const local_is_active = g_active_tab === tab_obj.id}
         <button
           type="button"
-          class={`shrink-0 cursor-pointer border-b-2 px-4 py-2.5 text-[13px] font-extrabold transition ${
+          class={`shrink-0 cursor-pointer border-b-[3px] px-5 py-3 text-[16px] font-extrabold transition ${
             local_is_active
-              ? 'border-[var(--retina-primary-300)] text-[var(--retina-primary-400)]'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
+              ? 'border-[var(--retina-primary-500)] text-[var(--retina-primary-600)]'
+              : 'border-transparent text-slate-400 hover:text-slate-700'
           }`}
           aria-pressed={local_is_active}
           onclick={() => (g_active_tab = tab_obj.id)}
@@ -843,9 +842,21 @@
             <div class="mt-2 flex flex-col gap-3">
               {#each g_real_vp_set_arr as set_obj, set_index (set_obj.set_no ?? set_index)}
                 {@const local_photo_arr = [
-                  { key: 'front', url: set_obj.front_url ?? '', label: '정면' },
-                  { key: 'left', url: set_obj.left_url ?? '', label: '좌측' },
-                  { key: 'right', url: set_obj.right_url ?? '', label: '우측' },
+                  {
+                    key: 'front',
+                    url: set_obj.front_url ?? set_obj.front_key ?? '',
+                    label: '정면',
+                  },
+                  {
+                    key: 'left',
+                    url: set_obj.left_url ?? set_obj.left_key ?? '',
+                    label: '좌측',
+                  },
+                  {
+                    key: 'right',
+                    url: set_obj.right_url ?? set_obj.right_key ?? '',
+                    label: '우측',
+                  },
                 ]}
                 <article class="rounded-[12px] border border-slate-100 bg-slate-50 p-3">
                   <header class="mb-2 flex items-center justify-between px-0.5">
@@ -923,16 +934,9 @@
   <div class="app-bg-edge-extend shrink-0 border-t border-slate-200 bg-white px-6 py-3">
     <div
       class={`mx-auto grid w-full max-w-[940px] gap-4 ${
-        g_is_guest_visit ? 'grid-cols-3' : 'grid-cols-2'
+        g_is_guest_visit ? 'grid-cols-2' : 'grid-cols-1'
       }`}
     >
-      <button
-        type="button"
-        onclick={on_click_back}
-        class="grid h-[64px] cursor-pointer place-items-center rounded-lg border border-slate-300 bg-white text-[22px] text-[var(--retina-text-500)] transition hover:border-slate-400 hover:text-[var(--retina-text-700)]"
-      >
-        뒤로가기
-      </button>
       <button
         type="button"
         onclick={on_click_go_main}

@@ -4,6 +4,7 @@
   import { Plus, Trash2, Camera as CameraIcon, X, Check, Loader2 } from 'lucide-svelte'
   import { PATH } from '@/config/path'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
+  import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   import {
     request_real_wearing_presigned_urls,
     upload_blob_to_s3,
@@ -24,9 +25,13 @@
    * @typedef {{ id: number, front_url: string, front_blob: Blob, left_url: string, left_blob: Blob, right_url: string, right_blob: Blob, captured_at: number }} FittingPhotoSet
    * @typedef {{ blob: Blob, url: string }} CaptureFrame
    */
+  // 한 번 분석 세션에서 저장 가능한 최대 세트 수.
+  const MAX_PHOTO_SET_COUNT = 3
+
   /** @type {FittingPhotoSet[]} */
   let g_photo_set_arr = $state([])
   let g_set_id_seq = 0
+  const g_is_set_limit_reached = $derived(g_photo_set_arr.length >= MAX_PHOTO_SET_COUNT)
 
   // 촬영 모드 — + 버튼 클릭 시 활성화. 단계별 임시 frame 누적 → 3단계 완료 시 세트 push.
   let g_is_capture_mode = $state(false)
@@ -122,9 +127,10 @@
     return { blob: local_blob, url: URL.createObjectURL(local_blob) }
   }
 
-  // + 사진 추가 — 촬영 모드 진입 (front 단계부터).
+  // + 사진 추가 — 촬영 모드 진입 (front 단계부터). 최대 세트 수 도달 시 무시.
   function on_click_start_capture() {
     if (!g_is_camera_ready || g_is_capture_mode || g_is_submitting) return
+    if (g_is_set_limit_reached) return
     g_is_capture_mode = true
     g_capture_step = 'front'
     g_pending_front = null
@@ -237,7 +243,7 @@
 
     g_is_submitting = true
     try {
-      /** @type {Array<{ set_no: number, front_key: string, left_key: string, right_key: string, front_url: string, left_url: string, right_url: string, captured_at: number }>} */
+      /** @type {Array<{ set_no: number, front_key: string, left_key: string, right_key: string, captured_at: number }>} */
       const local_set_record_arr = []
 
       // 화면상 최신이 위 = 배열 앞쪽. 저장 순서는 촬영 순서(오래된 → 최신) 로 뒤집어서 반복.
@@ -251,15 +257,12 @@
           upload_blob_to_s3(local_presigned.left_url, local_set.left_blob),
           upload_blob_to_s3(local_presigned.right_url, local_set.right_blob),
         ])
-        // result.svelte 가 그대로 <img src> 로 쓸 수 있도록 query string 떼어낸 public URL 도 저장.
+        // BE 가 GET 응답 시점에 _key 를 presigned download URL 로 변환하므로 FE 는 key 만 저장.
         local_set_record_arr.push({
           set_no: i + 1,
           front_key: local_presigned.front_key,
           left_key: local_presigned.left_key,
           right_key: local_presigned.right_key,
-          front_url: String(local_presigned.front_url).split('?')[0],
-          left_url: String(local_presigned.left_url).split('?')[0],
-          right_url: String(local_presigned.right_url).split('?')[0],
           captured_at: local_set.captured_at,
         })
       }
@@ -374,7 +377,7 @@
           <button
             type="button"
             onclick={on_click_start_capture}
-            disabled={!g_is_camera_ready || g_is_capture_mode}
+            disabled={!g_is_camera_ready || g_is_capture_mode || g_is_set_limit_reached}
             class="flex h-[68px] w-full cursor-pointer items-center justify-center gap-2 rounded-[12px] border-2 border-dashed border-[var(--retina-primary-300)] bg-[var(--retina-primary-100)]/40 text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-500)] hover:bg-[var(--retina-primary-100)] disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="사진 추가 시작"
           >
@@ -383,8 +386,10 @@
               {#if g_is_capture_mode}
                 {@const local_info = STEP_INFO_OBJ[g_capture_step]}
                 촬영 중 · {local_info.order} / 3 · {local_info.label}
+              {:else if g_is_set_limit_reached}
+                최대 {MAX_PHOTO_SET_COUNT}세트까지 추가 가능
               {:else}
-                사진 추가 (정면 · 좌 · 우)
+                사진 추가 ({g_photo_set_arr.length} / {MAX_PHOTO_SET_COUNT})
               {/if}
             </span>
           </button>
@@ -437,6 +442,8 @@
         </div>
       </div>
     </div>
+
+    <LoadingOverlay open={g_is_submitting} label="실제 착용 사진 업로드 중..." />
 
     <!-- 하단 액션 바 -->
     <div class="app-bg-edge-extend shrink-0 bg-white">
