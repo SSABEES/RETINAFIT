@@ -568,7 +568,7 @@
 
 <AnalysisPageLayout current_step={4} bg_class="bg-white text-zinc-900">
 
-  <div class="flex min-h-0 flex-1 overflow-hidden bg-[var(--retina-text-100)]">
+  <div class="flex min-h-0 flex-1 overflow-clip [overflow-clip-margin:9999px] bg-[var(--retina-text-100)]">
     <!-- 좌측: 카메라 -->
     <section
       class="relative flex min-h-0 flex-1 flex-col transition-[z-index]"
@@ -576,7 +576,7 @@
     >
       <div
         bind:this={ref_camera_section_el}
-        class="arfitting-camera-fill relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner transition-all"
+        class="app-bg-edge-extend-left arfitting-camera-fill relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner transition-all"
         class:ring-4={g_highlight_camera}
         class:ring-[var(--retina-primary-200)]={g_highlight_camera}
         class:ring-offset-4={g_highlight_camera}
@@ -602,7 +602,7 @@
 
     <!-- 우측: 캡쳐 상태 + 추천 안경 + 액션 버튼 -->
     <aside
-      class="relative flex w-[300px] flex-col border-l border-slate-200 bg-white transition-[z-index]"
+      class="app-bg-edge-extend-right relative flex w-[300px] flex-col border-l border-slate-200 bg-white transition-[z-index]"
       class:z-50={g_highlight_aside}
     >
       <!-- 캡쳐 슬롯 -->
@@ -658,7 +658,7 @@
 
       <!-- 추천 안경 목록 -->
       <div
-        class="flex min-h-0 flex-1 flex-col px-4 pt-2 transition-all"
+        class="flex min-h-0 flex-1 flex-col px-4 py-4 transition-all"
         class:ring-4={g_guide_step === 1}
         class:ring-[var(--retina-primary-200)]={g_guide_step === 1}
         class:ring-inset={g_guide_step === 1}
@@ -716,33 +716,33 @@
                   }`}
                 >
                   <div
-                    class="flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 p-1"
+                    class="flex h-[72px] w-[88px] shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 p-1"
                   >
                     <img src={item.img_url} alt={item.model} class="h-full w-full object-contain" />
                   </div>
                   <div class="flex flex-1 flex-col overflow-hidden">
                     {#if active}
-                      <span class="mb-0.5 inline-flex items-center gap-0.5 self-start">
+                      <span class="mb-1 inline-flex items-center gap-1 self-start">
                         <img
                           src="/icons/CheckActive.png"
                           alt=""
-                          class="h-[10px] w-[10px] shrink-0"
+                          class="h-2.5 w-2.5 shrink-0"
                           aria-hidden="true"
                         />
-                        <img src="/icons/fitting.png" alt="피팅중" class="h-[8px] w-auto" />
+                        <img src="/icons/fitting.png" alt="피팅중" class="h-2 w-auto" />
                       </span>
                     {/if}
-                    <p class="truncate text-[12px] font-extrabold text-zinc-900">{item.model}</p>
-                    <span class="truncate text-[10px] font-semibold text-slate-400"
+                    <p class="truncate text-[14px] font-extrabold text-zinc-900">{item.model}</p>
+                    <span class="truncate text-[11.5px] font-semibold text-slate-400"
                       >{item.brand}</span
                     >
                     <div class="mt-0.5 flex items-center justify-between gap-1.5">
-                      <span class="text-[11px] font-extrabold text-[var(--retina-primary-300)]"
+                      <span class="text-[12.5px] font-extrabold text-[var(--retina-primary-300)]"
                         >{format_price_label(item.price)}</span
                       >
                       {#if !active && saved_count > 0}
                         <span
-                          class="rounded bg-[var(--retina-bg-1)] px-1.5 py-px text-[9px] font-bold text-[var(--retina-primary-300)]"
+                          class="rounded bg-[var(--retina-bg-1)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--retina-primary-300)]"
                         >
                           저장됨
                         </span>

@@ -160,27 +160,27 @@
   onback={on_click_go_back}
 >
   <!--
-    카메라(좌) + 컨트롤 패널(우) 을 하나의 wrapper 로 묶고 그 wrapper 를 화면 가운데에 배치.
-    flex items-center justify-center 가 wrapper 를 가로/세로 모두 중앙 정렬.
+    Default.svg 기반 레이아웃 (1280×800 design 기준):
+    - 좌측 카메라 섹션 ≈ 73% (937/1280), 회색 bg #E5E7EB, 카메라 preview 가 상하좌우 중앙 정렬
+    - 우측 컨트롤 패널 ≈ 27% (343/1280), 흰색 bg, 가이드 toggle / step / 상태 / 썸네일 수직 스택
+    AnalysisPageLayout 이 위에서 헤더 + AnalysisStepBar 를 렌더링하고, 이 영역은 그 밑으로 채운다.
   -->
-  <div class="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+  <div class="flex min-h-0 flex-1 overflow-clip [overflow-clip-margin:9999px]">
     {#if g_session.phase === 'capturing' && g_current_step}
-      <!--
-        merged wrapper — 카메라(2fr) + 패널(1fr) 가 함께 가운데에 자리. max-w 로 너무 넓어지지 않게
-        제한하고, h-full 로 row 높이는 채운다.
-      -->
       <div
-        class="grid h-full w-full max-w-[820px] grid-cols-[2fr_1fr] items-stretch overflow-hidden"
+        class="grid h-full w-full grid-cols-[2.73fr_1fr] items-stretch overflow-clip [overflow-clip-margin:9999px]"
       >
+        <!-- 좌: 실시간 카메라. 회색 bg 위에 3:4 비율 preview 를 가운데. viewport 왼쪽 끝까지 확장. -->
         <section
           aria-label="실시간 얼굴 분석"
-          class="grid min-h-0 items-center justify-items-center overflow-hidden border-r border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-4 pt-1 pb-1"
+          class="app-bg-edge-extend-left flex min-h-0 items-center justify-center overflow-hidden bg-[#E5E7EB] p-6"
         >
           <!--
-            max-w 를 360px 로 축소 → 3:4 비율상 높이 ~480px 로 떨어져 step bar 가 차지하는 영역을
-            제외한 남은 row 안에 카메라가 잘 들어간다.
+            CameraView 내부가 `aspect-[3/4] w-full` 로 자기 크기를 잡으므로 wrapper 는 width 가
+            정해진 block 박스여야 한다. h-full + aspect-[3/4] 가 height 를 부모(섹션) full 로 채우고
+            width 를 height × 3/4 로 도출 → CameraView 가 그 width 만큼 stretch.
           -->
-          <div class="w-full max-w-[360px]">
+          <div class="aspect-[3/4] h-full">
             <CameraView
               bind:this={ref_this_camera}
               active={true}
@@ -193,14 +193,13 @@
           </div>
         </section>
 
+        <!-- 우: 컨트롤 패널. 위에서 아래로 가이드 toggle / step / 상태 / 썸네일 4 영역. viewport 오른쪽 끝까지 확장. -->
         <aside
-          class="flex min-h-0 flex-col justify-center gap-1 overflow-hidden bg-[var(--retina-surface)] px-2 py-1"
+          class="app-bg-edge-extend-right flex min-h-0 flex-col overflow-hidden border-l border-[var(--retina-text-200)] bg-white"
         >
-          <section class="border-b border-[var(--retina-text-200)] pb-1">
+          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
             <div class="flex items-center justify-between gap-2">
-              <div>
-                <p class="text-[11px] font-extrabold text-[var(--retina-text-800)]">가이드 표시</p>
-              </div>
+              <p class="text-[12px] font-extrabold text-[var(--retina-text-800)]">가이드 표시</p>
               <button
                 type="button"
                 class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
@@ -224,18 +223,25 @@
               </button>
             </div>
           </section>
-          <StepIndicator
-            steps_arr={g_session.steps_arr}
-            current_index={g_session.current_step_index}
-          />
-          <StepStatusBar
-            step={g_current_step}
-            is_capturing={g_is_capturing}
-            oncapture_click={on_manual_capture_click}
-          />
-          <div class="min-h-0">
+
+          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
+            <StepIndicator
+              steps_arr={g_session.steps_arr}
+              current_index={g_session.current_step_index}
+            />
+          </section>
+
+          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
+            <StepStatusBar
+              step={g_current_step}
+              is_capturing={g_is_capturing}
+              oncapture_click={on_manual_capture_click}
+            />
+          </section>
+
+          <section class="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-3">
             <CaptureThumbnails />
-          </div>
+          </section>
         </aside>
       </div>
     {/if}

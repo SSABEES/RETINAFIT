@@ -263,7 +263,7 @@
   onlogout={on_click_logout}
 >
   <section class="flex min-h-0 flex-1 flex-col overflow-hidden">
-    <div class="flex min-h-0 flex-1 flex-col justify-center px-7 pt-2.5 pb-1">
+    <div class="flex min-h-0 flex-1 flex-col justify-center px-7 pt-8 pb-6">
       <h1 class="m-0 text-center text-[18px] font-extrabold tracking-[-0.02em] text-zinc-950">
         {g_customer_name}의 얼굴 분석 결과
       </h1>
@@ -292,13 +292,17 @@
           class="flex min-h-0 flex-col overflow-hidden rounded-[14px] border border-slate-200 bg-white px-5 py-4 shadow-[0_8px_20px_rgba(15,23,42,0.07)]"
         >
           <div class="grid shrink-0 grid-cols-2 gap-3">
-            <div class="rounded-[8px] border border-[#FFEDD5] bg-[#FFF7ED] px-3 py-2 text-center">
+            <div
+              class="flex flex-col justify-center rounded-[8px] border border-[#FFEDD5] bg-[#FFF7ED] px-3 py-5 text-center"
+            >
               <p class="m-0 text-[12px] font-bold text-slate-700">얼굴형</p>
               <p class="m-0 mt-1 text-[13px] font-bold text-[#F97316]">
                 {g_face_shape_label}
               </p>
             </div>
-            <div class="rounded-[8px] border border-[#D8E2FF] bg-[#EDF0FF] px-3 py-2 text-center">
+            <div
+              class="flex flex-col justify-center rounded-[8px] border border-[#D8E2FF] bg-[#EDF0FF] px-3 py-5 text-center"
+            >
               <p class="m-0 text-[12px] font-bold text-slate-700">피부톤</p>
               <p class="m-0 mt-1 text-[13px] font-bold leading-tight text-[#1660C7]">
                 {g_skin_tone_recommendation_obj.label}
@@ -375,14 +379,14 @@
         <div class="grid w-full grid-cols-[2fr_3fr] gap-4">
           <button
             type="button"
-            class="h-[64px] cursor-pointer rounded-lg border border-slate-300 bg-white text-[22px] font-black text-black transition hover:border-slate-400 hover:text-slate-700"
+            class="h-[64px] cursor-pointer rounded-lg border border-slate-300 bg-white text-[22px] text-[var(--retina-text-500)] transition hover:border-slate-400 hover:text-[var(--retina-text-700)]"
             onclick={on_click_retry}
           >
             재분석
           </button>
           <button
             type="button"
-            class="h-[64px] cursor-pointer rounded-lg border-0 bg-[#F97316] text-[26px] font-black tracking-tight text-black transition hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-60"
+            class="h-[64px] cursor-pointer rounded-lg border-0 bg-[#F97316] text-[26px] tracking-tight text-[var(--retina-surface)] transition hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-60"
             disabled={g_is_submitting}
             onclick={on_click_continue}
           >
