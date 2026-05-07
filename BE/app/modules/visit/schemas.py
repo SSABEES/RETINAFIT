@@ -23,8 +23,8 @@ class CustomerCreateRequest(BaseModel):
     cust_name: str
     phone1: str
     phone2: Optional[str] = None
-    birthday: str   # YYYY-MM-DD
-    sex: int        # 0: 남자, 1: 여자
+    birthday: Optional[str] = None   # YYYY-MM-DD
+    sex: Optional[int] = None        # 0: 남자, 1: 여자
 
     @field_validator("phone1", "phone2", mode="before")
     @classmethod
