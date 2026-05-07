@@ -21,6 +21,7 @@
   import {
     play as play_voice,
     reset_session as reset_voice_session,
+    wait_for_active as wait_for_voice,
   } from '@/lib/audio/voice_guide.js'
 
   /**
@@ -124,6 +125,8 @@
 
     // 단계 완료 안내를 add_capture (step 전환) 직전에 await — step 변경 시 camera_view.reset()
     // 이 stop_voice() 를 호출하므로, 안내가 끝까지 들리도록 여기서 await 후 진행한다.
+    // 셔터음(camera_shutter_sound) 이 fire-and-forget 으로 진행 중일 가능성이 있어, 먼저 그 종료를
+    // 기다린 뒤 단계 완료 안내를 시작 — 동일 high 우선순위라 진행 중 셔터를 끊지 않기 때문.
     const local_pose_type = g_current_step.pose_type
     const local_complete_key =
       local_pose_type === 'front'
@@ -131,6 +134,7 @@
         : local_pose_type === 'left_profile'
           ? 'left_side_capture_complete'
           : 'right_side_capture_complete'
+    await wait_for_voice()
     await play_voice(local_complete_key, { priority: 'high' })
 
     await add_capture(capture)

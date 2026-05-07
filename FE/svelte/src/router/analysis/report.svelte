@@ -38,6 +38,23 @@
     NEUTRAL: '중성 톤',
   }
 
+  // 피부톤 카드 톤별 색 — WARM/COOL/NEUTRAL 별로 border / bg / text 트라이어드.
+  /** @type {Record<'WARM' | 'COOL' | 'NEUTRAL', { box_class: string, text_class: string }>} */
+  const SKIN_TONE_BOX_STYLE_OBJ = {
+    WARM: {
+      box_class: 'border-[#FED7AA] bg-[#FFF7ED]',
+      text_class: 'text-[#C2410C]',
+    },
+    COOL: {
+      box_class: 'border-[#D8E2FF] bg-[#EDF0FF]',
+      text_class: 'text-[#1660C7]',
+    },
+    NEUTRAL: {
+      box_class: 'border-slate-300 bg-slate-100',
+      text_class: 'text-slate-700',
+    },
+  }
+
   let g_is_submitting = $state(false)
   let g_submit_error = $state('')
   // 로그아웃처럼 PATH.analysis 가 아닌 곳으로 명시적으로 이동할 때, captures 비움 → /analysis 리다이렉트
@@ -96,6 +113,11 @@
     get_skin_tone_recommendation(
       g_face_shape_result?.skin_tone?.tone ?? $selected_customer_obj?.skin_tone ?? 'NEUTRAL',
     ),
+  )
+
+  // 피부톤 카드 색상 — recommendation key(WARM/COOL/NEUTRAL) 기준 트라이어드 매핑.
+  const g_skin_tone_box_style = $derived(
+    SKIN_TONE_BOX_STYLE_OBJ[g_skin_tone_recommendation_obj.key] ?? SKIN_TONE_BOX_STYLE_OBJ.NEUTRAL,
   )
 
   const g_recommended_color_arr = $derived(g_skin_tone_recommendation_obj.chip_arr.slice(0, 4))
@@ -301,10 +323,12 @@
               </p>
             </div>
             <div
-              class="flex flex-col justify-center rounded-[8px] border border-[#D8E2FF] bg-[#EDF0FF] px-3 py-5 text-center"
+              class={`flex flex-col justify-center rounded-[8px] border px-3 py-5 text-center ${g_skin_tone_box_style.box_class}`}
             >
               <p class="m-0 text-[12px] font-bold text-slate-700">피부톤</p>
-              <p class="m-0 mt-1 text-[13px] font-bold leading-tight text-[#1660C7]">
+              <p
+                class={`m-0 mt-1 text-[13px] font-bold leading-tight ${g_skin_tone_box_style.text_class}`}
+              >
                 {g_skin_tone_recommendation_obj.label}
                 <br />
                 {SKIN_TONE_DESCRIPTION_OBJ[g_skin_tone_recommendation_obj.key] ?? '중성 톤'}

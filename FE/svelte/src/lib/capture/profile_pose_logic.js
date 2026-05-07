@@ -7,12 +7,29 @@
 // 실제 튜닝은 prod 실측 후. 변경 시 테스트도 함께 갱신.
 export const PROFILE_CONSTANTS = Object.freeze({
   ORT_FRAME_SKIP: 5, // tick() 호출 5번마다 1번 추론 → 12Hz rAF 에서 ~2.4Hz
-  TARGET_DEG: 90, // ±90° 가 측면 정자세
-  TOLERANCE: 15, // 영역 폭 ±15° — 사용자 자세 흔들림 허용 (10° 는 너무 빡빡)
-  YAW_STD_THR: 5, // 안정성 표준편차 임계 (도)
+  TARGET_DEG: 77.5, // 좌/우 측면 인정 영역 중심값. left=+77.5°, right=-77.5°.
+  TOLERANCE: 32.5, // ±32.5° → 좌측 +45~+110°, 우측 -110~-45° 범위 (사용자 측면 자세 폭 확대)
+  YAW_STD_THR: 20, // 안정성 표준편차 임계 (도) — 머리 흔들림 허용폭 확장
   STABILITY_FRAMES: 12, // 12 frames @ 12Hz ≈ 1초 hold
   YAW_BUFFER_SIZE: 10, // 표준편차 계산용 슬라이딩 윈도우
 })
+
+/**
+ * pose_target → 목표 yaw (도). 6DRepNet360 yaw 부호 규약: 사용자 POV 기준 고개를
+ * 오른쪽으로 돌리면 yaw 증가 (+).
+ * - left_profile (좌측면 촬영) = 사용자 좌측 얼굴 노출 → 사용자가 고개 오른쪽으로 → +TARGET_DEG
+ * - right_profile (우측면 촬영) = 사용자 우측 얼굴 노출 → 사용자가 고개 왼쪽으로 → -TARGET_DEG
+ *
+ * 음성 안내 (turn_head_right_for_left_capture / turn_left_for_right_capture) 와 부호 일치.
+ *
+ * @param {string} pose_target - 'front' | 'left_profile' | 'right_profile'
+ * @returns {number} 목표 yaw (도). 'front' 은 0 (이 함수는 측면용이므로 보통 호출 안 됨).
+ */
+export function compute_target_deg(pose_target) {
+  if (pose_target === 'left_profile') return +PROFILE_CONSTANTS.TARGET_DEG
+  if (pose_target === 'right_profile') return -PROFILE_CONSTANTS.TARGET_DEG
+  return 0
+}
 
 /**
  * 배열의 표준편차. 빈 배열은 Infinity 반환 — holding 검사가 자동 실패하도록.
@@ -81,10 +98,9 @@ export function compute_hint_text({ session_ready, last_yaw, target_deg, is_stab
 
   const distance = Math.abs(last_yaw - target_deg)
   if (distance >= PROFILE_CONSTANTS.TOLERANCE) {
-    // 음성 안내(turn_left_for_right_capture / turn_head_right_for_left_capture) 와 방향 일치.
-    // right_profile (target=+90) → 사용자는 고개를 왼쪽으로 돌려야 우측 면이 카메라에 노출됨.
-    // left_profile (target=-90) → 사용자는 고개를 오른쪽으로 돌려야 좌측 면이 카메라에 노출됨.
-    const direction = target_deg > 0 ? '왼쪽' : '오른쪽'
+    // compute_target_deg 의 부호 규약 기준 — left_profile (+90) 일 때 "오른쪽", right_profile (-90)
+    // 일 때 "왼쪽". 음성 안내 (turn_head_right_for_left_capture / turn_left_for_right_capture) 와 일치.
+    const direction = target_deg > 0 ? '오른쪽' : '왼쪽'
     return `고개를 ${direction}으로 더 돌려주세요`
   }
   if (is_stable) return '✓ 측정 중…'

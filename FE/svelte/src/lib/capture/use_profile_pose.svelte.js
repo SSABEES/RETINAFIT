@@ -17,6 +17,7 @@ import { rotation_matrix_to_euler } from '@/lib/sixdrepnet360/pose.js'
 import {
   update_stability_step,
   compute_hint_text,
+  compute_target_deg,
   PROFILE_CONSTANTS,
 } from './profile_pose_logic.js'
 
@@ -90,10 +91,7 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
       _last_roll = roll
       _last_rotation = result.rotation_matrix
 
-      const target_deg =
-        get_pose_target() === 'right_profile'
-          ? +PROFILE_CONSTANTS.TARGET_DEG
-          : -PROFILE_CONSTANTS.TARGET_DEG
+      const target_deg = compute_target_deg(get_pose_target())
       const next = update_stability_step({
         stable_count: _stable_count,
         yaw_buffer: _yaw_buffer,
@@ -143,10 +141,7 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
       return Math.min(100, Math.round((_stable_count / PROFILE_CONSTANTS.STABILITY_FRAMES) * 100))
     },
     get hint_text() {
-      const target_deg =
-        get_pose_target() === 'right_profile'
-          ? +PROFILE_CONSTANTS.TARGET_DEG
-          : -PROFILE_CONSTANTS.TARGET_DEG
+      const target_deg = compute_target_deg(get_pose_target())
       return compute_hint_text({
         session_ready: _session_ready,
         last_yaw: _last_yaw,

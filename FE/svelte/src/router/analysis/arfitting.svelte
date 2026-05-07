@@ -517,59 +517,66 @@
     null,
     {
       title: '착용할 안경을 선택해 주세요',
-      desc: '오른쪽 목록에서 원하는 안경을 선택해 주세요.\n선택하면 즉시 native AR 피팅 화면이 열립니다.',
+      desc: '오른쪽 목록에서 원하는 안경을 선택해 주세요.\n선택하면 즉시 AR 피팅 화면이 열립니다.',
       hint: '오른쪽 안경 목록을 확인해 주세요.',
-      card_style: 'right: 468px; top: 50%; transform: translateY(-50%)',
+      card_style: 'right: 320px; top: 50%; transform: translateY(-50%)',
+    },
+    {
+      title: '마음에 드는 프레임이 없다면?',
+      desc: '오른쪽 상단의 프레임 변경 버튼을 누르면\n추천 안경 3개가 새로운 조합으로 바뀝니다.\n원하는 안경을 찾을 때까지 반복해서 눌러보세요.',
+      hint: '오른쪽 목록 상단의 새로고침 아이콘을 눌러 주세요.',
+      card_style: 'right: 320px; top: 50%; transform: translateY(-50%)',
     },
     {
       title: 'AR 화면에서 3장을 촬영해 주세요',
-      desc: 'AR 화면 하단의 [정면 / 좌측 / 우측] 버튼을 눌러 3장을 찍어 주세요.\n3장을 모두 찍으면 자동으로 AR 화면이 닫힙니다.',
+      desc: '안경을 선택하면 화면이 전체 화면 AR 모드로 전환됩니다.\n하단의 [정면 / 좌측 / 우측] 버튼을 순서대로 눌러 3장을 찍어 주세요.\n3장을 모두 찍으면 자동으로 AR 화면이 닫힙니다.',
       hint: 'AR 화면 하단 버튼을 사용해 주세요.',
-      card_style: 'left: 40px; bottom: 168px',
+      card_style: 'right: 320px; top: 50%; transform: translateY(-50%); width: 480px',
     },
     {
       title: '촬영 상태를 확인해 주세요',
       desc: '3개의 슬롯이 모두 채워졌는지 확인해 주세요.\nX 버튼으로 다시 촬영할 수 있습니다.\n다른 안경을 선택하면 현재 촬영 중인 사진은 초기화됩니다.',
       hint: '오른쪽 상단 슬롯을 확인해 주세요.',
-      card_style: 'right: 468px; top: 80px',
+      card_style: 'right: 320px; top: 50%; transform: translateY(-50%)',
     },
     {
       title: '피팅 결과를 저장해요',
       desc: '3장 촬영이 완료되면 [피팅 결과 저장] 버튼이 활성화됩니다.\n저장 후 다른 안경도 최대 5개까지 시도할 수 있습니다.\n3장 미완료 상태에서는 저장되지 않습니다.',
       hint: '오른쪽 하단 왼쪽 버튼을 눌러 주세요.',
-      card_style: 'right: 468px; bottom: 72px',
+      card_style: 'right: 320px; top: 50%; transform: translateY(-50%)',
     },
     {
       title: '최종 리포트를 확인해 주세요',
-      desc: '피팅 결과가 1개 이상 저장되면 [최종 분석 리포트 확인] 버튼이 활성화됩니다.\n저장한 안경들을 한 번에 AI가 분석합니다.',
+      desc: '피팅 결과가 1개 이상 저장되면 \n [실제 착용 분석하기] 버튼이 활성화됩니다.\n저장한 안경들을 한 번에 AI가 분석합니다.',
       hint: '오른쪽 하단 오른쪽 버튼을 눌러 주세요.',
-      card_style: 'right: 468px; bottom: 72px',
+      card_style: 'right: 320px; top: 50%; transform: translateY(-50%)',
     },
   ]
 
   let g_guide_info = $derived(GUIDE_STEP_ARR[g_guide_step])
 
-  function _on_click_guide_open() {
+  function on_click_guide_open() {
     g_guide_step = 1
   }
   function on_click_guide_close() {
     g_guide_step = 0
   }
   function on_click_guide_next() {
-    if (g_guide_step < 5) g_guide_step++
+    if (g_guide_step < 6) g_guide_step++
     else g_guide_step = 0
   }
   function on_click_guide_prev() {
     if (g_guide_step > 1) g_guide_step--
   }
 
-  let g_highlight_camera = $derived(g_guide_step === 2)
-  let g_highlight_aside = $derived([1, 3, 4, 5].includes(g_guide_step))
+  let g_highlight_camera = $derived(g_guide_step === 3)
+  let g_highlight_aside = $derived([1, 2, 4, 5, 6].includes(g_guide_step))
 </script>
 
 <AnalysisPageLayout current_step={3} bg_class="bg-white text-zinc-900">
-
-  <div class="flex min-h-0 flex-1 overflow-clip [overflow-clip-margin:9999px] bg-[var(--retina-text-100)]">
+  <div
+    class="flex min-h-0 flex-1 overflow-clip [overflow-clip-margin:9999px] bg-[var(--retina-text-100)]"
+  >
     <!-- 좌측: 카메라 -->
     <section
       class="relative flex min-h-0 flex-1 flex-col transition-[z-index]"
@@ -578,25 +585,53 @@
       <div
         bind:this={ref_camera_section_el}
         class="app-bg-edge-extend-left arfitting-camera-fill relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner transition-all"
-        class:ring-4={g_highlight_camera}
-        class:ring-[var(--retina-primary-200)]={g_highlight_camera}
-        class:ring-offset-4={g_highlight_camera}
+        class:ring-2={g_highlight_camera}
+        class:ring-[var(--retina-primary-300)]={g_highlight_camera}
+        class:ring-inset={g_highlight_camera}
       >
         <!-- native AR 이 화면을 takeover 하므로 이 영역은 안내 placeholder 만 표시한다. -->
         <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-          <Glasses size={48} class="mb-3 text-white/40" />
-          <p class="text-[14px] font-bold leading-relaxed text-white/85">
-            {#if g_ar_unavailable}
+          <Glasses size={64} class="mb-4 text-white/40" />
+
+          {#if g_ar_unavailable}
+            <!-- AR 불가 기기: 가이드 버튼 숨기고 redirect 안내만 노출. -->
+            <p class="text-[20px] font-extrabold leading-relaxed text-white/90">
               해당 기기는 AR 피팅 사용이 불가합니다<br />
-              (Android 기기로 접속해주세요)
-            {:else if g_selected_id === null}
-              오른쪽 목록에서 안경을 선택하면 AR 피팅이 시작됩니다
-            {:else if g_flutter_launch_loading}
-              AR 피팅 화면을 여는 중...
-            {:else}
-              AR 화면에서 정면 → 좌측 → 우측 순서로 촬영해주세요
+              <span class="text-[16px] font-bold text-white/70">(Android 기기로 접속해주세요)</span>
+            </p>
+            <p
+              class="mt-5 max-w-[560px] text-[17px] font-semibold leading-relaxed text-[var(--retina-primary-200)]"
+            >
+              대신 우측 하단의 <span class="font-extrabold text-white">실제 착용 분석하기</span>
+              버튼으로 매장에서 직접 착용한 안경 사진을 <br> 촬영해 분석을 이어갈 수 있어요.
+            </p>
+          {:else}
+            <!-- AR 사용 가능(또는 확인 중): Glasses 아이콘 아래 가이드 버튼 표시. -->
+            <button
+              type="button"
+              onclick={on_click_guide_open}
+              aria-label="AR 피팅 사용 가이드 열기"
+              class="inline-flex cursor-pointer items-center gap-2.5 rounded-full border-2 border-[var(--retina-primary-300)] bg-white/10 px-7 py-3.5 text-[18px] font-extrabold text-white shadow-[0_8px_20px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:bg-[var(--retina-primary-300)] hover:text-white"
+            >
+              <span
+                class="grid h-7 w-7 place-items-center rounded-full bg-[var(--retina-primary-300)] text-[15px] font-black text-white"
+                aria-hidden="true"
+              >
+                ?
+              </span>
+              AR 피팅이 처음이신가요?
+            </button>
+
+            {#if g_ar_check_done && g_selected_id !== null}
+              <p class="mt-5 text-[18px] font-extrabold leading-relaxed text-white/90">
+                {#if g_flutter_launch_loading}
+                  AR 피팅 화면을 여는 중...
+                {:else}
+                  AR 화면에서 정면 → 좌측 → 우측 순서로 촬영해주세요
+                {/if}
+              </p>
             {/if}
-          </p>
+          {/if}
         </div>
       </div>
     </section>
@@ -609,11 +644,13 @@
       <!-- 캡쳐 슬롯 -->
       <div
         class="px-4 pt-3 pb-2 transition-all"
-        class:ring-4={g_guide_step === 3}
-        class:ring-[var(--retina-primary-200)]={g_guide_step === 3}
-        class:ring-inset={g_guide_step === 3}
+        class:ring-2={g_guide_step === 4}
+        class:ring-[var(--retina-primary-300)]={g_guide_step === 4}
+        class:ring-inset={g_guide_step === 4}
       >
-        <h2 class="mb-2 text-[11px] font-extrabold tracking-wide text-[#374151]">촬영 기록</h2>
+        <div class="mb-2 flex items-center justify-between">
+          <h2 class="text-[11px] font-extrabold tracking-wide text-[#374151]">촬영 기록</h2>
+        </div>
         <div class="grid grid-cols-3 gap-2 pr-1">
           {#each g_capture_slot_arr as slot, idx (idx)}
             <div class="group relative flex flex-col items-center gap-1">
@@ -660,9 +697,9 @@
       <!-- 추천 안경 목록 -->
       <div
         class="flex min-h-0 flex-1 flex-col px-4 py-4 transition-all"
-        class:ring-4={g_guide_step === 1}
-        class:ring-[var(--retina-primary-200)]={g_guide_step === 1}
-        class:ring-inset={g_guide_step === 1}
+        class:ring-2={g_guide_step === 1 || g_guide_step === 2}
+        class:ring-[var(--retina-primary-300)]={g_guide_step === 1 || g_guide_step === 2}
+        class:ring-inset={g_guide_step === 1 || g_guide_step === 2}
       >
         <div class="mb-2 flex items-center justify-between pr-1">
           <h2 class="text-[13px] font-extrabold text-zinc-900">추천 안경</h2>
@@ -760,9 +797,9 @@
       <!-- 저장된 피팅 목록 + 액션 버튼 -->
       <div
         class="border-t border-slate-100 bg-white px-4 py-3 transition-all"
-        class:ring-4={g_guide_step === 4 || g_guide_step === 5}
-        class:ring-[var(--retina-primary-200)]={g_guide_step === 4 || g_guide_step === 5}
-        class:ring-inset={g_guide_step === 4 || g_guide_step === 5}
+        class:ring-2={g_guide_step === 5 || g_guide_step === 6}
+        class:ring-[var(--retina-primary-300)]={g_guide_step === 5 || g_guide_step === 6}
+        class:ring-inset={g_guide_step === 5 || g_guide_step === 6}
       >
         {#if g_saved_fittings_arr.length > 0}
           <div class="mb-2">
@@ -806,14 +843,18 @@
         <div class="grid grid-cols-2 gap-2">
           <button
             type="button"
-            disabled={!g_can_save || g_submit_loading}
+            disabled={(!g_can_save || g_submit_loading) && g_guide_step !== 5}
             onclick={on_click_save_fitting}
             aria-label="피팅 결과 저장"
             class="block aspect-[31/13] w-full cursor-pointer overflow-hidden rounded-lg border-0 bg-transparent p-0 transition-all disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
           >
             {#if g_submit_loading}
-              <span class="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-[var(--retina-primary-300)] bg-white text-[12px] font-extrabold text-[var(--retina-primary-300)]">
-                <span class="h-3 w-3 animate-spin rounded-full border-2 border-[var(--retina-primary-300)] border-t-transparent"></span>
+              <span
+                class="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-[var(--retina-primary-300)] bg-white text-[12px] font-extrabold text-[var(--retina-primary-300)]"
+              >
+                <span
+                  class="h-3 w-3 animate-spin rounded-full border-2 border-[var(--retina-primary-300)] border-t-transparent"
+                ></span>
                 <span>저장 중</span>
               </span>
             {:else}
@@ -823,7 +864,7 @@
 
           <button
             type="button"
-            disabled={!g_can_submit}
+            disabled={!g_can_submit && g_guide_step !== 6}
             onclick={on_click_submit_report}
             aria-label="실제 착용 분석하기"
             class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 text-[12px] font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
@@ -841,7 +882,8 @@
 <!-- 가이드 오버레이 -->
 {#if g_guide_step > 0}
   <div
-    class="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]"
+    class="fixed z-40 bg-black/60 backdrop-blur-[2px]"
+    style="top: 0; bottom: 0; left: calc(-1 * var(--app-frame-edge-extend, 0px)); right: calc(-1 * var(--app-frame-edge-extend, 0px));"
     role="presentation"
     onclick={on_click_guide_close}
     in:fade={{ duration: 250 }}
@@ -850,13 +892,13 @@
 
   {#if g_guide_info}
     <div
-      class="fixed z-50 w-80 rounded-3xl bg-white p-6 shadow-2xl"
+      class="fixed z-50 w-[400px] rounded-3xl bg-white p-6 shadow-2xl"
       style={g_guide_info.card_style}
       in:fly={{ y: 8, duration: 300 }}
       out:fade={{ duration: 150 }}
     >
       <div class="mb-5 flex gap-1.5">
-        {#each [1, 2, 3, 4, 5] as step_num (step_num)}
+        {#each [1, 2, 3, 4, 5, 6] as step_num (step_num)}
           <div
             class="h-1.5 flex-1 rounded-full transition-colors duration-300 {g_guide_step >=
             step_num
@@ -868,10 +910,26 @@
       <p
         class="mb-1.5 text-xs font-black uppercase tracking-widest text-[var(--retina-primary-300)]"
       >
-        Step {g_guide_step} / 5
+        Step {g_guide_step} / 6
       </p>
       <h3 class="mb-3 text-lg font-black leading-snug text-zinc-900">{g_guide_info.title}</h3>
       <p class="whitespace-pre-line text-sm leading-relaxed text-slate-500">{g_guide_info.desc}</p>
+
+      {#if g_guide_step === 3}
+        <div class="mt-4 overflow-hidden rounded-2xl bg-zinc-900 px-4 py-4">
+          <p class="mb-3 text-center text-[12px] font-semibold text-white/50">AR 화면 하단 버튼</p>
+          <div class="grid grid-cols-3 gap-2.5">
+            {#each ['정면', '좌측', '우측'] as label}
+              <div
+                class="flex items-center justify-center rounded-full bg-[var(--retina-primary-300)] py-3 text-[14px] font-bold text-white"
+              >
+                {label}
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
       <div
         class="mt-4 flex items-center justify-between gap-2 rounded-2xl bg-[var(--retina-bg-1)] px-4 py-3"
       >
@@ -901,7 +959,7 @@
             onclick={on_click_guide_next}
             class="rounded-xl bg-[var(--retina-primary-300)] px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-[var(--retina-primary-400)]"
           >
-            {g_guide_step < 5 ? '다음' : '시작하기'}
+            {g_guide_step < 6 ? '다음' : '시작하기'}
           </button>
         </div>
       </div>

@@ -202,20 +202,14 @@
     return local_customer_result_arr
   }
 
-  // 얼굴분석 버튼을 클릭하면 매번 새 방문 정보를 생성한 뒤 분석 화면으로 이동한다.
+  // 고객 행 클릭 시 — 선택한 고객을 store 에 저장하고 고객 상세 페이지로 이동.
+  // 분석 시작은 상세 페이지의 액션 카드에서 진행.
   /** @param {Record<string, any>} customer_obj */
-  async function on_click_select_customer(customer_obj) {
+  function on_click_select_customer(customer_obj) {
     if (g_is_customer_select_loading) return
 
     set_selected_customer(customer_obj)
-    g_visit_target_customer = customer_obj
-    g_is_customer_select_loading = true
-
-    try {
-      await on_start_new_visit()
-    } finally {
-      g_is_customer_select_loading = false
-    }
+    navigate(PATH.userDetail(customer_obj.id))
   }
 
   async function on_start_new_visit() {

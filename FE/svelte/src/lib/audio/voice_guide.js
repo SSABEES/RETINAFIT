@@ -24,6 +24,9 @@
  *   | 'start_face_recognition'
  *   | 'face_recognition_complete'
  *   | 'start_capture'
+ *   | 'head_center'
+ *   | 'head_right'
+ *   | 'head_left'
  * )} VoiceGuideKey */
 
 const REPEAT_DEBOUNCE_MS = 1200
@@ -33,6 +36,8 @@ const ONCE_KEYS = new Set(['start_capture', 'capture_complete'])
 let g_active_audio = null
 /** @type {'low' | 'high' | null} */
 let g_active_priority = null
+/** @type {Promise<void> | null} */
+let g_active_promise = null
 /** @type {VoiceGuideKey | null} */
 let g_last_key = null
 let g_last_at = 0
@@ -43,6 +48,7 @@ const g_played_once_set = new Set()
 function clear_active() {
   g_active_audio = null
   g_active_priority = null
+  g_active_promise = null
 }
 
 /**
@@ -53,16 +59,17 @@ function clear_active() {
  *
  * @param {VoiceGuideKey} key
  * @param {{ priority?: 'low' | 'high' }} [opts]
- * @returns {Promise<void>} 재생 종료 / 인터럽트 / 무시 모두 resolve. 호출자는 await 으로 순차 진행 가능.
+ * @returns {Promise<boolean>} 실제 재생되었으면 true (재생 종료 시점에 resolve).
+ *                             무시(rejected/once-key/debounced) 면 false 즉시 resolve.
  */
 export async function play(key, opts = {}) {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined') return false
   const priority = opts.priority ?? 'low'
 
-  if (ONCE_KEYS.has(key) && g_played_once_set.has(key)) return
+  if (ONCE_KEYS.has(key) && g_played_once_set.has(key)) return false
 
   const now = Date.now()
-  if (g_last_key === key && now - g_last_at < REPEAT_DEBOUNCE_MS) return
+  if (g_last_key === key && now - g_last_at < REPEAT_DEBOUNCE_MS) return false
 
   if (g_active_audio && !g_active_audio.paused && !g_active_audio.ended) {
     if (priority === 'high' && g_active_priority === 'low') {
@@ -70,7 +77,7 @@ export async function play(key, opts = {}) {
       g_active_audio.currentTime = 0
       clear_active()
     } else {
-      return
+      return false
     }
   }
 
@@ -89,16 +96,36 @@ export async function play(key, opts = {}) {
   audio.addEventListener('ended', on_end_or_pause, { once: true })
   audio.addEventListener('pause', on_end_or_pause, { once: true })
 
-  try {
-    await audio.play()
-    await new Promise((resolve) => {
-      audio.addEventListener('ended', resolve, { once: true })
-      audio.addEventListener('pause', resolve, { once: true })
-      audio.addEventListener('error', resolve, { once: true })
-    })
-  } catch {
-    if (g_active_audio === audio) clear_active()
-  }
+  // 재생-종료까지의 promise 를 모듈 레벨에 저장 — wait_for_active() 가 이 promise 를 반환하여
+  // 외부 호출자가 진행 중 음성의 종료 시점을 정확히 await 할 수 있게 한다.
+  const playback_promise = (async () => {
+    try {
+      await audio.play()
+      await new Promise((resolve) => {
+        audio.addEventListener('ended', resolve, { once: true })
+        audio.addEventListener('pause', resolve, { once: true })
+        audio.addEventListener('error', resolve, { once: true })
+      })
+    } catch {
+      if (g_active_audio === audio) clear_active()
+    }
+  })()
+  g_active_promise = playback_promise
+
+  await playback_promise
+  return true
+}
+
+/**
+ * 진행 중인 음성이 끝날 때까지 await 가능. 진행 중 없으면 즉시 resolve.
+ * 호출자가 자기 음성을 재생하기 전에 앞 음성 종료를 보장하고 싶을 때 사용.
+ * - audio 객체의 paused/ended 직접 검사로는 audio.play() 가 awaited 되기 직전 microtask 윈도우에서
+ *   paused=true 로 잘못 인식되는 race 가 있어, play() 가 끝까지 기다리는 promise 를 그대로 반환.
+ *
+ * @returns {Promise<void>}
+ */
+export function wait_for_active() {
+  return g_active_promise ?? Promise.resolve()
 }
 
 // 진행 중인 음성을 즉시 정지. step 전환 / 카메라 정지 시 호출.
