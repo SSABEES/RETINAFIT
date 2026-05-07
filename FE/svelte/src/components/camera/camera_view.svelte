@@ -16,13 +16,14 @@
   // no-op 이거나 6D 추론 발사. 정면 단계엔 무관 — 인스턴스만 만들어두고 사용 안 함.
   import { create_profile_pose_detector } from '@/lib/capture/use_profile_pose.svelte.js'
   import { PROFILE_CONSTANTS } from '@/lib/capture/profile_pose_logic.js'
+  // 음성 가이드 — 모듈 단위 단일 audio 채널. 우선순위 / 1회성 키 가드 포함.
+  import { play as play_voice, stop as stop_voice } from '@/lib/audio/voice_guide.js'
 
   /**
    * @typedef {import("@/lib/mediapipe/face_types.js").FaceMeasurements} FaceMeasurements
    * @typedef {import("@/lib/mediapipe/face_types.js").FrontalCheck} FrontalCheck
    * @typedef {import("@/lib/mediapipe/face_types.js").CompletenessCheck} CompletenessCheck
    * @typedef {import("@/lib/mediapipe/face_types.js").Point2D} Point2D
-   * @typedef {'head_left' | 'head_right' | 'head_center' | 'face_good' | 'count_three' | 'count_two' | 'count_one' | 'count_click'} AudioPromptKey
    *
    * @typedef {object} CaptureResult
    * @property {Blob} blob
@@ -83,14 +84,11 @@
   let g_already_dispatched = false
   /** @type {ReturnType<typeof setTimeout> | null} */
   let g_capture_timeout = null
-  /** @type {HTMLAudioElement | null} */
-  let g_active_prompt_audio = null
   /** @type {'idle' | 'started' | 'final'} */
   let g_stability_audio_stage = 'idle'
-  /** @type {AudioPromptKey | null} */
-  let g_last_audio_key = null
-  let g_last_audio_at = 0
   let g_capture_sequence_token = 0
+  // step 단위 1회 안내 — 자세 OK 후 안정화 미달 상태에서 "가만히 계세요" 음성. reset() 에서 false 로.
+  let g_did_announce_in_progress = false
 
   // 측면 자세 감지 — pose_target 이 'front' 면 tick() 이 즉시 return 하므로 항상 생성해도 안전.
   // on_stable_reached 콜백: composable 의 stable_count 가 max 처음 도달할 때 rAF 안에서 직접
@@ -268,22 +266,25 @@
       return
     }
 
-    /** @type {'head_left' | 'head_right' | 'head_center' | null} */
+    /** @type {'center_face_for_front_capture' | 'turn_head_right_for_left_capture' | 'turn_left_for_right_capture' | null} */
     let next_audio_key = null
+    // 자세는 OK인지 — 안정화 미달 상태 안내 (face_recognition_in_progress) 분기 결정에 사용.
+    let local_pose_ok = false
 
     if (pose_target === 'front') {
-      // 정면 — 얼굴 일부가 frame 밖이면 head_center, frontal yaw 가 어긋났으면 그 방향.
+      // 정면 — 얼굴 일부가 frame 밖이거나 yaw 가 어긋났으면 동일한 안내 (사용자 음성 셋엔 좌/우 분리 없음).
       if (g_face_detected) {
         if (!g_complete_obj.is_complete) {
-          next_audio_key = 'head_center'
+          next_audio_key = 'center_face_for_front_capture'
         } else if (g_frontal_obj && !g_frontal_obj.is_frontal && g_frontal_obj.reason === 'yaw') {
-          next_audio_key = g_frontal_obj.yaw > 0 ? 'head_right' : 'head_left'
+          next_audio_key = 'center_face_for_front_capture'
+        } else {
+          local_pose_ok = g_complete_obj.is_complete && (g_frontal_obj?.is_frontal ?? false)
         }
       }
     } else {
       // 측면 — 6DRepNet360 yaw 기준 안정화 영역 (target ± TOLERANCE) 미도달이면 target 방향으로
-      // 더 돌리도록 안내. 영역 안 (도달 직전~stable) 이면 음성 침묵 — hint text 가 "자세 유지 중"
-      // 으로 진행 표시. compute_hint_text 의 분기와 같은 조건을 그대로 사용.
+      // 더 돌리도록 안내. 영역 안 (도달 직전~stable) 이면 인식 진행 안내로 폴백.
       if (local_session_ready && local_last_yaw !== null) {
         const target_deg =
           pose_target === 'right_profile'
@@ -291,13 +292,26 @@
             : -PROFILE_CONSTANTS.TARGET_DEG
         const distance = Math.abs(local_last_yaw - target_deg)
         if (distance >= PROFILE_CONSTANTS.TOLERANCE) {
-          next_audio_key = pose_target === 'right_profile' ? 'head_right' : 'head_left'
+          next_audio_key =
+            pose_target === 'right_profile'
+              ? 'turn_left_for_right_capture'
+              : 'turn_head_right_for_left_capture'
+        } else {
+          local_pose_ok = true
         }
       }
     }
 
-    if (!next_audio_key) return
-    void play_prompt_audio(next_audio_key)
+    if (next_audio_key) {
+      void play_voice(next_audio_key)
+      return
+    }
+
+    // 자세 OK + 아직 안정화 미달 — 사용자가 가만히 있어야 한다는 안내. step 단위 1회.
+    if (local_pose_ok && !g_did_announce_in_progress) {
+      g_did_announce_in_progress = true
+      void play_voice('face_recognition_in_progress')
+    }
   })
 
   // 사용자 카메라 권한을 요청하고 MediaPipe 모델을 로드해 rAF 루프를 시작한다.
@@ -309,7 +323,7 @@
       g_permission_denied = false
       g_already_dispatched = false
       g_stability_audio_stage = 'idle'
-      g_last_audio_key = null
+      g_did_announce_in_progress = false
       g_capture_sequence_token += 1
       g_buffer_arr = []
       g_stable_count = 0
@@ -369,9 +383,9 @@
     }
     g_capture_sequence_token += 1
     profile_pose.reset()
-    stop_prompt_audio()
+    stop_voice()
     g_stability_audio_stage = 'idle'
-    g_last_audio_key = null
+    g_did_announce_in_progress = false
     if (g_raf_id !== null) {
       cancelAnimationFrame(g_raf_id)
       g_raf_id = null
@@ -399,7 +413,7 @@
     ) {
       return
     }
-    await play_prompt_audio('face_good')
+    await play_voice('face_recognition_complete', { priority: 'high' })
 
     if (
       my_token !== g_capture_sequence_token ||
@@ -409,7 +423,7 @@
     ) {
       return
     }
-    await play_prompt_audio('count_click')
+    await play_voice('camera_shutter_sound', { priority: 'high' })
 
     if (
       my_token !== g_capture_sequence_token ||
@@ -427,51 +441,6 @@
   }
 
   /**
-   * @param {AudioPromptKey} file_key
-   */
-  async function play_prompt_audio(file_key) {
-    if (typeof window === 'undefined') return
-
-    const now = Date.now()
-    if (g_last_audio_key === file_key && now - g_last_audio_at < 1200) return
-    if (g_active_prompt_audio && !g_active_prompt_audio.paused && !g_active_prompt_audio.ended)
-      return
-
-    const audio = new Audio(`/tts/${file_key}.mp3`)
-    audio.preload = 'auto'
-    g_active_prompt_audio = audio
-    g_last_audio_key = file_key
-    g_last_audio_at = now
-
-    const clear_active_audio = () => {
-      if (g_active_prompt_audio === audio) {
-        g_active_prompt_audio = null
-      }
-    }
-
-    audio.addEventListener('ended', clear_active_audio, { once: true })
-    audio.addEventListener('pause', clear_active_audio, { once: true })
-
-    try {
-      await audio.play()
-      await new Promise((resolve) => {
-        audio.addEventListener('ended', resolve, { once: true })
-        audio.addEventListener('pause', resolve, { once: true })
-        audio.addEventListener('error', resolve, { once: true })
-      })
-    } catch {
-      clear_active_audio()
-    }
-  }
-
-  function stop_prompt_audio() {
-    if (!g_active_prompt_audio) return
-    g_active_prompt_audio.pause()
-    g_active_prompt_audio.currentTime = 0
-    g_active_prompt_audio = null
-  }
-
-  /**
    * 안정화 버퍼를 갱신하고 stable_count 를 조정한다.
    * 최근 10프레임 face_width/height 표준편차가 임계치 미만이면 안정.
    * 불안정 프레임은 1회당 5회분 되감아 조기 확정을 방지한다.
@@ -484,7 +453,7 @@
       return
     }
     const recent = g_buffer_arr.slice(-10)
-    const std = (arr) => {
+    const std = (/** @type {number[]} */ arr) => {
       const mean = arr.reduce((a, b) => a + b, 0) / arr.length
       return Math.sqrt(arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length)
     }
@@ -750,12 +719,12 @@
       g_capture_timeout = null
     }
     g_capture_sequence_token += 1
-    stop_prompt_audio()
+    stop_voice()
     g_already_dispatched = false
     g_buffer_arr = []
     g_stable_count = 0
     g_stability_audio_stage = 'idle'
-    g_last_audio_key = null
+    g_did_announce_in_progress = false
     profile_pose.reset()
   }
 
