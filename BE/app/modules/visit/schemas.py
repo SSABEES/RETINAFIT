@@ -12,6 +12,8 @@ class CustomerSearchResponse(BaseModel):
     phone2: Optional[str] = None
     birthday: str
     sex: int  # 0: 남자, 1: 여자
+    has_face_analysis: bool = False  # 얼굴분석 완료 여부
+    has_lifestyle: bool = False  # 생활패턴(추천옵션) 완료 여부
 
 
 # ─── 고객 등록 ────────────────────────────────────────────────
