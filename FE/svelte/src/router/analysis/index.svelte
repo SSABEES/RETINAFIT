@@ -120,6 +120,7 @@
       measurements_obj: result.measurements_obj,
       measurement_points_obj: result.measurement_points_obj,
       landmarks: result.landmarks,
+      head_pose: result.head_pose,
     }
 
     // 단계 완료 안내를 add_capture (step 전환) 직전에 await — step 변경 시 camera_view.reset()
