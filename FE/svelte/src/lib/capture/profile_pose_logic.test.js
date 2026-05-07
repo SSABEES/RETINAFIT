@@ -123,7 +123,7 @@ describe('compute_hint_text', () => {
     expect(text).toBeNull()
   })
 
-  it('right_profile + yaw 0 → 오른쪽 안내', () => {
+  it('right_profile + yaw 0 → 왼쪽 안내 (음성 turn_left_for_right_capture 와 일치)', () => {
     const text = compute_hint_text({
       session_ready: true,
       last_yaw: 0,
@@ -131,10 +131,10 @@ describe('compute_hint_text', () => {
       is_stable: false,
       progress: 0,
     })
-    expect(text).toBe('고개를 오른쪽으로 더 돌려주세요')
+    expect(text).toBe('고개를 왼쪽으로 더 돌려주세요')
   })
 
-  it('left_profile + yaw 0 → 왼쪽 안내', () => {
+  it('left_profile + yaw 0 → 오른쪽 안내 (음성 turn_head_right_for_left_capture 와 일치)', () => {
     const text = compute_hint_text({
       session_ready: true,
       last_yaw: 0,
@@ -142,7 +142,7 @@ describe('compute_hint_text', () => {
       is_stable: false,
       progress: 0,
     })
-    expect(text).toBe('고개를 왼쪽으로 더 돌려주세요')
+    expect(text).toBe('고개를 오른쪽으로 더 돌려주세요')
   })
 
   it('영역 안 + 진행 중 → 진행률 표시', () => {
