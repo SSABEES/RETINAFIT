@@ -706,7 +706,7 @@
         </section>
       {:else if g_active_tab === 'measurement'}
         <!-- 얼굴 측정 상세 (사진 + 클릭으로 라인 표시) -->
-        <section class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm">
+        <section class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white px-7 py-1.5 shadow-sm">
           <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">얼굴 측정 상세</h2>
 
           {#if g_visit_loading}
@@ -716,10 +716,10 @@
               저장된 사진 또는 측정 좌표가 없습니다.
             </p>
           {:else}
-            <div class="mt-2 grid flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-6">
-              <div class="flex items-center justify-center">
+            <div class="mt-2 grid flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-4">
+              <div class="flex items-start justify-center">
                 <div
-                  class="flex aspect-[3/4] h-full max-h-[440px] w-full max-w-[330px] overflow-hidden rounded-[10px] bg-slate-100 shadow-[0_6px_16px_rgba(15,23,42,0.06)]"
+                  class="flex aspect-[3/4] h-full max-h-[400px] w-full max-w-[300px] overflow-hidden rounded-[10px] bg-slate-100 shadow-[0_6px_16px_rgba(15,23,42,0.06)]"
                 >
                   <MeasureCanvas
                     capture={g_synthesized_capture}
