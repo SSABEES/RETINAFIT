@@ -1,5 +1,5 @@
 <script>
-  import { onDestroy } from 'svelte'
+  import { onDestroy, onMount } from 'svelte'
   import { get } from 'svelte/store'
   import { navigate } from '@maks11060/svelte5-router'
   import CameraView from '@/components/camera/camera_view.svelte'
@@ -17,6 +17,11 @@
   import { selected_customer_obj } from '@/lib/stores/customer'
   import { flip_blob_horizontally } from '@/lib/capture/capture_utils.js'
   import { PATH } from '@/config/path.js'
+  // 음성 가이드 — 세션 단위 1회성 키(start_capture, capture_complete) 와 단계 완료 안내를 담당.
+  import {
+    play as play_voice,
+    reset_session as reset_voice_session,
+  } from '@/lib/audio/voice_guide.js'
 
   /**
    * @typedef {import('@/lib/capture/step_config.js').StepConfig} StepConfig
@@ -71,6 +76,20 @@
     }
   })
 
+  // 새 촬영 세션 시작 시 음성 1회성 키(start_capture / capture_complete) 플래그 초기화.
+  // 이전 분석 후 결과 페이지에서 "처음부터" 로 돌아왔을 때도 음성이 다시 재생되도록.
+  onMount(() => {
+    reset_voice_session()
+  })
+
+  // capturing phase 첫 진입 시 "촬영을 시작하겠습니다" 안내 1회.
+  // 1회성 키라 step 전환에 따라 effect 가 재실행돼도 voice_guide 가 무시.
+  $effect(() => {
+    if (g_session.phase === 'capturing') {
+      void play_voice('start_capture', { priority: 'high' })
+    }
+  })
+
   /**
    * camera_view 가 촬영을 마치면 세션에 저장하고 다음 스텝으로 진행.
    * 썸네일/리뷰 화면용 object_url 만 카메라 프리뷰처럼 좌우 반전하고,
@@ -102,6 +121,18 @@
       measurement_points_obj: result.measurement_points_obj,
       landmarks: result.landmarks,
     }
+
+    // 단계 완료 안내를 add_capture (step 전환) 직전에 await — step 변경 시 camera_view.reset()
+    // 이 stop_voice() 를 호출하므로, 안내가 끝까지 들리도록 여기서 await 후 진행한다.
+    const local_pose_type = g_current_step.pose_type
+    const local_complete_key =
+      local_pose_type === 'front'
+        ? 'front_side_capture_complete'
+        : local_pose_type === 'left_profile'
+          ? 'left_side_capture_complete'
+          : 'right_side_capture_complete'
+    await play_voice(local_complete_key, { priority: 'high' })
+
     await add_capture(capture)
   }
 
@@ -138,9 +169,12 @@
     }, TOAST_VISIBLE_MS)
   }
 
-  // 마지막 캡쳐 완료 → 얼굴 측정 페이지로 이동.
+  // 마지막 캡쳐 완료 → "촬영이 완료되었습니다" 안내 후 얼굴 측정 페이지로 이동.
+  // capture_complete 는 1회성 키 — 페이지가 결과 페이지로 넘어가는 동안 모듈 단위 audio 가
+  // 끊김 없이 재생됨 (onDestroy 가 review phase 에선 voice 를 stop 하지 않음).
   $effect(() => {
     if (g_session.phase === 'review') {
+      void play_voice('capture_complete', { priority: 'high' })
       navigate(PATH.analysisReport)
     }
   })
