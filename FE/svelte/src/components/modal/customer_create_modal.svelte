@@ -76,8 +76,13 @@
 </script>
 
 {#if open}
+  <!--
+    .app-frame 의 transform: scale 이 fixed containing block 을 만들기 때문에 inset-0 만으로는
+    .app-frame 안쪽까지만 덮인다. .app-edge-extend (negative left/right) 를 같이 걸어
+    좌우 viewport 끝까지 오버레이가 닿게 한다.
+  -->
   <div
-    class="fixed inset-0 z-50 grid place-items-center bg-black/40 px-5"
+    class="app-edge-extend fixed inset-y-0 z-50 grid place-items-center bg-black/40 px-5"
     role="presentation"
     onclick={on_click_close}
   >

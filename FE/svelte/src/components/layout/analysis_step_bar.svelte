@@ -1,6 +1,6 @@
 <script>
   /**
-   * 얼굴 분석 플로우의 5단계 진행 상태를 화면 하단에 표시하는 step bar.
+   * 얼굴 분석 플로우의 5단계 진행 상태를 헤더 바로 밑에 표시하는 step bar.
    * 각 페이지는 자기 단계 번호만 prop 으로 넘기면 자동으로 done/active/pending 표시가 갈린다.
    *
    * @type {{ current_step: 1 | 2 | 3 | 4 | 5 }}
@@ -17,10 +17,13 @@
 </script>
 
 <!--
-  position: fixed + .app-edge-extend → .app-frame 좌우 빈 공간까지 viewport 끝까지 확장.
+  normal flow 로 헤더(fixed top, 52px) 바로 밑에 자연스럽게 자리잡는다.
+  .app-bg-edge-extend 가 negative margin 으로 .app-frame 좌우 빈 공간까지 배경 확장.
+  fixed 를 안 쓰는 이유: app.css 의 unlayered .app-frame-page padding-top 이 Tailwind utility 보다
+  우선순위가 높아 pt-[112px] 가 먹히지 않았다 → flex-col 의 in-flow 자식으로 두면 자연 해결.
 -->
 <footer
-  class="app-edge-extend fixed bottom-0 z-30 border-t border-slate-200 bg-white px-6 py-3.5"
+  class="app-bg-edge-extend shrink-0 border-b border-slate-200 bg-white px-6 py-3.5"
   aria-label="얼굴 분석 진행 단계"
 >
   <ol class="mx-auto flex w-full max-w-[860px] items-center gap-2">
