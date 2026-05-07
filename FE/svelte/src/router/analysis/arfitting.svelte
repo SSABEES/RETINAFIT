@@ -447,7 +447,8 @@
    */
   function on_click_submit_report() {
     if (!g_can_submit) return
-    navigate(PATH.analysisResult)
+    // AR 피팅 → 실제 안경 피팅 단계로 진행. 최종 리포트는 그 다음에서 이동.
+    navigate(PATH.analysisRealFitting)
   }
 
   /**
@@ -566,7 +567,7 @@
   let g_highlight_aside = $derived([1, 3, 4, 5].includes(g_guide_step))
 </script>
 
-<AnalysisPageLayout current_step={4} bg_class="bg-white text-zinc-900">
+<AnalysisPageLayout current_step={3} bg_class="bg-white text-zinc-900">
 
   <div class="flex min-h-0 flex-1 overflow-clip [overflow-clip-margin:9999px] bg-[var(--retina-text-100)]">
     <!-- 좌측: 카메라 -->
@@ -824,10 +825,10 @@
             type="button"
             disabled={!g_can_submit}
             onclick={on_click_submit_report}
-            aria-label="리포트 확인"
-            class="block aspect-[31/13] w-full cursor-pointer overflow-hidden rounded-lg border-0 bg-transparent p-0 transition-all disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
+            aria-label="실제 착용 분석하기"
+            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 text-[12px] font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
           >
-            <img src="/icons/BtnReport.png" alt="리포트 확인" class="h-full w-full" />
+            실제 착용 분석하기
           </button>
         </div>
       </div>

@@ -25,6 +25,7 @@
    *   onlogout?: () => void,
    *   show_back?: boolean,
    *   show_logout?: boolean,
+   *   show_step_bar?: boolean,
    *   children: import('svelte').Snippet,
    * }}
    */
@@ -36,6 +37,7 @@
     onlogout = undefined,
     show_back = true,
     show_logout = true,
+    show_step_bar = true,
     children,
   } = $props()
 </script>
@@ -47,7 +49,9 @@
 >
   <Header {onback} {onlogout} {show_back} {show_logout} />
 
-  <AnalysisStepBar {current_step} />
+  {#if show_step_bar}
+    <AnalysisStepBar {current_step} />
+  {/if}
 
   {@render children()}
 </main>

@@ -257,7 +257,7 @@
 </script>
 
 <AnalysisPageLayout
-  current_step={2}
+  current_step={1}
   bg_class="bg-white text-[var(--retina-text)]"
   onback={on_click_back}
   onlogout={on_click_logout}

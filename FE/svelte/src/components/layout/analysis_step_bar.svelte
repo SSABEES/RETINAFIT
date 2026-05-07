@@ -1,18 +1,18 @@
 <script>
   /**
-   * 얼굴 분석 플로우의 5단계 진행 상태를 헤더 바로 밑에 표시하는 step bar.
-   * 각 페이지는 자기 단계 번호만 prop 으로 넘기면 자동으로 done/active/pending 표시가 갈린다.
+   * 얼굴 분석 플로우의 4단계 진행 상태를 헤더 바로 밑에 표시하는 step bar.
+   * 얼굴 촬영/얼굴 분석 결과는 "얼굴 분석" 한 단계로 통합. 최종 리포트는 step bar 에서 제외.
+   * current_step > 4 이면 모든 단계가 done 으로 표시 (예: 결과 페이지).
    *
    * @type {{ current_step: 1 | 2 | 3 | 4 | 5 }}
    */
   let { current_step = 1 } = $props()
 
   const STEP_ARR = [
-    { num: 1, label: '얼굴 촬영' },
-    { num: 2, label: '얼굴 분석' },
-    { num: 3, label: '생활 패턴 분석' },
-    { num: 4, label: 'AR 피팅' },
-    { num: 5, label: '최종 리포트' },
+    { num: 1, label: '얼굴 분석' },
+    { num: 2, label: '생활 패턴 분석' },
+    { num: 3, label: 'AR 피팅' },
+    { num: 4, label: '실제 안경 분석' },
   ]
 </script>
 
@@ -23,16 +23,19 @@
   우선순위가 높아 pt-[112px] 가 먹히지 않았다 → flex-col 의 in-flow 자식으로 두면 자연 해결.
 -->
 <footer
-  class="app-bg-edge-extend shrink-0 border-b border-slate-200 bg-white px-6 py-3.5"
+  class="app-bg-edge-extend shrink-0 border-b border-slate-200 bg-white px-6 py-2"
   aria-label="얼굴 분석 진행 단계"
 >
-  <ol class="mx-auto flex w-full max-w-[860px] items-center gap-2">
+  <div
+    class="mx-auto flex w-full max-w-[860px] items-center justify-between gap-3"
+    role="list"
+  >
     {#each STEP_ARR as step_obj, step_index (step_obj.num)}
       {@const local_is_done = step_obj.num < current_step}
       {@const local_is_active = step_obj.num === current_step}
-      <li class="flex min-w-0 flex-1 items-center gap-2.5">
+      <div class="flex shrink-0 items-center gap-3" role="listitem">
         <span
-          class={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[13px] font-extrabold transition-colors ${
+          class={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-[16px] font-extrabold transition-colors ${
             local_is_done
               ? 'bg-[var(--retina-primary-300)] text-white'
               : local_is_active
@@ -44,7 +47,7 @@
           {step_obj.num}
         </span>
         <span
-          class={`truncate text-[12px] font-extrabold leading-tight ${
+          class={`text-[15px] font-extrabold leading-tight ${
             local_is_active
               ? 'text-[var(--retina-primary-400)]'
               : local_is_done
@@ -54,13 +57,13 @@
         >
           {step_obj.label}
         </span>
-        {#if step_index < STEP_ARR.length - 1}
-          <span
-            class={`h-px flex-1 ${local_is_done ? 'bg-[var(--retina-primary-300)]' : 'bg-slate-200'}`}
-            aria-hidden="true"
-          ></span>
-        {/if}
-      </li>
+      </div>
+      {#if step_index < STEP_ARR.length - 1}
+        <span
+          class={`h-px flex-1 ${local_is_done ? 'bg-[var(--retina-primary-300)]' : 'bg-slate-200'}`}
+          aria-hidden="true"
+        ></span>
+      {/if}
     {/each}
-  </ol>
+  </div>
 </footer>
