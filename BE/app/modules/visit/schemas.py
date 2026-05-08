@@ -86,6 +86,14 @@ class VisitResponse(BaseModel):
 
 class VisitUpdateRequest(BaseModel):
     """방문 데이터 업데이트 요청 - 변경된 필드만 전달"""
+    # 고객 정보 업데이트용
+    cust_no: Optional[int] = None
+    cust_name: Optional[str] = None
+    phone_no1: Optional[str] = None
+    phone_no2: Optional[str] = None
+    birthday: Optional[str] = None
+    sex: Optional[int] = None
+
     main_file: Optional[str] = None
     test_file_arr: Optional[list] = None
     test_json: Optional[dict] = None
