@@ -25,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -81,10 +82,12 @@ import io.github.sceneview.rememberModelLoader
 private const val TAG = "FaceFittingScreen"
 
 /**
- * yaw (좌우 회전각, degrees) 가 이 값을 넘으면 반대편 temple 을 hide.
+ * 정면 영역의 너비 (degrees, 양수). |yaw| 가 이 값 이하면 두 다리 모두 hide,
+ * 이상이면 카메라를 향한 한쪽 다리만 show.
  *
- * 양수 yaw = 착용자가 자기 왼쪽으로 고개 돌림 → `temple_left` (착용자 왼쪽 다리) 가 머리 뒤로
- * 돌아가므로 hide 한다.
+ * 양수 yaw = 착용자가 자기 왼쪽으로 고개 돌림 → 카메라엔 우측 얼굴이 더 보임 →
+ * `temple_right` show, `temple_left` hide. 정면(|yaw| ≤ 임계값) 에선 두 다리 모두
+ * 머리 뒤에 가려져야 자연스러우므로 hide.
  */
 private const val TEMPLE_HIDE_YAW_DEG = 5f
 
@@ -315,8 +318,11 @@ fun FaceFittingScreen(
                     if (templeEntities.hasTemples) {
                         val yawDeg = computeYawDegrees(face.centerPose)
                         val rm = engine.renderableManager
-                        val leftVisible = yawDeg < TEMPLE_HIDE_YAW_DEG
-                        val rightVisible = yawDeg > -TEMPLE_HIDE_YAW_DEG
+                        // |yaw| ≤ 임계값: 정면 영역 → 두 다리 모두 hide.
+                        // yaw > +임계값: 머리가 좌측으로 돌아 우측 얼굴이 카메라를 향함 → 우 다리만 show.
+                        // yaw < -임계값: 머리가 우측으로 돌아 좌측 얼굴이 카메라를 향함 → 좌 다리만 show.
+                        val leftVisible = yawDeg < -TEMPLE_HIDE_YAW_DEG
+                        val rightVisible = yawDeg > TEMPLE_HIDE_YAW_DEG
                         setEntityVisible(rm, templeEntities.left, leftVisible)
                         setEntityVisible(rm, templeEntities.right, rightVisible)
                         debugYawDeg = yawDeg
@@ -361,6 +367,16 @@ fun FaceFittingScreen(
             // 대신 GLB 노드 (`temple_left` / `temple_right`) 의 yaw-based visibility 토글로
             // 안경 다리 가림 처리. 단일 mesh GLB 의 경우 머리 뒤 temple 이 비치는 시각적
             // 단점이 있으나, 3-part split GLB (스펙 권장) 에서는 이미 충분히 자연스러움.
+
+            // 안경 다리 occlusion 시도 이력 (2026-05-08):
+            // 1. AugmentedFaceNode + face_mesh_occluder.filamat → mesh 렌더 자체 안 됨 + dispose race crash
+            // 2. visible 머티리얼로 바꿔봐도 face mesh 안 그려짐 → wrapper 가 mesh 데이터 누락 의심
+            // 3. SphereNode + visible 머티리얼 → 화면에 sphere 안 그려짐 (logcat 에러 없이 silent fail)
+            // 결론: SceneView 4.0.1 의 보조 mesh 렌더 경로가 우리 설정에서 작동 안 함.
+            // 다른 경로 (3-part split GLB) 도 GLB 가 photogrammetry 단일 mesh 라 부적합.
+            // 정면에서 안경 다리 보이는 것은 알려진 한계로 수용. 후속 작업 후보:
+            //  - GLB 를 모델링/CAD 로 재제작해서 3-part split 가능하게
+            //  - SceneView 버전 업그레이드 후 재시도
 
             val instance = modelInstance
             if (instance != null) {
