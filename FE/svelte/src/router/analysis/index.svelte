@@ -54,12 +54,12 @@
   let g_toast_message = $state(/** @type {string | null} */ (null))
   let g_is_landmark_visible = $state(true)
 
-  // 비회원(cust_no=0)으로 진입한 경우 방문 유형 선택 화면으로, 회원이면 고객 조회 화면으로 돌아간다.
+  // 비회원(cust_no=0)으로 진입한 경우 방문 유형 선택 화면으로, 회원이면 해당 고객 상세 페이지로 돌아간다.
   function on_click_go_back() {
     const local_customer_obj = get(selected_customer_obj)
     const local_is_guest_visit = Number(local_customer_obj?.id) === 0
 
-    navigate(local_is_guest_visit ? PATH.visitSelect : PATH.users)
+    navigate(local_is_guest_visit ? PATH.visitSelect : PATH.userDetail(local_customer_obj.id))
   }
 
   // 세션에서 current_step 이 바뀌면 camera_view 를 재장전해 다음 스텝을 받아들이게 한다.
