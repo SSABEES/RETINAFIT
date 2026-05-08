@@ -5,8 +5,8 @@
   import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
   import { PATH } from '@/config/path'
   import { create_customer, search_customer } from '@/lib/api/customers'
-  import { create_visit, get_visit, update_visit } from '@/lib/api/visit'
-  import { selected_admin_obj, selected_opt_store_obj } from '@/lib/stores/admin'
+  import { get_visit, update_visit } from '@/lib/api/visit'
+  import { selected_opt_store_obj } from '@/lib/stores/admin'
   import { push_error_toast } from '@/lib/stores/toast'
   import {
     selected_customer_obj,
@@ -418,10 +418,9 @@
   /**
    * 비회원 분석 결과를 새로 등록한 고객 정보로 연결한다.
    * 1) create_customer 로 신규 고객 등록 → search_customer 로 새 cust_no 추출
-   * 2) 기존 비회원 visit 의 분석 데이터를 GET
-   * 3) 새 cust_no 로 create_visit → 새 visit_no 발급
-   * 4) 기존 분석 데이터를 새 visit 에 PATCH 로 일괄 저장
-   * 5) selected_customer / selected_visit / sessionStorage 모두 갱신
+   * 2) 기존 visit 의 식별 필드(cust_no/이름/전화/생년월일/성별)만 PATCH 로 갱신
+   *    - visit_no 그대로, 분석/리포트/사진 데이터 그대로 → URL 이중 인코딩/visit 중복 생성 없음
+   * 3) selected_customer / selected_visit 갱신 (sessionStorage 의 visit_no 는 변경 없음)
    * @param {{ name: string, gender: string, birth_dt: string, phone1: string, phone2: string }} customer_obj
    */
   async function on_create_customer(customer_obj) {
@@ -431,15 +430,17 @@
       return
     }
 
-    const local_old_visit_no = Number($selected_visit_obj?.visit_no)
-    if (!Number.isFinite(local_old_visit_no) || local_old_visit_no <= 0) {
+    const local_visit_no = Number($selected_visit_obj?.visit_no)
+    if (!Number.isFinite(local_visit_no) || local_visit_no <= 0) {
       push_error_toast('연결할 방문 정보가 없습니다. 잠시 후 다시 시도해 주세요.')
       return
     }
 
     const local_phone1 = customer_obj.phone1.replace(/[^0-9]/g, '')
     const local_phone2 = customer_obj.phone2.replace(/[^0-9]/g, '')
-    const local_sex_value = Number(customer_obj.gender)
+    // 성별 미선택(빈 문자열) 시 null 로 보내 BE 가 그대로 비워두게 한다 — Number('') 가 0(남) 으로 묻히는 사고 방지.
+    const local_sex_value =
+      customer_obj.gender === '' || customer_obj.gender == null ? null : Number(customer_obj.gender)
 
     g_is_registering_customer = true
     try {
@@ -470,45 +471,18 @@
         return
       }
 
-      // 기존 비회원 visit 의 분석/리포트 데이터를 가져온다.
-      const local_old_visit_obj = await get_visit({ visit_no: local_old_visit_no })
-
-      // 새 cust_no 로 새 방문을 만든다.
-      const local_new_visit_obj = await create_visit({
-        opt_no: $selected_opt_store_obj.opt_no,
-        cust_no: local_new_cust_no,
-        cust_name: customer_obj.name,
-        birthday: customer_obj.birth_dt,
-        phone_no1: local_phone1,
-        phone_no2: local_phone2,
-        sex: local_sex_value,
-        member_no: $selected_admin_obj?.member_no ?? 0,
-      })
-      const local_new_visit_no = Number(local_new_visit_obj?.visit_no)
-
-      if (!Number.isFinite(local_new_visit_no) || local_new_visit_no <= 0) {
-        push_error_toast('새 방문 정보 생성에 실패했습니다.')
-        return
-      }
-
-      // 기존 분석/리포트 데이터를 새 visit 에 일괄 PATCH 로 옮긴다.
-      const local_patch_body_obj = {
-        main_file: local_old_visit_obj?.main_file ?? null,
-        test_file_arr: local_old_visit_obj?.test_file_arr ?? null,
-        test_json: local_old_visit_obj?.test_json ?? null,
-        opt_recommend_json: local_old_visit_obj?.opt_recommend_json ?? null,
-        vp_file_arr: local_old_visit_obj?.vp_file_arr ?? null,
-        vp_json: local_old_visit_obj?.vp_json ?? null,
-        real_vp_json: local_old_visit_obj?.real_vp_json ?? null,
-        report_json: local_old_visit_obj?.report_json ?? null,
-        test_dt: local_old_visit_obj?.test_dt ?? null,
-        vp_dt: local_old_visit_obj?.vp_dt ?? null,
-        real_vp_dt: local_old_visit_obj?.real_vp_dt ?? null,
-      }
-
+      // 기존 visit 의 식별 필드만 PATCH 로 덮어쓴다 — 분석/사진/리포트는 그대로 보존.
+      // BE VisitUpdateRequest 에 cust_no / cust_name / phone_no1 / phone_no2 / birthday / sex 필드 허용 필요.
       await update_visit({
-        visit_no: local_new_visit_no,
-        body: local_patch_body_obj,
+        visit_no: local_visit_no,
+        body: {
+          cust_no: local_new_cust_no,
+          cust_name: customer_obj.name,
+          phone_no1: local_phone1,
+          phone_no2: local_phone2,
+          birthday: customer_obj.birth_dt,
+          sex: local_sex_value,
+        },
       })
 
       set_selected_customer({
@@ -516,24 +490,27 @@
         name: customer_obj.name,
         phone: local_phone1,
         phone2: local_phone2,
-        gender: local_sex_value === 0 ? '남' : '여',
+        gender: local_sex_value === 0 ? '남' : local_sex_value === 1 ? '여' : '',
         birth_dt: customer_obj.birth_dt,
         visit_count: 1,
         last_visit_dt: '-',
       })
 
+      // visit_no 변경 없음 → sessionStorage 의 retinal_visit_no 도 그대로 둔다.
+      // 식별 필드만 머지해서 selected_visit 갱신.
       set_selected_visit({
-        ...local_old_visit_obj,
-        ...local_new_visit_obj,
-        visit_no: local_new_visit_no,
+        ...$selected_visit_obj,
         cust_no: local_new_cust_no,
+        cust_name: customer_obj.name,
+        phone_no1: local_phone1,
+        phone_no2: local_phone2,
+        birthday: customer_obj.birth_dt,
+        sex: local_sex_value,
         is_new: false,
       })
 
-      sessionStorage.setItem('retinal_visit_no', String(local_new_visit_no))
-
       ref_customer_create_modal_open = false
-      // 새 visit 으로 PATCH 마이그레이션 됐으니 화면 데이터도 그쪽 기준으로 다시 로드.
+      // PATCH 반영 후 BE 응답 기준으로 화면 데이터 다시 로드 (visit_no 동일).
       await load_visit_data()
     } catch (local_error) {
       push_error_toast(
