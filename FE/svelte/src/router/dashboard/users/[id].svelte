@@ -61,7 +61,13 @@
   const g_lifestyle_recent_dt = $derived.by(() => {
     for (const local_visit of g_visit_arr) {
       if (local_visit?.opt_recommend_json) {
-        return local_visit.update_dt ?? local_visit.test_dt ?? local_visit.create_dt ?? null
+        return (
+          local_visit.opt_recommend_json?.saved_at ??
+          local_visit.update_dt ??
+          local_visit.test_dt ??
+          local_visit.create_dt ??
+          null
+        )
       }
     }
     return null
@@ -99,7 +105,7 @@
       description: '렌즈 상담 질문',
       icon_active: '/icons/Property 1=Life, Property 2=Active.png',
       icon_default: '/icons/Property 1=Life, Property 2=Default.png',
-      target_path: PATH.analysis,
+      target_path: PATH.analysisLensConsult,
     },
     {
       key: 'fitting',
@@ -107,7 +113,7 @@
       description: 'AR / 실제 안경 피팅',
       icon_active: '/icons/Property 1=Fitting, Property 2=Default.png',
       icon_default: '/icons/Property 1=Fitting, Property 2=Default.png',
-      target_path: PATH.analysis,
+      target_path: PATH.analysisArFitting,
     },
   ]
 
