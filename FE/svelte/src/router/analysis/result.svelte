@@ -815,7 +815,9 @@
           {:else}
             <div class="mt-2 grid grid-cols-3 gap-3">
               {#each g_saved_fitting_arr as fitting_obj, fitting_index (fitting_index)}
-                {@const local_front_capture_obj = fitting_obj.capture_arr?.[0]}
+                {@const local_front_capture_obj =
+                  fitting_obj.capture_arr?.find((local_capture_obj) => local_capture_obj?.url) ??
+                  fitting_obj.capture_arr?.[0]}
                 <article class="rounded-[12px] border border-slate-100 bg-slate-50 p-3">
                   <div
                     class="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-slate-200 bg-white"
