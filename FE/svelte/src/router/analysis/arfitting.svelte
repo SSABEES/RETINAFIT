@@ -747,7 +747,9 @@
                 <button
                   type="button"
                   onclick={() => on_click_select_glasses(item.id)}
-                  class={`group relative flex items-center gap-2.5 rounded-sm border p-2 text-left transition-all ${
+                  disabled={g_ar_unavailable}
+                  aria-label={g_ar_unavailable ? `${item.model} (AR 피팅 사용 불가)` : item.model}
+                  class={`group relative flex items-center gap-2.5 rounded-sm border p-2 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 ${
                     active
                       ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)] shadow-sm'
                       : 'border-slate-200 bg-white hover:border-[var(--retina-primary-100)]'
