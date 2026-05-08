@@ -25,6 +25,7 @@
   import { pixel_distance } from '@/lib/measurements/measurement_utils.js'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
+  import AiInsightPanel from '@/components/analysis/ai_insight_panel.svelte'
   const FACE_SHAPE_LABEL_OBJ = {
     oval: '계란형',
     round: '둥근형',
@@ -248,46 +249,6 @@
     return /** @type {{brand: string, model: string, capture_arr: {label: string, url: string}[]}[]} */ (
       local_arr
     )
-  })
-
-  // AI 응답 items 의 항목별 멘트를 펼칠 때 표시 순서.
-  // 키 순서가 흔들려도 화면이 일정하도록 고정. items 키와 1:1 매칭.
-  const REPORT_ITEM_KEY_ARR = [
-    'face_shape',
-    'face_width',
-    'face_height',
-    'face_ratio',
-    'pd',
-    'skin_tone',
-  ]
-
-  // report_json 의 인사이트 bullet 배열 추출
-  // - 배열/summary_arr/insight_arr/bullet_arr 형태는 그대로 펼침
-  // - { summary, items } 형태는 summary 다음에 items 의 각 멘트를 차례로 붙임
-  // - 키 자체는 화면에 노출하지 않고, 멘트 문자열만 bullet 으로 보여준다.
-  const g_report_bullet_arr = $derived.by(() => {
-    if (!g_report_json) return /** @type {string[]} */ ([])
-    if (Array.isArray(g_report_json)) return g_report_json.map(String).filter(Boolean)
-    if (Array.isArray(g_report_json.summary_arr)) return g_report_json.summary_arr.map(String).filter(Boolean)
-    if (Array.isArray(g_report_json.insight_arr)) return g_report_json.insight_arr.map(String).filter(Boolean)
-    if (Array.isArray(g_report_json.bullet_arr)) return g_report_json.bullet_arr.map(String).filter(Boolean)
-
-    /** @type {string[]} */
-    const local_bullet_arr = []
-    const local_summary = g_report_json.summary
-    if (typeof local_summary === 'string' && local_summary.trim()) {
-      local_bullet_arr.push(local_summary.trim())
-    }
-    const local_items_obj = g_report_json.items
-    if (local_items_obj && typeof local_items_obj === 'object') {
-      for (const local_key of REPORT_ITEM_KEY_ARR) {
-        const local_value = local_items_obj[local_key]
-        if (typeof local_value === 'string' && local_value.trim()) {
-          local_bullet_arr.push(local_value.trim())
-        }
-      }
-    }
-    return local_bullet_arr
   })
 
   // 측정 상세 — visit.test_json 에 저장된 측정값/측정점/이미지 dims 를 읽어 인터랙티브 화면을 합성.
@@ -523,6 +484,42 @@
     }
   }
 
+  // BE 의 face-script BG 작업이 끝날 때까지 짧게 폴링 — 첫 진입 직후에도 AI 인사이트가 채워지게.
+  // 응답이 즉시 오는 PATCH 와 별개로 report_json 은 수 초 뒤 DB 에 박히므로 mount 시 1회 fetch 만으로는 비어 있을 수 있다.
+  const REPORT_POLL_MAX_ATTEMPTS = 6
+  const REPORT_POLL_INTERVAL_MS = 3000
+  let g_report_poll_count = $state(0)
+  let g_report_poll_timer_id = /** @type {ReturnType<typeof setTimeout> | null} */ (null)
+
+  function clear_report_poll_timer() {
+    if (g_report_poll_timer_id !== null) {
+      clearTimeout(g_report_poll_timer_id)
+      g_report_poll_timer_id = null
+    }
+  }
+
+  // report_json 이 아직 비어 있으면 일정 간격으로 visit 를 다시 가져와 AI 결과가 들어왔는지 확인.
+  function schedule_report_poll() {
+    if (g_report_poll_timer_id !== null) return
+    if (g_report_poll_count >= REPORT_POLL_MAX_ATTEMPTS) return
+
+    g_report_poll_timer_id = setTimeout(async () => {
+      g_report_poll_timer_id = null
+      g_report_poll_count += 1
+      const local_visit_no = Number($selected_visit_obj?.visit_no)
+      if (!Number.isFinite(local_visit_no) || local_visit_no <= 0) return
+      try {
+        const local_fresh_obj = await get_visit({ visit_no: local_visit_no })
+        g_visit_obj = local_fresh_obj
+        if (!local_fresh_obj?.report_json) {
+          schedule_report_poll()
+        }
+      } catch {
+        // 백그라운드 재요청은 조용히 무시 — 첫 mount fetch 가 이미 화면을 채워둔 상태라 사용자 액션 불필요.
+      }
+    }, REPORT_POLL_INTERVAL_MS)
+  }
+
   // 현재 visit 의 분석/리포트/피팅 데이터를 한 번에 GET 해서 화면을 채운다.
   async function load_visit_data() {
     const local_visit_no = Number($selected_visit_obj?.visit_no)
@@ -532,6 +529,10 @@
     }
     try {
       g_visit_obj = await get_visit({ visit_no: local_visit_no })
+      // 첫 fetch 에 report_json 이 비어 있으면 BG AI 가 끝나길 기다리며 폴링 시작.
+      if (!g_visit_obj?.report_json) {
+        schedule_report_poll()
+      }
     } catch (local_err) {
       push_error_toast(
         local_err instanceof Error ? local_err.message : '방문 정보를 불러오지 못했습니다.',
@@ -543,6 +544,9 @@
 
   onMount(() => {
     void load_visit_data()
+    return () => {
+      clear_report_poll_timer()
+    }
   })
 </script>
 
@@ -597,7 +601,15 @@
     onpointerdown={on_pointerdown_swipe}
     onpointerup={on_pointerup_swipe}
   >
-    <div class="mx-auto flex min-h-full w-full max-w-[940px] flex-col gap-3">
+    <!--
+      insight 탭은 컨텐츠가 길어 자연 height 로 흐르며 부모 section 의 overflow-y-auto 가 스크롤 처리.
+      다른 탭은 min-h-full 로 카드들이 section 을 꽉 채우도록 유지 (얼굴 분석 결과 카드의 flex-1 등이 의존).
+    -->
+    <div
+      class={`mx-auto flex w-full max-w-[940px] flex-col gap-3 ${
+        g_active_tab === 'insight' ? '' : 'min-h-full'
+      }`}
+    >
       {#if g_active_tab === 'overview'}
         <!-- 1. 고객 정보 -->
         <section class="rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm">
@@ -903,37 +915,13 @@
           {/if}
         </section>
       {:else if g_active_tab === 'insight'}
-        <!-- AI 분석 인사이트 (탭바의 가장 오른쪽) -->
-        <section class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm">
-          <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">AI 분석 인사이트</h2>
-
-          {#if g_visit_loading}
-            <p class="mt-2 text-[14px] font-semibold text-slate-400">리포트 불러오는 중...</p>
-          {:else if g_report_bullet_arr.length === 0}
-            <p class="mt-2 text-[14px] font-semibold text-slate-400">
-              아직 생성된 인사이트가 없습니다.
-            </p>
-          {:else}
-            <ul class="mt-2 grid gap-2 text-[15px] leading-relaxed text-slate-700">
-              {#each g_report_bullet_arr as bullet_text, bullet_index (bullet_index)}
-                <li class="flex gap-3">
-                  <span
-                    class="mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--retina-primary-300)]"
-                    aria-hidden="true"
-                  ></span>
-                  <span class="whitespace-pre-line">{bullet_text}</span>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </section>
+        <!-- AI 분석 인사이트 — 공유 컴포넌트로 추출 (visit_detail.svelte 와 동일 사용). -->
+        <AiInsightPanel visit_obj={g_visit_obj} is_loading={g_visit_loading} />
 
         <p class="m-0 px-1 text-center text-[12px] font-medium leading-relaxed text-slate-400">
           본 리포트는 AI 기반 얼굴 분석 결과를 토대로 자동 생성되었으며, 참고용 추천 자료입니다.
           실제 시야·착용감·도수 등은 개인차가 있을 수 있으니
-          <span class="font-bold text-[var(--retina-primary-400)]"
-            >자세한 사항은 전문 안경사와 상담해 주세요.</span
-          >
+          <span class="font-bold text-[var(--retina-primary-400)]">자세한 사항은 전문 안경사와 상담해 주세요.</span>
         </p>
       {/if}
     </div>
