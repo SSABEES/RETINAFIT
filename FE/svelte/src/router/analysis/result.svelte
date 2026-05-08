@@ -438,7 +438,9 @@
 
     const local_phone1 = customer_obj.phone1.replace(/[^0-9]/g, '')
     const local_phone2 = customer_obj.phone2.replace(/[^0-9]/g, '')
-    const local_sex_value = Number(customer_obj.gender)
+    // 성별 미선택(빈 문자열) 시 null 로 보내 BE 가 그대로 비워두게 한다 — Number('') 가 0(남) 으로 묻히는 사고 방지.
+    const local_sex_value =
+      customer_obj.gender === '' || customer_obj.gender == null ? null : Number(customer_obj.gender)
 
     g_is_registering_customer = true
     try {
@@ -488,7 +490,7 @@
         name: customer_obj.name,
         phone: local_phone1,
         phone2: local_phone2,
-        gender: local_sex_value === 0 ? '남' : '여',
+        gender: local_sex_value === 0 ? '남' : local_sex_value === 1 ? '여' : '',
         birth_dt: customer_obj.birth_dt,
         visit_count: 1,
         last_visit_dt: '-',
