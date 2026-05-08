@@ -1,18 +1,29 @@
 <script>
   import { onDestroy, onMount } from 'svelte'
+  import { fly } from 'svelte/transition'
   import { navigate } from '@maks11060/svelte5-router'
-  import { Plus, Trash2, Camera as CameraIcon, X, Check, Loader2 } from 'lucide-svelte'
+  import { Camera as CameraIcon, X, Loader2, CheckCheck, Glasses } from 'lucide-svelte'
   import { PATH } from '@/config/path'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
-  import {
-    request_real_wearing_presigned_urls,
-    upload_blob_to_s3,
-  } from '@/lib/api/analysis.js'
+  import { request_real_wearing_presigned_urls, upload_blob_to_s3 } from '@/lib/api/analysis.js'
   import { update_visit } from '@/lib/api/visit.js'
+  import { push_error_toast } from '@/lib/stores/toast'
 
-  // 실제 안경 피팅 단계 (Step 4) — 좌측 라이브 카메라 프리뷰. 우측 패널 상단의 가로 + 버튼을
-  // 누르면 정면 → 좌측 → 우측 3장 촬영 모드로 진입하고, 3장 모두 찍히면 한 세트로 누적.
+  /**
+   * @typedef {{ blob: Blob, object_url: string, captured_at: number }} CaptureSlot
+   * @typedef {{ id: number, slot_arr: (CaptureSlot | null)[], captured_at: number }} SavedSet
+   */
+
+  // 한 번 분석 세션에서 저장 가능한 최대 세트 수.
+  const MAX_PHOTO_SET_COUNT = 5
+  const SLOT_LABEL_ARR = ['정면', '좌측', '우측']
+  const SLOT_ICON_ARR = [
+    '/icons/face_center.png',
+    '/icons/face_left.png',
+    '/icons/face_right.png',
+  ]
+
   /** @type {HTMLVideoElement | null} */
   let ref_this_video_el = $state(null)
   /** @type {MediaStream | null} */
@@ -20,39 +31,21 @@
   let g_is_camera_ready = $state(false)
   let g_camera_error = $state(/** @type {string | null} */ (null))
 
-  /**
-   * @typedef {'front' | 'left' | 'right'} CaptureStepKey
-   * @typedef {{ id: number, front_url: string, front_blob: Blob, left_url: string, left_blob: Blob, right_url: string, right_blob: Blob, captured_at: number }} FittingPhotoSet
-   * @typedef {{ blob: Blob, url: string }} CaptureFrame
-   */
-  // 한 번 분석 세션에서 저장 가능한 최대 세트 수.
-  const MAX_PHOTO_SET_COUNT = 3
-
-  /** @type {FittingPhotoSet[]} */
-  let g_photo_set_arr = $state([])
+  /** @type {(CaptureSlot | null)[]} */
+  let g_capture_slot_arr = $state([null, null, null])
+  /** @type {SavedSet[]} */
+  let g_saved_set_arr = $state([])
   let g_set_id_seq = 0
-  const g_is_set_limit_reached = $derived(g_photo_set_arr.length >= MAX_PHOTO_SET_COUNT)
-
-  // 촬영 모드 — + 버튼 클릭 시 활성화. 단계별 임시 frame 누적 → 3단계 완료 시 세트 push.
-  let g_is_capture_mode = $state(false)
-  /** @type {CaptureStepKey} */
-  let g_capture_step = $state('front')
-  /** @type {CaptureFrame | null} */
-  let g_pending_front = $state(null)
-  /** @type {CaptureFrame | null} */
-  let g_pending_left = $state(null)
 
   // 최종 리포트 보기 클릭 시 업로드/PATCH 진행 상태.
   let g_is_submitting = $state(false)
   let g_submit_error = $state(/** @type {string | null} */ (null))
 
-  /** @type {Record<CaptureStepKey, { label: string, guide: string, order: number }>} */
-  const STEP_INFO_OBJ = {
-    front: { label: '정면', guide: '정면을 바라봐 주세요', order: 1 },
-    left: { label: '좌측', guide: '왼쪽으로 고개를 돌려 주세요', order: 2 },
-    right: { label: '우측', guide: '오른쪽으로 고개를 돌려 주세요', order: 3 },
-  }
-  const STEP_KEY_ARR = /** @type {CaptureStepKey[]} */ (['front', 'left', 'right'])
+  // 1장 이상 촬영했으면 세트 저장 가능 (arfitting 정책과 동일).
+  let g_has_any_capture = $derived(g_capture_slot_arr.some((s) => s !== null))
+  let g_is_set_limit_reached = $derived(g_saved_set_arr.length >= MAX_PHOTO_SET_COUNT)
+  let g_can_save = $derived(g_has_any_capture && !g_is_set_limit_reached)
+  let g_can_submit = $derived(g_saved_set_arr.length > 0)
 
   // 카메라 시작 — 권한 거부/장치 없음 시 오류 메시지 노출.
   async function start_camera() {
@@ -77,7 +70,7 @@
   // 카메라 정리 — 페이지 이탈 시 트랙 해제.
   function stop_camera() {
     if (g_stream) {
-      for (const track of g_stream.getTracks()) track.stop()
+      for (const local_track of g_stream.getTracks()) local_track.stop()
       g_stream = null
     }
     if (ref_this_video_el) ref_this_video_el.srcObject = null
@@ -90,17 +83,18 @@
 
   onDestroy(() => {
     stop_camera()
-    if (g_pending_front) URL.revokeObjectURL(g_pending_front.url)
-    if (g_pending_left) URL.revokeObjectURL(g_pending_left.url)
-    for (const set of g_photo_set_arr) {
-      URL.revokeObjectURL(set.front_url)
-      URL.revokeObjectURL(set.left_url)
-      URL.revokeObjectURL(set.right_url)
+    for (const local_slot of g_capture_slot_arr) {
+      if (local_slot?.object_url) URL.revokeObjectURL(local_slot.object_url)
+    }
+    for (const local_set of g_saved_set_arr) {
+      for (const local_slot of local_set.slot_arr) {
+        if (local_slot?.object_url) URL.revokeObjectURL(local_slot.object_url)
+      }
     }
   })
 
   // 현재 비디오 프레임을 좌우반전 보정해 jpeg Blob 으로 만들고 objectURL 까지 같이 반환.
-  /** @returns {Promise<CaptureFrame | null>} */
+  /** @returns {Promise<CaptureSlot | null>} */
   async function capture_current_frame() {
     if (!g_is_camera_ready || !ref_this_video_el) return null
     const local_video = ref_this_video_el
@@ -124,80 +118,63 @@
       })
     )
     if (!local_blob) return null
-    return { blob: local_blob, url: URL.createObjectURL(local_blob) }
-  }
-
-  // + 사진 추가 — 촬영 모드 진입 (front 단계부터). 최대 세트 수 도달 시 무시.
-  function on_click_start_capture() {
-    if (!g_is_camera_ready || g_is_capture_mode || g_is_submitting) return
-    if (g_is_set_limit_reached) return
-    g_is_capture_mode = true
-    g_capture_step = 'front'
-    g_pending_front = null
-    g_pending_left = null
-  }
-
-  // 촬영 취소 — 임시 캡처 정리 후 모드 종료.
-  function on_click_cancel_capture() {
-    if (g_pending_front) URL.revokeObjectURL(g_pending_front.url)
-    if (g_pending_left) URL.revokeObjectURL(g_pending_left.url)
-    g_pending_front = null
-    g_pending_left = null
-    g_is_capture_mode = false
-  }
-
-  // 단계별 촬영 — 정면 / 좌 / 우 순서로 누적, 3장 완료 시 세트 push 후 모드 종료.
-  async function on_click_capture() {
-    const local_frame = await capture_current_frame()
-    if (!local_frame) return
-
-    if (g_capture_step === 'front') {
-      g_pending_front = local_frame
-      g_capture_step = 'left'
-    } else if (g_capture_step === 'left') {
-      g_pending_left = local_frame
-      g_capture_step = 'right'
-    } else {
-      // right — 세트 완성.
-      const local_front = g_pending_front
-      const local_left = g_pending_left
-      if (!local_front || !local_left) {
-        URL.revokeObjectURL(local_frame.url)
-        return
-      }
-      g_set_id_seq += 1
-      // 새 세트는 배열 앞쪽에 prepend → 패널 최상단에 자연 누적.
-      g_photo_set_arr = [
-        {
-          id: g_set_id_seq,
-          front_url: local_front.url,
-          front_blob: local_front.blob,
-          left_url: local_left.url,
-          left_blob: local_left.blob,
-          right_url: local_frame.url,
-          right_blob: local_frame.blob,
-          captured_at: Date.now(),
-        },
-        ...g_photo_set_arr,
-      ]
-      g_pending_front = null
-      g_pending_left = null
-      g_is_capture_mode = false
-      g_capture_step = 'front'
+    return {
+      blob: local_blob,
+      object_url: URL.createObjectURL(local_blob),
+      captured_at: Date.now(),
     }
   }
 
-  // 세트 삭제 — 3장 모두 objectURL 해제.
-  /** @param {number} id */
-  function on_click_remove_set(id) {
+  // 슬롯 클릭 — 해당 슬롯에 즉시 캡처. 이미 채워진 슬롯은 새 사진으로 덮어쓴다.
+  /** @param {number} idx */
+  async function on_click_capture_slot(idx) {
+    if (g_is_submitting || !g_is_camera_ready) return
+    const local_capture = await capture_current_frame()
+    if (!local_capture) return
+    const local_prev = g_capture_slot_arr[idx]
+    if (local_prev?.object_url) URL.revokeObjectURL(local_prev.object_url)
+    const local_next_arr = [...g_capture_slot_arr]
+    local_next_arr[idx] = local_capture
+    g_capture_slot_arr = local_next_arr
+  }
+
+  // 슬롯 비우기.
+  /** @param {number} idx */
+  function on_click_reset_slot(idx) {
     if (g_is_submitting) return
-    const local_target = g_photo_set_arr.find((s) => s.id === id)
+    const local_prev = g_capture_slot_arr[idx]
+    if (local_prev?.object_url) URL.revokeObjectURL(local_prev.object_url)
+    const local_next_arr = [...g_capture_slot_arr]
+    local_next_arr[idx] = null
+    g_capture_slot_arr = local_next_arr
+  }
+
+  // 현재 3슬롯을 한 세트로 저장 (최신이 위로 prepend). 슬롯 초기화.
+  function on_click_save_set() {
+    if (!g_can_save || g_is_submitting) return
+    g_set_id_seq += 1
+    g_saved_set_arr = [
+      {
+        id: g_set_id_seq,
+        slot_arr: [...g_capture_slot_arr],
+        captured_at: Date.now(),
+      },
+      ...g_saved_set_arr,
+    ]
+    g_capture_slot_arr = [null, null, null]
+  }
+
+  // 저장된 세트 개별 제거.
+  /** @param {number} id */
+  function on_click_remove_saved(id) {
+    if (g_is_submitting) return
+    const local_target = g_saved_set_arr.find((local_set) => local_set.id === id)
     if (local_target) {
-      URL.revokeObjectURL(local_target.front_url)
-      URL.revokeObjectURL(local_target.left_url)
-      URL.revokeObjectURL(local_target.right_url)
+      for (const local_slot of local_target.slot_arr) {
+        if (local_slot?.object_url) URL.revokeObjectURL(local_slot.object_url)
+      }
     }
-    g_photo_set_arr = g_photo_set_arr.filter((s) => s.id !== id)
+    g_saved_set_arr = g_saved_set_arr.filter((local_set) => local_set.id !== id)
   }
 
   // 현재 탭 세션의 visit_no 를 읽어 PATCH 대상을 결정. lens_consult.svelte 와 동일 규칙.
@@ -224,45 +201,60 @@
     navigate(PATH.analysisArFitting)
   }
 
-  // 최종 리포트 보기 — 세트별로 presigned 발급 → S3 PUT 3장 → 모두 끝나면 visit PATCH(real_vp_json).
+  // 최종 리포트 보기 — 세트별로 presigned 발급 → 채워진 슬롯만 S3 PUT → 모두 끝나면 visit PATCH(real_vp_json).
+  // 오버레이는 다른 분석 화면(report/arfitting)과 동일한 LoadingOverlay 패턴 — 클릭 즉시 노출되도록
+  // g_is_submitting 을 함수 진입 시점에 true 로 끌어올린다.
   async function on_click_continue() {
     if (g_is_submitting) return
+    g_is_submitting = true
     g_submit_error = null
 
-    // 사진이 없으면 업로드 없이 바로 result 로.
-    if (g_photo_set_arr.length === 0) {
-      navigate(PATH.analysisResult)
-      return
-    }
-
-    const local_visit_no = get_visit_no()
-    if (!local_visit_no) {
-      g_submit_error = '방문 번호를 찾을 수 없습니다. 다시 진입해 주세요.'
-      return
-    }
-
-    g_is_submitting = true
     try {
+      // 사진이 없으면 업로드 없이 바로 result 로.
+      if (g_saved_set_arr.length === 0) {
+        navigate(PATH.analysisResult)
+        return
+      }
+
+      const local_visit_no = get_visit_no()
+      if (!local_visit_no) {
+        g_submit_error = '방문 번호를 찾을 수 없습니다. 다시 진입해 주세요.'
+        return
+      }
+
       /** @type {Array<{ set_no: number, front_key: string, left_key: string, right_key: string, captured_at: number }>} */
       const local_set_record_arr = []
 
       // 화면상 최신이 위 = 배열 앞쪽. 저장 순서는 촬영 순서(오래된 → 최신) 로 뒤집어서 반복.
-      const local_chronological_arr = [...g_photo_set_arr].reverse()
+      const local_chronological_arr = [...g_saved_set_arr].reverse()
 
       for (let i = 0; i < local_chronological_arr.length; i += 1) {
         const local_set = local_chronological_arr[i]
         const local_presigned = await request_real_wearing_presigned_urls(local_visit_no)
-        await Promise.all([
-          upload_blob_to_s3(local_presigned.front_url, local_set.front_blob),
-          upload_blob_to_s3(local_presigned.left_url, local_set.left_blob),
-          upload_blob_to_s3(local_presigned.right_url, local_set.right_blob),
-        ])
+        const local_url_arr = [
+          local_presigned.front_url,
+          local_presigned.left_url,
+          local_presigned.right_url,
+        ]
+        const local_key_arr = [
+          local_presigned.front_key,
+          local_presigned.left_key,
+          local_presigned.right_key,
+        ]
+
+        // 채워진 슬롯만 업로드. 빈 슬롯은 빈 key 로 BE 에 전달.
+        await Promise.all(
+          local_set.slot_arr.map((local_slot, local_idx) =>
+            local_slot ? upload_blob_to_s3(local_url_arr[local_idx], local_slot.blob) : null,
+          ),
+        )
+
         // BE 가 GET 응답 시점에 _key 를 presigned download URL 로 변환하므로 FE 는 key 만 저장.
         local_set_record_arr.push({
           set_no: i + 1,
-          front_key: local_presigned.front_key,
-          left_key: local_presigned.left_key,
-          right_key: local_presigned.right_key,
+          front_key: local_set.slot_arr[0] ? local_key_arr[0] : '',
+          left_key: local_set.slot_arr[1] ? local_key_arr[1] : '',
+          right_key: local_set.slot_arr[2] ? local_key_arr[2] : '',
           captured_at: local_set.captured_at,
         })
       }
@@ -279,6 +271,7 @@
     } catch (err) {
       g_submit_error = err instanceof Error ? err.message : '업로드에 실패했습니다.'
       console.error('[real_fitting] submit failed', err)
+      push_error_toast(g_submit_error)
     } finally {
       g_is_submitting = false
     }
@@ -286,18 +279,20 @@
 </script>
 
 <AnalysisPageLayout
-  current_step={4}
-  bg_class="bg-[var(--retina-text-100)] text-zinc-950"
-  edge_extend_bg
+  current_step={3}
+  bg_class="bg-white text-zinc-900"
   onback={on_click_back}
 >
-  <section class="flex min-h-0 flex-1 flex-col overflow-clip [overflow-clip-margin:9999px]">
-    <!-- 본문: 좌(카메라) / 우(사진 패널) 2 컬럼 -->
-    <div class="grid min-h-0 flex-1 grid-cols-[3fr_2fr] gap-4 px-4 pt-3 pb-4">
-      <!-- 좌측 카메라 -->
-      <div class="relative flex min-h-0 flex-col overflow-hidden rounded-[14px] bg-black">
+  <div
+    class="flex min-h-0 flex-1 overflow-clip [overflow-clip-margin:9999px] bg-[var(--retina-text-100)]"
+  >
+    <!-- 좌측: 카메라 -->
+    <section class="relative flex min-h-0 flex-1 flex-col">
+      <div
+        class="app-bg-edge-extend-left relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner"
+      >
         {#if g_camera_error}
-          <div class="flex flex-1 items-center justify-center px-6 text-center">
+          <div class="flex h-full items-center justify-center px-6 text-center">
             <p class="text-[14px] font-semibold text-white/80">{g_camera_error}</p>
           </div>
         {:else}
@@ -308,178 +303,185 @@
             muted
             autoplay
           ></video>
-        {/if}
-
-        <!-- 촬영 모드 가이드 오버레이 (상단 chip + 하단 컨트롤 바) -->
-        {#if g_is_capture_mode}
-          {@const local_info = STEP_INFO_OBJ[g_capture_step]}
-          <div class="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2">
-            <div
-              class="rounded-full bg-black/70 px-4 py-1.5 text-center text-[14px] font-extrabold text-white"
-            >
-              {local_info.order} / 3 · {local_info.guide}
-            </div>
-          </div>
-
-          <div class="absolute right-3 bottom-3 left-3 flex flex-col gap-2">
-            <!-- 단계별 dot 진행도 -->
-            <div class="flex items-center gap-1.5">
-              {#each STEP_KEY_ARR as step_key (step_key)}
-                {@const local_is_done =
-                  STEP_INFO_OBJ[step_key].order < STEP_INFO_OBJ[g_capture_step].order}
-                {@const local_is_current = step_key === g_capture_step}
-                <div
-                  class={`h-1.5 flex-1 rounded-full transition-colors ${
-                    local_is_done
-                      ? 'bg-[var(--retina-primary-300)]'
-                      : local_is_current
-                        ? 'bg-white'
-                        : 'bg-white/30'
-                  }`}
-                ></div>
-              {/each}
-            </div>
-
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                onclick={on_click_cancel_capture}
-                class="grid h-12 w-12 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-white/90 text-slate-700 transition hover:bg-white"
-                aria-label="촬영 취소"
-              >
-                <X size={20} strokeWidth={2.4} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onclick={on_click_capture}
-                class="flex h-12 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full border-0 bg-[var(--retina-primary-500)] text-[15px] font-extrabold text-white transition hover:bg-[var(--retina-primary-600)]"
-              >
-                {#if g_capture_step === 'right'}
-                  <Check size={20} strokeWidth={2.6} aria-hidden="true" />
-                  마지막 촬영 · 완료
-                {:else}
-                  <CameraIcon size={20} strokeWidth={2.4} aria-hidden="true" />
-                  {local_info.label} 촬영
-                {/if}
-              </button>
-            </div>
+          <div class="pointer-events-none absolute inset-x-0 bottom-6 px-6 text-center">
+            <p class="text-[18px] font-extrabold leading-relaxed text-white/90">
+              우측 정면 → 좌측 → 우측 슬롯을 눌러 촬영해 주세요
+            </p>
           </div>
         {/if}
       </div>
+    </section>
 
-      <!-- 우측 사진 패널 -->
-      <div
-        class="flex min-h-0 flex-col overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.07)]"
-      >
-
-        <!-- 상단 고정 + 추가 버튼 — 촬영 모드 진입 여부와 무관하게 항상 동일 사이즈 유지. -->
-        <div class="shrink-0 px-4 pt-3">
-          <button
-            type="button"
-            onclick={on_click_start_capture}
-            disabled={!g_is_camera_ready || g_is_capture_mode || g_is_set_limit_reached}
-            class="flex h-[68px] w-full cursor-pointer items-center justify-center gap-2 rounded-[12px] border-2 border-dashed border-[var(--retina-primary-300)] bg-[var(--retina-primary-100)]/40 text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-500)] hover:bg-[var(--retina-primary-100)] disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="사진 추가 시작"
-          >
-            <Plus size={22} strokeWidth={2.6} aria-hidden="true" />
-            <span class="text-[14px] font-extrabold">
-              {#if g_is_capture_mode}
-                {@const local_info = STEP_INFO_OBJ[g_capture_step]}
-                촬영 중 · {local_info.order} / 3 · {local_info.label}
-              {:else if g_is_set_limit_reached}
-                최대 {MAX_PHOTO_SET_COUNT}세트까지 추가 가능
-              {:else}
-                사진 추가 ({g_photo_set_arr.length} / {MAX_PHOTO_SET_COUNT})
-              {/if}
-            </span>
-          </button>
+    <!-- 우측: 캡쳐 슬롯 + 안내 + 저장 액션 -->
+    <aside
+      class="app-bg-edge-extend-right relative flex w-[300px] flex-col border-l border-slate-200 bg-white"
+    >
+      <!-- 캡쳐 슬롯 -->
+      <div class="px-4 pt-3 pb-2">
+        <div class="mb-2 flex items-center justify-between">
+          <h2 class="text-[11px] font-extrabold tracking-wide text-[#374151]">촬영 기록</h2>
         </div>
-
-        <!-- 누적된 세트 리스트 (최신이 위) -->
-        <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pt-3 pb-3">
-          {#if g_photo_set_arr.length === 0 && !g_is_capture_mode}
-            <div class="mt-2 flex flex-col items-center justify-center gap-1.5 text-slate-400">
-              <CameraIcon size={16} aria-hidden="true" />
-              <p class="m-0 text-[11px] font-semibold">아직 저장된 사진이 없습니다.</p>
-            </div>
-          {/if}
-
-          {#each g_photo_set_arr as photo_set, set_index (photo_set.id)}
-            <article
-              class="group relative rounded-[12px] border border-slate-200 bg-slate-50 p-2.5"
-            >
-              <header class="mb-2 flex items-center justify-between px-0.5">
-                <span class="text-[12px] font-extrabold text-slate-700">
-                  세트 {g_photo_set_arr.length - set_index}
-                </span>
+        <div class="grid grid-cols-3 gap-2 pr-1">
+          {#each g_capture_slot_arr as slot, idx (idx)}
+            <div class="group relative flex flex-col items-center gap-1">
+              <button
+                type="button"
+                onclick={() => on_click_capture_slot(idx)}
+                disabled={!g_is_camera_ready || g_is_submitting}
+                aria-label={`${SLOT_LABEL_ARR[idx]} 촬영`}
+                class={`relative flex h-[120px] w-full cursor-pointer items-center justify-center rounded-none border bg-transparent p-0 transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                  slot
+                    ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)]'
+                    : 'border-[#F1F3F5] bg-[#F1F3F5] hover:bg-[#E9ECEF]'
+                }`}
+              >
+                {#if slot}
+                  <img
+                    src={slot.object_url}
+                    alt={SLOT_LABEL_ARR[idx]}
+                    class="h-full w-full object-contain"
+                  />
+                {:else}
+                  <img
+                    src={SLOT_ICON_ARR[idx]}
+                    alt={`${SLOT_LABEL_ARR[idx]} 안내`}
+                    class="h-[18px] w-[18px] object-contain opacity-70"
+                  />
+                {/if}
+              </button>
+              {#if slot}
                 <button
                   type="button"
-                  onclick={() => on_click_remove_set(photo_set.id)}
-                  class="grid h-7 w-7 cursor-pointer place-items-center rounded-full border-0 bg-white text-slate-400 opacity-0 transition group-hover:opacity-100 hover:bg-slate-200 hover:text-slate-700"
-                  aria-label="세트 삭제"
+                  onclick={() => on_click_reset_slot(idx)}
+                  aria-label="다시 촬영"
+                  class="absolute -right-1.5 top-[-6px] flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border-0 bg-white text-slate-400 shadow-md hover:text-red-500"
                 >
-                  <Trash2 size={13} strokeWidth={2.4} aria-hidden="true" />
+                  <X size={11} />
                 </button>
-              </header>
-              <div class="grid grid-cols-3 gap-1.5">
-                {#each [{ key: 'front', url: photo_set.front_url, label: '정면' }, { key: 'left', url: photo_set.left_url, label: '좌' }, { key: 'right', url: photo_set.right_url, label: '우' }] as photo_obj (photo_obj.key)}
-                  <div class="relative aspect-[3/4] overflow-hidden rounded-[8px] bg-slate-200">
-                    <img
-                      src={photo_obj.url}
-                      alt={photo_obj.label}
-                      class="h-full w-full object-cover"
-                    />
-                    <span
-                      class="absolute bottom-1 left-1 rounded-sm bg-black/55 px-1 py-0.5 text-[10px] font-extrabold text-white"
-                    >
-                      {photo_obj.label}
-                    </span>
-                  </div>
-                {/each}
-              </div>
-            </article>
+              {/if}
+              <span
+                class={`text-[10px] font-bold ${slot ? 'text-[var(--retina-primary-300)]' : 'text-slate-400'}`}
+              >
+                {SLOT_LABEL_ARR[idx]}
+              </span>
+            </div>
           {/each}
         </div>
       </div>
-    </div>
 
-    <LoadingOverlay open={g_is_submitting} label="실제 착용 사진 업로드 중..." />
+      <hr class="mx-4 my-1 border-slate-200" />
 
-    <!-- 하단 액션 바 -->
-    <div class="app-bg-edge-extend shrink-0 bg-white">
-      <div class="h-px w-full bg-slate-200"></div>
-      {#if g_submit_error}
+      <!-- 안내 영역 (arfitting 의 추천 안경 자리) -->
+      <div class="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4">
+        <h2 class="mb-2 text-[13px] font-extrabold text-zinc-900">실제 착용 촬영</h2>
         <div
-          class="border-b border-rose-200 bg-rose-50 px-4 py-2 text-center text-[13px] font-extrabold text-rose-600"
+          class="rounded-lg bg-[var(--retina-text-100)] px-3 py-3 text-[12px] font-medium leading-relaxed text-slate-600"
         >
-          {g_submit_error}
+          고객이 실제로 착용한 안경 모습을 정면/좌측/우측 슬롯에 촬영해 주세요.<br />
+          1장 이상 촬영하면 [세트 저장] 버튼이 활성화됩니다.<br />
+          여러 안경을 비교하려면 세트를 추가로 저장하세요.
         </div>
-      {/if}
-      <div class="px-4 py-3">
-        <div class="mx-auto grid w-full max-w-[820px] grid-cols-[2fr_3fr] gap-4">
-          <button
-            type="button"
-            disabled={g_is_submitting}
-            class="h-[64px] cursor-pointer rounded-lg border border-slate-300 bg-white text-[22px] text-[var(--retina-text-500)] transition hover:border-slate-400 hover:text-[var(--retina-text-700)] disabled:cursor-not-allowed disabled:opacity-50"
-            onclick={on_click_back}
+        <div
+          class="mt-3 flex items-center gap-2 rounded-lg border border-dashed border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-500"
+        >
+          <Glasses size={14} class="shrink-0 text-slate-400" />
+          최대 {MAX_PHOTO_SET_COUNT} 세트까지 저장 가능
+        </div>
+      </div>
+
+      <!-- 저장된 세트 + 액션 버튼 -->
+      <div class="border-t border-slate-100 bg-white px-4 py-3">
+        {#if g_saved_set_arr.length > 0}
+          <div class="mb-2">
+            <div class="mb-1 flex items-center justify-between">
+              <span class="text-[10px] font-extrabold tracking-wide text-slate-500">
+                저장된 세트 ({g_saved_set_arr.length}/{MAX_PHOTO_SET_COUNT})
+              </span>
+              {#if g_saved_set_arr.length >= MAX_PHOTO_SET_COUNT}
+                <span class="text-[10px] font-bold text-amber-500">최대</span>
+              {/if}
+            </div>
+            <div class="custom-scrollbar flex gap-1 overflow-x-auto pb-0.5">
+              {#each g_saved_set_arr as set, idx (set.id)}
+                <div
+                  class="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--retina-bg-1)] px-2 py-1"
+                  in:fly={{ y: 6, duration: 200 }}
+                >
+                  <CheckCheck size={9} class="shrink-0 text-[var(--retina-primary-300)]" />
+                  <span
+                    class="max-w-[60px] truncate text-[10px] font-bold text-[var(--retina-primary-300)]"
+                  >
+                    세트 {g_saved_set_arr.length - idx}
+                  </span>
+                  <button
+                    type="button"
+                    onclick={() => on_click_remove_saved(set.id)}
+                    aria-label="세트 제거"
+                    class="ml-0.5 shrink-0 cursor-pointer border-0 bg-transparent p-0 text-slate-400 transition-colors hover:text-red-400"
+                  >
+                    <X size={9} />
+                  </button>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        {#if g_submit_error}
+          <p
+            class="mb-1.5 rounded-md bg-rose-50 px-2 py-1 text-center text-[10px] font-bold text-rose-600"
           >
-            이전 단계
-          </button>
+            {g_submit_error}
+          </p>
+        {:else}
+          <p class="mb-1.5 text-center text-[10px] font-semibold text-slate-500">
+            1장 이상 촬영하면 세트를 저장할 수 있어요.
+          </p>
+        {/if}
+
+        <div class="grid grid-cols-2 gap-2">
           <button
             type="button"
-            disabled={g_is_submitting}
-            class="flex h-[64px] cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[var(--retina-primary-300)] text-[26px] tracking-tight text-[var(--retina-surface)] transition hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={!g_can_save || g_is_submitting}
+            onclick={on_click_save_set}
+            aria-label="세트 저장"
+            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-2 border-[var(--retina-primary-300)] bg-white px-2 text-[12px] font-extrabold text-[var(--retina-primary-300)] transition-all hover:bg-[var(--retina-bg-1)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
+          >
+            <CameraIcon size={12} strokeWidth={2.5} aria-hidden="true" />
+            세트 저장
+          </button>
+
+          <button
+            type="button"
+            disabled={(!g_can_submit && g_saved_set_arr.length === 0) || g_is_submitting}
             onclick={on_click_continue}
+            aria-label="최종 리포트 보기"
+            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 text-[12px] font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
           >
             {#if g_is_submitting}
-              <Loader2 size={26} strokeWidth={2.4} class="animate-spin" aria-hidden="true" />
-              업로드 중...
+              <Loader2 size={12} strokeWidth={2.4} class="animate-spin" aria-hidden="true" />
+              업로드 중
             {:else}
               최종 리포트 보기
             {/if}
           </button>
         </div>
       </div>
-    </div>
-  </section>
+    </aside>
+  </div>
+
+  <LoadingOverlay open={g_is_submitting} label="분석 결과 저장 중..." />
 </AnalysisPageLayout>
+
+<style>
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 10px;
+  }
+</style>

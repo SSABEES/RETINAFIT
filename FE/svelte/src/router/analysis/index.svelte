@@ -54,12 +54,12 @@
   let g_toast_message = $state(/** @type {string | null} */ (null))
   let g_is_landmark_visible = $state(true)
 
-  // 비회원(cust_no=0)으로 진입한 경우 방문 유형 선택 화면으로, 회원이면 고객 조회 화면으로 돌아간다.
+  // 비회원(cust_no=0)으로 진입한 경우 방문 유형 선택 화면으로, 회원이면 해당 고객 상세 페이지로 돌아간다.
   function on_click_go_back() {
     const local_customer_obj = get(selected_customer_obj)
     const local_is_guest_visit = Number(local_customer_obj?.id) === 0
 
-    navigate(local_is_guest_visit ? PATH.visitSelect : PATH.users)
+    navigate(local_is_guest_visit ? PATH.visitSelect : PATH.userDetail(local_customer_obj.id))
   }
 
   // 세션에서 current_step 이 바뀌면 camera_view 를 재장전해 다음 스텝을 받아들이게 한다.
@@ -262,12 +262,17 @@
             </div>
           </section>
 
-          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
-            <StepIndicator
-              steps_arr={g_session.steps_arr}
-              current_index={g_session.current_step_index}
-            />
-          </section>
+          <!--
+            촬영 단계 표시 (정면만일 때 의미 없으므로 비활성화).
+            측면 촬영을 다시 살릴 때 아래 주석을 풀어 복원한다.
+
+            <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
+              <StepIndicator
+                steps_arr={g_session.steps_arr}
+                current_index={g_session.current_step_index}
+              />
+            </section>
+          -->
 
           <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
             <StepStatusBar

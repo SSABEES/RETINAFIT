@@ -1,7 +1,18 @@
 <script>
   // AI 인사이트 패널 — visit_obj 를 받아 측정값 카드 + 게이지바 + AI 멘트를 종합 리포트로 그린다.
   // result.svelte (안경사 화면) 의 insight 탭 / visit_detail.svelte (어드민) 양쪽에서 동일하게 사용.
-  import { Sparkles, Ruler, Eye, Scale, Smile, Glasses, Palette } from 'lucide-svelte'
+  import {
+    Sparkles,
+    Ruler,
+    Eye,
+    Scale,
+    Smile,
+    Glasses,
+    Palette,
+    Sun,
+    Snowflake,
+    CircleDashed,
+  } from 'lucide-svelte'
   import {
     get_skin_tone_recommendation,
     get_chip_text_class,
@@ -32,6 +43,15 @@
     heart: '하트형',
     square: '사각형',
     oblong: '긴형',
+  }
+
+  // 얼굴형별 한 줄 스타일 추천 멘트 — 이미지 아래 캡션으로 노출.
+  const FACE_SHAPE_TIP_OBJ = {
+    oval: '어떤 스타일도 잘 어울려요!',
+    round: '각진 프레임으로 또렷한 인상을 살려보세요!',
+    heart: '라운드 프레임이 부드럽게 어울려요!',
+    square: '둥근 프레임으로 부드러움을 더해보세요!',
+    oblong: '와이드한 프레임으로 균형을 잡아보세요!',
   }
 
   const g_test_json = $derived(visit_obj?.test_json ?? null)
@@ -66,11 +86,40 @@
   const g_face_shape_label = $derived(
     g_face_shape_key ? (FACE_SHAPE_LABEL_OBJ[g_face_shape_key] ?? null) : null,
   )
+  const g_face_shape_tip = $derived(
+    g_face_shape_key ? (FACE_SHAPE_TIP_OBJ[g_face_shape_key] ?? null) : null,
+  )
+
+  // 성별 + 얼굴형에 맞는 마네킹 이미지 경로 (/public/face/{man|woman}).
+  // visit_obj.sex 가 0=남 / 1=여 (visits.svelte 의 format_sex 와 동일 규칙).
+  // woman/oblong 만 파일명이 oblong.png (다른 woman 항목은 *_woman.png 접미사).
+  const g_face_shape_image_src = $derived.by(() => {
+    if (!g_face_shape_key) return null
+    const local_is_woman = Number(visit_obj?.sex) === 1
+    if (local_is_woman) {
+      return g_face_shape_key === 'oblong'
+        ? '/face/woman/oblong.png'
+        : `/face/woman/${g_face_shape_key}_woman.png`
+    }
+    return `/face/man/${g_face_shape_key}_man.png`
+  })
 
   const g_skin_tone_raw = $derived(g_test_json?.skin_tone?.tone ?? null)
   const g_skin_tone_recommendation_obj = $derived(
     g_skin_tone_raw ? get_skin_tone_recommendation(g_skin_tone_raw) : null,
   )
+
+  // 피부톤 키(WARM / COOL / NEUTRAL) 별 아이콘 + 톤 컬러 매핑 — 라벨 위에 시각적 단서로 노출.
+  // text_class 는 detail(따뜻한 톤/차가운 톤/중성 톤) 멘트 컬러에 사용.
+  const SKIN_TONE_VISUAL_OBJ = {
+    WARM: { icon: Sun, ring_class: 'bg-[#FFF4E1] text-[#F59E0B]', text_class: 'text-[#F59E0B]' },
+    COOL: { icon: Snowflake, ring_class: 'bg-[#E0F2FE] text-[#0284C7]', text_class: 'text-[#0284C7]' },
+    NEUTRAL: { icon: CircleDashed, ring_class: 'bg-[#F1F5F9] text-[#64748B]', text_class: 'text-[#64748B]' },
+  }
+  const g_skin_tone_visual_obj = $derived.by(() => {
+    const local_key = g_skin_tone_recommendation_obj?.key
+    return local_key ? (SKIN_TONE_VISUAL_OBJ[local_key] ?? null) : null
+  })
 
   // 라벨 → tone_class 글로벌 lookup (모든 톤의 칩 합집합) — BE 가 라벨만 보내도 색이 입혀지도록.
   const LABEL_TO_TONE_CLASS_OBJ = (() => {
@@ -155,6 +204,14 @@
     if (local_value <= 20) return '좌우 대칭이 매우 잘 맞습니다.'
     if (local_value <= 50) return '좌우 대칭이 양호한 편입니다.'
     return '약간의 좌우 비대칭이 있어요.'
+  })
+  // 비대칭 등급별 안경 피팅 권장 멘트 — 좌우 대칭 분석 섹션 하단에 한 줄 표시.
+  const g_asymmetry_fitting_tip = $derived.by(() => {
+    const local_value = Number(g_test_json?.asymmetry_score)
+    if (!Number.isFinite(local_value)) return null
+    if (local_value <= 20) return '표준 피팅 그대로 진행하셔도 좋아요.'
+    if (local_value <= 50) return '코받침 위치를 가볍게 미세 조정하면 더 안정적이에요.'
+    return '코받침·템플 좌우 비대칭 조정을 권장드려요.'
   })
 
   const g_report_summary_text = $derived.by(() => {
@@ -326,90 +383,125 @@
       </div>
     {/if}
 
-    <!-- 2) 얼굴형 / 피부톤 / 추천 프레임 / 추천 컬러 — divide-x 로 컬럼 분리. -->
-    <div class="grid grid-cols-4 divide-x divide-slate-100 border-b border-slate-100">
-      <div class="px-5 py-4">
+    <!--
+      2) 얼굴형 / 피부톤 / [추천 프레임 + 추천 컬러] — 3 컬럼.
+      마지막 컬럼은 위(추천 프레임)/아래(추천 컬러) 절반씩 차지하는 합쳐진 한 칸.
+    -->
+    <div class="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
+      <div class="flex flex-col px-5 py-4">
         <div class="flex items-center gap-2">
           <span class="grid h-7 w-7 place-items-center rounded-full bg-[#FFEDD5] text-[#F97316]" aria-hidden="true">
             <Smile size={15} strokeWidth={2.2} />
           </span>
           <h3 class="m-0 text-[12px] font-extrabold tracking-wide text-slate-500">얼굴형</h3>
         </div>
-        <p class="m-0 mt-2 text-[20px] font-extrabold text-zinc-900">{g_face_shape_label ?? '-'}</p>
-        {#if g_report_item_obj?.face_shape}
-          <p class="m-0 mt-2 text-[12px] leading-relaxed text-slate-500">{g_report_item_obj.face_shape}</p>
+        {#if g_face_shape_image_src}
+          <div class="mt-3 flex flex-1 items-center justify-center">
+            <img
+              src={g_face_shape_image_src}
+              alt={`${g_face_shape_label ?? ''} 얼굴형 예시`}
+              class="max-h-[220px] w-auto object-contain"
+              draggable="false"
+            />
+          </div>
+        {/if}
+        <p class="m-0 mt-3 text-center text-[20px] font-extrabold text-zinc-900">
+          {g_face_shape_label ?? '-'}
+        </p>
+        {#if g_face_shape_tip}
+          <p class="m-0 mt-2 text-center text-[12px] font-semibold leading-snug text-[var(--retina-primary-600)]">
+            {g_face_shape_tip}
+          </p>
         {/if}
       </div>
 
-      <div class="px-5 py-4">
+      <div class="flex flex-col px-5 py-4">
         <div class="flex items-center gap-2">
           <span class="grid h-7 w-7 place-items-center rounded-full bg-[#DBEAFE] text-[#1660C7]" aria-hidden="true">
             <Sparkles size={14} strokeWidth={2.2} />
           </span>
           <h3 class="m-0 text-[12px] font-extrabold tracking-wide text-slate-500">피부 톤</h3>
         </div>
-        <p class="m-0 mt-2 text-[20px] font-extrabold text-zinc-900">
+        {#if g_skin_tone_visual_obj}
+          {@const SkinToneIcon = g_skin_tone_visual_obj.icon}
+          <div class="mt-3 flex flex-1 items-center justify-center">
+            <span
+              class={`grid h-[160px] w-[160px] place-items-center rounded-full ${g_skin_tone_visual_obj.ring_class}`}
+              aria-hidden="true"
+            >
+              <SkinToneIcon size={84} strokeWidth={1.8} />
+            </span>
+          </div>
+        {/if}
+        <p class="m-0 mt-3 text-center text-[20px] font-extrabold text-zinc-900">
           {g_skin_tone_recommendation_obj?.label ?? '-'}
         </p>
-        {#if g_report_item_obj?.skin_tone}
-          <p class="m-0 mt-2 text-[12px] leading-relaxed text-slate-500">{g_report_item_obj.skin_tone}</p>
+        {#if g_skin_tone_recommendation_obj?.detail}
+          <p
+            class={`m-0 mt-2 text-center text-[12px] font-semibold leading-snug ${g_skin_tone_visual_obj?.text_class ?? 'text-[var(--retina-primary-600)]'}`}
+          >
+            {g_skin_tone_recommendation_obj.detail}
+          </p>
         {/if}
       </div>
 
-      <div class="flex flex-col px-5 py-4">
-        <div class="flex items-center gap-2">
-          <span class="grid h-7 w-7 place-items-center rounded-full bg-[#F3E8FF] text-[var(--retina-primary-600)]" aria-hidden="true">
-            <Glasses size={14} strokeWidth={2.2} />
-          </span>
-          <h3 class="m-0 text-[12px] font-extrabold tracking-wide text-slate-500">추천 프레임</h3>
-        </div>
-        {#if g_priority_one_frame_arr.length === 0}
-          <div class="mt-3 grid flex-1 place-items-center text-[13px] font-bold text-slate-400">-</div>
-        {:else}
-          <div class="mt-3 grid flex-1 grid-cols-2 grid-rows-2 gap-2">
-            {#each Array.from({ length: 4 }) as _, local_frame_index (local_frame_index)}
-              {@const local_frame_obj = g_priority_one_frame_arr[local_frame_index]}
-              {#if local_frame_obj}
-                <div
-                  class="flex items-center justify-center rounded-[10px] border-2 border-[#F97316] bg-white px-2 text-center"
-                >
-                  <span class="text-[14px] font-black text-[#F97316]">{local_frame_obj.name}</span>
-                </div>
-              {:else}
-                <div aria-hidden="true"></div>
-              {/if}
-            {/each}
+      <!-- 추천 프레임(상) + 추천 컬러(하) 한 컬럼 — 가운데 가로 구분선으로 분리. -->
+      <div class="flex flex-col divide-y divide-slate-100">
+        <div class="flex flex-1 flex-col px-5 py-4">
+          <div class="flex items-center gap-2">
+            <span class="grid h-7 w-7 place-items-center rounded-full bg-[#F3E8FF] text-[var(--retina-primary-600)]" aria-hidden="true">
+              <Glasses size={14} strokeWidth={2.2} />
+            </span>
+            <h3 class="m-0 text-[12px] font-extrabold tracking-wide text-slate-500">추천 프레임</h3>
           </div>
-        {/if}
-      </div>
+          {#if g_priority_one_frame_arr.length === 0}
+            <div class="mt-3 grid flex-1 place-items-center text-[13px] font-bold text-slate-400">-</div>
+          {:else}
+            <div class="mt-3 grid flex-1 grid-cols-2 grid-rows-2 gap-2">
+              {#each Array.from({ length: 4 }) as _, local_frame_index (local_frame_index)}
+                {@const local_frame_obj = g_priority_one_frame_arr[local_frame_index]}
+                {#if local_frame_obj}
+                  <div
+                    class="flex items-center justify-center rounded-[10px] border-2 border-[#F97316] bg-white px-2 text-center"
+                  >
+                    <span class="text-[14px] font-black text-[#F97316]">{local_frame_obj.name}</span>
+                  </div>
+                {:else}
+                  <div aria-hidden="true"></div>
+                {/if}
+              {/each}
+            </div>
+          {/if}
+        </div>
 
-      <div class="flex flex-col px-5 py-4">
-        <div class="flex items-center gap-2">
-          <span class="grid h-7 w-7 place-items-center rounded-full bg-[#FCE7F3] text-[#BE185D]" aria-hidden="true">
-            <Palette size={14} strokeWidth={2.2} />
-          </span>
-          <h3 class="m-0 text-[12px] font-extrabold tracking-wide text-slate-500">추천 컬러</h3>
-        </div>
-        {#if g_recommended_color_arr.length === 0}
-          <div class="mt-3 grid flex-1 place-items-center text-[13px] font-bold text-slate-400">-</div>
-        {:else}
-          <div class="mt-3 grid flex-1 grid-cols-2 grid-rows-2 gap-2">
-            {#each Array.from({ length: 4 }) as _, local_color_index (local_color_index)}
-              {@const local_color_obj = g_recommended_color_arr[local_color_index]}
-              {#if local_color_obj}
-                <div
-                  class={`flex items-center justify-center rounded-[10px] border border-black/5 px-2 text-center ${local_color_obj.gradient_class ?? local_color_obj.tone_class}`}
-                >
-                  <span class={`text-[14px] font-black ${get_chip_text_class(local_color_obj)}`}>
-                    {local_color_obj.label}
-                  </span>
-                </div>
-              {:else}
-                <div aria-hidden="true"></div>
-              {/if}
-            {/each}
+        <div class="flex flex-1 flex-col px-5 py-4">
+          <div class="flex items-center gap-2">
+            <span class="grid h-7 w-7 place-items-center rounded-full bg-[#FCE7F3] text-[#BE185D]" aria-hidden="true">
+              <Palette size={14} strokeWidth={2.2} />
+            </span>
+            <h3 class="m-0 text-[12px] font-extrabold tracking-wide text-slate-500">추천 컬러</h3>
           </div>
-        {/if}
+          {#if g_recommended_color_arr.length === 0}
+            <div class="mt-3 grid flex-1 place-items-center text-[13px] font-bold text-slate-400">-</div>
+          {:else}
+            <div class="mt-3 grid flex-1 grid-cols-2 grid-rows-2 gap-2">
+              {#each Array.from({ length: 4 }) as _, local_color_index (local_color_index)}
+                {@const local_color_obj = g_recommended_color_arr[local_color_index]}
+                {#if local_color_obj}
+                  <div
+                    class={`flex items-center justify-center rounded-[10px] border border-black/5 px-2 text-center ${local_color_obj.gradient_class ?? local_color_obj.tone_class}`}
+                  >
+                    <span class={`text-[14px] font-black ${get_chip_text_class(local_color_obj)}`}>
+                      {local_color_obj.label}
+                    </span>
+                  </div>
+                {:else}
+                  <div aria-hidden="true"></div>
+                {/if}
+              {/each}
+            </div>
+          {/if}
+        </div>
       </div>
     </div>
 
@@ -444,14 +536,24 @@
           {/if}
         </header>
 
-        <div class="mt-3 flex items-baseline gap-2">
+        <div class="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
           <span class="text-[28px] font-extrabold text-[var(--retina-primary-600)]">{g_asymmetry_label}</span>
           <span class="text-[12px] font-bold text-slate-400">/ 100</span>
+          <span class="ml-1 text-[12px] font-semibold text-slate-500">{g_asymmetry_hint}</span>
         </div>
 
         <div class="mt-3">{@render range_gauge(g_asymmetry_range)}</div>
 
-        <p class="m-0 mt-3 text-[12px] font-semibold text-slate-500">{g_asymmetry_hint}</p>
+        {#if g_asymmetry_fitting_tip}
+          <div
+            class="mt-4 flex items-start gap-2 rounded-lg bg-[var(--retina-bg-1)] px-3 py-2.5"
+          >
+            <Glasses size={14} strokeWidth={2.2} class="mt-0.5 shrink-0 text-[var(--retina-primary-600)]" aria-hidden="true" />
+            <p class="m-0 text-[12px] font-semibold leading-snug text-[var(--retina-primary-600)]">
+              {g_asymmetry_fitting_tip}
+            </p>
+          </div>
+        {/if}
       </div>
 
       <div class="px-5 py-4">
@@ -491,6 +593,60 @@
             </div>
             <div class="mt-1.5">{@render range_gauge(g_pd_diff_range)}</div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!--
+      5) OH 상세 정보 — Optical Height (렌즈 하단 → 동공 중심 수직거리). 추후 측정값 들어올
+      자리를 미리 예약해 두는 placeholder 섹션. 데이터 연결 시 좌측 OH / 우측 OH / 좌우 차이를
+      PD 상세와 동일 패턴(라벨 + 값 + range_gauge)으로 채우면 된다.
+    -->
+    <div class="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100">
+      <div class="px-5 py-4">
+        <header class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <Ruler size={15} strokeWidth={2.2} class="text-[var(--retina-primary-600)]" aria-hidden="true" />
+            <h3 class="m-0 text-[14px] font-extrabold text-zinc-900">OH 상세 정보</h3>
+          </div>
+          <span class="text-[10px] font-extrabold text-slate-400">측정 예정</span>
+        </header>
+
+        <div class="mt-3 flex flex-col gap-3">
+          <div>
+            <div class="flex items-baseline justify-between gap-2">
+              <span class="text-[11px] font-bold text-slate-500">좌측 OH</span>
+              <span class="text-[14px] font-extrabold text-slate-300">-</span>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-baseline justify-between gap-2">
+              <span class="text-[11px] font-bold text-slate-500">우측 OH</span>
+              <span class="text-[14px] font-extrabold text-slate-300">-</span>
+            </div>
+          </div>
+          <div class="border-t border-slate-100 pt-3">
+            <div class="flex items-baseline justify-between gap-2">
+              <span class="text-[11px] font-bold text-slate-500">좌우 차이</span>
+              <span class="text-[14px] font-extrabold text-slate-300">-</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-5 py-4">
+        <!-- 우측은 OH 보조 영역 — 추후 등급/안내 멘트 등이 들어갈 자리. -->
+        <header class="flex items-center gap-2">
+          <Sparkles size={15} strokeWidth={2.2} class="text-[var(--retina-primary-600)]" aria-hidden="true" />
+          <h3 class="m-0 text-[14px] font-extrabold text-zinc-900">OH 분석 안내</h3>
+        </header>
+        <div
+          class="mt-3 flex h-[120px] items-center justify-center rounded-lg bg-slate-50 px-3 text-center"
+        >
+          <p class="m-0 text-[12px] font-semibold leading-relaxed text-slate-400">
+            OH(Optical Height) 측정값이 준비되면<br />
+            이 영역에 분석 결과가 표시됩니다.
+          </p>
         </div>
       </div>
     </div>
