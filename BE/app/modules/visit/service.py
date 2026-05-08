@@ -97,8 +97,8 @@ async def search_customer(
             cust_name=c["CUST_NAME"],
             phone1=c["PHONE1"],
             phone2=c.get("PHONE2"),
-            birthday=c["BIRTHDAY"],
-            sex=int(c["SEX"]),
+            birthday=c.get("BIRTHDAY") or None,
+            sex=int(c["SEX"]) if c.get("SEX", "").isdigit() else None,
             has_face_analysis=any(v.test_json is not None for v in visits),
             has_lifestyle=any(v.opt_recommend_json is not None for v in visits),
         ))
