@@ -51,13 +51,14 @@
   /** @type {HTMLDivElement | null} */
   let ref_camera_section_el = $state(null)
 
-  const SLOT_LABEL_ARR = ['정면', '좌측', '우측']
-  const SLOT_ICON_ARR = ['/icons/face_center.png', '/icons/face_left.png', '/icons/face_right.png']
+  const SLOT_LABEL_ARR = ['1번', '2번', '3번']
+  const SLOT_ICON_ARR = ['/icons/face_center.png', '/icons/face_center.png', '/icons/face_center.png']
   // native 가 emit 하는 slot 키 -> 슬롯 인덱스 매핑
   const SLOT_KEY_TO_INDEX = { front: 0, left: 1, right: 2 }
   const MAX_FITTINGS = 5
 
-  let g_all_captured = $derived(g_capture_slot_arr.every((s) => s !== null))
+  // 1장 이상 촬영했으면 저장 가능. (예전엔 3장 모두 필요했지만 정책 완화)
+  let g_has_any_capture = $derived(g_capture_slot_arr.some((s) => s !== null))
 
   // { glasses_id, brand, model, captures } 형태로 최대 5개 저장
   let g_saved_fittings_arr = $state([])
@@ -69,7 +70,8 @@
   )
 
   let g_can_save = $derived(
-    g_all_captured && (g_saved_fittings_arr.length < MAX_FITTINGS || g_is_selected_already_saved),
+    g_has_any_capture &&
+      (g_saved_fittings_arr.length < MAX_FITTINGS || g_is_selected_already_saved),
   )
   // AR 미지원 디바이스 (예: iOS) 는 피팅을 저장할 수 없으므로 저장 0건이어도 리포트로 진행 가능하게 한다.
   let g_can_submit = $derived(g_saved_fittings_arr.length > 0 || g_ar_unavailable)
@@ -346,14 +348,6 @@
       // 안경별 Presigned URL 발급 (front/left/right)
       const local_presigned = await request_fitting_presigned_urls(local_visit_no, local_glasses_no)
 
-      // front, left, right 순으로 S3에 PUT (캡쳐 시점에 이미 좌우 반전된 파일이 슬롯에 있음)
-      const local_file_arr = g_capture_slot_arr.map((local_capture_slot_obj) =>
-        local_capture_slot_obj?.file_obj instanceof File
-          ? local_capture_slot_obj.file_obj
-          : new File([new Blob(['dummy'], { type: 'image/jpeg' })], 'capture.jpg', {
-              type: 'image/jpeg',
-            }),
-      )
       const local_presigned_url_arr = [
         local_presigned.front_url,
         local_presigned.left_url,
@@ -364,19 +358,32 @@
         local_presigned.left_key,
         local_presigned.right_key,
       ]
+
+      // 실제 촬영된 슬롯만 S3 에 PUT (캡쳐 시점에 이미 좌우 반전된 파일이 슬롯에 있음).
+      // 미촬영 슬롯은 업로드 스킵 + 빈 url / 빈 key 로 남겨둔다.
+      const local_filled_idx_arr = g_capture_slot_arr
+        .map((local_slot_obj, local_idx) =>
+          local_slot_obj?.file_obj instanceof File ? local_idx : -1,
+        )
+        .filter((local_idx) => local_idx >= 0)
+
       await Promise.all(
-        local_presigned_url_arr.map((url, idx) =>
-          fetch(url, {
+        local_filled_idx_arr.map((local_idx) =>
+          fetch(local_presigned_url_arr[local_idx], {
             method: 'PUT',
-            body: local_file_arr[idx],
+            body: g_capture_slot_arr[local_idx].file_obj,
           }).then((res) => {
             if (!res.ok) throw new Error(`S3 업로드 실패 (${res.status})`)
           }),
         ),
       )
 
-      // result.svelte 가 그대로 src 로 쓸 수 있도록 query string 떼어낸 public URL 만 저장
-      const local_public_url_arr = local_presigned_url_arr.map((url) => String(url).split('?')[0])
+      // result.svelte 가 그대로 src 로 쓸 수 있도록 query string 떼어낸 public URL 만 저장.
+      // 업로드하지 않은 슬롯은 빈 문자열로 남겨 result 측에서 placeholder 처리한다.
+      const local_public_url_arr = local_presigned_url_arr.map((local_url, local_idx) =>
+        local_filled_idx_arr.includes(local_idx) ? String(local_url).split('?')[0] : '',
+      )
+      const local_filled_key_arr = local_filled_idx_arr.map((local_idx) => local_key_arr[local_idx])
 
       // 로컬 누적 목록 갱신 (같은 안경이면 새 캡쳐로 덮어쓰기, 아니면 append)
       const local_new_fitting_obj = {
@@ -388,7 +395,7 @@
           label: local_label,
           url: local_public_url_arr[local_idx] ?? '',
         })),
-        file_key_arr: local_key_arr,
+        file_key_arr: local_filled_key_arr,
       }
       const local_existing_idx = g_saved_fittings_arr.findIndex(
         (local_obj) => local_obj.glasses_id === g_selected_id,
@@ -529,7 +536,7 @@
     },
     {
       title: 'AR 화면에서 3장을 촬영해 주세요',
-      desc: '안경을 선택하면 화면이 전체 화면 AR 모드로 전환됩니다.\n하단의 [정면 / 좌측 / 우측] 버튼을 순서대로 눌러 3장을 찍어 주세요.\n3장을 모두 찍으면 자동으로 AR 화면이 닫힙니다.',
+      desc: '안경을 선택하면 화면이 전체 화면 AR 모드로 전환됩니다.\n하단의 [1번 / 2번 / 3번] 버튼을 순서대로 눌러 3장을 찍어 주세요.\n3장을 모두 찍으면 자동으로 AR 화면이 닫힙니다.',
       hint: 'AR 화면 하단 버튼을 사용해 주세요.',
       card_style: 'right: 320px; top: 50%; transform: translateY(-50%); width: 480px',
     },
@@ -541,7 +548,7 @@
     },
     {
       title: '피팅 결과를 저장해요',
-      desc: '3장 촬영이 완료되면 [피팅 결과 저장] 버튼이 활성화됩니다.\n저장 후 다른 안경도 최대 5개까지 시도할 수 있습니다.\n3장 미완료 상태에서는 저장되지 않습니다.',
+      desc: '1장 이상 촬영하면 [피팅 결과 저장] 버튼이 활성화됩니다.\n저장 후 다른 안경도 최대 5개까지 시도할 수 있습니다.',
       hint: '오른쪽 하단 왼쪽 버튼을 눌러 주세요.',
       card_style: 'right: 320px; top: 50%; transform: translateY(-50%)',
     },
@@ -627,7 +634,7 @@
                 {#if g_flutter_launch_loading}
                   AR 피팅 화면을 여는 중...
                 {:else}
-                  AR 화면에서 정면 → 좌측 → 우측 순서로 촬영해주세요
+                  AR 화면에서 1번 → 2번 → 3번 순서로 촬영해주세요
                 {/if}
               </p>
             {/if}
@@ -839,7 +846,7 @@
         {/if}
 
         <p class="mb-1.5 text-center text-[10px] font-semibold text-slate-500">
-          촬영 완료 후 피팅 결과를 저장하세요.
+          1장 이상 촬영하면 피팅 결과를 저장할 수 있어요.
         </p>
 
         <div class="grid grid-cols-2 gap-2">
@@ -921,7 +928,7 @@
         <div class="mt-4 overflow-hidden rounded-2xl bg-zinc-900 px-4 py-4">
           <p class="mb-3 text-center text-[12px] font-semibold text-white/50">AR 화면 하단 버튼</p>
           <div class="grid grid-cols-3 gap-2.5">
-            {#each ['정면', '좌측', '우측'] as label}
+            {#each ['1번', '2번', '3번'] as label}
               <div
                 class="flex items-center justify-center rounded-full bg-[var(--retina-primary-300)] py-3 text-[14px] font-bold text-white"
               >

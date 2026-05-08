@@ -262,12 +262,17 @@
             </div>
           </section>
 
-          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
-            <StepIndicator
-              steps_arr={g_session.steps_arr}
-              current_index={g_session.current_step_index}
-            />
-          </section>
+          <!--
+            촬영 단계 표시 (정면만일 때 의미 없으므로 비활성화).
+            측면 촬영을 다시 살릴 때 아래 주석을 풀어 복원한다.
+
+            <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
+              <StepIndicator
+                steps_arr={g_session.steps_arr}
+                current_index={g_session.current_step_index}
+              />
+            </section>
+          -->
 
           <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
             <StepStatusBar

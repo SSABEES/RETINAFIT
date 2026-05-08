@@ -20,7 +20,7 @@
 </script>
 
 {#if step}
-  <div class="flex flex-col gap-3 border-b border-[var(--retina-text-200)] pb-2 mt-2">
+  <div class="flex flex-col gap-3 mt-2">
     <p
       class="m-0 inline-flex items-center justify-center gap-1.5 text-center text-sm font-bold text-blue-500"
     >
