@@ -375,6 +375,9 @@
     const local_phone1 = customer_obj.phone1.replace(/[^0-9]/g, '')
     const local_phone2 = customer_obj.phone2.replace(/[^0-9]/g, '')
     const local_status_obj = get_analysis_status_obj(null)
+    // 성별 미선택(빈 문자열) 시 null 로 보내 BE 가 그대로 비워두게 한다 — Number('') 가 0(남) 으로 묻히는 사고 방지.
+    const local_sex_value =
+      customer_obj.gender === '' || customer_obj.gender == null ? null : Number(customer_obj.gender)
 
     try {
       await create_customer({
@@ -383,7 +386,7 @@
         phone1: local_phone1,
         phone2: local_phone2,
         birthday: customer_obj.birth_dt,
-        sex: Number(customer_obj.gender),
+        sex: local_sex_value,
       })
 
       const local_new_customer_obj = {
@@ -392,7 +395,7 @@
         phone: local_phone1,
         phone2: local_phone2,
         birth_dt: customer_obj.birth_dt,
-        gender: customer_obj.gender === '0' ? '남' : '여',
+        gender: local_sex_value === 0 ? '남' : local_sex_value === 1 ? '여' : '',
         last_visit_dt: '-',
         visit_count: 0,
         status_key: local_status_obj.key,

@@ -412,9 +412,9 @@ fun FaceFittingScreen(
 }
 
 private val CAPTURE_SLOT_ARR = listOf(
-    "front" to "정면",
-    "left" to "좌측",
-    "right" to "우측",
+    "front" to "1번",
+    "left" to "2번",
+    "right" to "3번",
 )
 
 /**
@@ -456,7 +456,7 @@ private fun CaptureControls(
             text = if (captured_slot_set.size >= CAPTURE_SLOT_ARR.size) {
                 "촬영 완료. 잠시 후 닫힙니다..."
             } else {
-                "정면 → 좌측 → 우측 순서로 촬영해주세요"
+                "1번 → 2번 → 3번 순서로 촬영해주세요"
             },
             color = Color.White,
         )

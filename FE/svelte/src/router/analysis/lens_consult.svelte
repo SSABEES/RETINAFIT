@@ -242,6 +242,7 @@
         opt_recommend_json: {
           selection_obj: ref_selected_obj,
           selection_arr: local_lens_selection_arr,
+          saved_at: new Date().toISOString(),
         },
       })
 
@@ -285,7 +286,9 @@
   bg_class="bg-[var(--retina-text-100)] text-zinc-950"
   edge_extend_bg
 >
-  <section class="flex min-h-0 flex-1 flex-col justify-center overflow-clip [overflow-clip-margin:9999px]">
+  <section
+    class="flex min-h-0 flex-1 flex-col justify-center overflow-clip [overflow-clip-margin:9999px]"
+  >
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 mt-2">
       <div class="text-center">
         <h1 class="m-0 text-[26px] font-extrabold tracking-[-0.02em] text-zinc-950">

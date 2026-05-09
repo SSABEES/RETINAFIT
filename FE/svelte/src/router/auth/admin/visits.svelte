@@ -10,6 +10,10 @@
   // 페이지당 행 수. BE 가 page 파라미터를 지원하지 않아 FE 슬라이스로 처리.
   const PAGE_SIZE = 20
 
+  // 전체 방문자 목록 sessionStorage 캐시 키. 한 세션 동안만 유지 — 탭 닫으면 자동 폐기.
+  // 캐시가 있으면 마운트 시 API 호출 생략하고 화면을 즉시 채운다 (뒤로가기 등 재진입 빠르게).
+  const VISITS_CACHE_KEY = 'retinal_admin_visit_list'
+
   /**
    * BE /api/v1/admin/visits 응답 스키마.
    * @typedef {{
@@ -79,14 +83,51 @@
     return { text: '진행 중', class: 'bg-[#F1F5F9] text-[#475569]' }
   }
 
+  // sessionStorage 에서 캐시된 방문자 목록을 꺼내 화면 상태로 복원. 형태가 깨졌으면 제거하고 false 반환.
+  function try_restore_from_cache() {
+    const local_cached_text = sessionStorage.getItem(VISITS_CACHE_KEY)
+    if (!local_cached_text) return false
+    try {
+      const local_cached_obj = JSON.parse(local_cached_text)
+      if (!Array.isArray(local_cached_obj?.visits)) {
+        sessionStorage.removeItem(VISITS_CACHE_KEY)
+        return false
+      }
+      g_visit_arr = local_cached_obj.visits
+      g_total = Number(local_cached_obj.total ?? local_cached_obj.visits.length)
+      g_page = 1
+      return true
+    } catch {
+      sessionStorage.removeItem(VISITS_CACHE_KEY)
+      return false
+    }
+  }
+
   async function load_all_visits() {
+    // 1) 세션 캐시가 있으면 그걸로 즉시 채우고 API 호출은 생략 (뒤로가기 시 재로딩 방지).
+    if (try_restore_from_cache()) {
+      g_is_loading = false
+      return
+    }
+
+    // 2) 캐시 미스 — API 호출 후 결과를 세션 캐시에 저장.
     g_is_loading = true
     try {
       const local_result = await get_admin_all_visits()
-      g_visit_arr = Array.isArray(local_result?.visits) ? local_result.visits : []
-      g_total = Number(local_result?.total ?? g_visit_arr.length)
+      const local_visit_arr = Array.isArray(local_result?.visits) ? local_result.visits : []
+      const local_total = Number(local_result?.total ?? local_visit_arr.length)
+      g_visit_arr = local_visit_arr
+      g_total = local_total
       // 전체 데이터 갱신 시 1페이지로 리셋. 새 응답이 짧아 현재 page 가 범위 밖일 수 있음.
       g_page = 1
+      try {
+        sessionStorage.setItem(
+          VISITS_CACHE_KEY,
+          JSON.stringify({ visits: local_visit_arr, total: local_total }),
+        )
+      } catch {
+        // QuotaExceeded 등 — 캐시는 베스트 에포트, 실패해도 화면 동작에는 영향 없음.
+      }
     } catch (local_err) {
       push_error_toast(
         local_err instanceof Error ? local_err.message : '방문자 정보 조회에 실패했습니다.',

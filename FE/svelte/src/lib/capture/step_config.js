@@ -44,13 +44,15 @@ export const ALL_STEPS = [
 
 /**
  * 안경 착용 모드에 따른 스텝 목록을 반환한다.
- * with_glasses: 전체 6스텝. no_glasses: 미착용 3스텝만.
+ * with_glasses: 전체 6스텝.
+ * no_glasses: 일단 정면 1스텝만 — 측면(좌·우) 비활성. 다시 살릴 때는 아래 filter 를
+ * `(s) => !s.wears_glasses` 로 되돌리면 ALL_STEPS 의 미착용 3스텝이 모두 노출된다.
  * @param {GlassesMode} glasses_mode
  * @returns {StepConfig[]}
  */
 export function get_steps_for_mode(glasses_mode) {
   if (glasses_mode === 'with_glasses') return ALL_STEPS
-  return ALL_STEPS.filter((s) => !s.wears_glasses)
+  return ALL_STEPS.filter((s) => s.step_id === 'front_no_glasses')
 }
 
 /**

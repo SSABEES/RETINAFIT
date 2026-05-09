@@ -1,18 +1,19 @@
 <script>
   /**
-   * 얼굴 분석 플로우의 4단계 진행 상태를 헤더 바로 밑에 표시하는 step bar.
+   * 얼굴 분석 플로우의 3단계 진행 상태를 헤더 바로 밑에 표시하는 step bar.
    * 얼굴 촬영/얼굴 분석 결과는 "얼굴 분석" 한 단계로 통합. 최종 리포트는 step bar 에서 제외.
-   * current_step > 4 이면 모든 단계가 done 으로 표시 (예: 결과 페이지).
+   * current_step > 3 이면 모든 단계가 done 으로 표시 (예: 결과 페이지).
+   * 실제 안경 분석 단계는 일단 비활성화 — 다시 살릴 때 STEP_ARR 마지막 항목 주석을 풀면 된다.
    *
-   * @type {{ current_step: 1 | 2 | 3 | 4 | 5 }}
+   * @type {{ current_step: 1 | 2 | 3 | 4 }}
    */
   let { current_step = 1 } = $props()
 
   const STEP_ARR = [
     { num: 1, label: '얼굴 분석' },
     { num: 2, label: '생활 패턴 분석' },
-    { num: 3, label: 'AR 피팅' },
-    { num: 4, label: '실제 안경 분석' },
+    { num: 3, label: '안경 피팅' },
+    // { num: 4, label: '실제 안경 분석' },
   ]
 </script>
 
@@ -27,7 +28,7 @@
   aria-label="얼굴 분석 진행 단계"
 >
   <div
-    class="mx-auto flex w-full max-w-[860px] items-center justify-between gap-3"
+    class="mx-auto flex w-full max-w-[560px] items-center justify-between gap-3"
     role="list"
   >
     {#each STEP_ARR as step_obj, step_index (step_obj.num)}
