@@ -21,6 +21,7 @@
   import {
     play as play_voice,
     reset_session as reset_voice_session,
+    wait_for_active as wait_for_voice,
   } from '@/lib/audio/voice_guide.js'
 
   /**
@@ -53,12 +54,12 @@
   let g_toast_message = $state(/** @type {string | null} */ (null))
   let g_is_landmark_visible = $state(true)
 
-  // 비회원(cust_no=0)으로 진입한 경우 방문 유형 선택 화면으로, 회원이면 고객 조회 화면으로 돌아간다.
+  // 비회원(cust_no=0)으로 진입한 경우 방문 유형 선택 화면으로, 회원이면 해당 고객 상세 페이지로 돌아간다.
   function on_click_go_back() {
     const local_customer_obj = get(selected_customer_obj)
     const local_is_guest_visit = Number(local_customer_obj?.id) === 0
 
-    navigate(local_is_guest_visit ? PATH.visitSelect : PATH.users)
+    navigate(local_is_guest_visit ? PATH.visitSelect : PATH.userDetail(local_customer_obj.id))
   }
 
   // 세션에서 current_step 이 바뀌면 camera_view 를 재장전해 다음 스텝을 받아들이게 한다.
@@ -125,6 +126,8 @@
 
     // 단계 완료 안내를 add_capture (step 전환) 직전에 await — step 변경 시 camera_view.reset()
     // 이 stop_voice() 를 호출하므로, 안내가 끝까지 들리도록 여기서 await 후 진행한다.
+    // 셔터음(camera_shutter_sound) 이 fire-and-forget 으로 진행 중일 가능성이 있어, 먼저 그 종료를
+    // 기다린 뒤 단계 완료 안내를 시작 — 동일 high 우선순위라 진행 중 셔터를 끊지 않기 때문.
     const local_pose_type = g_current_step.pose_type
     const local_complete_key =
       local_pose_type === 'front'
@@ -132,6 +135,7 @@
         : local_pose_type === 'left_profile'
           ? 'left_side_capture_complete'
           : 'right_side_capture_complete'
+    await wait_for_voice()
     await play_voice(local_complete_key, { priority: 'high' })
 
     await add_capture(capture)
@@ -259,12 +263,17 @@
             </div>
           </section>
 
-          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
-            <StepIndicator
-              steps_arr={g_session.steps_arr}
-              current_index={g_session.current_step_index}
-            />
-          </section>
+          <!--
+            촬영 단계 표시 (정면만일 때 의미 없으므로 비활성화).
+            측면 촬영을 다시 살릴 때 아래 주석을 풀어 복원한다.
+
+            <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
+              <StepIndicator
+                steps_arr={g_session.steps_arr}
+                current_index={g_session.current_step_index}
+              />
+            </section>
+          -->
 
           <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
             <StepStatusBar

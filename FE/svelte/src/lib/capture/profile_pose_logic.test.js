@@ -70,9 +70,11 @@ describe('update_stability_step', () => {
 
   it('영역 안이지만 yaw 흔들림 큼 (pre-stable) → -5 감소 (holding=false)', () => {
     // initial 10 < STABILITY_FRAMES(12) — 히스테리시스 lock 미발동.
-    const initial = { stable_count: 10, yaw_buffer: [80, 100, 80, 100, 80, 100, 80, 100, 80, 100] }
+    // 새 buffer 의 모든 값이 |target ± TOLERANCE(32.5)| 안에 있어 in_zone 유지하면서,
+    // std > YAW_STD_THR(20) 이도록 진동 폭을 키운 시나리오 (default 임계 기준).
+    const initial = { stable_count: 10, yaw_buffer: [60, 120, 60, 120, 60, 120, 60, 120, 60, 120] }
     const result = update_stability_step({ ...initial, yaw: 90, target_deg: +90 })
-    // 새 buffer = [100,80,100,80,100,80,100,80,100,90] — std≈9.43 → threshold(5) 초과
+    // 새 buffer = [120,60,120,60,120,60,120,60,120,90] — mean=93, std≈26.4 → threshold(20) 초과
     expect(result.stable_count).toBe(5)
   })
 
@@ -123,22 +125,24 @@ describe('compute_hint_text', () => {
     expect(text).toBeNull()
   })
 
-  it('right_profile + yaw 0 → 왼쪽 안내 (음성 turn_left_for_right_capture 와 일치)', () => {
+  it('right_profile (target -90) + yaw 0 → 왼쪽 안내', () => {
+    // compute_target_deg('right_profile') = -TARGET_DEG. 사용자가 고개 왼쪽으로 → yaw 감소.
     const text = compute_hint_text({
       session_ready: true,
       last_yaw: 0,
-      target_deg: +90,
+      target_deg: -90,
       is_stable: false,
       progress: 0,
     })
     expect(text).toBe('고개를 왼쪽으로 더 돌려주세요')
   })
 
-  it('left_profile + yaw 0 → 오른쪽 안내 (음성 turn_head_right_for_left_capture 와 일치)', () => {
+  it('left_profile (target +90) + yaw 0 → 오른쪽 안내', () => {
+    // compute_target_deg('left_profile') = +TARGET_DEG. 사용자가 고개 오른쪽으로 → yaw 증가.
     const text = compute_hint_text({
       session_ready: true,
       last_yaw: 0,
-      target_deg: -90,
+      target_deg: +90,
       is_stable: false,
       progress: 0,
     })

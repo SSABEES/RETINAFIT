@@ -15,7 +15,7 @@
   let { open = false, onclose = undefined, oncreate = undefined } = $props()
 
   let ref_name = $state('')
-  let ref_gender = $state('0')
+  let ref_gender = $state('')
   let ref_birth_dt = $state('')
   let ref_phone1 = $state('')
   let ref_phone2 = $state('')
@@ -24,7 +24,7 @@
   // 신규 고객 등록 폼의 입력값을 초기화한다.
   function reset_form() {
     ref_name = ''
-    ref_gender = '0'
+    ref_gender = ''
     ref_birth_dt = ''
     ref_phone1 = ''
     ref_phone2 = ''

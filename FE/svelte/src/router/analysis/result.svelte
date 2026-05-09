@@ -5,8 +5,8 @@
   import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
   import { PATH } from '@/config/path'
   import { create_customer, search_customer } from '@/lib/api/customers'
-  import { create_visit, get_visit, update_visit } from '@/lib/api/visit'
-  import { selected_admin_obj, selected_opt_store_obj } from '@/lib/stores/admin'
+  import { get_visit, update_visit } from '@/lib/api/visit'
+  import { selected_opt_store_obj } from '@/lib/stores/admin'
   import { push_error_toast } from '@/lib/stores/toast'
   import {
     selected_customer_obj,
@@ -16,8 +16,8 @@
   } from '@/lib/stores/customer'
   import {
     get_skin_tone_recommendation,
-    get_frame_styles_for_face_shape,
     get_chip_text_class,
+    SKIN_TONE_FRAME_COLOR_MAP,
   } from '@/lib/recommendations/frame_recommendations.js'
   import MeasureCanvas from '@/components/analysis/measure_canvas.svelte'
   import MeasurementList from '@/components/analysis/measurement_list.svelte'
@@ -25,6 +25,7 @@
   import { pixel_distance } from '@/lib/measurements/measurement_utils.js'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
+  import AiInsightPanel from '@/components/analysis/ai_insight_panel.svelte'
   const FACE_SHAPE_LABEL_OBJ = {
     oval: '계란형',
     round: '둥근형',
@@ -172,48 +173,67 @@
     return local_name.endsWith('님') ? local_name : `${local_name}님`
   })
 
+  // 얼굴형 — 실제 데이터(visit.test_json or 고객 메타) 가 있을 때만 정규화 / 라벨 매핑.
+  const g_face_shape_raw = $derived(
+    g_test_json?.face_shape ?? $selected_customer_obj?.face_shape ?? null,
+  )
   const g_face_shape_key = $derived(
-    normalize_face_shape_key(
-      g_test_json?.face_shape ?? $selected_customer_obj?.face_shape ?? 'oval',
-    ),
+    g_face_shape_raw ? normalize_face_shape_key(g_face_shape_raw) : null,
+  )
+  const g_face_shape_label = $derived(
+    g_face_shape_key ? (FACE_SHAPE_LABEL_OBJ[g_face_shape_key] ?? null) : null,
   )
 
-  const g_face_shape_label = $derived(FACE_SHAPE_LABEL_OBJ[g_face_shape_key] ?? '계란형')
-
+  // 피부톤 — 실제 데이터가 있을 때만 추천 객체 산출. 없으면 null → 화면에서 '-'.
+  const g_skin_tone_raw = $derived(
+    g_test_json?.skin_tone?.tone ?? $selected_customer_obj?.skin_tone ?? null,
+  )
   const g_skin_tone_recommendation_obj = $derived(
-    get_skin_tone_recommendation(
-      g_test_json?.skin_tone?.tone ?? $selected_customer_obj?.skin_tone ?? 'NEUTRAL',
-    ),
+    g_skin_tone_raw ? get_skin_tone_recommendation(g_skin_tone_raw) : null,
   )
 
-  // BE 가 추천 칩 배열을 보내줬으면 그걸 우선 사용, 아니면 FE 로컬 매핑으로 fallback
+  // 라벨 → tone_class 글로벌 lookup (모든 톤의 칩 합집합). BE 가 라벨만 보내도 색이 입혀지도록.
+  const LABEL_TO_TONE_CLASS_OBJ = (() => {
+    /** @type {Record<string, string>} */
+    const local_obj = {}
+    for (const local_tone_key of Object.keys(SKIN_TONE_FRAME_COLOR_MAP)) {
+      for (const local_chip of SKIN_TONE_FRAME_COLOR_MAP[local_tone_key]) {
+        local_obj[local_chip.label] = local_chip.tone_class
+      }
+    }
+    return local_obj
+  })()
+
+  // BE 가 보내준 추천 칩 배열만 사용. tone_class 가 없으면 라벨로 FE 매핑에서 보충.
   const g_recommended_color_arr = $derived.by(() => {
     const local_be_arr = Array.isArray(g_test_json?.skin_tone_recommendations)
       ? g_test_json.skin_tone_recommendations
       : []
-    if (local_be_arr.length > 0) {
-      return local_be_arr
-        .slice(0, 4)
-        .map((/** @type {{ label?: string, tone_class?: string }} */ local_chip) => ({
-          label: String(local_chip.label ?? ''),
+    if (local_be_arr.length === 0) return []
+    return local_be_arr
+      .slice(0, 4)
+      .map((/** @type {{ label?: string, tone_class?: string }} */ local_chip) => {
+        const local_label = String(local_chip.label ?? '')
+        return {
+          label: local_label,
           tone_class:
-            local_chip.tone_class ??
-            g_skin_tone_recommendation_obj.chip_arr.find(
-              (local_default) => local_default.label === local_chip.label,
-            )?.tone_class ??
-            'bg-slate-300',
-        }))
-    }
-    return g_skin_tone_recommendation_obj.chip_arr.slice(0, 4)
+            local_chip.tone_class ?? LABEL_TO_TONE_CLASS_OBJ[local_label] ?? 'bg-slate-300',
+        }
+      })
   })
 
+  // BE 가 보내준 추천 모양 배열만 사용. FE 로컬 매핑 fallback 제거.
   const g_recommended_frame_arr = $derived.by(() => {
     const local_be_arr = Array.isArray(g_test_json?.face_shape_recommendations)
       ? g_test_json.face_shape_recommendations
       : []
-    if (local_be_arr.length > 0) return local_be_arr.slice(0, 6)
-    return get_frame_styles_for_face_shape(g_face_shape_key).slice(0, 6)
+    return local_be_arr.length > 0 ? local_be_arr.slice(0, 6) : []
   })
+
+  // 1순위만 추출 — 추천 모양 슬롯에 4개까지 채울 후보.
+  const g_priority_one_frame_arr = $derived(
+    g_recommended_frame_arr.filter((local_obj) => local_obj.priority === 1),
+  )
 
   // 렌즈 상담 답변 (BE 가 selection_arr 로 저장한다)
   const g_lens_selection_arr = $derived.by(() => {
@@ -229,46 +249,6 @@
     return /** @type {{brand: string, model: string, capture_arr: {label: string, url: string}[]}[]} */ (
       local_arr
     )
-  })
-
-  // AI 응답 items 의 항목별 멘트를 펼칠 때 표시 순서.
-  // 키 순서가 흔들려도 화면이 일정하도록 고정. items 키와 1:1 매칭.
-  const REPORT_ITEM_KEY_ARR = [
-    'face_shape',
-    'face_width',
-    'face_height',
-    'face_ratio',
-    'pd',
-    'skin_tone',
-  ]
-
-  // report_json 의 인사이트 bullet 배열 추출
-  // - 배열/summary_arr/insight_arr/bullet_arr 형태는 그대로 펼침
-  // - { summary, items } 형태는 summary 다음에 items 의 각 멘트를 차례로 붙임
-  // - 키 자체는 화면에 노출하지 않고, 멘트 문자열만 bullet 으로 보여준다.
-  const g_report_bullet_arr = $derived.by(() => {
-    if (!g_report_json) return /** @type {string[]} */ ([])
-    if (Array.isArray(g_report_json)) return g_report_json.map(String).filter(Boolean)
-    if (Array.isArray(g_report_json.summary_arr)) return g_report_json.summary_arr.map(String).filter(Boolean)
-    if (Array.isArray(g_report_json.insight_arr)) return g_report_json.insight_arr.map(String).filter(Boolean)
-    if (Array.isArray(g_report_json.bullet_arr)) return g_report_json.bullet_arr.map(String).filter(Boolean)
-
-    /** @type {string[]} */
-    const local_bullet_arr = []
-    const local_summary = g_report_json.summary
-    if (typeof local_summary === 'string' && local_summary.trim()) {
-      local_bullet_arr.push(local_summary.trim())
-    }
-    const local_items_obj = g_report_json.items
-    if (local_items_obj && typeof local_items_obj === 'object') {
-      for (const local_key of REPORT_ITEM_KEY_ARR) {
-        const local_value = local_items_obj[local_key]
-        if (typeof local_value === 'string' && local_value.trim()) {
-          local_bullet_arr.push(local_value.trim())
-        }
-      }
-    }
-    return local_bullet_arr
   })
 
   // 측정 상세 — visit.test_json 에 저장된 측정값/측정점/이미지 dims 를 읽어 인터랙티브 화면을 합성.
@@ -399,10 +379,9 @@
   /**
    * 비회원 분석 결과를 새로 등록한 고객 정보로 연결한다.
    * 1) create_customer 로 신규 고객 등록 → search_customer 로 새 cust_no 추출
-   * 2) 기존 비회원 visit 의 분석 데이터를 GET
-   * 3) 새 cust_no 로 create_visit → 새 visit_no 발급
-   * 4) 기존 분석 데이터를 새 visit 에 PATCH 로 일괄 저장
-   * 5) selected_customer / selected_visit / sessionStorage 모두 갱신
+   * 2) 기존 visit 의 식별 필드(cust_no/이름/전화/생년월일/성별)만 PATCH 로 갱신
+   *    - visit_no 그대로, 분석/리포트/사진 데이터 그대로 → URL 이중 인코딩/visit 중복 생성 없음
+   * 3) selected_customer / selected_visit 갱신 (sessionStorage 의 visit_no 는 변경 없음)
    * @param {{ name: string, gender: string, birth_dt: string, phone1: string, phone2: string }} customer_obj
    */
   async function on_create_customer(customer_obj) {
@@ -412,15 +391,17 @@
       return
     }
 
-    const local_old_visit_no = Number($selected_visit_obj?.visit_no)
-    if (!Number.isFinite(local_old_visit_no) || local_old_visit_no <= 0) {
+    const local_visit_no = Number($selected_visit_obj?.visit_no)
+    if (!Number.isFinite(local_visit_no) || local_visit_no <= 0) {
       push_error_toast('연결할 방문 정보가 없습니다. 잠시 후 다시 시도해 주세요.')
       return
     }
 
     const local_phone1 = customer_obj.phone1.replace(/[^0-9]/g, '')
     const local_phone2 = customer_obj.phone2.replace(/[^0-9]/g, '')
-    const local_sex_value = Number(customer_obj.gender)
+    // 성별 미선택(빈 문자열) 시 null 로 보내 BE 가 그대로 비워두게 한다 — Number('') 가 0(남) 으로 묻히는 사고 방지.
+    const local_sex_value =
+      customer_obj.gender === '' || customer_obj.gender == null ? null : Number(customer_obj.gender)
 
     g_is_registering_customer = true
     try {
@@ -451,45 +432,18 @@
         return
       }
 
-      // 기존 비회원 visit 의 분석/리포트 데이터를 가져온다.
-      const local_old_visit_obj = await get_visit({ visit_no: local_old_visit_no })
-
-      // 새 cust_no 로 새 방문을 만든다.
-      const local_new_visit_obj = await create_visit({
-        opt_no: $selected_opt_store_obj.opt_no,
-        cust_no: local_new_cust_no,
-        cust_name: customer_obj.name,
-        birthday: customer_obj.birth_dt,
-        phone_no1: local_phone1,
-        phone_no2: local_phone2,
-        sex: local_sex_value,
-        member_no: $selected_admin_obj?.member_no ?? 0,
-      })
-      const local_new_visit_no = Number(local_new_visit_obj?.visit_no)
-
-      if (!Number.isFinite(local_new_visit_no) || local_new_visit_no <= 0) {
-        push_error_toast('새 방문 정보 생성에 실패했습니다.')
-        return
-      }
-
-      // 기존 분석/리포트 데이터를 새 visit 에 일괄 PATCH 로 옮긴다.
-      const local_patch_body_obj = {
-        main_file: local_old_visit_obj?.main_file ?? null,
-        test_file_arr: local_old_visit_obj?.test_file_arr ?? null,
-        test_json: local_old_visit_obj?.test_json ?? null,
-        opt_recommend_json: local_old_visit_obj?.opt_recommend_json ?? null,
-        vp_file_arr: local_old_visit_obj?.vp_file_arr ?? null,
-        vp_json: local_old_visit_obj?.vp_json ?? null,
-        real_vp_json: local_old_visit_obj?.real_vp_json ?? null,
-        report_json: local_old_visit_obj?.report_json ?? null,
-        test_dt: local_old_visit_obj?.test_dt ?? null,
-        vp_dt: local_old_visit_obj?.vp_dt ?? null,
-        real_vp_dt: local_old_visit_obj?.real_vp_dt ?? null,
-      }
-
+      // 기존 visit 의 식별 필드만 PATCH 로 덮어쓴다 — 분석/사진/리포트는 그대로 보존.
+      // BE VisitUpdateRequest 에 cust_no / cust_name / phone_no1 / phone_no2 / birthday / sex 필드 허용 필요.
       await update_visit({
-        visit_no: local_new_visit_no,
-        body: local_patch_body_obj,
+        visit_no: local_visit_no,
+        body: {
+          cust_no: local_new_cust_no,
+          cust_name: customer_obj.name,
+          phone_no1: local_phone1,
+          phone_no2: local_phone2,
+          birthday: customer_obj.birth_dt,
+          sex: local_sex_value,
+        },
       })
 
       set_selected_customer({
@@ -497,24 +451,27 @@
         name: customer_obj.name,
         phone: local_phone1,
         phone2: local_phone2,
-        gender: local_sex_value === 0 ? '남' : '여',
+        gender: local_sex_value === 0 ? '남' : local_sex_value === 1 ? '여' : '',
         birth_dt: customer_obj.birth_dt,
         visit_count: 1,
         last_visit_dt: '-',
       })
 
+      // visit_no 변경 없음 → sessionStorage 의 retinal_visit_no 도 그대로 둔다.
+      // 식별 필드만 머지해서 selected_visit 갱신.
       set_selected_visit({
-        ...local_old_visit_obj,
-        ...local_new_visit_obj,
-        visit_no: local_new_visit_no,
+        ...$selected_visit_obj,
         cust_no: local_new_cust_no,
+        cust_name: customer_obj.name,
+        phone_no1: local_phone1,
+        phone_no2: local_phone2,
+        birthday: customer_obj.birth_dt,
+        sex: local_sex_value,
         is_new: false,
       })
 
-      sessionStorage.setItem('retinal_visit_no', String(local_new_visit_no))
-
       ref_customer_create_modal_open = false
-      // 새 visit 으로 PATCH 마이그레이션 됐으니 화면 데이터도 그쪽 기준으로 다시 로드.
+      // PATCH 반영 후 BE 응답 기준으로 화면 데이터 다시 로드 (visit_no 동일).
       await load_visit_data()
     } catch (local_error) {
       push_error_toast(
@@ -527,6 +484,42 @@
     }
   }
 
+  // BE 의 face-script BG 작업이 끝날 때까지 짧게 폴링 — 첫 진입 직후에도 AI 인사이트가 채워지게.
+  // 응답이 즉시 오는 PATCH 와 별개로 report_json 은 수 초 뒤 DB 에 박히므로 mount 시 1회 fetch 만으로는 비어 있을 수 있다.
+  const REPORT_POLL_MAX_ATTEMPTS = 6
+  const REPORT_POLL_INTERVAL_MS = 3000
+  let g_report_poll_count = $state(0)
+  let g_report_poll_timer_id = /** @type {ReturnType<typeof setTimeout> | null} */ (null)
+
+  function clear_report_poll_timer() {
+    if (g_report_poll_timer_id !== null) {
+      clearTimeout(g_report_poll_timer_id)
+      g_report_poll_timer_id = null
+    }
+  }
+
+  // report_json 이 아직 비어 있으면 일정 간격으로 visit 를 다시 가져와 AI 결과가 들어왔는지 확인.
+  function schedule_report_poll() {
+    if (g_report_poll_timer_id !== null) return
+    if (g_report_poll_count >= REPORT_POLL_MAX_ATTEMPTS) return
+
+    g_report_poll_timer_id = setTimeout(async () => {
+      g_report_poll_timer_id = null
+      g_report_poll_count += 1
+      const local_visit_no = Number($selected_visit_obj?.visit_no)
+      if (!Number.isFinite(local_visit_no) || local_visit_no <= 0) return
+      try {
+        const local_fresh_obj = await get_visit({ visit_no: local_visit_no })
+        g_visit_obj = local_fresh_obj
+        if (!local_fresh_obj?.report_json) {
+          schedule_report_poll()
+        }
+      } catch {
+        // 백그라운드 재요청은 조용히 무시 — 첫 mount fetch 가 이미 화면을 채워둔 상태라 사용자 액션 불필요.
+      }
+    }, REPORT_POLL_INTERVAL_MS)
+  }
+
   // 현재 visit 의 분석/리포트/피팅 데이터를 한 번에 GET 해서 화면을 채운다.
   async function load_visit_data() {
     const local_visit_no = Number($selected_visit_obj?.visit_no)
@@ -536,6 +529,10 @@
     }
     try {
       g_visit_obj = await get_visit({ visit_no: local_visit_no })
+      // 첫 fetch 에 report_json 이 비어 있으면 BG AI 가 끝나길 기다리며 폴링 시작.
+      if (!g_visit_obj?.report_json) {
+        schedule_report_poll()
+      }
     } catch (local_err) {
       push_error_toast(
         local_err instanceof Error ? local_err.message : '방문 정보를 불러오지 못했습니다.',
@@ -547,6 +544,9 @@
 
   onMount(() => {
     void load_visit_data()
+    return () => {
+      clear_report_poll_timer()
+    }
   })
 </script>
 
@@ -601,7 +601,15 @@
     onpointerdown={on_pointerdown_swipe}
     onpointerup={on_pointerup_swipe}
   >
-    <div class="mx-auto flex min-h-full w-full max-w-[940px] flex-col gap-3">
+    <!--
+      insight 탭은 컨텐츠가 길어 자연 height 로 흐르며 부모 section 의 overflow-y-auto 가 스크롤 처리.
+      다른 탭은 min-h-full 로 카드들이 section 을 꽉 채우도록 유지 (얼굴 분석 결과 카드의 flex-1 등이 의존).
+    -->
+    <div
+      class={`mx-auto flex w-full max-w-[940px] flex-col gap-3 ${
+        g_active_tab === 'insight' ? '' : 'min-h-full'
+      }`}
+    >
       {#if g_active_tab === 'overview'}
         <!-- 1. 고객 정보 -->
         <section class="rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm">
@@ -637,7 +645,7 @@
               >
                 <p class="m-0 text-[12px] font-bold text-slate-700">얼굴형</p>
                 <p class="m-0 mt-1 text-[15px] text-[#F97316]">
-                  {g_face_shape_label}
+                  {g_face_shape_label ?? '-'}
                 </p>
               </div>
               <div
@@ -645,9 +653,13 @@
               >
                 <p class="m-0 text-[12px] font-bold text-slate-700">피부톤</p>
                 <p class="m-0 mt-1 text-[14px] leading-tight text-[#1660C7]">
-                  {g_skin_tone_recommendation_obj.label}
-                  <br />
-                  {SKIN_TONE_DESCRIPTION_OBJ[g_skin_tone_recommendation_obj.key] ?? '중성 톤'}
+                  {#if g_skin_tone_recommendation_obj}
+                    {g_skin_tone_recommendation_obj.label}
+                    <br />
+                    {SKIN_TONE_DESCRIPTION_OBJ[g_skin_tone_recommendation_obj.key] ?? '-'}
+                  {:else}
+                    -
+                  {/if}
                 </p>
               </div>
             </div>
@@ -661,51 +673,60 @@
                   추천 안경테 컬러
                 </h3>
                 <!--
-                  기본 4개 슬롯 (2×2) 고정 — 데이터가 없어도 그리드 자리는 예약되지만 chip 시각화는
-                  노출하지 않아 레이아웃은 일정하면서도 빈 chip 잔재가 안 보인다.
+                  기본 4개 슬롯 (2×2). 데이터가 있을 때만 chip 노출, 없으면 grid 영역에 '-' 한 번만.
                 -->
-                <div class="mt-2 grid grid-cols-2 gap-2" style="grid-template-rows: repeat(2, 52px)">
-                  {#each Array.from({ length: 4 }) as _, color_index (color_index)}
-                    {@const local_color_obj = g_recommended_color_arr[color_index]}
-                    {#if local_color_obj}
-                      <div
-                        class={`flex items-center justify-center rounded-[10px] border border-black/5 px-3 py-2 text-center shadow-sm ${local_color_obj.gradient_class ?? local_color_obj.tone_class}`}
-                      >
-                        <p
-                          class={`m-0 text-[14px] font-black ${get_chip_text_class(local_color_obj)}`}
+                {#if g_recommended_color_arr.length === 0}
+                  <div class="mt-2 grid place-items-center text-[18px] font-extrabold text-slate-400" style="grid-template-rows: repeat(2, 52px)">
+                    -
+                  </div>
+                {:else}
+                  <div class="mt-2 grid grid-cols-2 gap-2" style="grid-template-rows: repeat(2, 52px)">
+                    {#each Array.from({ length: 4 }) as _, color_index (color_index)}
+                      {@const local_color_obj = g_recommended_color_arr[color_index]}
+                      {#if local_color_obj}
+                        <div
+                          class={`flex items-center justify-center rounded-[10px] border border-black/5 px-3 py-2 text-center shadow-sm ${local_color_obj.gradient_class ?? local_color_obj.tone_class}`}
                         >
-                          {local_color_obj.label}
-                        </p>
-                      </div>
-                    {:else}
-                      <div aria-hidden="true"></div>
-                    {/if}
-                  {/each}
-                </div>
+                          <p
+                            class={`m-0 text-[14px] font-black ${get_chip_text_class(local_color_obj)}`}
+                          >
+                            {local_color_obj.label}
+                          </p>
+                        </div>
+                      {:else}
+                        <div aria-hidden="true"></div>
+                      {/if}
+                    {/each}
+                  </div>
+                {/if}
               </section>
 
               <section class="flex min-h-0 flex-col">
                 <h3 class="m-0 shrink-0 text-center text-[13px] font-extrabold text-slate-800">
                   추천 안경테 모양
                 </h3>
-                <div class="mt-2 grid grid-cols-2 gap-2" style="grid-template-rows: repeat(2, 52px)">
-                  {#each Array.from({ length: 4 }) as _, frame_index (frame_index)}
-                    {@const local_frame_obj = g_recommended_frame_arr.filter(
-                      (local_obj) => local_obj.priority === 1,
-                    )[frame_index]}
-                    {#if local_frame_obj}
-                      <div
-                        class="flex items-center justify-center rounded-[10px] border border-[#F97316] bg-white px-3 py-2 text-center shadow-sm"
-                      >
-                        <p class="m-0 text-[14px] font-black text-[#F97316]">
-                          {local_frame_obj.name}
-                        </p>
-                      </div>
-                    {:else}
-                      <div aria-hidden="true"></div>
-                    {/if}
-                  {/each}
-                </div>
+                {#if g_priority_one_frame_arr.length === 0}
+                  <div class="mt-2 grid place-items-center text-[18px] font-extrabold text-slate-400" style="grid-template-rows: repeat(2, 52px)">
+                    -
+                  </div>
+                {:else}
+                  <div class="mt-2 grid grid-cols-2 gap-2" style="grid-template-rows: repeat(2, 52px)">
+                    {#each Array.from({ length: 4 }) as _, frame_index (frame_index)}
+                      {@const local_frame_obj = g_priority_one_frame_arr[frame_index]}
+                      {#if local_frame_obj}
+                        <div
+                          class="flex items-center justify-center rounded-[10px] border border-[#F97316] bg-white px-3 py-2 text-center shadow-sm"
+                        >
+                          <p class="m-0 text-[14px] font-black text-[#F97316]">
+                            {local_frame_obj.name}
+                          </p>
+                        </div>
+                      {:else}
+                        <div aria-hidden="true"></div>
+                      {/if}
+                    {/each}
+                  </div>
+                {/if}
               </section>
             </div>
           </article>
@@ -794,7 +815,9 @@
           {:else}
             <div class="mt-2 grid grid-cols-3 gap-3">
               {#each g_saved_fitting_arr as fitting_obj, fitting_index (fitting_index)}
-                {@const local_front_capture_obj = fitting_obj.capture_arr?.[0]}
+                {@const local_front_capture_obj =
+                  fitting_obj.capture_arr?.find((local_capture_obj) => local_capture_obj?.url) ??
+                  fitting_obj.capture_arr?.[0]}
                 <article class="rounded-[12px] border border-slate-100 bg-slate-50 p-3">
                   <div
                     class="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-slate-200 bg-white"
@@ -894,37 +917,13 @@
           {/if}
         </section>
       {:else if g_active_tab === 'insight'}
-        <!-- AI 분석 인사이트 (탭바의 가장 오른쪽) -->
-        <section class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white px-7 py-3 shadow-sm">
-          <h2 class="m-0 text-[18px] font-extrabold text-zinc-900">AI 분석 인사이트</h2>
-
-          {#if g_visit_loading}
-            <p class="mt-2 text-[14px] font-semibold text-slate-400">리포트 불러오는 중...</p>
-          {:else if g_report_bullet_arr.length === 0}
-            <p class="mt-2 text-[14px] font-semibold text-slate-400">
-              아직 생성된 인사이트가 없습니다.
-            </p>
-          {:else}
-            <ul class="mt-2 grid gap-2 text-[15px] leading-relaxed text-slate-700">
-              {#each g_report_bullet_arr as bullet_text, bullet_index (bullet_index)}
-                <li class="flex gap-3">
-                  <span
-                    class="mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--retina-primary-300)]"
-                    aria-hidden="true"
-                  ></span>
-                  <span class="whitespace-pre-line">{bullet_text}</span>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </section>
+        <!-- AI 분석 인사이트 — 공유 컴포넌트로 추출 (visit_detail.svelte 와 동일 사용). -->
+        <AiInsightPanel visit_obj={g_visit_obj} is_loading={g_visit_loading} />
 
         <p class="m-0 px-1 text-center text-[12px] font-medium leading-relaxed text-slate-400">
           본 리포트는 AI 기반 얼굴 분석 결과를 토대로 자동 생성되었으며, 참고용 추천 자료입니다.
           실제 시야·착용감·도수 등은 개인차가 있을 수 있으니
-          <span class="font-bold text-[var(--retina-primary-400)]"
-            >자세한 사항은 전문 안경사와 상담해 주세요.</span
-          >
+          <span class="font-bold text-[var(--retina-primary-400)]">자세한 사항은 전문 안경사와 상담해 주세요.</span>
         </p>
       {/if}
     </div>

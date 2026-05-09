@@ -202,20 +202,14 @@
     return local_customer_result_arr
   }
 
-  // 얼굴분석 버튼을 클릭하면 매번 새 방문 정보를 생성한 뒤 분석 화면으로 이동한다.
+  // 고객 행 클릭 시 — 선택한 고객을 store 에 저장하고 고객 상세 페이지로 이동.
+  // 분석 시작은 상세 페이지의 액션 카드에서 진행.
   /** @param {Record<string, any>} customer_obj */
-  async function on_click_select_customer(customer_obj) {
+  function on_click_select_customer(customer_obj) {
     if (g_is_customer_select_loading) return
 
     set_selected_customer(customer_obj)
-    g_visit_target_customer = customer_obj
-    g_is_customer_select_loading = true
-
-    try {
-      await on_start_new_visit()
-    } finally {
-      g_is_customer_select_loading = false
-    }
+    navigate(PATH.userDetail(customer_obj.id))
   }
 
   async function on_start_new_visit() {
@@ -381,6 +375,9 @@
     const local_phone1 = customer_obj.phone1.replace(/[^0-9]/g, '')
     const local_phone2 = customer_obj.phone2.replace(/[^0-9]/g, '')
     const local_status_obj = get_analysis_status_obj(null)
+    // 성별 미선택(빈 문자열) 시 null 로 보내 BE 가 그대로 비워두게 한다 — Number('') 가 0(남) 으로 묻히는 사고 방지.
+    const local_sex_value =
+      customer_obj.gender === '' || customer_obj.gender == null ? null : Number(customer_obj.gender)
 
     try {
       await create_customer({
@@ -389,7 +386,7 @@
         phone1: local_phone1,
         phone2: local_phone2,
         birthday: customer_obj.birth_dt,
-        sex: Number(customer_obj.gender),
+        sex: local_sex_value,
       })
 
       const local_new_customer_obj = {
@@ -398,7 +395,7 @@
         phone: local_phone1,
         phone2: local_phone2,
         birth_dt: customer_obj.birth_dt,
-        gender: customer_obj.gender === '0' ? '남' : '여',
+        gender: local_sex_value === 0 ? '남' : local_sex_value === 1 ? '여' : '',
         last_visit_dt: '-',
         visit_count: 0,
         status_key: local_status_obj.key,
