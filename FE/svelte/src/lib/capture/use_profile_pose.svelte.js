@@ -13,6 +13,7 @@ import { rotation_matrix_to_euler, image_plane_tilt_deg } from '@/lib/sixdrepnet
 import {
   update_stability_step,
   compute_hint_text,
+  compute_target_deg,
   next_image_tilt_buffer,
   average_or_null,
   PROFILE_CONSTANTS,
@@ -100,8 +101,7 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
       _last_image_tilt = average_or_null(_image_tilt_buffer)
       _last_rotation = result.rotation_matrix
 
-      const target_deg = get_pose_target() === 'right_profile'
-        ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
+      const target_deg = compute_target_deg(get_pose_target())
       const next = update_stability_step({
         stable_count: _stable_count,
         yaw_buffer: _yaw_buffer,
@@ -151,9 +151,8 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
     get progress()       {
       return Math.min(100, Math.round((_stable_count / PROFILE_CONSTANTS.STABILITY_FRAMES) * 100))
     },
-    get hint_text()      {
-      const target_deg = get_pose_target() === 'right_profile'
-        ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
+    get hint_text() {
+      const target_deg = compute_target_deg(get_pose_target())
       return compute_hint_text({
         session_ready: _session_ready,
         last_yaw: _last_yaw,

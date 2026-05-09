@@ -1,7 +1,6 @@
 <script>
   import { X } from 'lucide-svelte'
   import DatePicker from '@/components/input/date_picker.svelte'
-  import { push_error_toast } from '@/lib/stores/toast'
 
   /**
    * @typedef {{ name: string, gender: string, birth_dt: string, phone1: string, phone2: string }} CustomerCreatePayload
@@ -13,14 +12,10 @@
    */
 
   /** @type {CustomerCreateModalProps} */
-  let {
-    open = false,
-    onclose = undefined,
-    oncreate = undefined,
-  } = $props()
+  let { open = false, onclose = undefined, oncreate = undefined } = $props()
 
   let ref_name = $state('')
-  let ref_gender = $state('0')
+  let ref_gender = $state('')
   let ref_birth_dt = $state('')
   let ref_phone1 = $state('')
   let ref_phone2 = $state('')
@@ -29,7 +24,7 @@
   // 신규 고객 등록 폼의 입력값을 초기화한다.
   function reset_form() {
     ref_name = ''
-    ref_gender = '0'
+    ref_gender = ''
     ref_birth_dt = ''
     ref_phone1 = ''
     ref_phone2 = ''
@@ -56,11 +51,6 @@
   async function on_submit_customer_create(local_event) {
     local_event.preventDefault()
 
-    if (!ref_birth_dt) {
-      push_error_toast('생년월일을 선택해 주세요.')
-      return
-    }
-
     const local_customer_obj = {
       name: ref_name.trim(),
       gender: ref_gender,
@@ -80,8 +70,13 @@
 </script>
 
 {#if open}
+  <!--
+    .app-frame 의 transform: scale 이 fixed containing block 을 만들기 때문에 inset-0 만으로는
+    .app-frame 안쪽까지만 덮인다. .app-edge-extend (negative left/right) 를 같이 걸어
+    좌우 viewport 끝까지 오버레이가 닿게 한다.
+  -->
   <div
-    class="fixed inset-0 z-50 grid place-items-center bg-black/40 px-5"
+    class="app-edge-extend fixed inset-y-0 z-50 grid place-items-center bg-black/40 px-5"
     role="presentation"
     onclick={on_click_close}
   >
@@ -132,58 +127,6 @@
           />
         </label>
 
-        <div class="grid grid-cols-2 gap-3">
-          <fieldset
-            class="m-0 grid gap-1 border-0 p-0"
-            disabled={g_is_submit_loading}
-          >
-            <legend class="text-xs font-bold text-[var(--retina-text-700)]">
-              성별 <span class="text-[#dc2626]">*</span>
-            </legend>
-            <div class="flex min-h-9 items-center gap-5 px-1">
-              <label
-                class="inline-flex cursor-pointer items-center gap-1.5 text-sm font-bold text-[var(--retina-text-800)]"
-              >
-                <input
-                  class="h-3.5 w-3.5 accent-[var(--retina-primary-600)]"
-                  type="radio"
-                  name="customer-gender"
-                  value="0"
-                  bind:group={ref_gender}
-                />
-                남
-              </label>
-              <label
-                class="inline-flex cursor-pointer items-center gap-1.5 text-sm font-bold text-[var(--retina-text-800)]"
-              >
-                <input
-                  class="h-3.5 w-3.5 accent-[var(--retina-primary-600)]"
-                  type="radio"
-                  name="customer-gender"
-                  value="1"
-                  bind:group={ref_gender}
-                />
-                여
-              </label>
-            </div>
-          </fieldset>
-
-          <div class="grid gap-1 text-xs font-bold text-[var(--retina-text-700)]">
-            <label for="customer-birth-dt">
-              <span>생년월일 <span class="text-[#dc2626]">*</span></span>
-            </label>
-            <DatePicker
-              id="customer-birth-dt"
-              value={ref_birth_dt}
-              placeholder="생년월일 선택"
-              disabled={g_is_submit_loading}
-              required
-              aria_label="생년월일 선택"
-              onchange={on_change_birth_dt}
-            />
-          </div>
-        </div>
-
         <label
           class="grid gap-1 text-xs font-bold text-[var(--retina-text-700)]"
           for="customer-phone1"
@@ -218,6 +161,54 @@
             disabled={g_is_submit_loading}
           />
         </label>
+
+        <div class="my-1 h-px bg-[var(--retina-text-200)]" aria-hidden="true"></div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <fieldset class="m-0 grid gap-1 border-0 p-0" disabled={g_is_submit_loading}>
+            <legend class="text-xs font-bold text-[var(--retina-text-700)]">성별</legend>
+            <div class="flex min-h-9 items-center gap-5 px-1">
+              <label
+                class="inline-flex cursor-pointer items-center gap-1.5 text-sm font-bold text-[var(--retina-text-800)]"
+              >
+                <input
+                  class="h-3.5 w-3.5 accent-[var(--retina-primary-600)]"
+                  type="radio"
+                  name="customer-gender"
+                  value="0"
+                  bind:group={ref_gender}
+                />
+                남
+              </label>
+              <label
+                class="inline-flex cursor-pointer items-center gap-1.5 text-sm font-bold text-[var(--retina-text-800)]"
+              >
+                <input
+                  class="h-3.5 w-3.5 accent-[var(--retina-primary-600)]"
+                  type="radio"
+                  name="customer-gender"
+                  value="1"
+                  bind:group={ref_gender}
+                />
+                여
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="grid gap-1 text-xs font-bold text-[var(--retina-text-700)]">
+            <label for="customer-birth-dt">
+              <span>생년월일</span>
+            </label>
+            <DatePicker
+              id="customer-birth-dt"
+              value={ref_birth_dt}
+              placeholder="생년월일 선택"
+              disabled={g_is_submit_loading}
+              aria_label="생년월일 선택"
+              onchange={on_change_birth_dt}
+            />
+          </div>
+        </div>
 
         <div class="grid grid-cols-2 gap-2">
           <button

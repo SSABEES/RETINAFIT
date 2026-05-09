@@ -11,8 +11,10 @@
  * @typedef {'oval' | 'round' | 'heart' | 'square' | 'oblong'} FaceShapeKey
  *
  * @typedef {object} FrameColorChip
- * @property {string} label       // 칩에 표시할 컬러 명 (예: '골드')
- * @property {string} tone_class  // Tailwind/임의값 배경 클래스 (예: 'bg-[#D4A63F]')
+ * @property {string} label           // 칩에 표시할 컬러 명 (예: '골드')
+ * @property {string} tone_class      // Tailwind/임의값 단색 배경 (작은 dot/preview 용도)
+ * @property {string} gradient_class  // 칸 전체를 채우는 선형 그라데이션 (밝은 톤 → 진한 톤)
+ * @property {string} text_class      // 그라데이션 위 라벨 색 (어두운 끝쪽 기준 가독성)
  *
  * @typedef {object} FrameStyleEntry
  * @property {string} name                  // 프레임 형태명 (예: '라운드')
@@ -27,22 +29,75 @@
  *
  * @type {Record<SkinToneKey, FrameColorChip[]>}
  */
+// gradient_class 는 디자인 시안의 보라(#933ABC→#330046)와 동일한 결의 컬러별 변형 —
+// 칩 색을 from(밝은 변형), to(매우 어두운 변형)로 두어 톱-레프트→바텀-라이트 방향으로 깊어진다.
+// text_class 는 어두운 끝 톤을 기준으로 가독성이 보장되도록 모두 흰색으로 통일.
 export const SKIN_TONE_FRAME_COLOR_MAP = {
   WARM: [
-    { label: '골드', tone_class: 'bg-[#D4A63F]' },
-    { label: '브라운', tone_class: 'bg-[#8B5E3C]' },
-    { label: '버건디', tone_class: 'bg-[#7A1E3A]' },
-    { label: '토트이즈', tone_class: 'bg-[#B86B2C]' },
+    {
+      label: '골드',
+      tone_class: 'bg-[#D4A63F]',
+      gradient_class: 'bg-gradient-to-b from-[#D4A040] to-[#7A5A1A]',
+      text_class: 'text-white',
+    },
+    {
+      label: '브라운',
+      tone_class: 'bg-[#8B5E3C]',
+      gradient_class: 'bg-gradient-to-b from-[#A07050] to-[#4A2E18]',
+      text_class: 'text-white',
+    },
+    {
+      label: '버건디',
+      tone_class: 'bg-[#7A1E3A]',
+      gradient_class: 'bg-gradient-to-b from-[#922640] to-[#3E0E1C]',
+      text_class: 'text-white',
+    },
+    {
+      label: '토트이즈',
+      tone_class: 'bg-[#B86B2C]',
+      gradient_class: 'bg-gradient-to-b from-[#C07A38] to-[#5E3410]',
+      text_class: 'text-white',
+    },
   ],
   COOL: [
-    { label: '실버', tone_class: 'bg-[#A7B0BC]' },
-    { label: '블랙', tone_class: 'bg-[#111827]' },
-    { label: '블루', tone_class: 'bg-[#4A6CF7]' },
-    { label: '퍼플', tone_class: 'bg-[#8B5CF6]' },
+    {
+      label: '실버',
+      tone_class: 'bg-[#A7B0BC]',
+      gradient_class: 'bg-gradient-to-b from-[#C4CDD8] to-[#6E7A8A]',
+      text_class: 'text-white',
+    },
+    {
+      label: '블랙',
+      tone_class: 'bg-[#111827]',
+      gradient_class: 'bg-gradient-to-b from-[#2D3748] to-[#060C14]',
+      text_class: 'text-white',
+    },
+    {
+      label: '블루',
+      tone_class: 'bg-[#4A6CF7]',
+      gradient_class: 'bg-gradient-to-b from-[#6B87FF] to-[#2340C4]',
+      text_class: 'text-white',
+    },
+    {
+      label: '보라',
+      tone_class: 'bg-[#8B5CF6]',
+      gradient_class: 'bg-gradient-to-b from-[#A67BFF] to-[#5B2EC4]',
+      text_class: 'text-white',
+    },
   ],
   NEUTRAL: [
-    { label: '모든 색상 가능', tone_class: 'bg-[#64748B]' },
-    { label: '고객 선호 반영', tone_class: 'bg-[#9A1BFF]' },
+    {
+      label: '모든 색상 가능',
+      tone_class: 'bg-[#64748B]',
+      gradient_class: 'bg-gradient-to-b from-[#7E8FA8] to-[#38455A]',
+      text_class: 'text-white',
+    },
+    {
+      label: '고객 선호 반영',
+      tone_class: 'bg-[#9A1BFF]',
+      gradient_class: 'bg-gradient-to-b from-[#A840F8] to-[#4A0080]',
+      text_class: 'text-white',
+    },
   ],
 }
 
@@ -120,13 +175,11 @@ export const SKIN_TONE_META = {
  * @returns {SkinToneKey}
  */
 export function normalize_skin_tone_key(skin_tone_value) {
-  const local_value = String(skin_tone_value ?? '').trim().toUpperCase()
+  const local_value = String(skin_tone_value ?? '')
+    .trim()
+    .toUpperCase()
   if (local_value === 'COOL' || local_value.includes('쿨')) return 'COOL'
-  if (
-    local_value === 'NEUTRAL' ||
-    local_value.includes('뉴트럴') ||
-    local_value.includes('중성')
-  ) {
+  if (local_value === 'NEUTRAL' || local_value.includes('뉴트럴') || local_value.includes('중성')) {
     return 'NEUTRAL'
   }
   return 'WARM'
@@ -155,7 +208,9 @@ export function get_skin_tone_recommendation(skin_tone_value) {
  * @returns {FrameStyleEntry[]}
  */
 export function get_frame_styles_for_face_shape(face_shape_key) {
-  const local_key = String(face_shape_key ?? '').trim().toLowerCase()
+  const local_key = String(face_shape_key ?? '')
+    .trim()
+    .toLowerCase()
   return FACE_SHAPE_FRAME_MAP[/** @type {FaceShapeKey} */ (local_key)] ?? []
 }
 
@@ -171,6 +226,26 @@ const FRAME_STYLE_NAME_TO_VALUE = {
   보잉: 'aviator',
   캣아이: 'cat_eye',
   브로우라인: 'browline',
+}
+
+/**
+ * 칩 객체에서 배경 클래스를 반환한다.
+ * gradient_class 가 없을 때 tone_class 로 폴백하므로 어떤 칩이 와도 안전하게 렌더링된다.
+ * @param {FrameColorChip} chip_obj
+ * @returns {string}
+ */
+export function get_chip_bg_class(chip_obj) {
+  return chip_obj.gradient_class || chip_obj.tone_class || 'bg-slate-400'
+}
+
+/**
+ * 칩 객체에서 텍스트 색상 클래스를 반환한다.
+ * text_class 가 없을 때 흰색으로 폴백.
+ * @param {FrameColorChip} chip_obj
+ * @returns {string}
+ */
+export function get_chip_text_class(chip_obj) {
+  return chip_obj.text_class || 'text-white'
 }
 
 /**
@@ -243,9 +318,7 @@ function pick_random_one(arr) {
 function filter_glasses_by_face_shape(glass_arr, face_shape_value) {
   const local_style_value_set = get_face_shape_frame_style_value_set(face_shape_value)
   if (local_style_value_set.size === 0) return []
-  return glass_arr.filter((local_glass) =>
-    local_style_value_set.has(local_glass.frame_style ?? ''),
-  )
+  return glass_arr.filter((local_glass) => local_style_value_set.has(local_glass.frame_style ?? ''))
 }
 
 /**

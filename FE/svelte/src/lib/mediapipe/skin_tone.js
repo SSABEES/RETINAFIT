@@ -70,14 +70,18 @@ function trimmed_mean_rgb(patch) {
   /** @type {Array<{ r: number, g: number, b: number, v: number }>} */
   const arr = new Array(n)
   for (let i = 0, j = 0; i < n; i++, j += 4) {
-    const r = patch[j], g = patch[j + 1], b = patch[j + 2]
+    const r = patch[j],
+      g = patch[j + 1],
+      b = patch[j + 2]
     arr[i] = { r, g, b, v: Math.max(r, g, b) }
   }
   arr.sort((p, q) => p.v - q.v)
   const trim_n = Math.floor(n * SKIN_TRIM_FRACTION)
   const lo = trim_n
   const hi = n - trim_n
-  let r_sum = 0, g_sum = 0, b_sum = 0
+  let r_sum = 0,
+    g_sum = 0,
+    b_sum = 0
   for (let i = lo; i < hi; i++) {
     r_sum += arr[i].r
     g_sum += arr[i].g
@@ -96,7 +100,9 @@ function trimmed_mean_rgb(patch) {
  * @returns {{ h: number, s: number, v: number }}
  */
 function rgb_to_hsv(r, g, b) {
-  const rn = r / 255, gn = g / 255, bn = b / 255
+  const rn = r / 255,
+    gn = g / 255,
+    bn = b / 255
   const max = Math.max(rn, gn, bn)
   const min = Math.min(rn, gn, bn)
   const delta = max - min

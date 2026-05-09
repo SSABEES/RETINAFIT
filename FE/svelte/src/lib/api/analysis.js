@@ -34,10 +34,14 @@ import { flip_blob_horizontally } from '@/lib/capture/capture_utils.js'
  */
 function map_step_id_to_slot(step_id) {
   switch (step_id) {
-    case 'front_no_glasses': return { type: 'bare', slot: 'front' }
-    case 'left_no_glasses':  return { type: 'bare', slot: 'left' }
-    case 'right_no_glasses': return { type: 'bare', slot: 'right' }
-    default: return null
+    case 'front_no_glasses':
+      return { type: 'bare', slot: 'front' }
+    case 'left_no_glasses':
+      return { type: 'bare', slot: 'left' }
+    case 'right_no_glasses':
+      return { type: 'bare', slot: 'right' }
+    default:
+      return null
   }
 }
 
@@ -55,6 +59,20 @@ export async function request_test_presigned_urls(visit_no, type) {
     method: 'POST',
     headers: get_session_auth_headers(),
     body: { type },
+  })
+}
+
+/**
+ * 실 착용(real-wearing) 사진 presigned PUT URL 묶음을 발급받는다.
+ * 한 번 호출 = 한 세트(front/left/right 3슬롯)분. 여러 세트면 세트 수만큼 호출.
+ *
+ * @param {number | string} visit_no
+ * @returns {Promise<{ front_url: string, left_url: string, right_url: string, front_key: string, left_key: string, right_key: string }>}
+ */
+export async function request_real_wearing_presigned_urls(visit_no) {
+  return apiRequest(`/api/v1/visits/${visit_no}/files/real-wearing-photos`, {
+    method: 'POST',
+    headers: get_session_auth_headers(),
   })
 }
 

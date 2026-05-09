@@ -50,3 +50,10 @@ async def update_report_json(db: AsyncSession, visit_no: int, report_json: dict)
     await db.commit()
     await db.refresh(visit)
     return visit
+
+async def get_all_visits(db: AsyncSession) -> list[Visit]:
+    """전체 방문 조회 (관리자용, 최신순)"""
+    result = await db.execute(
+        select(Visit).order_by(Visit.create_dt.desc())
+    )
+    return result.scalars().all()

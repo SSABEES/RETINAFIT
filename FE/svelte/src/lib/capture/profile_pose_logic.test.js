@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { yaw_std, update_stability_step, compute_hint_text, PROFILE_CONSTANTS } from './profile_pose_logic.js'
+import {
+  yaw_std,
+  update_stability_step,
+  compute_hint_text,
+  PROFILE_CONSTANTS,
+} from './profile_pose_logic.js'
 
 describe('yaw_std', () => {
   it('빈 배열은 Infinity 반환 (holding 검사 자동 실패)', () => {
@@ -51,7 +56,7 @@ describe('update_stability_step', () => {
   })
 
   it('영역 안 충분히 유지 → STABILITY_FRAMES 도달', () => {
-    const yaws = Array(50).fill(89)  // 충분히 길게
+    const yaws = Array(50).fill(89) // 충분히 길게
     const result = feed(ZERO, yaws, +90)
     expect(result.stable_count).toBe(PROFILE_CONSTANTS.STABILITY_FRAMES)
   })
@@ -65,9 +70,11 @@ describe('update_stability_step', () => {
 
   it('영역 안이지만 yaw 흔들림 큼 (pre-stable) → -5 감소 (holding=false)', () => {
     // initial 10 < STABILITY_FRAMES(12) — 히스테리시스 lock 미발동.
-    const initial = { stable_count: 10, yaw_buffer: [80, 100, 80, 100, 80, 100, 80, 100, 80, 100] }
+    // 새 buffer 의 모든 값이 |target ± TOLERANCE(32.5)| 안에 있어 in_zone 유지하면서,
+    // std > YAW_STD_THR(20) 이도록 진동 폭을 키운 시나리오 (default 임계 기준).
+    const initial = { stable_count: 10, yaw_buffer: [60, 120, 60, 120, 60, 120, 60, 120, 60, 120] }
     const result = update_stability_step({ ...initial, yaw: 90, target_deg: +90 })
-    // 새 buffer = [100,80,100,80,100,80,100,80,100,90] — std≈9.43 → threshold(5) 초과
+    // 새 buffer = [120,60,120,60,120,60,120,60,120,90] — mean=93, std≈26.4 → threshold(20) 초과
     expect(result.stable_count).toBe(5)
   })
 
@@ -98,48 +105,68 @@ describe('update_stability_step', () => {
 describe('compute_hint_text', () => {
   it('세션 미준비 → 준비 중 메시지', () => {
     const text = compute_hint_text({
-      session_ready: false, last_yaw: null, target_deg: +90,
-      is_stable: false, progress: 0,
+      session_ready: false,
+      last_yaw: null,
+      target_deg: +90,
+      is_stable: false,
+      progress: 0,
     })
     expect(text).toBe('측정 모델 준비 중…')
   })
 
   it('세션 준비됨 + 첫 추론 전 → null (기본 힌트로 폴백)', () => {
     const text = compute_hint_text({
-      session_ready: true, last_yaw: null, target_deg: +90,
-      is_stable: false, progress: 0,
+      session_ready: true,
+      last_yaw: null,
+      target_deg: +90,
+      is_stable: false,
+      progress: 0,
     })
     expect(text).toBeNull()
   })
 
-  it('right_profile + yaw 0 → 오른쪽 안내', () => {
+  it('right_profile (target -90) + yaw 0 → 왼쪽 안내', () => {
+    // compute_target_deg('right_profile') = -TARGET_DEG. 사용자가 고개 왼쪽으로 → yaw 감소.
     const text = compute_hint_text({
-      session_ready: true, last_yaw: 0, target_deg: +90,
-      is_stable: false, progress: 0,
-    })
-    expect(text).toBe('고개를 오른쪽으로 더 돌려주세요')
-  })
-
-  it('left_profile + yaw 0 → 왼쪽 안내', () => {
-    const text = compute_hint_text({
-      session_ready: true, last_yaw: 0, target_deg: -90,
-      is_stable: false, progress: 0,
+      session_ready: true,
+      last_yaw: 0,
+      target_deg: -90,
+      is_stable: false,
+      progress: 0,
     })
     expect(text).toBe('고개를 왼쪽으로 더 돌려주세요')
   })
 
+  it('left_profile (target +90) + yaw 0 → 오른쪽 안내', () => {
+    // compute_target_deg('left_profile') = +TARGET_DEG. 사용자가 고개 오른쪽으로 → yaw 증가.
+    const text = compute_hint_text({
+      session_ready: true,
+      last_yaw: 0,
+      target_deg: +90,
+      is_stable: false,
+      progress: 0,
+    })
+    expect(text).toBe('고개를 오른쪽으로 더 돌려주세요')
+  })
+
   it('영역 안 + 진행 중 → 진행률 표시', () => {
     const text = compute_hint_text({
-      session_ready: true, last_yaw: 89, target_deg: +90,
-      is_stable: false, progress: 50,
+      session_ready: true,
+      last_yaw: 89,
+      target_deg: +90,
+      is_stable: false,
+      progress: 50,
     })
     expect(text).toBe('자세 유지 중 50%')
   })
 
   it('영역 안 + stable → 측정 중', () => {
     const text = compute_hint_text({
-      session_ready: true, last_yaw: 89, target_deg: +90,
-      is_stable: true, progress: 100,
+      session_ready: true,
+      last_yaw: 89,
+      target_deg: +90,
+      is_stable: true,
+      progress: 100,
     })
     expect(text).toBe('✓ 측정 중…')
   })

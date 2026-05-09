@@ -22,8 +22,10 @@
     {#each g_session.steps_arr as step, i (step.step_id)}
       {@const capture = g_session.captures_obj[step.step_id]}
       {@const placeholder = get_placeholder_obj(step.pose_type)}
+      {@const is_single_step = g_session.steps_arr.length === 1}
       <div
         class="relative aspect-[3/4] overflow-hidden rounded-md bg-[var(--retina-text-200)]"
+        class:col-start-2={is_single_step}
         aria-label="Step {i + 1} {capture ? '촬영 완료' : '미촬영'}"
       >
         {#if capture}

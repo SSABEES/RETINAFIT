@@ -168,12 +168,16 @@
   }
 </script>
 
-<main class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-[var(--retina-text)]">
+<main
+  class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-[var(--retina-text)]"
+>
   <Header onback={on_click_back} onlogout={on_click_logout} />
 
   <section class="flex min-h-0 flex-1 flex-col overflow-hidden">
     <div class="flex min-h-0 flex-1 flex-col px-7 pt-2.5 pb-1">
-      <h1 class="m-0 text-center text-[18px] font-extrabold tracking-[-0.02em] text-[var(--retina-text)]">
+      <h1
+        class="m-0 text-center text-[18px] font-extrabold tracking-[-0.02em] text-[var(--retina-text)]"
+      >
         얼굴 측정
       </h1>
 
@@ -183,13 +187,17 @@
         는 충분히 작아질 수도 있고 (overflow 안 깨짐) 가용 공간을 다 채울 수도 있음.
         외곽 (main / 상위 section 의 overflow-hidden + flex-1 체인) 이 viewport 경계 보장.
       -->
-      <div class="mx-auto mt-2 grid h-full min-h-0 w-full max-w-[760px] grid-cols-[0.98fr_0.92fr] grid-rows-[minmax(0,1fr)] gap-4 px-1">
+      <div
+        class="mx-auto mt-2 grid h-full min-h-0 w-full max-w-[760px] grid-cols-[0.98fr_0.92fr] grid-rows-[minmax(0,1fr)] gap-4 px-1"
+      >
         <section class="flex min-h-0 items-center justify-center">
           <!--
             aspect-[3/4] + max-h-full — width 기반 비율 유지, 단 row 가 좁으면 height 캡 내에서 비율
             유지하며 axisflip. content 변동 면역.
           -->
-          <div class="relative flex aspect-[3/4] max-h-full w-full max-w-[348px] overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
+          <div
+            class="relative flex aspect-[3/4] max-h-full w-full max-w-[348px] overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_8px_20px_rgba(15,23,42,0.07)]"
+          >
             <MeasureCanvas
               capture={g_selected_capture}
               items_arr={g_items_arr}
@@ -230,65 +238,85 @@
             는 상단 고정, MeasurementList + 귀 높이만 내부 스크롤 (별도 wrapper). 큰 화면에선 길게,
             작은 화면에선 viewport 안에 안전.
           -->
-          <article class="flex h-full min-h-0 w-full max-w-[368px] flex-col gap-4 overflow-hidden rounded-[14px] border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
-          <PhotoSwitcher session={g_session} view={g_view} onview_change={on_view_change} />
-          <div class="h-px bg-slate-200"></div>
-          <!--
+          <article
+            class="flex h-full min-h-0 w-full max-w-[368px] flex-col gap-4 overflow-hidden rounded-[14px] border border-slate-200 bg-white px-5 py-5 shadow-[0_8px_20px_rgba(15,23,42,0.07)]"
+          >
+            <PhotoSwitcher session={g_session} view={g_view} onview_change={on_view_change} />
+            <div class="h-px bg-slate-200"></div>
+            <!--
             content wrapper — flex-1 로 article 의 남은 공간 흡수. 자체 scroll 은 안 가짐
             (overflow-hidden) — 스크롤은 MeasurementList 내부의 ul 이 담당. 귀 높이 section 은 wrapper
             안에서 자연스러운 위치 유지 (스크롤 영역 밖, 항상 보임).
           -->
-          <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
-            <MeasurementList
-              items_arr={g_items_arr}
-              active_item_id={g_active_item_id}
-              view_label={g_view_label}
-              onselect={on_select_item}
-              onclear={on_clear_item}
-            />
-          {#if g_view === 'front_no_glasses' && g_face_shape_result?.ear_offsets_obj}
-            {@const eo = g_face_shape_result.ear_offsets_obj}
-            {@const ear_diff_mm = (eo.right_y_offset_mm !== null && eo.left_y_offset_mm !== null)
-              ? Math.abs(eo.right_y_offset_mm - eo.left_y_offset_mm)
-              : null}
-            {@const ear_diff_flagged = ear_diff_mm !== null && ear_diff_mm >= EAR_HEIGHT_DIFF_THRESHOLD_MM}
-            <div class="h-px bg-slate-200"></div>
-            <section class="flex flex-col gap-2" aria-label="자동 산출 귀 높이 (참고)">
-              <div class="flex items-baseline justify-between">
-                <h3 class="m-0 text-[13px] font-extrabold text-slate-800">귀 높이 (자동)</h3>
-                <span class="text-xs font-semibold text-slate-500">눈선 기준 ± 편차</span>
-              </div>
-              <ul class="m-0 flex list-none flex-col gap-1 p-0">
-                <li class="flex items-center gap-3 px-3 py-2">
-                  <span class="flex-1 truncate text-sm font-semibold text-slate-700">우측 귀 높이</span>
-                  <span class="flex-none text-sm font-bold tabular-nums text-[var(--retina-text)]">
-                    {format_signed_mm(eo.right_y_offset_mm)}
-                  </span>
-                  <span class="flex-none rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-800">자동</span>
-                </li>
-                <li class="flex items-center gap-3 px-3 py-2">
-                  <span class="flex-1 truncate text-sm font-semibold text-slate-700">좌측 귀 높이</span>
-                  <span class="flex-none text-sm font-bold tabular-nums text-[var(--retina-text)]">
-                    {format_signed_mm(eo.left_y_offset_mm)}
-                  </span>
-                  <span class="flex-none rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-800">자동</span>
-                </li>
-                {#if ear_diff_mm !== null}
-                  <li class="mt-1 flex items-center gap-3 border-t border-slate-100 px-3 pt-2">
-                    <span class="flex-1 truncate text-sm font-semibold text-slate-600">좌우 차이</span>
-                    <span
-                      class="flex-none text-sm font-bold tabular-nums"
-                      class:text-amber-600={ear_diff_flagged}
-                      class:text-emerald-600={!ear_diff_flagged}
-                    >
-                      {ear_diff_mm.toFixed(1)} mm{ear_diff_flagged ? ' (큼)' : ''}
-                    </span>
-                  </li>
-                {/if}
-              </ul>
-            </section>
-          {/if}
-          </div>
+            <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+              <MeasurementList
+                items_arr={g_items_arr}
+                active_item_id={g_active_item_id}
+                view_label={g_view_label}
+                onselect={on_select_item}
+                onclear={on_clear_item}
+              />
+              {#if g_view === 'front_no_glasses' && g_face_shape_result?.ear_offsets_obj}
+                {@const eo = g_face_shape_result.ear_offsets_obj}
+                {@const ear_diff_mm =
+                  eo.right_y_offset_mm !== null && eo.left_y_offset_mm !== null
+                    ? Math.abs(eo.right_y_offset_mm - eo.left_y_offset_mm)
+                    : null}
+                {@const ear_diff_flagged =
+                  ear_diff_mm !== null && ear_diff_mm >= EAR_HEIGHT_DIFF_THRESHOLD_MM}
+                <div class="h-px bg-slate-200"></div>
+                <section class="flex flex-col gap-2" aria-label="자동 산출 귀 높이 (참고)">
+                  <div class="flex items-baseline justify-between">
+                    <h3 class="m-0 text-[13px] font-extrabold text-slate-800">귀 높이 (자동)</h3>
+                    <span class="text-xs font-semibold text-slate-500">눈선 기준 ± 편차</span>
+                  </div>
+                  <ul class="m-0 flex list-none flex-col gap-1 p-0">
+                    <li class="flex items-center gap-3 px-3 py-2">
+                      <span class="flex-1 truncate text-sm font-semibold text-slate-700"
+                        >우측 귀 높이</span
+                      >
+                      <span
+                        class="flex-none text-sm font-bold tabular-nums text-[var(--retina-text)]"
+                      >
+                        {format_signed_mm(eo.right_y_offset_mm)}
+                      </span>
+                      <span
+                        class="flex-none rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-800"
+                        >자동</span
+                      >
+                    </li>
+                    <li class="flex items-center gap-3 px-3 py-2">
+                      <span class="flex-1 truncate text-sm font-semibold text-slate-700"
+                        >좌측 귀 높이</span
+                      >
+                      <span
+                        class="flex-none text-sm font-bold tabular-nums text-[var(--retina-text)]"
+                      >
+                        {format_signed_mm(eo.left_y_offset_mm)}
+                      </span>
+                      <span
+                        class="flex-none rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-800"
+                        >자동</span
+                      >
+                    </li>
+                    {#if ear_diff_mm !== null}
+                      <li class="mt-1 flex items-center gap-3 border-t border-slate-100 px-3 pt-2">
+                        <span class="flex-1 truncate text-sm font-semibold text-slate-600"
+                          >좌우 차이</span
+                        >
+                        <span
+                          class="flex-none text-sm font-bold tabular-nums"
+                          class:text-amber-600={ear_diff_flagged}
+                          class:text-emerald-600={!ear_diff_flagged}
+                        >
+                          {ear_diff_mm.toFixed(1)} mm{ear_diff_flagged ? ' (큼)' : ''}
+                        </span>
+                      </li>
+                    {/if}
+                  </ul>
+                </section>
+              {/if}
+            </div>
           </article>
         </section>
       </div>
@@ -296,7 +324,9 @@
   </section>
 
   <footer class="shrink-0 border-t border-slate-100 bg-white px-7 py-2.5">
-    <div class="mx-auto grid w-full max-w-[820px] grid-cols-[260px_minmax(0,520px)] justify-center gap-4">
+    <div
+      class="mx-auto grid w-full max-w-[820px] grid-cols-[260px_minmax(0,520px)] justify-center gap-4"
+    >
       <button
         type="button"
         class="inline-flex min-h-[46px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white text-[15px] font-extrabold text-slate-400 transition hover:border-slate-400 hover:text-slate-600"

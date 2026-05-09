@@ -1,11 +1,14 @@
 <script>
   import { navigate } from '@maks11060/svelte5-router'
-  import { ArrowLeft, LogOut } from 'lucide-svelte'
+  import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import { PATH } from '@/config/path'
   import { clear_login_select_data } from '@/lib/stores/admin'
   import { clear_auto_login_obj } from '@/lib/stores/auto_login'
   import { clear_visit_session_data } from '@/lib/stores/customer'
   import { reset as reset_capture_session } from '@/lib/stores/capture_session.svelte.js'
+
+  // 로그아웃 확인 모달 노출 여부. 너무 쉽게 로그아웃 되지 않도록 한 번 더 묻는다.
+  let g_show_logout_modal = $state(false)
 
   /** @type {{
    *   onback?: (() => void) | undefined,
@@ -13,12 +16,7 @@
    *   show_back?: boolean,
    *   show_logout?: boolean,
    * }} */
-  let {
-    onback = undefined,
-    onlogout = undefined,
-    show_back = true,
-    show_logout = true,
-  } = $props()
+  let { onback = undefined, onlogout = undefined, show_back = true, show_logout = true } = $props()
 
   // 기본 뒤로가기: 브라우저 히스토리를 거슬러 올라간다.
   // onback prop이 주어지면 그 동작을 우선 사용한다.
@@ -33,11 +31,23 @@
     }
   }
 
-  // 기본 로그아웃: 토큰/자동 로그인/로그인 선택 상태 + 방문/캡쳐 세션을 모두 비우고 로그인 화면으로 이동.
+  // 로그아웃 버튼 클릭 — 즉시 로그아웃 대신 확인 모달을 먼저 띄운다.
+  function on_click_logout_button() {
+    g_show_logout_modal = true
+  }
+
+  // 모달 취소/닫기 — 현재 화면 유지.
+  function on_cancel_logout() {
+    g_show_logout_modal = false
+  }
+
+  // 모달 확인 — 실제 로그아웃 수행. 토큰/자동 로그인/로그인 선택 상태 + 방문/캡쳐 세션을 모두 비우고 로그인 화면으로.
   // capture_session 과 visit 데이터까지 비워 두지 않으면, SPA 인 특성상 모듈 상태가 살아남아 다음 로그인 사용자에게
   // 이전 사용자의 review phase 가 그대로 노출돼 얼굴 분석을 건너뛰고 report 로 튕기는 버그가 발생한다.
   // onlogout prop이 주어지면 그 동작을 우선 사용한다.
-  function handle_logout_click() {
+  function on_confirm_logout() {
+    g_show_logout_modal = false
+
     if (onlogout) {
       onlogout()
       return
@@ -86,19 +96,25 @@
   }
 </script>
 
-<header class="grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 px-6">
+<!--
+  position: fixed + .app-edge-extend → .app-frame 좌우 빈 공간까지 viewport 끝까지 확장.
+  .app-edge-extend 의 left/right 가 JS 로 갱신되는 --app-frame-edge-extend 변수를 negative 로 사용.
+-->
+<header
+  class="app-edge-extend fixed top-0 z-30 grid h-[52px] grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-[var(--retina-surface)] px-6"
+>
   <div class="flex justify-start">
     {#if show_back}
       <button
-        class="grid h-8 w-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+        class="grid h-12 w-12 cursor-pointer place-items-center rounded-full border-0 bg-transparent transition hover:bg-slate-100"
         type="button"
         aria-label="뒤로가기"
         onclick={handle_back_click}
       >
-        <ArrowLeft size={24} strokeWidth={2.2} aria-hidden="true" />
+        <img src="/icons/DivLeft.png" alt="" class="h-9 w-9" aria-hidden="true" />
       </button>
     {:else}
-      <span class="h-8 w-8" aria-hidden="true"></span>
+      <span class="h-12 w-12" aria-hidden="true"></span>
     {/if}
   </div>
 
@@ -108,27 +124,37 @@
     aria-label="홈으로 (캐시/세션 초기화)"
     onclick={handle_logo_click}
   >
-    <img
-      class="h-6 w-auto"
-      src="/logo/LogoWide_2.png"
-      alt="Retina Fit"
-      width="240"
-      height="52"
-    />
+    <img class="h-6 w-auto" src="/logo/LogoWide_2.png" alt="Retina Fit" width="240" height="52" />
   </button>
 
   <div class="flex justify-end">
     {#if show_logout}
       <button
-        class="grid h-8 w-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+        class="grid h-12 w-12 cursor-pointer place-items-center rounded-full border-0 bg-transparent transition hover:bg-slate-100"
         type="button"
         aria-label="로그아웃"
-        onclick={handle_logout_click}
+        onclick={on_click_logout_button}
       >
-        <LogOut size={22} strokeWidth={2.2} aria-hidden="true" />
+        <img
+          src="/icons/BtnLogout.png"
+          alt=""
+          class="h-9 w-9 [filter:brightness(0.5)]"
+          aria-hidden="true"
+        />
       </button>
     {:else}
-      <span class="h-8 w-8" aria-hidden="true"></span>
+      <span class="h-12 w-12" aria-hidden="true"></span>
     {/if}
   </div>
 </header>
+
+<ConfirmModal
+  open={g_show_logout_modal}
+  title="로그아웃"
+  message="로그아웃하시겠습니까?"
+  cancelLabel="취소"
+  confirmLabel="로그아웃"
+  onclose={on_cancel_logout}
+  oncancel={on_cancel_logout}
+  onconfirm={on_confirm_logout}
+/>

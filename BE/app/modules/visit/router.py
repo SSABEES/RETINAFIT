@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.modules.auth.dependencies import get_token
+from app.modules.auth.dependencies import get_token, get_admin_token
 from app.modules.visit.schemas import (
     CustomerCreateRequest,
     CustomerSearchResponse,
@@ -10,7 +10,7 @@ from app.modules.visit.schemas import (
     VisitCreateResponse,
     VisitResponse,
     VisitHistoryResponse,
-    VisitUpdateRequest,
+    VisitUpdateRequest, AdminVisitListResponse,
 )
 from app.modules.visit import service
 
@@ -24,6 +24,7 @@ async def search_customer(
     phone_no: str,                              # Query parameter: ?phone_no=01012341234
     opt_no: int,                                # Query parameter: ?opt_no=190
     auth: dict = Depends(get_token),            # 헤더에서 token, token_no 추출
+    db: AsyncSession = Depends(get_db),
 ):
     """
     전화번호로 고객 검색 (외부 Retina API 중계)
@@ -35,6 +36,7 @@ async def search_customer(
         opt_no=opt_no,
         token=auth["token"],
         token_no=auth["token_no"],
+        db=db,
     )
 
 
@@ -109,3 +111,13 @@ async def update_visit(
     test_json 이 처음 들어오거나 값이 바뀌면 BG 로 AI face-script 호출 → visit.report_json 채움.
     """
     return await service.update_visit(db, visit_no, request, background_tasks)
+
+# ─── 관리자용 ─────────────────────────────────────────────────
+
+@router.get("/admin/visits", response_model=AdminVisitListResponse, summary="(관리자) 전체 방문 데이터 조회")
+async def get_all_visits(
+    admin: dict = Depends(get_admin_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """전체 방문 데이터 조회 (관리자)"""
+    return await service.get_all_visits(db)

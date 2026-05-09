@@ -15,14 +15,19 @@
   // 측면(left_profile/right_profile) 자세 감지 composable. pose_target 에 따라 tick() 이
   // no-op 이거나 6D 추론 발사. 정면 단계엔 무관 — 인스턴스만 만들어두고 사용 안 함.
   import { create_profile_pose_detector } from '@/lib/capture/use_profile_pose.svelte.js'
-  import { PROFILE_CONSTANTS } from '@/lib/capture/profile_pose_logic.js'
+  import { PROFILE_CONSTANTS, compute_target_deg } from '@/lib/capture/profile_pose_logic.js'
+  // 음성 가이드 — 모듈 단위 단일 audio 채널. 우선순위 / 1회성 키 가드 포함.
+  import {
+    play as play_voice,
+    stop as stop_voice,
+    wait_for_active as wait_for_voice,
+  } from '@/lib/audio/voice_guide.js'
 
   /**
    * @typedef {import("@/lib/mediapipe/face_types.js").FaceMeasurements} FaceMeasurements
    * @typedef {import("@/lib/mediapipe/face_types.js").FrontalCheck} FrontalCheck
    * @typedef {import("@/lib/mediapipe/face_types.js").CompletenessCheck} CompletenessCheck
    * @typedef {import("@/lib/mediapipe/face_types.js").Point2D} Point2D
-   * @typedef {'head_left' | 'head_right' | 'head_center' | 'face_good' | 'count_three' | 'count_two' | 'count_one' | 'count_click'} AudioPromptKey
    *
    * @typedef {object} CaptureResult
    * @property {Blob} blob
@@ -84,14 +89,13 @@
   let g_already_dispatched = false
   /** @type {ReturnType<typeof setTimeout> | null} */
   let g_capture_timeout = null
-  /** @type {HTMLAudioElement | null} */
-  let g_active_prompt_audio = null
   /** @type {'idle' | 'started' | 'final'} */
   let g_stability_audio_stage = 'idle'
-  /** @type {AudioPromptKey | null} */
-  let g_last_audio_key = null
-  let g_last_audio_at = 0
   let g_capture_sequence_token = 0
+  // step 단위 1회 안내 — 자세 OK 후 안정화 미달 상태에서 "가만히 계세요" 음성. reset() 에서 false 로.
+  let g_did_announce_in_progress = false
+  // step 단위 1회 안내 — 진입 직후 길이 긴 step intro 안내 (정면/좌/우 별 다른 키). reset() 에서 false 로.
+  let g_did_play_step_intro = false
 
   // 측면 자세 감지 — pose_target 이 'front' 면 tick() 이 즉시 return 하므로 항상 생성해도 안전.
   // on_stable_reached 콜백: composable 의 stable_count 가 max 처음 도달할 때 rAF 안에서 직접
@@ -126,6 +130,15 @@
     Math.min(100, Math.round((g_stable_count / STABILITY_FRAMES) * 100)),
   )
 
+  // 정면 단계: 얼굴 검출 + 영역 내 + 정면 자세 일 때 "정면 영역 진입" 으로 간주.
+  // 좌측상단 게이지 + face_recognition_in_progress 음성 트리거 기준 (측면의 in-zone 과 의미 일치).
+  const g_front_in_zone = $derived(
+    pose_target === 'front' &&
+      g_face_detected &&
+      g_complete_obj.is_complete &&
+      !!g_frontal_obj?.is_frontal,
+  )
+
   // 정면 / 측면 모두 capture_mode==='auto' 일 때 자동 발사 활성화. pose_target 별 stable 계산은
   // 각 파이프라인이 담당하고, 통합 게이트(g_can_auto_fire) 가 분기.
   const g_is_auto_capture = $derived(capture_mode === 'auto')
@@ -135,10 +148,7 @@
     if (!active || !g_is_auto_capture || g_already_dispatched) return false
     if (pose_target === 'front') {
       return (
-        g_face_detected &&
-        g_complete_obj.is_complete &&
-        !!g_frontal_obj?.is_frontal &&
-        g_is_stable
+        g_face_detected && g_complete_obj.is_complete && !!g_frontal_obj?.is_frontal && g_is_stable
       )
     }
     return profile_pose.is_stable
@@ -155,30 +165,34 @@
       if (!profile_pose.session_ready || profile_pose.last_yaw === null) {
         return 'rgba(200,200,200,0.5)'
       }
-      const target_deg = pose_target === 'right_profile'
-        ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
+      const target_deg = compute_target_deg(pose_target)
       const distance = Math.abs(profile_pose.last_yaw - target_deg)
       // 영역 밖 — 더 돌려야 함 (정면의 "not frontal" 과 동일 의미)
       if (distance >= PROFILE_CONSTANTS.TOLERANCE) return 'rgba(255,193,7,0.85)'
-      // 영역 안 + 안정 도달 → 초록
-      if (profile_pose.is_stable) return 'rgba(0,230,118,0.9)'
-      // 영역 안 + 진행 중 → 노랑
-      return 'rgba(255,193,7,0.85)'
+      // 영역 안 진입 시점부터 즉시 초록 (인식 시작 시각화) — 안정화 완료 후에도 동일.
+      return 'rgba(0,230,118,0.9)'
     }
 
-    // 정면 — 기존 로직 그대로
+    // 정면 — 얼굴이 영역 안 + frontal 진입 시 즉시 초록(인식 시작 시각화), 안정화 완료 후에도 초록 유지.
     if (!g_face_detected) return 'rgba(200,200,200,0.5)'
     if (!g_complete_obj.is_complete) return 'rgba(244,67,54,0.85)'
     if (!g_frontal_obj?.is_frontal) return 'rgba(255,193,7,0.85)'
-    if (g_is_stable) return 'rgba(0,230,118,0.9)'
-    return 'rgba(255,193,7,0.85)'
+    return 'rgba(0,230,118,0.9)'
   })
 
   // 사용자에게 보여줄 힌트 문자열을 pose_target 과 상태에 따라 결정한다.
   const g_hint_text = $derived.by(() => {
     // 측면: composable 이 자체 hint 계산. null 이면 기본 가이드로 폴백.
+    // 영역 진입 이후 ('자세 유지 중 N%' 또는 '✓ 측정 중…') 는 게이지로 대체되므로 hint 숨김.
     if (pose_target !== 'front') {
-      return profile_pose.hint_text ?? '카메라 앞에 자세를 잡아주세요'
+      const local_hint = profile_pose.hint_text ?? '카메라 앞에 자세를 잡아주세요'
+      if (
+        local_hint.startsWith('자세 유지 중') ||
+        local_hint.startsWith('✓')
+      ) {
+        return ''
+      }
+      return local_hint
     }
 
     // 정면 — 기존 로직 그대로 (측면 분기는 위에서 이미 return 했으므로 여기서 pose_target='front' 로 narrowing 됨).
@@ -186,7 +200,8 @@
     if (!g_complete_obj.is_complete) return '얼굴 전체가 화면에 나오도록 해주세요'
     if (!g_frontal_obj) return '정면을 바라봐 주세요'
     if (g_frontal_obj.is_frontal) {
-      return g_is_stable ? '✓ 측정 중...' : `안정화 중 ${g_stability_progress}%`
+      // 정면 영역 진입 후엔 게이지가 진행률을 보여주므로 하단 hint 는 노출 X.
+      return ''
     }
     if (g_frontal_obj.reason === 'yaw') {
       return g_frontal_obj.yaw > 0 ? '고개를 오른쪽으로 돌려주세요' : '고개를 왼쪽으로 돌려주세요'
@@ -205,8 +220,10 @@
     const base = 'background: rgba(0,0,0,0.55);'
     // 측면: stable=초록, 진행 중=주황, 대기=흰
     if (pose_target !== 'front') {
-      if (profile_pose.is_stable) return base + ' border-color: rgba(0,230,118,0.7); color: #69f0ae;'
-      if (profile_pose.progress > 0) return base + ' border-color: rgba(255,152,0,0.6); color: #ffb74d;'
+      if (profile_pose.is_stable)
+        return base + ' border-color: rgba(0,230,118,0.7); color: #69f0ae;'
+      if (profile_pose.progress > 0)
+        return base + ' border-color: rgba(255,152,0,0.6); color: #ffb74d;'
       return base + ' border-color: rgba(255,255,255,0.25); color: #eeeeee;'
     }
 
@@ -226,6 +243,25 @@
       void on_start_camera()
       return () => on_stop_camera()
     }
+  })
+
+  // step 진입 직후 1회 — 단계 intro 음성 (정면/좌/우 별로 다른 길이 안내).
+  // 부모(analysis/index.svelte) 의 start_capture 가 진행 중일 수 있어, wait_for_voice 로 종료를
+  // 기다린 뒤 재생한다. step 전환 시 reset() 이 g_did_play_step_intro 를 false 로 되돌려 재무장.
+  $effect(() => {
+    if (!active || g_did_play_step_intro || !pose_target) return
+    /** @type {import('@/lib/audio/voice_guide.js').VoiceGuideKey} */
+    const intro_key =
+      pose_target === 'front'
+        ? 'center_face_for_front_capture'
+        : pose_target === 'left_profile'
+          ? 'turn_head_right_for_left_capture'
+          : 'turn_left_for_right_capture'
+    g_did_play_step_intro = true
+    void (async () => {
+      await wait_for_voice()
+      await play_voice(intro_key, { priority: 'low' })
+    })()
   })
 
   // 자동 발사 통합 — 정면/측면 분기는 g_can_auto_fire 안에서 끝남.
@@ -259,38 +295,70 @@
     const local_last_yaw = profile_pose.last_yaw
     const local_session_ready = profile_pose.session_ready
 
-    if (!active || !g_is_auto_capture || g_already_dispatched || g_stability_audio_stage !== 'idle') {
+    if (
+      !active ||
+      !g_is_auto_capture ||
+      g_already_dispatched ||
+      g_stability_audio_stage !== 'idle'
+    ) {
       return
     }
 
-    /** @type {'head_left' | 'head_right' | 'head_center' | null} */
+    /** @type {'head_center' | 'head_right' | 'head_left' | null} */
     let next_audio_key = null
+    // 자세 OK 여부 — 안정화 미달 상태 안내 (face_recognition_in_progress) 분기 결정에 사용.
+    let local_pose_ok = false
 
     if (pose_target === 'front') {
-      // 정면 — 얼굴 일부가 frame 밖이면 head_center, frontal yaw 가 어긋났으면 그 방향.
-      if (g_face_detected) {
-        if (!g_complete_obj.is_complete) {
-          next_audio_key = 'head_center'
-        } else if (g_frontal_obj && !g_frontal_obj.is_frontal && g_frontal_obj.reason === 'yaw') {
-          next_audio_key = g_frontal_obj.yaw > 0 ? 'head_right' : 'head_left'
-        }
+      // 정면 — 얼굴 미검출 / 일부 잘림 / yaw 어긋남 모두 head_center 로 통일.
+      // 긴 step intro (center_face_for_front_capture) 는 step 진입 시 별도 effect 가 1회 재생.
+      if (!g_face_detected) {
+        next_audio_key = 'head_center'
+      } else if (!g_complete_obj.is_complete) {
+        next_audio_key = 'head_center'
+      } else if (g_frontal_obj && !g_frontal_obj.is_frontal && g_frontal_obj.reason === 'yaw') {
+        next_audio_key = 'head_center'
+      } else {
+        local_pose_ok = g_complete_obj.is_complete && (g_frontal_obj?.is_frontal ?? false)
       }
     } else {
       // 측면 — 6DRepNet360 yaw 기준 안정화 영역 (target ± TOLERANCE) 미도달이면 target 방향으로
-      // 더 돌리도록 안내. 영역 안 (도달 직전~stable) 이면 음성 침묵 — hint text 가 "자세 유지 중"
-      // 으로 진행 표시. compute_hint_text 의 분기와 같은 조건을 그대로 사용.
+      // 더 돌리도록 안내. 영역 안 (도달 직전~stable) 이면 인식 진행 안내로 폴백.
       if (local_session_ready && local_last_yaw !== null) {
-        const target_deg = pose_target === 'right_profile'
-          ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG
+        const target_deg = compute_target_deg(pose_target)
         const distance = Math.abs(local_last_yaw - target_deg)
         if (distance >= PROFILE_CONSTANTS.TOLERANCE) {
-          next_audio_key = pose_target === 'right_profile' ? 'head_right' : 'head_left'
+          // pose-correction 키 — 짧은 prompt (head_*). 긴 step intro 안내는 별도 effect 가 step
+          // 진입 시 1회 재생 (turn_head_right_for_left_capture / turn_left_for_right_capture).
+          next_audio_key = pose_target === 'right_profile' ? 'head_left' : 'head_right'
+        } else {
+          local_pose_ok = true
         }
       }
     }
 
-    if (!next_audio_key) return
-    void play_prompt_audio(next_audio_key)
+    // 영역을 벗어나면 안내 발사 플래그 해제 — 다시 영역 안으로 들어오면 face_recognition_in_progress
+    // 가 재생되도록. (한 step 내에서도 진입/이탈 반복 시마다 안내가 나오는 동작.)
+    if (!local_pose_ok && g_did_announce_in_progress) {
+      g_did_announce_in_progress = false
+    }
+
+    if (next_audio_key) {
+      void play_voice(next_audio_key)
+      return
+    }
+
+    // 자세 OK + 아직 안내 미발사 — 정면/측면 모두 진행 중인 intro/start_capture 음성을 즉시 끊고
+    // face_recognition_in_progress 를 priority 'high' 로 preempt 재생. 영역 진입할 때마다 1회.
+    // 플래그는 await 전에 동기적으로 set — effect 가 매 프레임 재실행되며 stop_voice+play_voice 를
+    // 반복 호출해 직전 재생을 끊어버리는 race 를 차단한다 (이전: played 후 set → 음성이 끝까지 안 들림).
+    if (local_pose_ok && !g_did_announce_in_progress) {
+      g_did_announce_in_progress = true
+      void (async () => {
+        stop_voice()
+        await play_voice('face_recognition_in_progress', { priority: 'high' })
+      })()
+    }
   })
 
   // 사용자 카메라 권한을 요청하고 MediaPipe 모델을 로드해 rAF 루프를 시작한다.
@@ -302,7 +370,8 @@
       g_permission_denied = false
       g_already_dispatched = false
       g_stability_audio_stage = 'idle'
-      g_last_audio_key = null
+      g_did_announce_in_progress = false
+      g_did_play_step_intro = false
       g_capture_sequence_token += 1
       g_buffer_arr = []
       g_stable_count = 0
@@ -362,9 +431,10 @@
     }
     g_capture_sequence_token += 1
     profile_pose.reset()
-    stop_prompt_audio()
+    stop_voice()
     g_stability_audio_stage = 'idle'
-    g_last_audio_key = null
+    g_did_announce_in_progress = false
+    g_did_play_step_intro = false
     if (g_raf_id !== null) {
       cancelAnimationFrame(g_raf_id)
       g_raf_id = null
@@ -383,7 +453,6 @@
   async function run_auto_capture_sequence() {
     const my_token = ++g_capture_sequence_token
 
-    // 정면/측면 공통 시퀀스: 안정화 도달 → face_good (위치 OK 안내) → count_click (셔터음) → 캡처.
     if (
       my_token !== g_capture_sequence_token ||
       !active ||
@@ -392,17 +461,15 @@
     ) {
       return
     }
-    await play_prompt_audio('face_good')
 
-    if (
-      my_token !== g_capture_sequence_token ||
-      !active ||
-      !g_is_auto_capture ||
-      g_already_dispatched
-    ) {
-      return
-    }
-    await play_prompt_audio('count_click')
+    // 정면/측면 공통 시퀀스 — "셔터음 → 캡처 → 인식 완료 음성" 을 한 세트로 보장한다.
+    // 직전 face_recognition_in_progress (priority high) 가 아직 재생 중이면 동등 priority 의 셔터음이
+    // play() 시점에 false 로 차단된다. 따라서 시퀀스 시작 직전에 stop_voice() 로 active 를 비워둔다.
+    // 각 음성은 끝까지 await — 어떤 음성도 스킵되지 않게 "동기 시퀀스" 화.
+    stop_voice()
+
+    // 1) 셔터음 (await — 끝까지 들려야 함)
+    await play_voice('camera_shutter_sound', { priority: 'high' })
 
     if (
       my_token !== g_capture_sequence_token ||
@@ -413,54 +480,14 @@
       return
     }
 
-    // 측면은 MediaPipe 측정값 없음 → measurements_obj=null. capture_shell.on_capture 가 이미 null
-    // 허용 (현행 manual 측면 캡처도 동일 경로).
+    // 2) 캡처 — 측면은 MediaPipe 측정값 없음 → measurements_obj=null.
     const meas = pose_target === 'front' ? get_average() : null
     await trigger_capture_internal(meas)
-  }
 
-  /**
-   * @param {AudioPromptKey} file_key
-   */
-  async function play_prompt_audio(file_key) {
-    if (typeof window === 'undefined') return
+    if (my_token !== g_capture_sequence_token || !active || !g_is_auto_capture) return
 
-    const now = Date.now()
-    if (g_last_audio_key === file_key && now - g_last_audio_at < 1200) return
-    if (g_active_prompt_audio && !g_active_prompt_audio.paused && !g_active_prompt_audio.ended) return
-
-    const audio = new Audio(`/tts/${file_key}.mp3`)
-    audio.preload = 'auto'
-    g_active_prompt_audio = audio
-    g_last_audio_key = file_key
-    g_last_audio_at = now
-
-    const clear_active_audio = () => {
-      if (g_active_prompt_audio === audio) {
-        g_active_prompt_audio = null
-      }
-    }
-
-    audio.addEventListener('ended', clear_active_audio, { once: true })
-    audio.addEventListener('pause', clear_active_audio, { once: true })
-
-    try {
-      await audio.play()
-      await new Promise((resolve) => {
-        audio.addEventListener('ended', resolve, { once: true })
-        audio.addEventListener('pause', resolve, { once: true })
-        audio.addEventListener('error', resolve, { once: true })
-      })
-    } catch {
-      clear_active_audio()
-    }
-  }
-
-  function stop_prompt_audio() {
-    if (!g_active_prompt_audio) return
-    g_active_prompt_audio.pause()
-    g_active_prompt_audio.currentTime = 0
-    g_active_prompt_audio = null
+    // 3) 인식 완료 음성 (await — 끝까지 들려야 함)
+    await play_voice('face_recognition_complete', { priority: 'high' })
   }
 
   /**
@@ -476,7 +503,7 @@
       return
     }
     const recent = g_buffer_arr.slice(-10)
-    const std = (arr) => {
+    const std = (/** @type {number[]} */ arr) => {
       const mean = arr.reduce((a, b) => a + b, 0) / arr.length
       return Math.sqrt(arr.reduce((a, b) => a + (b - mean) ** 2, 0) / arr.length)
     }
@@ -754,12 +781,13 @@
       g_capture_timeout = null
     }
     g_capture_sequence_token += 1
-    stop_prompt_audio()
+    stop_voice()
     g_already_dispatched = false
     g_buffer_arr = []
     g_stable_count = 0
     g_stability_audio_stage = 'idle'
-    g_last_audio_key = null
+    g_did_announce_in_progress = false
+    g_did_play_step_intro = false
     profile_pose.reset()
   }
 
@@ -789,10 +817,16 @@
    */
   function profile_yaw_style(yaw, target_deg) {
     if (yaw === null) {
-      return { ok: false, width_pct: 0, track_bg: 'rgba(255,255,255,0.1)', fill_bg: '#9ca3af', text_color: '#9ca3af' }
+      return {
+        ok: false,
+        width_pct: 0,
+        track_bg: 'rgba(255,255,255,0.1)',
+        fill_bg: '#9ca3af',
+        text_color: '#9ca3af',
+      }
     }
     const distance = Math.abs(yaw - target_deg)
-    const ok = distance < 10  // PROFILE_CONSTANTS.TOLERANCE — 직접 import 안 하고 fixed value (UI 영역)
+    const ok = distance < 10 // PROFILE_CONSTANTS.TOLERANCE — 직접 import 안 하고 fixed value (UI 영역)
     // 0° 부터 ±90° 까지 0–100% 진행. 사용자가 정면(0°)→측면(target) 으로 회전 정도를 직관 시각화.
     const progress = Math.max(0, Math.min(100, (1 - distance / 90) * 100))
     const track_bg = ok ? 'rgba(0,200,83,0.15)' : 'rgba(255,193,7,0.15)'
@@ -825,7 +859,9 @@
 </script>
 
 <div class="flex flex-col gap-3">
-  <div class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black shadow-md shadow-slate-300/60">
+  <div
+    class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black shadow-md shadow-slate-300/60"
+  >
     <video
       bind:this={ref_this_video_el}
       class="absolute inset-0 h-full w-full object-cover"
@@ -896,13 +932,12 @@
     {/if}
 
     <!--
-      측면 단계 화살표 안내 — 정면과 동일 위치/스타일. yaw 가 target ± TOLERANCE 영역 밖이면
-      target 방향으로 회전하라는 화살표 표시. 영역 안 (도달 직전~stable) 이면 숨김.
-      방향: yaw < target → '→', yaw > target → '←' (사용자 POV 기준 — 미러 표시와 무관하게
-      사용자는 화살표를 절대 방향으로 해석).
+      측면 단계 화살표 안내 — yaw 가 target ± TOLERANCE 영역 밖이면 target 방향으로 회전하라는
+      화살표 표시. 영역 안이면 숨김. compute_target_deg 부호 규약 (left_profile=+90, right_profile=-90)
+      과 음성 안내 (좌→오른쪽, 우→왼쪽) 와 일치. 오버슈트 시 반대 화살표로 되돌림 안내.
     -->
     {#if show_overlay && active && pose_target !== 'front' && profile_pose.session_ready && profile_pose.last_yaw !== null && !g_already_dispatched}
-      {@const local_arrow_target_deg = pose_target === 'right_profile' ? +PROFILE_CONSTANTS.TARGET_DEG : -PROFILE_CONSTANTS.TARGET_DEG}
+      {@const local_arrow_target_deg = compute_target_deg(pose_target)}
       {@const local_arrow_distance = Math.abs(profile_pose.last_yaw - local_arrow_target_deg)}
       {#if local_arrow_distance >= PROFILE_CONSTANTS.TOLERANCE}
         <div
@@ -1051,8 +1086,8 @@
     -->
     {#if pose_target !== 'front' && profile_pose.progress > 0 && !g_already_dispatched}
       <div
-        class="pointer-events-none absolute left-2.5 top-2.5 z-10 flex w-44 flex-col gap-1
-               rounded-lg border border-emerald-400/50 bg-black/65 px-3 py-2 text-[11px] backdrop-blur-sm"
+        class="pointer-events-none absolute bottom-3 left-1/2 z-10 flex w-56 -translate-x-1/2 flex-col gap-1
+               rounded-lg border border-emerald-400/50 bg-black/65 px-3 py-2 text-[12px] backdrop-blur-sm"
         aria-live="polite"
       >
         <div class="flex items-baseline justify-between text-emerald-300">
@@ -1068,7 +1103,30 @@
       </div>
     {/if}
 
-    {#if show_overlay && active}
+    <!--
+      정면 단계 진행률 게이지 — 측면과 동일 디자인. 정면 영역 진입(g_front_in_zone) 시점부터
+      face dimension std 기반 g_stability_progress 노출. dispatched 후엔 숨김. 위치는 하단 중앙.
+    -->
+    {#if pose_target === 'front' && g_front_in_zone && g_stability_progress > 0 && !g_already_dispatched}
+      <div
+        class="pointer-events-none absolute bottom-3 left-1/2 z-10 flex w-56 -translate-x-1/2 flex-col gap-1
+               rounded-lg border border-emerald-400/50 bg-black/65 px-3 py-2 text-[12px] backdrop-blur-sm"
+        aria-live="polite"
+      >
+        <div class="flex items-baseline justify-between text-emerald-300">
+          <span class="font-bold">정면 자세 유지 중</span>
+          <span class="tabular-nums">{g_stability_progress}%</span>
+        </div>
+        <div class="h-1.5 overflow-hidden rounded-sm bg-emerald-900/50">
+          <div
+            class="h-full bg-emerald-400 transition-[width] duration-100"
+            style="width: {g_stability_progress}%;"
+          ></div>
+        </div>
+      </div>
+    {/if}
+
+    {#if show_overlay && active && g_hint_text}
       <div class="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2">
         <span
           class="inline-block whitespace-nowrap rounded-full border-[1.5px] px-4 py-2 text-sm font-bold backdrop-blur-sm"

@@ -4,12 +4,13 @@ export const PATH = {
   opticianSelect: '/auth/optician-select',
   visitSelect: '/auth/visit-select',
   analysis: '/analysis',
-  analysisFaceMeasurement: '/analysis/face-measurement',
   analysisResult: '/analysis/result',
   analysisReport: '/analysis/report',
+  analysisFaceMeasurement: '/analysis/face-measurement',
   analysisLensConsult: '/analysis/lens-consult',
   analysisLensConsultLegacy: '/analysis/lens_consult',
   analysisArFitting: '/analysis/arfitting',
+  analysisRealFitting: '/analysis/real-fitting',
   test: '/test',
   users: '/dashboard/users',
   sales: '/dashboard/sales',
@@ -19,6 +20,11 @@ export const PATH = {
   adminFace: '/admin/face',
   adminLens: '/admin/lens',
   adminGlass: '/admin/glass',
+  adminVisits: '/admin/visits',
+  /** @param {string | number} visit_no */
+  adminVisitDetail: (visit_no) => `/admin/visits/${String(visit_no)}`,
+  /** @param {string | number} id */
+  userDetail: (id) => `/dashboard/users/${String(id)}`,
   /** @param {string | number} id */
   userMeasurement: (id) => `/dashboard/users/${String(id)}/measurement`,
   /** @param {string | number} id */
@@ -28,7 +34,9 @@ export const PATH = {
 }
 
 export const ROUTE_PATH = {
+  userDetail: '/dashboard/users/:id',
   userMeasurement: '/dashboard/users/:id/measurement',
   userRecords: '/dashboard/users/:id/records',
   userAnalysisHistory: '/dashboard/users/:id/analysis-history',
+  adminVisitDetail: '/admin/visits/:visit_no',
 }

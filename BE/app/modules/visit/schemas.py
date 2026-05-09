@@ -10,8 +10,10 @@ class CustomerSearchResponse(BaseModel):
     cust_name: str
     phone1: str
     phone2: Optional[str] = None
-    birthday: str
-    sex: int  # 0: 남자, 1: 여자
+    birthday: Optional[str] = None
+    sex: Optional[int] = None     # 0: 남자, 1: 여자
+    has_face_analysis: bool = False  # 얼굴분석 완료 여부
+    has_lifestyle: bool = False  # 생활패턴(추천옵션) 완료 여부
 
 
 # ─── 고객 등록 ────────────────────────────────────────────────
@@ -21,8 +23,8 @@ class CustomerCreateRequest(BaseModel):
     cust_name: str
     phone1: str
     phone2: Optional[str] = None
-    birthday: str   # YYYY-MM-DD
-    sex: int        # 0: 남자, 1: 여자
+    birthday: Optional[str] = None   # YYYY-MM-DD
+    sex: Optional[int] = None        # 0: 남자, 1: 여자
 
     @field_validator("phone1", "phone2", mode="before")
     @classmethod
@@ -40,10 +42,10 @@ class VisitCreateRequest(BaseModel):
     opt_no: int
     cust_no: int
     cust_name: str
-    birthday: str
+    birthday: Optional[str] = None
     phone_no1: str
     phone_no2: Optional[str] = None
-    sex: int
+    sex: Optional[int] = None
     member_no: int
 
 class VisitCreateResponse(BaseModel):
@@ -60,10 +62,10 @@ class VisitResponse(BaseModel):
     opt_no: int
     cust_no: int
     cust_name: str
-    birthday: str
+    birthday: Optional[str] = None
     phone_no1: str
     phone_no2: Optional[str] = None
-    sex: int
+    sex: Optional[int] = None
     member_no: int
     main_file: Optional[str] = None
     test_file_arr: Optional[list] = None
@@ -84,6 +86,14 @@ class VisitResponse(BaseModel):
 
 class VisitUpdateRequest(BaseModel):
     """방문 데이터 업데이트 요청 - 변경된 필드만 전달"""
+    # 고객 정보 업데이트용
+    cust_no: Optional[int] = None
+    cust_name: Optional[str] = None
+    phone_no1: Optional[str] = None
+    phone_no2: Optional[str] = None
+    birthday: Optional[str] = None
+    sex: Optional[int] = None
+
     main_file: Optional[str] = None
     test_file_arr: Optional[list] = None
     test_json: Optional[dict] = None
@@ -102,4 +112,11 @@ class VisitUpdateRequest(BaseModel):
 class VisitHistoryResponse(BaseModel):
     """고객 방문 이력 목록"""
     cust_no: int
+    visits: list[VisitResponse]
+
+# ─── 관리자용 전체 방문 조회 ──────────────────────────────────
+
+class AdminVisitListResponse(BaseModel):
+    """관리자용 전체 방문 목록 응답"""
+    total: int
     visits: list[VisitResponse]

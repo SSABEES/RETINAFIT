@@ -26,6 +26,14 @@ def _convert_visit_urls(visit: VisitResponse) -> VisitResponse:
         visit.test_file_arr = [get_presigned_download_url(k) for k in visit.test_file_arr]
     if visit.vp_file_arr:
         visit.vp_file_arr = [get_presigned_download_url(k) for k in visit.vp_file_arr]
+
+    if visit.real_vp_json and "sets" in visit.real_vp_json:
+        for s in visit.real_vp_json["sets"]:
+            for side in ("front", "left", "right"):
+                key = s.get(f"{side}_key")
+                if key:
+                    s[f"{side}_url"] = get_presigned_download_url(key)
+
     return visit
 
 def _check_token_expired(data: dict):
@@ -47,6 +55,7 @@ async def search_customer(
     opt_no: int,
     token: str,
     token_no: str,
+    db: AsyncSession,
 ) -> list[CustomerSearchResponse]:
     """전화번호로 고객 검색 (외부 Retina API 중계)"""
     async with httpx.AsyncClient() as client:
@@ -78,18 +87,22 @@ async def search_customer(
     _check_external_error(data)
 
     customers = data.get("data", {}).get("out1", [])
-    return [
-        CustomerSearchResponse(
+
+    result = []
+    for c in customers:
+        visits = await repository.get_visits_by_cust(db, int(c["CUST_NO"]))
+
+        result.append(CustomerSearchResponse(
             cust_no=c["CUST_NO"],
             cust_name=c["CUST_NAME"],
             phone1=c["PHONE1"],
             phone2=c.get("PHONE2"),
-            birthday=c["BIRTHDAY"],
-            sex=int(c["SEX"]),
-        )
-        for c in customers
-    ]
-
+            birthday=c.get("BIRTHDAY") or None,
+            sex=int(c["SEX"]) if c.get("SEX", "").isdigit() else None,
+            has_face_analysis=any(v.test_json is not None for v in visits),
+            has_lifestyle=any(v.opt_recommend_json is not None for v in visits),
+        ))
+    return result
 
 # ─── 고객 등록 ────────────────────────────────────────────────
 
@@ -111,8 +124,8 @@ async def create_customer(
                         "in2": request.cust_name,
                         "in3": request.phone1,
                         "in4": request.phone2 or "",
-                        "in5": request.birthday,
-                        "in6": str(request.sex),
+                        "in5": request.birthday or "",
+                        "in6": str(request.sex) if request.sex is not None else "",
                         "out1": "num",
                         "out2": "num",
                         "out3": "num",
@@ -211,3 +224,11 @@ async def update_visit(
         )
 
     return _convert_visit_urls(VisitResponse.model_validate(visit))
+
+async def get_all_visits(db: AsyncSession) -> dict:
+    """전체 방문 조회 (관리자용)"""
+    visits = await repository.get_all_visits(db)
+    return {
+        "total": len(visits),
+        "visits": [_convert_visit_urls(VisitResponse.model_validate(v)) for v in visits],
+    }

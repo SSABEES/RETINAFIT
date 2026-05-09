@@ -116,7 +116,7 @@
         ...local_visit_obj,
       })
 
-      navigate(visit_obj.has_final ? PATH.analysisResult : PATH.analysisFaceMeasurement)
+      navigate(visit_obj.has_final ? PATH.analysisResult : PATH.analysisReport)
     } catch (local_error) {
       g_error_message =
         local_error instanceof Error ? local_error.message : '리포트 조회 중 오류가 발생했습니다.'
@@ -141,8 +141,8 @@
     </Link>
   {/snippet}
 
-  <section class="px-8 py-8">
-    <div class="mx-auto max-w-[944px]">
+  <section class="app-bg-edge-extend flex min-h-full items-center bg-[#F7F8FA] px-8 py-8">
+    <div class="mx-auto w-full max-w-[944px]">
       <section class="grid gap-8">
         <div
           class="flex min-h-36 items-center justify-between rounded-2xl bg-[#4B0055] px-8 py-7 text-left text-white"

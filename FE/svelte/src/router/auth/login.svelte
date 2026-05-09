@@ -32,11 +32,11 @@
   }
 
   function on_input_store_id(local_event) {
-    ref_store_id = get_input_value(local_event)
+    ref_store_id = get_input_value(local_event).replace(/\s/g, '')
   }
 
   function on_input_password(local_event) {
-    ref_password = get_input_value(local_event)
+    ref_password = get_input_value(local_event).replace(/\s/g, '')
   }
 
   function on_change_auto_login(local_event) {
@@ -114,7 +114,7 @@
 
     set_selected_opt_store(local_opt_store_obj, local_admin_arr)
     set_selected_admin(local_admin_arr[0])
-    navigate(PATH.opticianSelect)
+    navigate(PATH.visitSelect)
   }
 
   async function on_submit_login(local_event) {
@@ -188,9 +188,12 @@
 </script>
 
 <main
-  class="app-frame-page grid min-h-full grid-rows-[1fr_auto] overflow-hidden bg-[var(--retina-bg-1)] px-6 pt-6 pb-4 text-[var(--retina-text)]"
+  class="app-frame-page grid min-h-full grid-rows-[1fr_auto] overflow-hidden bg-[#FFF3EB] px-6 pt-6 pb-4 text-[var(--retina-text)]"
 >
-  <section class="grid w-full max-w-[460px] justify-self-center self-center" aria-labelledby="login-title">
+  <section
+    class="grid w-full max-w-[460px] justify-self-center self-center"
+    aria-labelledby="login-title"
+  >
     <form
       class="grid w-full gap-6 rounded-[22px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-14 py-10 shadow-[0_6px_14px_rgba(19,25,40,0.06)]"
       onsubmit={on_submit_login}
@@ -278,7 +281,7 @@
         <span
           class={`grid h-7 w-7 place-items-center rounded-full transition ${
             ref_auto_login
-              ? 'bg-[var(--retina-primary-600)] text-[var(--retina-text-100)]'
+              ? 'bg-[var(--retina-primary-300)] text-[var(--retina-text-100)]'
               : 'bg-[var(--retina-bg-2)] text-[var(--retina-text-100)]/60'
           }`}
           aria-hidden="true"
@@ -298,7 +301,7 @@
     </form>
   </section>
 
-  <p class="m-0 justify-self-center text-center text-sm font-medium text-[var(--retina-primary-900)]/80">
+  <p class="m-0 justify-self-center text-center text-sm font-medium text-[#6E2E05]">
     © 2026 RETINA Co,Ltd. All rights reserved.
   </p>
 </main>
