@@ -209,27 +209,20 @@
       <div
         class="grid h-full w-full grid-cols-[2.73fr_1fr] items-stretch overflow-clip [overflow-clip-margin:9999px]"
       >
-        <!-- 좌: 실시간 카메라. 회색 bg 위에 3:4 비율 preview 를 가운데. viewport 왼쪽 끝까지 확장. -->
+        <!-- 좌: 실시간 카메라. real_fitting/arfitting 와 동일하게 좌측 영역 전체를 채운다. -->
         <section
           aria-label="실시간 얼굴 분석"
-          class="app-bg-edge-extend-left flex min-h-0 items-center justify-center overflow-hidden bg-[#E5E7EB] p-6"
+          class="app-bg-edge-extend-left relative flex min-h-0 flex-col overflow-hidden bg-zinc-950 shadow-inner"
         >
-          <!--
-            CameraView 내부가 `aspect-[3/4] w-full` 로 자기 크기를 잡으므로 wrapper 는 width 가
-            정해진 block 박스여야 한다. h-full + aspect-[3/4] 가 height 를 부모(섹션) full 로 채우고
-            width 를 height × 3/4 로 도출 → CameraView 가 그 width 만큼 stretch.
-          -->
-          <div class="aspect-[3/4] h-full">
-            <CameraView
-              bind:this={ref_this_camera}
-              active={true}
-              pose_target={g_current_step.pose_type}
-              capture_mode={g_current_step.capture_mode}
-              is_landmark_visible={g_is_landmark_visible}
-              oncapture={on_capture}
-              oncapture_error={on_capture_error}
-            />
-          </div>
+          <CameraView
+            bind:this={ref_this_camera}
+            active={true}
+            pose_target={g_current_step.pose_type}
+            capture_mode={g_current_step.capture_mode}
+            is_landmark_visible={g_is_landmark_visible}
+            oncapture={on_capture}
+            oncapture_error={on_capture_error}
+          />
         </section>
 
         <!-- 우: 컨트롤 패널. 위에서 아래로 가이드 toggle / step / 상태 / 썸네일 4 영역. viewport 오른쪽 끝까지 확장. -->

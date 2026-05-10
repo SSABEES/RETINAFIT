@@ -8,8 +8,17 @@
  * 정면 단계는 이 composable 무관 — get_pose_target() === 'front' 시 tick() 즉시 return.
  */
 
-import { get_session, predict_pose, compute_center_square_bbox } from '@/lib/sixdrepnet360/inference.js'
+import {
+  get_session,
+  predict_pose,
+  compute_center_square_bbox,
+} from '@/lib/sixdrepnet360/inference.js'
 import { rotation_matrix_to_euler, image_plane_tilt_deg } from '@/lib/sixdrepnet360/pose.js'
+import {
+  get_video_detector,
+  detect_face_from_video,
+  compute_bbox_from_detection,
+} from '@/lib/mediapipe/face_detector.js'
 import {
   update_stability_step,
   compute_hint_text,
@@ -18,6 +27,11 @@ import {
   average_or_null,
   PROFILE_CONSTANTS,
 } from './profile_pose_logic.js'
+
+// MediaPipe FaceDetector(BlazeFace) 검출 실패가 이만큼 연속되면 face bbox 캐시를 폐기하고
+// center square 로 fallback. 5 ticks ≈ 2초 (ORT_FRAME_SKIP=5 @ ~12Hz tick) — 일시적 검출 누락엔
+// 캐시 유지, 영구 검출 실패 진입 시 자연스럽게 center fallback.
+const FACE_BBOX_STALE_THRESHOLD = 5
 
 /**
  * @typedef {'front' | 'left_profile' | 'right_profile'} PoseTarget
@@ -64,6 +78,10 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
   let _ort_inflight      = false
   let _frame_counter     = 0
   let _reset_id          = 0
+  // FaceLandmarker 가 검출 성공한 마지막 face bbox — 일시적 검출 누락 시 직전 bbox 로 lock-in.
+  /** @type {import('@/lib/sixdrepnet360/inference.js').BBoxNorm | null} */
+  let _last_face_bbox = null
+  let _bbox_stale_count = 0
 
   async function tick() {
     if (get_pose_target() === 'front') return
@@ -82,7 +100,28 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
       await get_session()
       if (snapshot_id !== _reset_id) return
 
-      const bbox = compute_center_square_bbox(video)
+      // face bbox 산출 — MediaPipe FaceDetector(BlazeFace) 로 face 영역을 정확히 잡아 6DRepNet360
+      // 학습 분포(face가 정사각형 가득 채움) 와 일치시킨다. BlazeFace 는 측면 각도(±90°) 까지 robust.
+      // 검출 실패 시 직전 성공 bbox 로 lock-in (≤5 ticks), 누적 stale 시 center 3:4 정사각형 fallback.
+      const detector = await get_video_detector()
+      if (snapshot_id !== _reset_id) return
+      const detection = detect_face_from_video(detector, video)
+      const detected_bbox = detection
+        ? compute_bbox_from_detection(detection, video.videoWidth, video.videoHeight)
+        : null
+      let bbox
+      if (detected_bbox) {
+        bbox = detected_bbox
+        _last_face_bbox = bbox
+        _bbox_stale_count = 0
+      } else if (_last_face_bbox && _bbox_stale_count < FACE_BBOX_STALE_THRESHOLD) {
+        bbox = _last_face_bbox
+        _bbox_stale_count += 1
+      } else {
+        bbox = compute_center_square_bbox(video)
+        _last_face_bbox = null
+        _bbox_stale_count = 0
+      }
       const result = await predict_pose(video, bbox)
       if (snapshot_id !== _reset_id) return       // 카메라 재시작 후 stale 결과 폐기
 
@@ -140,6 +179,8 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
     _image_tilt_buffer = []
     _frame_counter = 0
     _reset_id += 1
+    _last_face_bbox = null
+    _bbox_stale_count = 0
     // _session_ready 유지 — 세션은 앱 전역 캐시 (inference.js 의 g_session_promises_obj)
     // _ort_inflight 유지 — 결과 저장 시 _reset_id 비교로 폐기
   }
