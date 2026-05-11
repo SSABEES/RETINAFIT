@@ -13,6 +13,7 @@ import httpx
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.modules.visit import repository
+from app.core.http_client import http_client
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +23,9 @@ AI_REQUEST_TIMEOUT_SEC = 30.0
 async def generate_and_save_face_script(visit_no: int, test_json: dict[str, Any]) -> None:
     url = f"{settings.AI_SERVER_URL.rstrip('/')}/api/v1/report/face-script"
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=test_json, timeout=AI_REQUEST_TIMEOUT_SEC)
-            response.raise_for_status()
-            data = response.json()
+        response = await http_client.post(url, json=test_json, timeout=AI_REQUEST_TIMEOUT_SEC)
+        response.raise_for_status()
+        data = response.json()
     except httpx.TimeoutException:
         logger.warning("AI face-script timeout: visit_no=%s url=%s", visit_no, url)
         return

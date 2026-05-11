@@ -5,6 +5,7 @@ from app.common.exceptions import ExternalAPIException, UnauthorizedException
 from app.modules.auth.schemas import LoginRequest, LoginResponse, OptInfo, MemberInfo, AdminLoginRequest, AdminLoginResponse
 from app.common.error_codes import ErrorCode
 from app.core.security import create_admin_token
+from app.core.http_client import http_client
 
 
 async def login(request: LoginRequest) -> LoginResponse:
@@ -26,31 +27,30 @@ async def login(request: LoginRequest) -> LoginResponse:
         "token_no": ""
     }
     """
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                url=f"{settings.EXTERNAL_API_BASE_URL}/retina/login",
-                json={
-                    "data": {
-                        "p_nm": "PKG_RTN_SSAFY.SP_S_LOGIN",
-                        "in1": request.id,
-                        "in2": request.password,
-                        "out1": "cursor",
-                        "out2": "cursor",
-                        "out3": "num"
-                    },
-                    "token": "",
-                    "token_no": ""
+    try:
+        response = await http_client.post(
+            url=f"{settings.EXTERNAL_API_BASE_URL}/retina/login",
+            json={
+                "data": {
+                    "p_nm": "PKG_RTN_SSAFY.SP_S_LOGIN",
+                    "in1": request.id,
+                    "in2": request.password,
+                    "out1": "cursor",
+                    "out2": "cursor",
+                    "out3": "num"
                 },
-                timeout=10.0  # 10초 안에 응답 없으면 에러
-            )
-            response.raise_for_status()
-            data = response.json()
+                "token": "",
+                "token_no": ""
+            },
+            timeout=10.0  # 10초 안에 응답 없으면 에러
+        )
+        response.raise_for_status()
+        data = response.json()
 
-        except httpx.TimeoutException:
-            raise ExternalAPIException("외부 API 응답 시간이 초과됐습니다.")
-        except httpx.HTTPError:
-            raise ExternalAPIException("외부 API 호출에 실패했습니다.")
+    except httpx.TimeoutException:
+        raise ExternalAPIException("외부 API 응답 시간이 초과됐습니다.")
+    except httpx.HTTPError:
+        raise ExternalAPIException("외부 API 호출에 실패했습니다.")
 
     # 로그인 성공 여부 확인 (out3 == 0 이면 성공)
     out3 = data.get("data", {}).get("out3")
