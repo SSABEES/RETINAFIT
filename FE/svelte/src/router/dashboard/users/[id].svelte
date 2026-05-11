@@ -11,7 +11,7 @@
   import Header from '@/components/layout/header.svelte'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   import { PATH } from '@/config/path'
-  import { get_visit_list, create_visit } from '@/lib/api/visit'
+  import { get_visit_list, create_visit, update_visit } from '@/lib/api/visit'
   import {
     selected_customer_obj,
     set_selected_visit,
@@ -117,6 +117,40 @@
     },
   ]
 
+  // 단계 직진입 시 새 visit 에 inherit 해 올 필드 매핑.
+  // 얼굴분석은 첫 단계라 inherit 없음. 생활패턴은 얼굴분석만, 피팅은 얼굴분석+생활패턴 모두.
+  // result.svelte 가 이 필드들을 그대로 읽어 누락 단계 placeholder 대신 이전 결과를 보여준다.
+  /** @type {Record<StepInfo['key'], Array<'test_json' | 'opt_recommend_json'>>} */
+  const INHERIT_FIELD_MAP = {
+    face: [],
+    lifestyle: ['test_json'],
+    fitting: ['test_json', 'opt_recommend_json'],
+  }
+
+  // g_visit_arr (최신순) 에서 해당 필드가 채워진 가장 최근 visit 의 값을 반환. 없으면 null.
+  /** @param {'test_json' | 'opt_recommend_json'} field_key */
+  function find_recent_field_value(field_key) {
+    for (const local_visit of g_visit_arr) {
+      const local_value = local_visit?.[field_key]
+      if (local_value) return local_value
+    }
+    return null
+  }
+
+  // 진입 단계에 대해 inherit 할 필드만 모아 PATCH body 객체를 만든다.
+  // 이전 visit 에 해당 필드 값이 없으면 omit — 결과적으로 result 에선 그 탭이 placeholder.
+  /** @param {StepInfo['key']} step_key */
+  function build_inherit_body(step_key) {
+    const local_field_arr = INHERIT_FIELD_MAP[step_key] ?? []
+    /** @type {Record<string, unknown>} */
+    const local_body_obj = {}
+    for (const local_field of local_field_arr) {
+      const local_value = find_recent_field_value(local_field)
+      if (local_value) local_body_obj[local_field] = local_value
+    }
+    return local_body_obj
+  }
+
   /** @param {StepInfo['key']} step_key */
   function is_step_done(step_key) {
     if (step_key === 'face') return g_face_done
@@ -205,8 +239,22 @@
         push_error_toast('방문 정보 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.')
         return
       }
+      // 단계 직진입(생활패턴/피팅) 시 이전 visit 결과를 새 visit 에 inherit.
+      // 얼굴분석/생활패턴이 이번 방문에선 진행되지 않아도 result 페이지에 가장 최근 결과가 그대로 노출되도록.
+      // best-effort — PATCH 실패해도 사용자 진행은 막지 않는다 (해당 탭은 placeholder 로 폴백).
+      const local_inherit_body_obj = build_inherit_body(step_obj.key)
+      const local_has_inherit = Object.keys(local_inherit_body_obj).length > 0
+      if (local_has_inherit) {
+        try {
+          await update_visit({ visit_no: local_visit_no, body: local_inherit_body_obj })
+        } catch {
+          // ignore — 누락 단계는 result 에서 placeholder 로 표시된다.
+        }
+      }
+
       set_selected_visit({
         ...local_result_obj,
+        ...local_inherit_body_obj,
         visit_no: local_visit_no,
         test_dt: null,
         vp_dt: null,

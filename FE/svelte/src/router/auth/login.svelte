@@ -136,7 +136,7 @@
         password: local_password,
       })
 
-      if (ref_auto_login && local_login_response_obj?.token && local_login_response_obj?.token_no) {
+      if (local_login_response_obj?.token && local_login_response_obj?.token_no) {
         save_auto_login_obj({
           token: String(local_login_response_obj.token),
           token_no: String(local_login_response_obj.token_no),
@@ -144,9 +144,8 @@
           member_list: Array.isArray(local_login_response_obj.member_list)
             ? /** @type {Array<Record<string, unknown>>} */ (local_login_response_obj.member_list)
             : [],
+          keep_login: ref_auto_login,
         })
-      } else {
-        clear_auto_login_obj()
       }
 
       apply_login_response(local_login_response_obj)
