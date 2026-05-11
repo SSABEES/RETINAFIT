@@ -417,7 +417,7 @@
 </script>
 
 <main
-  class="app-frame-page grid min-h-screen grid-rows-[1fr] bg-[var(--retina-surface)] text-[var(--retina-text)]"
+  class="app-frame-page grid min-h-screen md:h-[100svh] md:overflow-hidden grid-rows-[1fr] bg-[var(--retina-surface)] text-[var(--retina-text)]"
 >
   <Header onback={on_click_back} />
 
