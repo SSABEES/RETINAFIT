@@ -9,12 +9,18 @@ import android.os.Looper
 import android.util.Base64
 import android.util.Log
 import android.view.PixelCopy
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -51,6 +58,7 @@ import com.example.virtualfitting.arcore.contract.ErrorCode
 import com.example.virtualfitting.arcore.contract.VirtualFittingEvent
 import com.example.virtualfitting.arcore.contract.VirtualFittingRequest
 import com.example.virtualfitting.arcore.fitting.FaceCalibration
+import com.example.virtualfitting.arcore.fitting.PositionSmoother
 import com.example.virtualfitting.arcore.fitting.RotationSmoother
 import com.example.virtualfitting.arcore.fitting.measure
 import com.example.virtualfitting.arcore.fitting.withCalibration
@@ -90,7 +98,7 @@ private const val TAG = "FaceFittingScreen"
  * `temple_right` show, `temple_left` hide. 정면(|yaw| ≤ 임계값) 에선 두 다리 모두
  * 머리 뒤에 가려져야 자연스러우므로 hide.
  */
-private const val TEMPLE_HIDE_YAW_DEG = 5f
+private const val TEMPLE_HIDE_YAW_DEG = 10f
 
 /**
  * [ROTATION_SMOOTHING] 회전 jitter 스무딩 토글.
@@ -101,6 +109,29 @@ private const val TEMPLE_HIDE_YAW_DEG = 5f
  * 마커로 표시돼 있어 grep 으로 일괄 제거 가능.
  */
 private const val ROTATION_SMOOTHING_ENABLED: Boolean = true
+
+/**
+ * [POSITION_SMOOTHING] 위치 jitter 스무딩 토글.
+ *
+ * 현재 false: 적응형 One Euro Filter 도 빠른 회전 시 안경이 얼굴에서 살짝 분리되어
+ * "둥둥 떠있는 느낌" 을 만들어내는 부작용 발견 (2026-05-11 사용자 피드백).
+ * 회전 필터만으로 lever-arm 증폭 떨림을 잡으면 충분히 안정적임이 확인됨.
+ *
+ * true 로 두면 PositionSmoother (One Euro, BETA=10) 적용 — 정지 시 떨림 잡히지만 움직임 시
+ * 미끌림 발생.
+ */
+private const val POSITION_SMOOTHING_ENABLED: Boolean = false
+
+/**
+ * Calibration UI 가 표시되는 총 시간. 일찍 lock 되어도 이 시간이 다 차야
+ * isCalibrated=true 가 되어 오버레이가 사라짐.
+ *
+ * 동기: lock 이 0.5~1.5초만에 발생하면 진행률 바가 짧게 보여 사용자가 정면 응시할 시간이
+ * 부족하다고 느낌. UI 표시 시간을 충분히 확보해 사용자가 자세 잡을 여유를 줌. 그 동안
+ * lock 이 안정적으로 확정되고, fallback timeout (FaceCalibration.TIMEOUT_MS = 3초) 도
+ * 이 시간 안에 발생하므로 어차피 lock 보장됨.
+ */
+private const val CALIBRATION_PROGRESS_DURATION_MS: Long = 4000L
 
 /**
  * 전면 카메라 + Augmented Faces + GLB 안경 렌더링의 핵심 Composable.
@@ -225,7 +256,13 @@ fun FaceFittingScreen(
     val calibration = remember { FaceCalibration() }
     // [ROTATION_SMOOTHING] 회전 jitter 적응형 LPF. Compose 생명주기 동안 유지.
     val rotationSmoother = remember { RotationSmoother() }
+    // [POSITION_SMOOTHING] 위치 jitter 적응형 LPF.
+    val positionSmoother = remember { PositionSmoother() }
     var appliedPostLock by remember { mutableStateOf(false) }
+    // Calibration UI 상태. 첫 트래킹 시점에 시작, locked 되면 종료.
+    var calibrationStartMs by remember { mutableStateOf(0L) }
+    var calibrationProgress by remember { mutableStateOf(0f) }
+    var isCalibrated by remember { mutableStateOf(false) }
     // 디버그: 현재 yaw 와 temple 가시성을 status overlay 에 표시.
     var debugYawDeg by remember { mutableStateOf(0f) }
     var debugLeftVisible by remember { mutableStateOf(true) }
@@ -300,14 +337,29 @@ fun FaceFittingScreen(
                 val node = glassesNode
                 if (face != null && node != null) {
                     if (baseScale == null) baseScale = node.scale
+                    val nowMs = System.currentTimeMillis()
+                    if (calibrationStartMs == 0L) calibrationStartMs = nowMs
 
                     // 매 프레임 측정 — lock 전엔 누적, lock 후엔 no-op.
                     val m = measure(face)
-                    calibration.submit(m, nowMs = System.currentTimeMillis())
+                    calibration.submit(m, nowMs = nowMs)
+
+                    // Calibration 진행률은 시간 기반으로 부드럽게 0→100%. lock 이 일찍
+                    // 발생해도 진행률이 점프하지 않고, UI 표시 시간이 일정함 (사용자에게
+                    // 정면 응시할 여유 부여).
+                    val elapsedMs = nowMs - calibrationStartMs
+                    val timeProgress = (elapsedMs.toFloat() / CALIBRATION_PROGRESS_DURATION_MS)
+                        .coerceIn(0f, 1f)
+                    calibrationProgress = timeProgress
 
                     // lock 시점에 한 번 calibrated preset 적용. 이후엔 ModelNode 의
                     // scale/position 이 그 값을 유지하므로 매 프레임 재적용 불필요.
                     val locked = calibration.locked
+                    // 시간이 다 차면 calibration 종료 (lock 은 이 시점 이전에 거의 항상 됨,
+                    // FaceCalibration.TIMEOUT_MS=3000 < CALIBRATION_PROGRESS_DURATION_MS=4000).
+                    if (!isCalibrated && elapsedMs >= CALIBRATION_PROGRESS_DURATION_MS) {
+                        isCalibrated = true
+                    }
                     val activeOffset = if (locked != null) {
                         if (!appliedPostLock) {
                             val calibrated = preset.withCalibration(locked)
@@ -323,8 +375,15 @@ fun FaceFittingScreen(
                     }
 
                     val composed = face.centerPose.transform * activeOffset
-                    // 위치는 항상 raw — LPF 거치면 평행 이동 시 안경이 천천히 따라오는 lag 발생.
-                    node.position = composed.position
+                    val rawPos = composed.position
+                    // [POSITION_SMOOTHING] 적응형 One Euro Filter. beta=3.0 으로 평행 이동
+                    // 시엔 cutoff 자동 상승해 raw 추종 (lag 없음), 정지 시엔 minCutoff=1Hz 로
+                    // 떨림 잡음. 이전 고정 알파 LPF (lag 발생) 와 다른 패턴.
+                    node.position = if (POSITION_SMOOTHING_ENABLED) {
+                        positionSmoother.filter(rawPos, frame.timestamp)
+                    } else {
+                        rawPos
+                    }
                     val rawQuat = composed.toQuaternion()
                     // [ROTATION_SMOOTHING] 회전만 적응형 LPF. 정지 시 lever-arm 증폭 떨림 제거,
                     // 빠른 head turn 시엔 cutoff 자동 상승으로 raw 추종.
@@ -333,10 +392,12 @@ fun FaceFittingScreen(
                     } else {
                         rawQuat
                     }
-                    node.isVisible = true
+                    // Calibration 끝나기 전엔 안경 숨김 — 사용자가 정면 응시하는 동안 어색한
+                    // 위치 추정이 노출되지 않도록.
+                    node.isVisible = isCalibrated
 
                     // 분리된 GLB 인 경우, yaw 에 따라 반대편 temple 을 숨김.
-                    if (templeEntities.hasTemples) {
+                    if (templeEntities.hasTemples && isCalibrated) {
                         val yawDeg = computeYawDegrees(face.centerPose)
                         val rm = engine.renderableManager
                         // |yaw| ≤ 임계값: 정면 영역 → 두 다리 모두 hide.
@@ -355,6 +416,8 @@ fun FaceFittingScreen(
                     // [ROTATION_SMOOTHING] 트래킹 lost 시 필터 state 초기화.
                     // 안 하면 재트래킹 시 옛 회전으로 "스르륵" 미끄러져 들어오는 아티팩트 발생.
                     if (ROTATION_SMOOTHING_ENABLED) rotationSmoother.reset()
+                    // [POSITION_SMOOTHING] 위치 필터도 동일 이유로 reset.
+                    if (POSITION_SMOOTHING_ENABLED) positionSmoother.reset()
                 }
 
                 when {
@@ -432,6 +495,65 @@ fun FaceFittingScreen(
                 .padding(bottom = 24.dp, start = 16.dp, end = 16.dp)
                 .alpha(if (hide_overlay_during_capture) 0f else 1f),
         )
+
+        // Calibration overlay 는 fade in/out 으로 부드럽게 전환. 사라지는 동안 안경이
+        // 점차 드러나는 효과 — 안경 노드 자체의 alpha 조정은 Filament material 단에서
+        // 복잡해서, 검은 반투명 overlay 의 alpha 만 보간하는 방식으로 시각적 fade-in 모방.
+        AnimatedVisibility(
+            visible = !isCalibrated,
+            enter = fadeIn(animationSpec = tween(durationMillis = 200)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 500)),
+        ) {
+            CalibrationOverlay(progress = calibrationProgress)
+        }
+    }
+}
+
+/**
+ * 풀스크린 calibration 안내 오버레이. AR 진입 직후 사용자가 정면을 응시하는 동안 표시.
+ * `FaceCalibration` 이 locked 되면 isCalibrated=true 가 되어 부모 측에서 unmount 됨.
+ */
+@Composable
+private fun CalibrationOverlay(progress: Float) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.55f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "정면을 응시해주세요",
+                color = Color.White,
+                fontSize = 22.sp,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "안경 위치를 맞추는 중입니다",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 14.sp,
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Box(
+                modifier = Modifier
+                    .width(240.dp)
+                    .height(8.dp)
+                    .background(
+                        Color.White.copy(alpha = 0.25f),
+                        RoundedCornerShape(4.dp),
+                    ),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .background(
+                            Color(0xFFF97316),
+                            RoundedCornerShape(4.dp),
+                        ),
+                )
+            }
+        }
     }
 }
 
