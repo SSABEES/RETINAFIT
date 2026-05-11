@@ -5,6 +5,7 @@ PATCH /visits/{visit_no} 에서 test_json 이 새로 들어오면 BackgroundTask
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -18,6 +19,8 @@ from app.core.http_client import http_client
 logger = logging.getLogger(__name__)
 
 AI_REQUEST_TIMEOUT_SEC = 30.0
+MAX_RETRY = 3
+RETRY_INTERVAL = 1
 
 
 async def generate_and_save_face_script(visit_no: int, test_json: dict[str, Any]) -> None:
@@ -40,10 +43,17 @@ async def generate_and_save_face_script(visit_no: int, test_json: dict[str, Any]
         logger.warning("AI face-script invalid response (not dict): visit_no=%s", visit_no)
         return
 
-    async with AsyncSessionLocal() as session:
-        try:
-            await repository.update_report_json(session, visit_no, data)
-            await session.commit()
-        except Exception as e:
-            await session.rollback()
-            logger.warning("AI face-script save failed: visit_no=%s err=%s", visit_no, e)
+    # 재시도 로직 (최대 3회, 1초 간격)
+    for attempt in range(MAX_RETRY):
+        async with AsyncSessionLocal() as session:
+            try:
+                await repository.update_report_json(session, visit_no, data)
+                await session.commit()
+                return  # 성공 시 종료
+            except Exception as e:
+                await session.rollback()
+                if attempt < MAX_RETRY - 1:
+                    logger.warning("AI face-script save retry %d: visit_no=%s err=%s", attempt + 1, visit_no, e)
+                    await asyncio.sleep(RETRY_INTERVAL)
+                else:
+                    logger.warning("AI face-script save failed: visit_no=%s err=%s", visit_no, e)
