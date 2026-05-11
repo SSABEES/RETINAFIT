@@ -188,14 +188,14 @@
 </script>
 
 <main
-  class="app-frame-page grid min-h-full grid-rows-[1fr_auto] overflow-hidden bg-[#FFF3EB] px-6 pt-6 pb-4 text-[var(--retina-text)]"
+  class="app-frame-page grid min-h-screen grid-rows-[1fr_auto] bg-[#FFF3EB] px-4 pt-6 pb-4 sm:px-6 text-[var(--retina-text)]"
 >
   <section
-    class="grid w-full max-w-[460px] justify-self-center self-center"
+    class="grid w-full max-w-[420px] justify-self-center self-center sm:max-w-[480px] lg:max-w-[520px]"
     aria-labelledby="login-title"
   >
     <form
-      class="grid w-full gap-6 rounded-[22px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-14 py-10 shadow-[0_6px_14px_rgba(19,25,40,0.06)]"
+      class="grid w-full gap-6 rounded-[22px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-5 py-6 shadow-[0_6px_14px_rgba(19,25,40,0.06)] sm:px-8 sm:py-8 lg:px-10 lg:py-10"
       onsubmit={on_submit_login}
     >
       <div class="grid justify-items-center gap-4 text-center">
@@ -305,17 +305,3 @@
     © 2026 RETINA Co,Ltd. All rights reserved.
   </p>
 </main>
-
-<style>
-  @media (max-width: 1280px), (max-height: 820px) {
-    form {
-      padding: 2rem 1.75rem;
-    }
-  }
-
-  @media (max-width: 640px) {
-    form {
-      padding: 1.5rem 1.25rem;
-    }
-  }
-</style>

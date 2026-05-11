@@ -251,9 +251,9 @@
 <Header onback={on_click_back} />
 
 <main
-  class="app-frame-page app-bg-edge-extend flex h-full flex-col overflow-y-auto bg-[var(--retina-text-100)] text-zinc-950"
+  class="app-frame-page flex min-h-screen flex-col bg-[var(--retina-text-100)] text-zinc-950"
 >
-  <section class="px-6 py-5">
+  <section class="px-4 py-4 sm:px-6 sm:py-5">
     <div class="mx-auto flex w-full max-w-[944px] flex-col gap-4">
       <!-- 1) 프로필 카드 -->
       <article

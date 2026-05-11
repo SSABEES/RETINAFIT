@@ -582,16 +582,16 @@
 
 <AnalysisPageLayout current_step={3} bg_class="bg-white text-zinc-900">
   <div
-    class="flex min-h-0 flex-1 overflow-clip [overflow-clip-margin:9999px] bg-[var(--retina-text-100)]"
+    class="grid flex-1 grid-cols-1 grid-rows-[55svh_auto] min-h-0 md:grid-cols-[1fr_220px] md:grid-rows-1 lg:grid-cols-[1fr_300px] bg-[var(--retina-text-100)]"
   >
-    <!-- 좌측: 카메라 -->
+    <!-- 좌측: 카메라 — 모바일에선 위쪽 row(1fr), md+ 에서 좌측 flex column -->
     <section
       class="relative flex min-h-0 flex-1 flex-col transition-[z-index]"
       class:z-50={g_highlight_camera}
     >
       <div
         bind:this={ref_camera_section_el}
-        class="app-bg-edge-extend-left arfitting-camera-fill relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner transition-all"
+        class="arfitting-camera-fill relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner transition-all"
         class:ring-2={g_highlight_camera}
         class:ring-[var(--retina-primary-300)]={g_highlight_camera}
         class:ring-inset={g_highlight_camera}
@@ -643,9 +643,9 @@
       </div>
     </section>
 
-    <!-- 우측: 캡쳐 상태 + 추천 안경 + 액션 버튼 -->
+    <!-- 우측: 캡쳐 상태 + 추천 안경 + 액션 버튼 — 모바일에선 하단 stack(콘텐츠 크기) -->
     <aside
-      class="app-bg-edge-extend-right relative flex w-[300px] flex-col border-l border-slate-200 bg-white transition-[z-index]"
+      class="relative flex flex-col border-t md:border-t-0 md:border-l border-slate-200 bg-white transition-[z-index]"
       class:z-50={g_highlight_aside}
     >
       <!-- 캡쳐 슬롯 -->
@@ -876,7 +876,7 @@
             disabled={!g_can_submit && g_guide_step !== 6}
             onclick={on_click_submit_report}
             aria-label="실제 착용 분석하기"
-            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 text-[12px] font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
+            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 text-[15px] font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale sm:text-[17px] md:text-[12px] lg:text-[14px]"
           >
             실제 착용 분석하기
           </button>

@@ -203,15 +203,15 @@
     - 우측 컨트롤 패널 ≈ 27% (343/1280), 흰색 bg, 가이드 toggle / step / 상태 / 썸네일 수직 스택
     AnalysisPageLayout 이 위에서 헤더 + AnalysisStepBar 를 렌더링하고, 이 영역은 그 밑으로 채운다.
   -->
-  <div class="flex min-h-0 flex-1 overflow-clip [overflow-clip-margin:9999px]">
+  <div class="flex min-h-0 flex-1">
     {#if g_session.phase === 'capturing' && g_current_step}
       <div
-        class="grid h-full w-full grid-cols-[2.73fr_1fr] items-stretch overflow-clip [overflow-clip-margin:9999px]"
+        class="grid h-full w-full grid-cols-1 grid-rows-[55svh_auto] md:grid-cols-[1fr_220px] md:grid-rows-1 lg:grid-cols-[2.73fr_1fr] items-stretch min-h-0"
       >
-        <!-- 좌: 실시간 카메라. 회색 bg 위에 3:4 비율 preview 를 가운데. viewport 왼쪽 끝까지 확장. -->
+        <!-- 좌: 실시간 카메라. 모바일에선 위쪽 row(1fr), md+ 에서 좌측 컬럼. -->
         <section
           aria-label="실시간 얼굴 분석"
-          class="app-bg-edge-extend-left flex min-h-0 items-center justify-center overflow-hidden bg-[#E5E7EB] p-6"
+          class="flex min-h-0 items-center justify-center bg-[#E5E7EB] p-4 sm:p-6"
         >
           <!--
             CameraView 내부가 `aspect-[3/4] w-full` 로 자기 크기를 잡으므로 wrapper 는 width 가
@@ -231,9 +231,9 @@
           </div>
         </section>
 
-        <!-- 우: 컨트롤 패널. 위에서 아래로 가이드 toggle / step / 상태 / 썸네일 4 영역. viewport 오른쪽 끝까지 확장. -->
+        <!-- 우: 컨트롤 패널. 모바일에선 하단 stack, md+ 에서 우측 컬럼. -->
         <aside
-          class="app-bg-edge-extend-right flex min-h-0 flex-col overflow-hidden border-l border-[var(--retina-text-200)] bg-white"
+          class="flex min-h-0 flex-col border-t md:border-t-0 md:border-l border-[var(--retina-text-200)] bg-white"
         >
           <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
             <div class="flex items-center justify-between gap-2">
