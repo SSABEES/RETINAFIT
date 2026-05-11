@@ -592,7 +592,10 @@
     </div>
   </section>
 
-  <LoadingOverlay open={g_is_creating_visit} label="새 방문 정보 생성 중..." />
+  <LoadingOverlay
+    open={g_visit_loading || g_is_creating_visit}
+    label={g_is_creating_visit ? '새 방문 정보 생성 중...' : '고객 정보 불러오는 중...'}
+  />
 
   <ConfirmModal
     open={g_face_required_modal_open}
