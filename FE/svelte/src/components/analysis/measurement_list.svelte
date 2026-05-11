@@ -42,11 +42,20 @@
   }
 
   /**
-   * 항목 값을 표시용 문자열로 변환한다. mm 우선, 없으면 px, 둘 다 없으면 '—'.
+   * 항목 값을 표시용 문자열로 변환한다. kind 분기 — distance: mm/px, angle: 절댓값 °.
+   * 각도 표시는 절댓값을 쓰는 이유:
+   *   1) 좌·우 측면 측정 결과가 시각적으로 일치 (사용자가 같은 안경에 같은 값 기대).
+   *   2) 일반 안경 전경각은 항상 양수 영역(8~12°) 이라 부호가 노출되면 오히려 노이즈.
+   * 부호 정보는 내부 value_deg_corrected/raw 에 그대로 보관 — 평가 로직·측정 오류 검증에서 활용.
    * @param {MeasurementItem} item
    * @returns {string}
    */
   function format_value(item) {
+    if (item.kind === 'angle') {
+      const v = item.value_deg_corrected ?? item.value_deg_raw
+      if (v === null || v === undefined) return '—'
+      return `${Math.abs(v).toFixed(1)}°`
+    }
     if (item.value_mm !== null && item.value_mm !== undefined) {
       return `${item.value_mm.toFixed(1)} mm`
     }
@@ -54,6 +63,32 @@
       return `${Math.round(item.value_px)} px`
     }
     return '—'
+  }
+
+  /**
+   * 각도 항목의 보조 텍스트 — 보정에 쓰인 image_tilt 값 표기. 보정 없으면 빈 문자열.
+   * @param {MeasurementItem} item
+   * @returns {string}
+   */
+  function format_correction_note(item) {
+    if (item.kind !== 'angle') return ''
+    if (item.value_deg_raw === null || item.value_deg_raw === undefined) return ''
+    const tilt = item.head_image_tilt_deg_used
+    if (tilt === null || tilt === undefined) return '보정 없음'
+    const sign = tilt >= 0 ? '+' : ''
+    return `머리 기울기 ${sign}${tilt.toFixed(1)}° 보정`
+  }
+
+  /**
+   * 측정값이 채워졌는지 — kind 별로 다른 필드 검사.
+   * @param {MeasurementItem} item
+   * @returns {boolean}
+   */
+  function has_value_of(item) {
+    if (item.kind === 'angle') {
+      return item.value_deg_raw !== null && item.value_deg_raw !== undefined
+    }
+    return item.value_px !== null && item.value_px !== undefined
   }
 </script>
 
@@ -76,10 +111,11 @@
     <ul class="m-0 flex min-h-0 flex-1 list-none flex-col gap-1 overflow-y-auto p-0">
       {#each items_arr as item (item.item_id)}
         {@const is_active = active_item_id === item.item_id}
-        {@const has_value = item.value_px !== null}
+        {@const has_value = has_value_of(item)}
+        {@const correction_note = format_correction_note(item)}
         <li>
           <div
-            class="flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-left transition hover:bg-[#FFF6EB]"
+            class="flex w-full cursor-pointer flex-col gap-1 rounded-[10px] px-3 py-2.5 text-left transition hover:bg-[#FFF6EB]"
             class:bg-[#FFF6EB]={is_active}
             role="button"
             tabindex="0"
@@ -92,41 +128,46 @@
               }
             }}
           >
-            <span
-              class="grid h-4 w-4 flex-none place-items-center rounded-full border border-slate-400"
-              class:border-[#F97316]={is_active}
-              aria-hidden="true"
-            >
-              {#if is_active}
-                <span class="h-2 w-2 rounded-full bg-[#F97316]"></span>
-              {/if}
-            </span>
-            <span class="flex-1 truncate text-sm font-semibold text-slate-700">{item.label}</span>
-            <span
-              class="flex-none text-sm font-bold tabular-nums"
-              class:text-[var(--retina-text)]={has_value}
-              class:text-slate-400={!has_value}
-            >
-              {format_value(item)}
-            </span>
-            <span
-              class="flex-none rounded-md px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider"
-              class:bg-emerald-100={item.source === 'auto'}
-              class:text-emerald-800={item.source === 'auto'}
-              class:bg-amber-100={item.source === 'manual'}
-              class:text-amber-800={item.source === 'manual'}
-            >
-              {item.source === 'auto' ? '자동' : '수동'}
-            </span>
-            {#if has_value && show_clear}
-              <button
-                class="grid h-6 w-6 flex-none cursor-pointer place-items-center rounded-full border-0 bg-transparent text-slate-500 transition hover:bg-red-100 hover:text-red-700"
-                type="button"
-                aria-label="{item.label} 측정값 지우기"
-                onclick={(evt) => on_click_clear(evt, item.item_id)}
+            <div class="flex w-full items-center gap-3">
+              <span
+                class="grid h-4 w-4 flex-none place-items-center rounded-full border border-slate-400"
+                class:border-[#F97316]={is_active}
+                aria-hidden="true"
               >
-                <X size={14} strokeWidth={2.5} aria-hidden="true" />
-              </button>
+                {#if is_active}
+                  <span class="h-2 w-2 rounded-full bg-[#F97316]"></span>
+                {/if}
+              </span>
+              <span class="flex-1 truncate text-sm font-semibold text-slate-700">{item.label}</span>
+              <span
+                class="flex-none text-sm font-bold tabular-nums"
+                class:text-[var(--retina-text)]={has_value}
+                class:text-slate-400={!has_value}
+              >
+                {format_value(item)}
+              </span>
+              <span
+                class="flex-none rounded-md px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider"
+                class:bg-emerald-100={item.source === 'auto'}
+                class:text-emerald-800={item.source === 'auto'}
+                class:bg-amber-100={item.source === 'manual'}
+                class:text-amber-800={item.source === 'manual'}
+              >
+                {item.source === 'auto' ? '자동' : '수동'}
+              </span>
+              {#if has_value && show_clear}
+                <button
+                  class="grid h-6 w-6 flex-none cursor-pointer place-items-center rounded-full border-0 bg-transparent text-slate-500 transition hover:bg-red-100 hover:text-red-700"
+                  type="button"
+                  aria-label="{item.label} 측정값 지우기"
+                  onclick={(evt) => on_click_clear(evt, item.item_id)}
+                >
+                  <X size={14} strokeWidth={2.5} aria-hidden="true" />
+                </button>
+              {/if}
+            </div>
+            {#if has_value && correction_note}
+              <span class="pl-7 text-[11px] font-medium text-slate-500">{correction_note}</span>
             {/if}
           </div>
         </li>

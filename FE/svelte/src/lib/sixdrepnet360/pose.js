@@ -33,3 +33,32 @@ export function rotation_matrix_to_euler(R) {
   const roll = Math.atan2(R[3], R[0]) * RAD
   return { yaw, pitch, roll }
 }
+
+/**
+ * 머리 위쪽 방향이 이미지 평면(카메라 미러링 화면)에서 수직(캔버스 위)과 이루는 각도 (도, 부호 있음).
+ *
+ * Euler 분해(rotation_matrix_to_euler)는 yaw≈±90°(측면 캡처) 에서 gimbal lock 으로 pitch 가
+ * ±180° 부근으로 튄다. 그러나 측면 측정에 정작 필요한 정보는 "이미지 평면 안에서 머리가 얼마나
+ * 기울어졌나" 한 값이라, 회전행렬에서 직접 사영해 뽑으면 분해를 거치지 않아 특이점에서도 안정적이다.
+ *
+ * 좌표계 (camera_view.svelte 의 project_cube 와 동일):
+ *   - 카메라/머리 좌표계 모두 x=right, y=down, z=out-of-screen
+ *   - 머리 위쪽 = 머리 좌표 (0, -1, 0)
+ *   - 카메라 좌표로: R·(0,-1,0) = (-R[1], -R[4], -R[7])
+ *   - 모델은 unmirrored raw 프레임 기준 R 을 출력. 측정값은 R 자체에서 추출 (시각화 미러링과 무관).
+ *   - 캔버스 위 사영은 cx - vx 식 (project_cube 참조) — 캔버스 scaleX(-1) 와 결합해 사용자 perception
+ *     과 일치. 우리 식은 사영을 거치지 않고 R 원소를 직접 보므로 그 부분 영향 없음.
+ *   - 부호 있는 각도 = atan2(R[1], R[4]). 정자세(R = I) 에서 0°, 측면 + pitch 자세에서 정확히 pitch 값.
+ *
+ * 정자세(R = I): R[1]=0, R[4]=1 → 0°.
+ * 머리가 캔버스에서 시계방향으로 기울어 보이면 양수, 반시계는 음수.
+ *
+ * 좌·우 측면에서는 카메라 방향이 반대라 같은 머리 자세도 부호가 뒤집혀 나온다 — 측정값으로 사용할
+ * 때 view 별 부호 보정은 호출측에서 책임진다.
+ *
+ * @param {Float32Array | number[]} R 9요소 회전행렬
+ * @returns {number} -180 ~ 180. 머리가 똑바로 = 0.
+ */
+export function image_plane_tilt_deg(R) {
+  return Math.atan2(R[1], R[4]) * RAD
+}

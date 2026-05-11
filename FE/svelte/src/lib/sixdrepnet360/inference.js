@@ -95,7 +95,7 @@ const STD_G = 0.224
 const STD_B = 0.225
 
 // face bbox 패딩(좌우/상하 각각). 6DRepNet 류 모델은 이마/턱까지 보아야 yaw 가 안정.
-const BBOX_PADDING = 0.25
+export const BBOX_PADDING = 0.25
 
 // variant 별 세션 promise 캐시. 한 번 로드된 variant 는 dispose_session 전까지 재사용.
 // 토글로 variant 를 왔다갔다해도 모델을 다시 다운로드하지 않는다.
@@ -164,6 +164,11 @@ export function get_session() {
 /**
  * 카메라 프레임 중앙의 정사각형 영역을 face crop bbox 로 사용한다.
  * 얼굴 검출 없이 동작하므로 사용자가 얼굴을 화면 중앙에 맞추는 UX 를 전제로 함.
+ *
+ * 분석/캡처 좌표계와 동일한 "가운데 3:4 영역" 의 짧은 변을 기준으로 정사각형을 산출 — stream 이
+ * 480×640(3:4) 든 1280×720(16:9) 든 face crop 안에서 얼굴이 동등하게 가득 채워진다. (이전 구현은
+ * stream 의 짧은 변을 그대로 써서, 가로형 stream 에서 정사각형이 좌우로 너무 넓어져 face 가
+ * 정사각형 가운데에 작게 들어가 6DRepNet360 yaw 정확도가 급격히 떨어졌다.)
  * @param {HTMLVideoElement} video
  * @returns {BBoxNorm}
  */
@@ -171,8 +176,19 @@ export function compute_center_square_bbox(video) {
   const w = video.videoWidth
   const h = video.videoHeight
   if (!w || !h) return { x: 0, y: 0, w: 1, h: 1 }
-  // 짧은 변 기준 정사각형. 너비 480 / 높이 640 카메라라면 정사각형 480px 가 세로 중앙에 위치.
-  const short = Math.min(w, h)
+  // 가운데 3:4 (480/640 = 0.75) 영역의 dimension 산출 — stream 이 가로형이면 가로 자름, 세로형이면
+  // 세로 자름. (3:4 일치인 경우 자름 없음 — 480×640 케이스에서 이전 동작과 동일.)
+  const TARGET_ASPECT = 3 / 4
+  const src_aspect = w / h
+  let crop_w = w
+  let crop_h = h
+  if (src_aspect > TARGET_ASPECT) {
+    crop_w = h * TARGET_ASPECT
+  } else if (src_aspect < TARGET_ASPECT) {
+    crop_h = w / TARGET_ASPECT
+  }
+  // 그 영역 안에서 짧은 변 기준 정사각형 (가운데 정렬).
+  const short = Math.min(crop_w, crop_h)
   const size_norm_w = short / w
   const size_norm_h = short / h
   return {
