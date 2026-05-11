@@ -4,10 +4,49 @@
 
 // 모든 캡처를 동일 dimension 으로 정규화하기 위한 고정 사이즈. 카메라 stream 의 실제 resolution
 // 이 단계마다 살짝 다르게 보고되는 케이스 (브라우저/디바이스/타이밍 차이) 를 방어하고, 결과 페이지의
-// MeasureCanvas 가 모든 단계에서 같은 aspect 로 표시되도록 강제. on_start_camera 의 ideal 요청
-// (480×640) 과 일치 — 정상 케이스에선 1:1 복사, 다른 aspect 면 center-crop.
+// MeasureCanvas 가 모든 단계에서 같은 aspect 로 표시되도록 강제.
+// 카메라 stream 은 화면 fill 을 위해 가로형(예: 1280×720) 으로 받지만, 캡처는 항상 가운데 3:4
+// 영역만 잘라 480×640 으로 정규화. 분석/측정/저장 좌표계는 모두 이 480×640 을 기준으로 통일.
 const NORMALIZED_W = 480
 const NORMALIZED_H = 640
+const NORMALIZED_ASPECT = NORMALIZED_W / NORMALIZED_H
+
+/**
+ * 비디오 프레임에서 가운데 3:4 영역의 픽셀 좌표를 반환한다. video_to_blob 의 center-crop 와 동일.
+ * @param {number} video_w
+ * @param {number} video_h
+ */
+export function get_center_crop_box(video_w, video_h) {
+  const src_aspect = video_w / video_h
+  let crop_x = 0
+  let crop_y = 0
+  let crop_w = video_w
+  let crop_h = video_h
+  if (src_aspect > NORMALIZED_ASPECT) {
+    crop_w = video_h * NORMALIZED_ASPECT
+    crop_x = (video_w - crop_w) / 2
+  } else if (src_aspect < NORMALIZED_ASPECT) {
+    crop_h = video_w / NORMALIZED_ASPECT
+    crop_y = (video_h - crop_h) / 2
+  }
+  return { crop_x, crop_y, crop_w, crop_h, video_w, video_h }
+}
+
+/**
+ * MediaPipe NormalizedLandmark 배열을 비디오 전체 프레임 좌표계 → 가운데 3:4 crop 좌표계로 변환.
+ * remap 후 좌표 [0,1] 범위는 crop 영역 기준 — NORMALIZED_W/H 와 곱하면 캡처 픽셀과 일치.
+ * @param {ReadonlyArray<{ x: number, y: number, z?: number, visibility?: number }>} landmarks
+ * @param {ReturnType<typeof get_center_crop_box>} crop
+ */
+export function remap_landmarks_to_crop(landmarks, crop) {
+  const { crop_x, crop_y, crop_w, crop_h, video_w, video_h } = crop
+  if (crop_w === video_w && crop_h === video_h) return landmarks
+  return landmarks.map((lm) => ({
+    ...lm,
+    x: (lm.x * video_w - crop_x) / crop_w,
+    y: (lm.y * video_h - crop_y) / crop_h,
+  }))
+}
 
 /**
  * 현재 재생 중인 <video> 의 프레임을 480×640 JPEG Blob 으로 변환한다. 단계별 캡처 dimension

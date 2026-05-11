@@ -104,3 +104,54 @@ export async function preload_sixdrepnet_model(variant, on_progress, signal) {
 
   return local_bytes
 }
+
+/** @type {Map<ModelVariant, Promise<void>>} */
+const g_ensure_promises_obj = new Map()
+
+/**
+ * Cache Storage 에 모델 바이트가 보존돼 있는지 점검하고 비어있으면 백그라운드로 fetch + 저장한다.
+ *
+ * 동기: 메모리 안 InferenceSession (`g_session_promises_obj`) 이 살아있어도 Cache Storage 는 별도 레이어
+ * 라 외부 삭제 (DevTools 수동 제거, "사이트 데이터 삭제", quota evict) 로 비어버릴 수 있다. 그 상태로
+ * 다음 full reload 가 일어나면 splash 가 다시 ~94MB 를 다운로드하게 됨 — 측정용 앱 특성상 cold start
+ * 비용이 부담된다. SPA navigation 마다 본 함수를 fire-and-forget 호출해 cache 가 비었을 때 백그라운드
+ * 로 복구하여 다음 reload 의 cold start 를 차단한다.
+ *
+ * - 같은 variant 의 진행 중 호출은 dedup — 라우터 빠른 연속 이동 시 중복 fetch 방지
+ * - 실패 silent — 다음 navigation 에서 자연 재시도
+ * - 이미 cache 가 있으면 즉시 종료 (네트워크 0)
+ *
+ * @param {ModelVariant} variant
+ * @returns {Promise<void>}
+ */
+export function ensure_cache_warm(variant) {
+  // Cache Storage 미지원 환경 (비-secure context) 에서는 검증 자체가 무의미 — fetch 만 낭비.
+  if (typeof caches === 'undefined') return Promise.resolve()
+
+  const local_existing = g_ensure_promises_obj.get(variant)
+  if (local_existing) return local_existing
+
+  const local_promise = (async () => {
+    try {
+      const local_url = build_model_url(variant)
+      const local_cached = await get_cached_model_response(local_url)
+      if (local_cached) return
+
+      // cache miss — 백그라운드 fetch + store. 진행률 콜백 없음 (UI 비차단 복구라 표시 불필요).
+      const local_response = await fetch(local_url)
+      if (!local_response.ok) return
+
+      const local_content_type = local_response.headers.get('Content-Type') ?? ''
+      if (local_content_type.includes('text/html')) return  // SPA fallback HTML 응답 차단
+
+      await store_model_response(local_url, local_response)
+    } catch {
+      // best-effort — 네트워크 오류 등은 silent. 다음 navigation 에서 재시도.
+    } finally {
+      g_ensure_promises_obj.delete(variant)
+    }
+  })()
+
+  g_ensure_promises_obj.set(variant, local_promise)
+  return local_promise
+}

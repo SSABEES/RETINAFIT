@@ -10,8 +10,16 @@
     PITCH_THR,
     ROLL_THR,
   } from '@/lib/mediapipe/face_landmarker.js'
+  import { clear_video_detector_cache } from '@/lib/mediapipe/face_detector.js'
   import { compute_measurements, compute_measurement_points } from '@/lib/mediapipe/measurements.js'
-  import { video_to_blob } from '@/lib/capture/capture_utils.js'
+  import {
+    video_to_blob,
+    get_center_crop_box,
+    remap_landmarks_to_crop,
+  } from '@/lib/capture/capture_utils.js'
+  // 분석·캡처 좌표계 — 가운데 3:4 crop 기준 480×640.
+  const ANALYSIS_W = 480
+  const ANALYSIS_H = 640
   // 측면(left_profile/right_profile) 자세 감지 composable. pose_target 에 따라 tick() 이
   // no-op 이거나 6D 추론 발사. 정면 단계엔 무관 — 인스턴스만 만들어두고 사용 안 함.
   import { create_profile_pose_detector } from '@/lib/capture/use_profile_pose.svelte.js'
@@ -38,6 +46,7 @@
    * @property {FaceMeasurements | null} measurements_obj
    * @property {Record<string, [Point2D, Point2D]> | null} measurement_points_obj
    * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[] | null} landmarks
+   * @property {import('@/lib/stores/capture_session.svelte.js').HeadPoseSnapshot | null} head_pose
    */
 
   /** @type {{
@@ -71,6 +80,10 @@
   let ref_this_video_el = $state(null)
   /** @type {HTMLCanvasElement | null} */
   let ref_this_canvas_el = $state(null)
+  // 좌우 빈 영역을 같은 스트림의 흐릿한 확대본으로 채워 시각적으로 fill 효과.
+  // 분석/캡처 video 와 별개 element 지만 동일 MediaStream 공유 — 같은 프레임이라 sync 문제 없음.
+  /** @type {HTMLVideoElement | null} */
+  let ref_this_backdrop_video_el = $state(null)
 
   // 비동기 카메라 시작 도중 cleanup 이 끼어들 때 stale rAF/이벤트 핸들러 등록을 막기 위한 세대 토큰.
   // on_stop_camera 가 증가시키고, on_start_camera 는 각 await 뒤에 자신의 세대가 아직 유효한지 확인한다.
@@ -382,11 +395,12 @@
       if (my_generation !== g_start_generation) return
       g_landmarker = landmarker
 
-      // 480x640 (3:4 세로 비율): 얼굴 분석 UX 에 맞춰 인물 비율로 요청.
-      // 페이스 메시 정확도와 추론 비용의 타협점은 장변 640 기준에서 동일.
-      // 가로 전용 장치인 경우 가장 가까운 해상도로 대체 반환 → object-cover 로 자동 크롭.
+      // 가로 1280×720 (16:9) 로 요청 — 좌우 빈 영역까지 진짜 카메라 시야로 채우기 위함.
+      // 분석·캡처는 가운데 3:4 영역(540×720) 만 사용하며, 480×640 으로 정규화 저장.
+      // 디바이스가 정확히 1280×720 을 못 줘도 가까운 가로형으로 대체 반환 — get_center_crop_box 가
+      // 모든 aspect 에서 가운데 3:4 영역을 정확히 산출.
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 480 }, height: { ideal: 640 }, facingMode: 'user' },
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
         audio: false,
       })
       if (my_generation !== g_start_generation) {
@@ -400,6 +414,11 @@
       if (my_generation !== g_start_generation) return
       if (!ref_this_video_el) throw new Error('video element missing')
       ref_this_video_el.srcObject = g_stream
+      // 동일 stream 을 backdrop 에도 연결. 별도 onloadedmetadata 훅 없이 자동재생만.
+      if (ref_this_backdrop_video_el) {
+        ref_this_backdrop_video_el.srcObject = g_stream
+        ref_this_backdrop_video_el.play().catch(() => {})
+      }
       ref_this_video_el.onloadedmetadata = () => {
         // metadata 콜백이 불릴 시점에 이미 정지되었으면 재생하지 않는다.
         if (my_generation !== g_start_generation || !ref_this_video_el || !g_stream) return
@@ -446,7 +465,11 @@
       ref_this_video_el.onloadedmetadata = null
       ref_this_video_el.srcObject = null
     }
+    if (ref_this_backdrop_video_el) {
+      ref_this_backdrop_video_el.srcObject = null
+    }
     clear_video_cache()
+    clear_video_detector_cache()
   }
 
   async function run_auto_capture_sequence() {
@@ -546,17 +569,24 @@
     if (g_frame_counter % FRAME_SKIP === 0) {
       if (pose_target === 'front') {
         // ───── 정면: MediaPipe 검출 + frontal/completeness/안정성 ─────
+        // 비디오는 가로형 (예 1280×720) 으로 받지만 분석·측정·캡처 좌표계는 가운데 3:4 crop 으로 통일.
+        // landmarks 를 crop 좌표계로 remap 한 뒤 측정/완전성 검사에 넘긴다.
+        // (frontal 은 transformation matrix 기반이라 좌표계 영향 없음 → result 원본 그대로 사용)
         const result = detect_from_video(g_landmarker, ref_this_video_el)
         g_last_detection = result
         if (result?.faceLandmarks?.length) {
           g_face_detected = true
-          g_complete_obj = check_face_completeness(result)
-          g_frontal_obj = check_frontal(result)
-          const m = compute_measurements(
-            result.faceLandmarks[0],
+          const local_crop = get_center_crop_box(
             ref_this_video_el.videoWidth,
             ref_this_video_el.videoHeight,
           )
+          const local_remapped_arr = remap_landmarks_to_crop(result.faceLandmarks[0], local_crop)
+          g_complete_obj = check_face_completeness({
+            ...result,
+            faceLandmarks: [local_remapped_arr],
+          })
+          g_frontal_obj = check_frontal(result)
+          const m = compute_measurements(local_remapped_arr, ANALYSIS_W, ANALYSIS_H)
           if (m) g_measurements_obj = m
           if (
             g_should_check_frontal &&
@@ -625,10 +655,28 @@
     try {
       const { blob, width, height } = await video_to_blob(ref_this_video_el)
       const object_url = URL.createObjectURL(blob)
-      // 캡쳐 시점의 랜드마크 쌍을 픽셀 공간 좌표로 변환. 랜드마크가 없으면 null.
-      const landmarks = g_last_detection?.faceLandmarks?.[0] ?? null
+      // landmarks 는 비디오 전체 프레임 기준 [0,1] — 캡처(가운데 3:4 crop, 480×640) 와 좌표계가
+      // 다르므로 crop 좌표계로 remap 후 저장 · measurement_points 계산.
+      const raw_landmarks = g_last_detection?.faceLandmarks?.[0] ?? null
+      const landmarks = raw_landmarks
+        ? remap_landmarks_to_crop(
+            raw_landmarks,
+            get_center_crop_box(ref_this_video_el.videoWidth, ref_this_video_el.videoHeight),
+          )
+        : null
       const measurement_points_obj = landmarks
         ? compute_measurement_points(landmarks, width, height)
+        : null
+      // 측면 캡처 시점의 머리 자세를 동결 — 전경각 보정에 쓰인다. last_image_tilt 가 buffer 평균
+      // 후 안정화된 값이므로 캡처 직전 jitter 영향이 작은 값을 그대로 보관. 정면 캡처거나 추론 결과가
+      // 아직 없으면 null (보정 없이 raw 림 각도가 측정값으로 사용됨).
+      const head_pose = pose_target !== 'front' && profile_pose.last_image_tilt !== null
+        ? {
+            image_tilt_deg: profile_pose.last_image_tilt,
+            pitch_deg: profile_pose.last_pitch,
+            yaw_deg: profile_pose.last_yaw,
+            roll_deg: profile_pose.last_roll,
+          }
         : null
       oncapture?.({
         blob,
@@ -639,6 +687,7 @@
         measurements_obj: measurements_obj ?? null,
         measurement_points_obj,
         landmarks,
+        head_pose,
       })
     } catch (err) {
       // 촬영 실패 시 재시도 가능하도록 dispatched 플래그 해제 + 소비자에게 에러 알림.
@@ -698,13 +747,14 @@
     const ctx = ref_this_canvas_el.getContext('2d')
     if (!ctx) return
 
-    const w = ref_this_canvas_el.width
-    const h = ref_this_canvas_el.height
-    const cx = w * 0.5
-    const cy = h * 0.47
+    // 가이드는 캡처와 동일한 가운데 3:4 영역을 기준으로 그린다 — 사용자가 보는 가이드 타원이
+    // "캡처될 영역" 과 같은 공간을 지칭하도록.
+    const crop = get_center_crop_box(ref_this_canvas_el.width, ref_this_canvas_el.height)
+    const cx = crop.crop_x + crop.crop_w * 0.5
+    const cy = crop.crop_y + crop.crop_h * 0.47
 
-    // 얼굴 전체 세로(이마 위~턱 끝). 카메라 프레임 세로의 60% 를 얼굴 영역으로 가정.
-    const face_h = h * 0.6
+    // 얼굴 전체 세로(이마 위~턱 끝). 캡처 영역 세로의 60% 를 얼굴 영역으로 가정.
+    const face_h = crop.crop_h * 0.6
     // 광대뼈 너비(최대 가로) — 얼굴 세로의 약 76% 가 일반적 해부학 평균.
     const face_w = face_h * 0.76
 
@@ -829,13 +879,44 @@
 
   // pitch / roll 은 정면용 angle_style 그대로 사용 — 0 에서 멀어질수록 'not ok'. 측면 자세에서도
   // 사용자 머리가 위/아래/기울어짐 없이 수평으로 돌아가는 게 이상적이라 같은 의미로 적용 가능.
-  const g_profile_pitch_style = $derived(angle_style(profile_pose.last_pitch ?? 0, PITCH_THR))
+  // 단 측면(yaw≈±90°) 에서 ZYX Euler 분해의 pitch 는 gimbal lock 으로 ±180° 부근까지 튐 — 화면에는
+  // 회전행렬에서 직접 사영한 image_plane_tilt(특이점 무관, 정자세=0°) 를 대신 노출.
+  //
+  // Dead zone: 정자세 유지 시 모델 R jitter 로 ±1° 안쪽 흔들림이 남는다. 표시값에만 dead band
+  // 적용해 |값| < 1° 면 0° 로 잠금. 캡처 시점 동결되는 raw last_image_tilt 는 그대로 사용해 보정
+  // 정확도 유지.
+  const IMAGE_TILT_DEADBAND_DEG = 1.0
+  const g_image_tilt_display = $derived.by(() => {
+    const v = profile_pose.last_image_tilt
+    if (v === null) return 0
+    return Math.abs(v) < IMAGE_TILT_DEADBAND_DEG ? 0 : v
+  })
+  const g_profile_pitch_style = $derived(angle_style(g_image_tilt_display, PITCH_THR))
   const g_profile_roll_style = $derived(angle_style(profile_pose.last_roll ?? 0, ROLL_THR))
 </script>
 
-<div class="flex flex-col gap-3">
+<div class="relative flex h-full w-full items-center justify-center overflow-hidden bg-black">
+  <!--
+    좌우 빈 영역까지 진짜 카메라 시야로 채우기 위해 가로형(1280×720) stream 을 가로 영역 전체에
+    object-cover 로 fill. 분석/캡처는 가운데 3:4 영역만 처리하지만, 사용자에게는 카메라가 잡고 있는
+    더 넓은 시야가 시각적으로 노출 — 자연스러운 fill.
+  -->
+  <video
+    bind:this={ref_this_backdrop_video_el}
+    class="pointer-events-none absolute inset-0 h-full w-full object-cover"
+    style="transform: scaleX(-1);"
+    aria-hidden="true"
+    playsinline
+    autoplay
+    muted
+  ></video>
+  <!--
+    가운데 3:4 wrapper — 실제 캡처되는 영역. 같은 stream 을 한번 더 깔지만 좌표계 정합 (canvas
+    overlay·가이드 타원이 이 영역 안에 그려짐) 을 위해 분리. 외곽 ring 으로 "이 안만 캡처됨" 을
+    시각적으로 명시.
+  -->
   <div
-    class="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black shadow-md shadow-slate-300/60"
+    class="relative aspect-[3/4] h-full overflow-hidden bg-black ring-2 ring-[var(--retina-primary-300)]/40"
   >
     <video
       bind:this={ref_this_video_el}
@@ -1030,7 +1111,7 @@
             class="w-12 text-right font-bold tabular-nums"
             style="color: {g_profile_pitch_style.text_color};"
           >
-            {(profile_pose.last_pitch ?? 0).toFixed(1)}°
+            {g_image_tilt_display.toFixed(1)}°
           </span>
         </div>
         <div class="flex items-center gap-2">

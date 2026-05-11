@@ -275,9 +275,12 @@
   })
 
   // 정면 미착용 항목들만 추려 MeasureCanvas/MeasurementList 가 기대하는 형태로 빌드.
+  // template.js 의 view 는 배열 — 다중 뷰 항목(예: left_glasses+right_glasses) 지원을 위해
+  // 문자열 비교가 아니라 includes 로 매칭한다. (이전 버그: view==='front_no_glasses' 는 항상 false 라
+  // items_arr 가 항상 비어 "이 뷰에 정의된 측정 항목이 없습니다." 가 노출되었다.)
   const g_items_arr = $derived.by(() => {
     return MEASUREMENT_TEMPLATE.filter(
-      (local_entry) => local_entry.view === 'front_no_glasses',
+      (local_entry) => local_entry.view?.includes?.('front_no_glasses'),
     ).map((local_entry) => {
       const local_points = g_local_points_obj?.[local_entry.item_id] ?? null
       const local_value_px = local_points ? pixel_distance(local_points[0], local_points[1]) : null
