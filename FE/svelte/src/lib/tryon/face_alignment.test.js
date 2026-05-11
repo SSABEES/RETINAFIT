@@ -14,6 +14,7 @@ import {
   apply_face_pose,
   compute_auto_calibration,
   apply_auto_alignment,
+  compute_yaw_deg,
 } from './face_alignment.js'
 
 describe('apply_face_pose', () => {
@@ -200,5 +201,32 @@ describe('apply_auto_alignment', () => {
     expect(g.quaternion.y).toBeCloseTo(0, 5)
     expect(g.quaternion.z).toBeCloseTo(0, 5)
     expect(Math.abs(g.quaternion.w)).toBeCloseTo(1, 5)
+  })
+})
+
+describe('compute_yaw_deg', () => {
+  // identity quaternion = 정면 응시. yaw 는 0.
+  it('identity quaternion 은 yaw 0', () => {
+    const q = new Quaternion()
+    expect(compute_yaw_deg(q)).toBeCloseTo(0, 5)
+  })
+
+  // Y 축 +30° 회전 (머리가 자기 오른쪽으로 돔, 카메라엔 좌측 얼굴이 더 보임).
+  // three.js Quaternion.setFromAxisAngle(Y, +π/6) → 추출 시 +30°.
+  it('Y 축 양의 회전 → 양의 yaw deg', () => {
+    const q = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI / 6)
+    expect(compute_yaw_deg(q)).toBeCloseTo(30, 3)
+  })
+
+  // Y 축 -30° 회전 → -30°.
+  it('Y 축 음의 회전 → 음의 yaw deg', () => {
+    const q = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), -Math.PI / 6)
+    expect(compute_yaw_deg(q)).toBeCloseTo(-30, 3)
+  })
+
+  // X/Z 축 회전은 yaw 에 영향 거의 없어야 한다 (pure roll/pitch).
+  it('순수 pitch (X축 회전) 는 yaw 약 0', () => {
+    const q = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), Math.PI / 8)
+    expect(Math.abs(compute_yaw_deg(q))).toBeLessThan(1)
   })
 })

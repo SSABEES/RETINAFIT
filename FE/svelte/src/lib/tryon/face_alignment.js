@@ -2,7 +2,7 @@
  * MediaPipe FaceLandmarker 의 facialTransformationMatrixes 4x4 (row-major mm)
  * 와 three.js Object3D 사이의 변환 + GLB 자동 정렬 알고리즘.
  */
-import { Matrix4, Quaternion, Vector3 } from 'three'
+import { Matrix4, Quaternion, Vector3, Euler } from 'three'
 
 /**
  * @typedef {object} AutoCalibration
@@ -242,6 +242,19 @@ export function apply_auto_alignment(group, cal) {
   group.scale.setScalar(cal.scale)
   group.position.copy(cal.anchor).multiplyScalar(-cal.scale).applyQuaternion(cal.axes_quat)
   group.updateMatrix()
+}
+
+// quaternion 에서 yaw (Y축 회전, degrees) 만 추출한다. anchor 정합과 무관한 다리 가시성
+// 토글에 사용. Euler 순서 'YXZ' 는 yaw 가 가장 먼저 적용되어 X/Z 회전과 independence 보장.
+const _temp_yaw_euler = new Euler(0, 0, 0, 'YXZ')
+
+/**
+ * @param {Quaternion} quat
+ * @returns {number} yaw degrees
+ */
+export function compute_yaw_deg(quat) {
+  _temp_yaw_euler.setFromQuaternion(quat, 'YXZ')
+  return (_temp_yaw_euler.y * 180) / Math.PI
 }
 
 // 모델 좌표축 (tx, ty, tz) ∈ {x,y,z} 를 정규 (X=좌우, Y=상하, Z=앞뒤) 로 매핑하는 quaternion 을 만든다.
