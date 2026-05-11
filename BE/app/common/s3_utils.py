@@ -4,15 +4,17 @@ import uuid
 
 from app.core.config import settings
 
+# 모듈 레벨에서 S3 클라이언트 한 번만 생성
+_s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+    region_name=settings.AWS_REGION,
+)
 
 def get_s3_client():
-    """S3 클라이언트 생성"""
-    return boto3.client(
-        "s3",
-        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        region_name=settings.AWS_REGION,
-    )
+    """S3 클라이언트 반환 (싱글톤)"""
+    return _s3_client
 
 
 def generate_presigned_url(object_key: str, expires_in: int = 600, content_type: str = "image/jpeg") -> str:
