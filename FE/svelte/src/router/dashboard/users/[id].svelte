@@ -10,6 +10,7 @@
   } from 'lucide-svelte'
   import Header from '@/components/layout/header.svelte'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
+  import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import { PATH } from '@/config/path'
   import { get_visit_list, create_visit, update_visit } from '@/lib/api/visit'
   import {
@@ -34,6 +35,12 @@
   let g_visit_arr = $state([])
   let g_visit_loading = $state(true)
   let g_is_creating_visit = $state(false)
+  // 얼굴분석 미이수 상태에서 생활패턴/피팅을 시작하려 할 때 띄우는 안내 모달.
+  // 확인 시 얼굴분석 단계부터 강제로 진행하도록 유도.
+  let g_face_required_modal_open = $state(false)
+  // 얼굴분석은 했지만 생활패턴 미이수 상태에서 피팅을 시작하려 할 때 띄우는 안내 모달.
+  // 확인 시 생활패턴 단계부터 강제로 진행하도록 유도.
+  let g_lifestyle_required_modal_open = $state(false)
 
   // 방문 이력 화면에 노출할 visit 만 필터 — 얼굴분석/생활패턴/AR피팅/실착용 중 하나라도 있어야 노출.
   // 4개 단계 모두 미진행인 빈 visit (예: create 직후 아무 데이터도 없는 방문) 은 숨긴다.
@@ -212,6 +219,21 @@
   /** @param {StepInfo} step_obj */
   async function on_click_start_step(step_obj) {
     if (g_is_creating_visit) return
+
+    // 얼굴분석 이력이 없는 고객은 생활패턴/피팅 단계로 바로 진입할 수 없다.
+    // 안내 모달을 띄워 "얼굴분석부터 진행하기" 로 유도. (face 단계 자체는 그대로 통과)
+    if ((step_obj.key === 'lifestyle' || step_obj.key === 'fitting') && !g_face_done) {
+      g_face_required_modal_open = true
+      return
+    }
+
+    // 얼굴분석은 했지만 생활패턴이 없는 경우, 피팅으로 바로 진입할 수 없다.
+    // 생활패턴 단계로 강제 유도.
+    if (step_obj.key === 'fitting' && !g_lifestyle_done) {
+      g_lifestyle_required_modal_open = true
+      return
+    }
+
     const local_customer_obj = g_customer_obj
     if (!local_customer_obj) {
       push_error_toast('고객 정보를 찾을 수 없습니다.')
@@ -289,6 +311,32 @@
 
   function on_click_back() {
     navigate(PATH.users)
+  }
+
+  // 모달 닫기 — 현재 화면 유지.
+  function on_cancel_face_required() {
+    g_face_required_modal_open = false
+  }
+
+  // 모달 확인 — 얼굴분석 단계로 강제 진행. 가드는 face key 일 땐 통과하므로 재호출 안전.
+  function on_confirm_face_required() {
+    g_face_required_modal_open = false
+    const local_face_step_obj = STEP_INFO_ARR.find((local_step) => local_step.key === 'face')
+    if (local_face_step_obj) void on_click_start_step(local_face_step_obj)
+  }
+
+  // lifestyle required 모달 닫기.
+  function on_cancel_lifestyle_required() {
+    g_lifestyle_required_modal_open = false
+  }
+
+  // lifestyle 모달 확인 — 생활패턴 단계로 강제 진행. 가드는 fitting 일 때만 걸리므로 재호출 안전.
+  function on_confirm_lifestyle_required() {
+    g_lifestyle_required_modal_open = false
+    const local_lifestyle_step_obj = STEP_INFO_ARR.find(
+      (local_step) => local_step.key === 'lifestyle',
+    )
+    if (local_lifestyle_step_obj) void on_click_start_step(local_lifestyle_step_obj)
   }
 
   $effect(() => {
@@ -545,4 +593,26 @@
   </section>
 
   <LoadingOverlay open={g_is_creating_visit} label="새 방문 정보 생성 중..." />
+
+  <ConfirmModal
+    open={g_face_required_modal_open}
+    title="얼굴분석이 먼저 필요해요"
+    message={'얼굴분석 진행 이력이 없습니다.\n생활패턴·피팅 단계는 얼굴분석 결과를 기반으로 진행됩니다.\n얼굴분석부터 진행해 주세요.'}
+    cancelLabel="닫기"
+    confirmLabel="얼굴분석부터 진행하기"
+    onclose={on_cancel_face_required}
+    oncancel={on_cancel_face_required}
+    onconfirm={on_confirm_face_required}
+  />
+
+  <ConfirmModal
+    open={g_lifestyle_required_modal_open}
+    title="생활패턴이 먼저 필요해요"
+    message={'생활패턴 진행 이력이 없습니다.\n피팅 단계는 생활패턴 정보를 기반으로 진행됩니다.\n생활패턴부터 진행해 주세요.'}
+    cancelLabel="닫기"
+    confirmLabel="생활패턴부터 진행하기"
+    onclose={on_cancel_lifestyle_required}
+    oncancel={on_cancel_lifestyle_required}
+    onconfirm={on_confirm_lifestyle_required}
+  />
 </main>
