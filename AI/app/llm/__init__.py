@@ -3,6 +3,7 @@
 설정값(LLM_PROVIDER 환경변수) 에 따라 구체 구현체를 골라 반환.
 Spring 의 @ConditionalOnProperty 로 빈을 갈아끼우는 것과 동일한 패턴.
 """
+from app.common.exceptions import AIException
 from app.core.config import settings
 from app.llm.base import LLMProvider
 from app.llm.dummy import DummyLLMProvider
@@ -27,7 +28,11 @@ def build_llm_provider() -> LLMProvider:
     if provider == "dummy":
         # 로컬 개발/테스트용 echo provider — 실제 LLM 호출 없이 프롬프트를 그대로 반환.
         return DummyLLMProvider()
-    raise ValueError(f"Unknown LLM provider: {provider}")
+    # 알 수 없는 provider 값은 도메인 예외로 일관화.
+    # raw ValueError 로 두면 전역 핸들러의 unhandled_exception_handler 가 500 으로 잡아버려서
+    # "설정 오류"라는 의미가 응답·로그에서 드러나지 않음. AIException 으로 던지면
+    # ai_exception_handler 가 502 + error_code=AI_FAILURE 로 일관 응답.
+    raise AIException(f"Unknown LLM provider: {provider}")
 
 
 # 외부에서 `from app.llm import ...` 로 가져올 공개 심볼.
