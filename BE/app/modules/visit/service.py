@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import BackgroundTasks
 
 from app.core.config import settings
+from app.core.http_client import http_client
 from app.common.s3_utils import get_presigned_download_url
 from app.common.exceptions import ExternalAPIException, NotFoundException
 from app.common.error_codes import ErrorCode
@@ -58,30 +59,29 @@ async def search_customer(
     db: AsyncSession,
 ) -> list[CustomerSearchResponse]:
     """전화번호로 고객 검색 (외부 Retina API 중계)"""
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                url=f"{settings.EXTERNAL_API_BASE_URL}/retina/request",
-                json={
-                    "data": {
-                        "p_nm": "PKG_RTN_SSAFY.SP_L_CUST_PHONE",
-                        "in1": str(opt_no),
-                        "in2": phone_no.replace("-", "").replace(" ", ""),
-                        "out1": "cursor",
-                        "out2": "num",
-                    },
-                    "token": token,
-                    "token_no": token_no,
+    try:
+        response = await http_client.post(
+            url=f"{settings.EXTERNAL_API_BASE_URL}/retina/request",
+            json={
+                "data": {
+                    "p_nm": "PKG_RTN_SSAFY.SP_L_CUST_PHONE",
+                    "in1": str(opt_no),
+                    "in2": phone_no.replace("-", "").replace(" ", ""),
+                    "out1": "cursor",
+                    "out2": "num",
                 },
-                timeout=10.0,
-            )
-            response.raise_for_status()
-            data = response.json()
+                "token": token,
+                "token_no": token_no,
+            },
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        data = response.json()
 
-        except httpx.TimeoutException:
-            raise ExternalAPIException("외부 API 응답 시간이 초과됐습니다.")
-        except httpx.HTTPError:
-            raise ExternalAPIException("외부 API 호출에 실패했습니다.")
+    except httpx.TimeoutException:
+        raise ExternalAPIException("외부 API 응답 시간이 초과됐습니다.")
+    except httpx.HTTPError:
+        raise ExternalAPIException("외부 API 호출에 실패했습니다.")
 
     _check_token_expired(data)
     _check_external_error(data)
@@ -113,35 +113,34 @@ async def create_customer(
     token_no: str,
 ) -> bool:
     """신규 고객 등록 (외부 Retina API 중계)"""
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                url=f"{settings.EXTERNAL_API_BASE_URL}/retina/request",
-                json={
-                    "data": {
-                        "p_nm": "PKG_RTN_SSAFY.SP_I_CUST",
-                        "in1": str(opt_no),
-                        "in2": request.cust_name,
-                        "in3": request.phone1,
-                        "in4": request.phone2 or "",
-                        "in5": request.birthday or "",
-                        "in6": str(request.sex) if request.sex is not None else "",
-                        "out1": "num",
-                        "out2": "num",
-                        "out3": "num",
-                    },
-                    "token": token,
-                    "token_no": token_no,
+    try:
+        response = await http_client.post(
+            url=f"{settings.EXTERNAL_API_BASE_URL}/retina/request",
+            json={
+                "data": {
+                    "p_nm": "PKG_RTN_SSAFY.SP_I_CUST",
+                    "in1": str(opt_no),
+                    "in2": request.cust_name,
+                    "in3": request.phone1,
+                    "in4": request.phone2 or "",
+                    "in5": request.birthday or "",
+                    "in6": str(request.sex) if request.sex is not None else "",
+                    "out1": "num",
+                    "out2": "num",
+                    "out3": "num",
                 },
-                timeout=10.0,
-            )
-            response.raise_for_status()
-            data = response.json()
+                "token": token,
+                "token_no": token_no,
+            },
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        data = response.json()
 
-        except httpx.TimeoutException:
-            raise ExternalAPIException("외부 API 응답 시간이 초과됐습니다.")
-        except httpx.HTTPError:
-            raise ExternalAPIException("외부 API 호출에 실패했습니다.")
+    except httpx.TimeoutException:
+        raise ExternalAPIException("외부 API 응답 시간이 초과됐습니다.")
+    except httpx.HTTPError:
+        raise ExternalAPIException("외부 API 호출에 실패했습니다.")
 
     _check_token_expired(data)
     _check_external_error(data)
