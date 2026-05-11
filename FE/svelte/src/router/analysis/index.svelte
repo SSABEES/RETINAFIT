@@ -232,9 +232,9 @@
         <aside
           class="flex min-h-0 flex-col border-t md:border-t-0 md:border-l border-[var(--retina-text-200)] bg-white"
         >
-          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
+          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
             <div class="flex items-center justify-between gap-2">
-              <p class="text-[12px] font-extrabold text-[var(--retina-text-800)]">가이드 표시</p>
+              <p class="font-extrabold text-[var(--retina-text-800)] text-[clamp(10px,1.6svh,14px)]">가이드 표시</p>
               <button
                 type="button"
                 class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
@@ -271,7 +271,7 @@
             </section>
           -->
 
-          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
+          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
             <StepStatusBar
               step={g_current_step}
               is_capturing={g_is_capturing}
@@ -279,7 +279,7 @@
             />
           </section>
 
-          <section class="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-3">
+          <section class="flex min-h-0 flex-1 flex-col overflow-hidden px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
             <CaptureThumbnails />
           </section>
         </aside>
