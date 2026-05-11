@@ -8,7 +8,7 @@ async def create_visit(db: AsyncSession, visit_data: dict) -> Visit:
     """방문 생성 - visited 테이블에 row 추가"""
     visit = Visit(**visit_data)
     db.add(visit)
-    await db.commit()
+    await db.flush()
     await db.refresh(visit)  # visit_no 자동 채워짐
     return visit
 
@@ -37,7 +37,7 @@ async def update_visit(db: AsyncSession, visit_no: int, data: dict) -> Visit | N
         return None
     for key, value in data.items():
         setattr(visit, key, value)
-    await db.commit()
+    await db.flush()
     await db.refresh(visit)
     return visit
 
@@ -47,7 +47,7 @@ async def update_report_json(db: AsyncSession, visit_no: int, report_json: dict)
     if not visit:
         return None
     visit.report_json = report_json
-    await db.commit()
+    await db.flush()
     await db.refresh(visit)
     return visit
 

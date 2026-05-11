@@ -27,7 +27,7 @@ async def create_option(db: AsyncSession, data: dict) -> RecommendOption:
     """추천 옵션 추가"""
     option = RecommendOption(**data)
     db.add(option)
-    await db.commit()
+    await db.flush()
     await db.refresh(option)
     return option
 
@@ -39,7 +39,7 @@ async def update_option(db: AsyncSession, option_no: int, data: dict) -> Recomme
         return None
     for key, value in data.items():
         setattr(option, key, value)
-    await db.commit()
+    await db.flush()
     await db.refresh(option)
     return option
 
@@ -50,5 +50,5 @@ async def delete_option(db: AsyncSession, option_no: int) -> bool:
     if not option:
         return False
     await db.delete(option)
-    await db.commit()
+    await db.flush()
     return True

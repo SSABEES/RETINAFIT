@@ -24,7 +24,7 @@ async def create_criteria(db: AsyncSession, data: dict) -> FittingCriteria:
     """판단 기준 추가"""
     criteria = FittingCriteria(**data)
     db.add(criteria)
-    await db.commit()
+    await db.flush()
     await db.refresh(criteria)
     return criteria
 
@@ -36,7 +36,7 @@ async def update_criteria(db: AsyncSession, criteria_no: int, data: dict) -> Fit
         return None
     for key, value in data.items():
         setattr(criteria, key, value)
-    await db.commit()
+    await db.flush()
     await db.refresh(criteria)
     return criteria
 
@@ -47,5 +47,5 @@ async def delete_criteria(db: AsyncSession, criteria_no: int) -> bool:
     if not criteria:
         return False
     await db.delete(criteria)
-    await db.commit()
+    await db.flush()
     return True

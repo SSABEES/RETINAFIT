@@ -26,7 +26,7 @@ async def create_glasses(db: AsyncSession, data: dict) -> Glasses:
     """안경 등록"""
     glasses = Glasses(**data)
     db.add(glasses)
-    await db.commit()
+    await db.flush()
     await db.refresh(glasses)
     return glasses
 
@@ -38,7 +38,7 @@ async def update_glasses(db: AsyncSession, glasses_no: int, data: dict) -> Glass
         return None
     for key, value in data.items():
         setattr(glasses, key, value)
-    await db.commit()
+    await db.flush()
     await db.refresh(glasses)
     return glasses
 
@@ -49,5 +49,5 @@ async def delete_glasses(db: AsyncSession, glasses_no: int) -> bool:
     if not glasses:
         return False
     glasses.is_active = False
-    await db.commit()
+    await db.flush()
     return True

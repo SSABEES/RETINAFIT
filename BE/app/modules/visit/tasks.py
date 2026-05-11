@@ -43,6 +43,7 @@ async def generate_and_save_face_script(visit_no: int, test_json: dict[str, Any]
     async with AsyncSessionLocal() as session:
         try:
             await repository.update_report_json(session, visit_no, data)
+            await session.commit()
         except Exception as e:
             await session.rollback()
             logger.warning("AI face-script save failed: visit_no=%s err=%s", visit_no, e)
