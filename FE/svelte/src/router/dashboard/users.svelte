@@ -417,21 +417,21 @@
 </script>
 
 <main
-  class="app-frame-page grid min-h-screen grid-rows-[1fr] bg-[var(--retina-surface)] text-[var(--retina-text)]"
+  class="app-frame-page grid min-h-screen md:h-[100svh] md:overflow-hidden grid-rows-[1fr] bg-[var(--retina-surface)] text-[var(--retina-text)]"
 >
   <Header onback={on_click_back} />
 
   <div class="grid min-h-0 grid-cols-1 md:grid-cols-2">
     <section
-      class="app-bg-edge-extend-left app-bg-edge-extend-bottom flex h-full min-h-0 flex-col items-center justify-center border-r border-[var(--retina-text-200)] px-8 pt-6 pb-6"
+      class="app-bg-edge-extend-left app-bg-edge-extend-bottom flex h-full min-h-0 flex-col items-center justify-center border-r border-[var(--retina-text-200)] px-8 py-[clamp(12px,2.5svh,24px)]"
       aria-label="고객 조회 키패드 영역"
     >
-      <div class="flex w-fit max-w-[30rem] flex-col items-center gap-4">
+      <div class="flex w-fit max-w-[30rem] flex-col items-center gap-[clamp(10px,2svh,16px)]">
         <Keypad value={ref_search_phone} onchange={on_change_keypad} />
 
-        <div class="grid w-full gap-3">
+        <div class="grid w-full gap-[clamp(8px,1.5svh,12px)]">
         <button
-          class="flex w-full cursor-pointer items-center gap-3 rounded-none border-0 bg-[var(--retina-primary-50)] px-4 py-1.5 text-left text-base font-bold text-[var(--retina-text-800)] transition hover:bg-[var(--retina-primary-200)]/40 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
+          class="flex w-full cursor-pointer items-center gap-3 rounded-none border-0 bg-[var(--retina-primary-50)] px-4 py-[clamp(4px,1svh,6px)] text-left font-bold text-[var(--retina-text-800)] transition hover:bg-[var(--retina-primary-200)]/40 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
           type="button"
           aria-pressed={ref_consent_agreed}
           onclick={on_click_open_consent_modal}
@@ -440,24 +440,23 @@
             <img
               src="/icons/circle-check-purple.png"
               alt=""
-              class="h-7 w-7 flex-none"
+              class="flex-none h-[clamp(18px,3.5svh,28px)] w-[clamp(18px,3.5svh,28px)]"
               width="28"
               height="28"
               aria-hidden="true"
             />
           {:else}
             <CircleCheck
-              class="flex-none text-[var(--retina-text-300)] transition"
-              size={28}
+              class="flex-none text-[var(--retina-text-300)] transition h-[clamp(18px,3.5svh,28px)] w-[clamp(18px,3.5svh,28px)]"
               strokeWidth={2}
               aria-hidden="true"
             />
           {/if}
-          <span class="text-lg font-bold">개인정보 수집 및 이용에 동의합니다.</span>
+          <span class="font-bold text-[clamp(13px,2svh,18px)]">개인정보 수집 및 이용에 동의합니다.</span>
         </button>
 
         <button
-          class={`min-h-18 w-full cursor-pointer rounded-xl border-0 text-2xl leading-none font-bold tracking-[0.3em] text-white transition disabled:cursor-not-allowed ${
+          class={`w-full cursor-pointer rounded-xl border-0 leading-none font-bold tracking-[0.3em] text-white transition disabled:cursor-not-allowed min-h-[clamp(44px,8svh,72px)] text-[clamp(16px,3svh,24px)] ${
             is_search_active
               ? 'bg-[var(--retina-primary-500)] hover:bg-[var(--retina-primary-600)]'
               : 'bg-[#E3B68E]'
