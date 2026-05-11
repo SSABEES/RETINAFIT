@@ -662,7 +662,7 @@
           {#each g_capture_slot_arr as slot, idx (idx)}
             <div class="group relative flex flex-col items-center gap-1">
               <div
-                class={`relative flex h-[120px] w-full items-center justify-center rounded-none border transition-all ${
+                class={`relative flex aspect-[3/4] w-full items-center justify-center rounded-none border transition-all ${
                   slot
                     ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)]'
                     : 'border-[#F1F3F5] bg-[#F1F3F5]'
@@ -672,7 +672,7 @@
                   <img
                     src={slot.object_url}
                     alt={SLOT_LABEL_ARR[idx]}
-                    class="h-full w-full object-contain"
+                    class="h-full w-full object-cover"
                   />
                   <button
                     type="button"

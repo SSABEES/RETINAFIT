@@ -153,6 +153,8 @@
       ...g_saved_set_arr,
     ]
     g_capture_slot_arr = [null, null, null]
+    // CameraView 의 active prop 이 !g_is_set_complete 에 연결되어 있어 슬롯이 비워지면 자동 재시작.
+    // (3장 완료 시점에 active=false 로 카메라가 정지된 상태였고, 슬롯 비움 → active=true → 새 세션)
   }
 
   // 저장된 세트 개별 제거.
@@ -285,11 +287,16 @@
       <div
         class="relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner"
       >
+        <!--
+          3장 모두 채워지면 카메라 자체를 비활성화 (스트림/추론 모두 정지).
+          사용자가 [세트 저장] 또는 슬롯 X 버튼으로 슬롯이 비워지면 g_is_set_complete=false 가 되어
+          CameraView 가 자동으로 재시작되며 첫 빈 슬롯부터 자동 캡처가 다시 무장된다.
+        -->
         <CameraView
           bind:this={ref_this_camera}
-          active={!g_is_submitting}
+          active={!g_is_submitting && !g_is_set_complete}
           pose_target={g_current_pose ?? 'front'}
-          capture_mode={g_is_set_complete ? 'manual' : 'auto'}
+          capture_mode="auto"
           oncapture={on_capture}
           oncapture_error={on_capture_error}
         />
@@ -302,7 +309,7 @@
             <div class="rounded-xl border border-white/10 bg-zinc-900/85 px-6 py-4 shadow-xl">
               <p class="text-[18px] font-extrabold text-white">3장 모두 촬영 완료</p>
               <p class="mt-2 text-[13px] font-semibold leading-relaxed text-white/75">
-                [세트 저장] 으로 보관하거나, 슬롯 X 버튼으로 다시 촬영할 수 있어요.
+                [세트 저장]으로 보관 후 다른 안경 추가촬영 진행하거나 <br> 촬영 기록의 슬롯 X 버튼으로 해당 각도 재촬영 할 수 있어요.
               </p>
             </div>
           </div>
@@ -326,7 +333,7 @@
               <div
                 aria-label={`${SLOT_LABEL_ARR[idx]} 슬롯`}
                 aria-current={is_current ? 'step' : undefined}
-                class={`relative flex h-[120px] w-full items-center justify-center rounded-none border p-0 transition-all ${
+                class={`relative flex aspect-[3/4] w-full items-center justify-center rounded-none border p-0 transition-all ${
                   slot
                     ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)]'
                     : is_current
@@ -338,7 +345,7 @@
                   <img
                     src={slot.object_url}
                     alt={SLOT_LABEL_ARR[idx]}
-                    class="h-full w-full object-contain"
+                    class="h-full w-full object-cover"
                   />
                 {:else}
                   <img

@@ -98,11 +98,14 @@
   /** @type {import("@mediapipe/tasks-vision").FaceLandmarkerResult | null} */
   let g_last_detection = null
   let g_frame_counter = 0
-  let g_already_dispatched = false
+  // g_can_auto_fire ($derived) 와 자동 발사 $effect 의 deps 로 사용되므로 $state 로 선언해야
+  // reset 시 false 로 되돌리는 변경이 reactive 하게 추적된다. 그냥 let 으로 두면 plain 변수라
+  // derived 가 재계산되지 않아 reset 후에도 stale=true 가 유지되어 자동 캡처가 발사되지 않는다.
+  let g_already_dispatched = $state(false)
   /** @type {ReturnType<typeof setTimeout> | null} */
   let g_capture_timeout = null
   /** @type {'idle' | 'started' | 'final'} */
-  let g_stability_audio_stage = 'idle'
+  let g_stability_audio_stage = $state('idle')
   let g_capture_sequence_token = 0
   // step 단위 1회 안내 — 자세 OK 후 안정화 미달 상태에서 "가만히 계세요" 음성. reset() 에서 false 로.
   let g_did_announce_in_progress = false
@@ -1279,7 +1282,7 @@
         </div>
         <div class="h-1.5 overflow-hidden rounded-sm bg-emerald-900/50">
           <div
-            class="h-full bg-emerald-400 transition-[width] duration-100"
+            class="h-full bg-emerald-400 transition-[width] duration-300 ease-out"
             style="width: {profile_pose.progress}%;"
           ></div>
         </div>
@@ -1302,7 +1305,7 @@
         </div>
         <div class="h-1.5 overflow-hidden rounded-sm bg-emerald-900/50">
           <div
-            class="h-full bg-emerald-400 transition-[width] duration-100"
+            class="h-full bg-emerald-400 transition-[width] duration-200 ease-out"
             style="width: {g_stability_progress}%;"
           ></div>
         </div>
