@@ -378,11 +378,10 @@
         ),
       )
 
-      // result.svelte 가 그대로 src 로 쓸 수 있도록 query string 떼어낸 public URL 만 저장.
-      // 업로드하지 않은 슬롯은 빈 문자열로 남겨 result 측에서 placeholder 처리한다.
-      const local_public_url_arr = local_presigned_url_arr.map((local_url, local_idx) =>
-        local_filled_idx_arr.includes(local_idx) ? String(local_url).split('?')[0] : '',
-      )
+      // capture_arr 에는 S3 object key 만 저장한다 (raw url 은 private 버킷이라 권한 부족).
+      // BE _convert_visit_urls 가 vp_file_arr 만 presigned 변환해주므로, result.svelte 는
+      // vp_file_arr (presigned 배열) 와 capture_arr[].key 를 매칭해 src 를 구성한다.
+      // 업로드하지 않은 슬롯은 빈 key 로 남겨 placeholder 처리.
       const local_filled_key_arr = local_filled_idx_arr.map((local_idx) => local_key_arr[local_idx])
 
       // 로컬 누적 목록 갱신 (같은 안경이면 새 캡쳐로 덮어쓰기, 아니면 append)
@@ -393,7 +392,7 @@
         model: glasses_info?.model ?? '',
         capture_arr: SLOT_LABEL_ARR.map((local_label, local_idx) => ({
           label: local_label,
-          url: local_public_url_arr[local_idx] ?? '',
+          key: local_filled_idx_arr.includes(local_idx) ? local_key_arr[local_idx] : '',
         })),
         file_key_arr: local_filled_key_arr,
       }
@@ -650,15 +649,15 @@
     >
       <!-- 캡쳐 슬롯 -->
       <div
-        class="px-4 pt-3 pb-2 transition-all"
+        class="transition-all px-[clamp(8px,2svh,16px)] pt-[clamp(6px,1.5svh,12px)] pb-[clamp(4px,1svh,8px)]"
         class:ring-2={g_guide_step === 4}
         class:ring-[var(--retina-primary-300)]={g_guide_step === 4}
         class:ring-inset={g_guide_step === 4}
       >
-        <div class="mb-2 flex items-center justify-between">
-          <h2 class="text-[11px] font-extrabold tracking-wide text-[#374151]">촬영 기록</h2>
+        <div class="mb-[clamp(4px,1svh,8px)] flex items-center justify-between">
+          <h2 class="font-extrabold tracking-wide text-[#374151] text-[clamp(9px,1.4svh,12px)]">촬영 기록</h2>
         </div>
-        <div class="grid grid-cols-3 gap-2 pr-1">
+        <div class="grid grid-cols-3 gap-[clamp(4px,1svh,8px)] pr-1">
           {#each g_capture_slot_arr as slot, idx (idx)}
             <div class="group relative flex flex-col items-center gap-1">
               <div
@@ -686,12 +685,12 @@
                   <img
                     src={SLOT_ICON_ARR[idx]}
                     alt={`${SLOT_LABEL_ARR[idx]} 안내`}
-                    class="h-[18px] w-[18px] object-contain opacity-70"
+                    class="object-contain opacity-70 h-[clamp(14px,2.5svh,22px)] w-[clamp(14px,2.5svh,22px)]"
                   />
                 {/if}
               </div>
               <span
-                class={`text-[10px] font-bold ${slot ? 'text-[var(--retina-primary-300)]' : 'text-slate-400'}`}
+                class={`font-bold text-[clamp(9px,1.4svh,12px)] ${slot ? 'text-[var(--retina-primary-300)]' : 'text-slate-400'}`}
                 >{SLOT_LABEL_ARR[idx]}</span
               >
             </div>
@@ -703,20 +702,20 @@
 
       <!-- 추천 안경 목록 -->
       <div
-        class="flex min-h-0 flex-1 flex-col px-4 py-4 transition-all"
+        class="flex min-h-0 flex-1 flex-col transition-all px-[clamp(8px,2svh,16px)] py-[clamp(8px,2svh,16px)]"
         class:ring-2={g_guide_step === 1 || g_guide_step === 2}
         class:ring-[var(--retina-primary-300)]={g_guide_step === 1 || g_guide_step === 2}
         class:ring-inset={g_guide_step === 1 || g_guide_step === 2}
       >
-        <div class="mb-2 flex items-center justify-between pr-1">
-          <h2 class="text-[13px] font-extrabold text-zinc-900">추천 안경</h2>
+        <div class="mb-[clamp(4px,1svh,8px)] flex items-center justify-between pr-1">
+          <h2 class="font-extrabold text-zinc-900 text-[clamp(11px,1.8svh,14px)]">추천 안경</h2>
           <button
             type="button"
             onclick={on_click_refresh_glasses}
             aria-label="프레임 변경"
             class="relative flex items-center cursor-pointer border-0 bg-transparent p-0 transition-opacity hover:opacity-80"
           >
-            <img src="/icons/Sum.png" alt="프레임 변경" class="h-7 w-auto" />
+            <img src="/icons/Sum.png" alt="프레임 변경" class="w-auto h-[clamp(20px,4svh,32px)]" />
             {#if g_active_filter_count > 0}
               <span
                 class="absolute -top-1 right-0 flex h-3 w-3 items-center justify-center rounded-full bg-[var(--retina-primary-300)] text-[8px] font-black text-white"
@@ -756,14 +755,14 @@
                   onclick={() => on_click_select_glasses(item.id)}
                   disabled={g_ar_unavailable}
                   aria-label={g_ar_unavailable ? `${item.model} (AR 피팅 사용 불가)` : item.model}
-                  class={`group relative flex items-center gap-2.5 rounded-sm border p-2 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 ${
+                  class={`group relative flex items-center rounded-sm border text-left transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 gap-[clamp(6px,1.6svh,12px)] p-[clamp(4px,1svh,8px)] ${
                     active
                       ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)] shadow-sm'
                       : 'border-slate-200 bg-white hover:border-[var(--retina-primary-100)]'
                   }`}
                 >
                   <div
-                    class="flex h-[72px] w-[88px] shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 p-1"
+                    class="flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 p-1 h-[clamp(48px,11svh,80px)] w-[clamp(60px,13svh,96px)]"
                   >
                     <img src={item.img_url} alt={item.model} class="h-full w-full object-contain" />
                   </div>
@@ -779,12 +778,12 @@
                         <img src="/icons/fitting.png" alt="피팅중" class="h-2 w-auto" />
                       </span>
                     {/if}
-                    <p class="truncate text-[14px] font-extrabold text-zinc-900">{item.model}</p>
-                    <span class="truncate text-[11.5px] font-semibold text-slate-400"
+                    <p class="truncate font-extrabold text-zinc-900 text-[clamp(11px,2svh,16px)]">{item.model}</p>
+                    <span class="truncate font-semibold text-slate-400 text-[clamp(9px,1.5svh,12px)]"
                       >{item.brand}</span
                     >
                     <div class="mt-0.5 flex items-center justify-between gap-1.5">
-                      <span class="text-[12.5px] font-extrabold text-[var(--retina-primary-300)]"
+                      <span class="font-extrabold text-[var(--retina-primary-300)] text-[clamp(10px,1.7svh,13px)]"
                         >{format_price_label(item.price)}</span
                       >
                       {#if !active && saved_count > 0}
@@ -805,7 +804,7 @@
 
       <!-- 저장된 피팅 목록 + 액션 버튼 -->
       <div
-        class="border-t border-slate-100 bg-white px-4 py-3 transition-all"
+        class="border-t border-slate-100 bg-white transition-all px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]"
         class:ring-2={g_guide_step === 5 || g_guide_step === 6}
         class:ring-[var(--retina-primary-300)]={g_guide_step === 5 || g_guide_step === 6}
         class:ring-inset={g_guide_step === 5 || g_guide_step === 6}
@@ -876,7 +875,7 @@
             disabled={!g_can_submit && g_guide_step !== 6}
             onclick={on_click_submit_report}
             aria-label="실제 착용 분석하기"
-            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 text-[15px] font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale sm:text-[17px] md:text-[12px] lg:text-[14px]"
+            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale text-[clamp(11px,2svh,16px)]"
           >
             실제 착용 분석하기
           </button>

@@ -322,11 +322,11 @@
       class="relative flex flex-col border-t md:border-t-0 md:border-l border-slate-200 bg-white"
     >
       <!-- 캡쳐 슬롯 -->
-      <div class="px-4 pt-3 pb-2">
-        <div class="mb-2 flex items-center justify-between">
-          <h2 class="text-[11px] font-extrabold tracking-wide text-[#374151]">촬영 기록</h2>
+      <div class="px-[clamp(8px,2svh,16px)] pt-[clamp(6px,1.5svh,12px)] pb-[clamp(4px,1svh,8px)]">
+        <div class="mb-[clamp(4px,1svh,8px)] flex items-center justify-between">
+          <h2 class="font-extrabold tracking-wide text-[#374151] text-[clamp(9px,1.4svh,12px)]">촬영 기록</h2>
         </div>
-        <div class="grid grid-cols-3 gap-2 pr-1">
+        <div class="grid grid-cols-3 gap-[clamp(4px,1svh,8px)] pr-1">
           {#each g_capture_slot_arr as slot, idx (idx)}
             {@const is_current = !slot && g_next_slot_idx === idx && !g_is_submitting}
             <div class="group relative flex flex-col items-center gap-1">
@@ -351,7 +351,7 @@
                   <img
                     src={SLOT_ICON_ARR[idx]}
                     alt={`${SLOT_LABEL_ARR[idx]} 안내`}
-                    class="h-[18px] w-[18px] object-contain opacity-70"
+                    class="object-contain opacity-70 h-[clamp(14px,2.5svh,22px)] w-[clamp(14px,2.5svh,22px)]"
                   />
                 {/if}
                 {#if is_current}
@@ -379,7 +379,7 @@
                 </button>
               {/if}
               <span
-                class={`text-[10px] font-bold ${
+                class={`font-bold text-[clamp(9px,1.4svh,12px)] ${
                   slot
                     ? 'text-[var(--retina-primary-300)]'
                     : is_current
@@ -397,17 +397,17 @@
       <hr class="mx-4 my-1 border-slate-200" />
 
       <!-- 안내 영역 (arfitting 의 추천 안경 자리) -->
-      <div class="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4">
-        <h2 class="mb-2 text-[13px] font-extrabold text-zinc-900">실제 착용 촬영</h2>
+      <div class="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-[clamp(8px,2svh,16px)] py-[clamp(8px,2svh,16px)]">
+        <h2 class="mb-[clamp(4px,1svh,8px)] font-extrabold text-zinc-900 text-[clamp(11px,1.8svh,14px)]">실제 착용 촬영</h2>
         <div
-          class="rounded-lg bg-[var(--retina-text-100)] px-3 py-3 text-[12px] font-medium leading-relaxed text-slate-600"
+          class="rounded-lg bg-[var(--retina-text-100)] font-medium leading-relaxed text-slate-600 px-[clamp(8px,1.8svh,14px)] py-[clamp(8px,1.8svh,14px)] text-[clamp(10px,1.7svh,13px)]"
         >
           가이드에 맞춰 자세를 잡으면 정면 → 좌측 → 우측 순으로 자동 촬영됩니다.<br />
           1장 이상 촬영되면 [세트 저장] 버튼이 활성화됩니다.<br />
           여러 안경을 비교하려면 세트를 추가로 저장하세요.
         </div>
         <div
-          class="mt-3 flex items-center gap-2 rounded-lg border border-dashed border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-500"
+          class="mt-3 flex items-center gap-2 rounded-lg border border-dashed border-slate-200 font-semibold text-slate-500 px-[clamp(8px,1.8svh,14px)] py-[clamp(4px,1svh,8px)] text-[clamp(9px,1.5svh,12px)]"
         >
           <Glasses size={14} class="shrink-0 text-slate-400" />
           최대 {MAX_PHOTO_SET_COUNT} 세트까지 저장 가능
@@ -415,7 +415,7 @@
       </div>
 
       <!-- 저장된 세트 + 액션 버튼 -->
-      <div class="border-t border-slate-100 bg-white px-4 py-3">
+      <div class="border-t border-slate-100 bg-white px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
         {#if g_saved_set_arr.length > 0}
           <div class="mb-2">
             <div class="mb-1 flex items-center justify-between">
@@ -470,7 +470,7 @@
             disabled={!g_can_save || g_is_submitting}
             onclick={on_click_save_set}
             aria-label="세트 저장"
-            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-2 border-[var(--retina-primary-300)] bg-white px-2 text-[12px] font-extrabold text-[var(--retina-primary-300)] transition-all hover:bg-[var(--retina-bg-1)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
+            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-2 border-[var(--retina-primary-300)] bg-white px-2 font-extrabold text-[var(--retina-primary-300)] transition-all hover:bg-[var(--retina-bg-1)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale text-[clamp(10px,1.7svh,14px)]"
           >
             <CameraIcon size={12} strokeWidth={2.5} aria-hidden="true" />
             세트 저장
@@ -481,7 +481,7 @@
             disabled={(!g_can_submit && g_saved_set_arr.length === 0) || g_is_submitting}
             onclick={on_click_continue}
             aria-label="최종 리포트 보기"
-            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 text-[12px] font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
+            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale text-[clamp(10px,1.7svh,14px)]"
           >
             {#if g_is_submitting}
               <Loader2 size={12} strokeWidth={2.4} class="animate-spin" aria-hidden="true" />

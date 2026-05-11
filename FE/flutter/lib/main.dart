@@ -8,9 +8,15 @@
 //     브릿지를 제공한다 (이 파일 안의 _install_flutter_bridge / _handle_bridge_message
 //     / _send_bridge_* / _broadcast_ar_event 4 인방).
 //
+// WebView 패키지:
+//   - flutter_inappwebview 6.x — webview_flutter 4.x 에서 이주.
+//   - 이유: wide-viewport / loadWithOverviewMode 옵션을 dart 측에서 직접 켤 수 있어
+//     안드로이드 WebView 의 기본값 (useWideViewPort=false) 으로 인한 CSS viewport 축소
+//     (디바이스 실폭 1463 → 948 로 layout) 문제를 해결.
+//
 // 통신 사슬:
 //   Svelte (WebView)
-//      ↕  JS 채널 (RetinafitFlutterBridgeChannel)  +  CustomEvent 'retinafit:flutter_event'
+//      ↕  JS handler (RetinafitFlutterBridgeChannel)  +  CustomEvent 'retinafit:flutter_event'
 //   Flutter / Dart  (이 파일)
 //      ↕  MethodChannel + EventChannel  (lib/native/virtual_fitting.dart)
 //   Kotlin/Swift 네이티브 모듈  (android/app/.../VirtualFittingBridge.kt)
@@ -22,9 +28,9 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import 'native/virtual_fitting.dart';
 
@@ -41,10 +47,17 @@ void main() async {
   // Flutter 엔진의 plugin 채널이 활성화되기 전에 await 를 쓰면 안 되므로 먼저 ensure 호출.
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 가로 모드 강제 — Svelte UI 가 가로 기준으로만 디자인되어 있어 세로 회전 차단.
+  // landscapeLeft / landscapeRight 모두 허용해 디바이스를 어느 방향으로 잡아도 가로 유지.
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+
   // 디버그 빌드에서 chrome://inspect → "Inspect" 로 WebView 안 콘솔/네트워크 까보기 가능.
   // 릴리즈 빌드에선 보안상 비활성화 (kDebugMode = false).
-  if (kDebugMode && WebViewPlatform.instance is AndroidWebViewPlatform) {
-    AndroidWebViewController.enableDebugging(true);
+  if (kDebugMode && defaultTargetPlatform == TargetPlatform.android) {
+    await InAppWebViewController.setWebContentsDebuggingEnabled(true);
   }
 
   // 앱 첫 화면이 그려지기 전에 카메라 권한을 미리 잡아둔다 — WebView 안의 getUserMedia 가
@@ -99,15 +112,15 @@ class WebShellPage extends StatefulWidget {
 
 class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver {
   // ───── 브릿지 프로토콜 식별자 (Svelte 와 정확히 일치해야 함) ─────
-  // JS → Dart 메시지를 받을 JavaScriptChannel 이름. Svelte 에선
-  // `RetinafitFlutterBridgeChannel.postMessage(...)` 로 호출.
+  // JS → Dart 메시지를 받을 JavaScript handler 이름. Svelte 측 _install_flutter_bridge 에서
+  // `flutter_inappwebview.callHandler('RetinafitFlutterBridgeChannel', JSON)` 로 호출.
   static const _bridge_channel_name = 'RetinafitFlutterBridgeChannel';
   // Dart → JS 푸시 이벤트 (CustomEvent) 의 이름. Svelte 는
   // `window.addEventListener('retinafit:flutter_event', e => e.detail ...)` 로 구독.
   static const _flutter_event_name = 'retinafit:flutter_event';
 
-  // WebView 본체. setNavigationDelegate / addJavaScriptChannel / loadRequest 등 chained 설정.
-  late final WebViewController _controller;
+  // WebView 컨트롤러. InAppWebView 의 onWebViewCreated 콜백에서 채워진다.
+  InAppWebViewController? _controller;
   // 0~100 페이지 로딩 진행률 — 상단 LinearProgressIndicator 표시용.
   var _loadingProgress = 0;
   // 메인 프레임 로드가 실패하면 _WebLoadError 풀스크린 fallback 노출.
@@ -119,6 +132,27 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
   // "설정으로 이동" 다이얼로그를 동시에 두 번 띄우지 않기 위한 가드 (lifecycle resumed 가
   // 짧게 두 번 발생하는 케이스 등).
   bool _settings_dialog_showing = false;
+
+  // ───── InAppWebView initialSettings ─────
+  // wide-viewport / loadWithOverviewMode: 안드로이드 WebView 가 viewport meta 의
+  // `width=device-width` 를 그대로 따르도록 한다. 끄면 기본 980px 로 layout 되어
+  // 디바이스 실폭(예: 1463) 과 어긋나 화면이 1.75배 zoom 된 형태로 보임.
+  // mediaPlaybackRequiresUserGesture: getUserMedia/AR 트리거를 사용자 제스처 없이도 시작.
+  // javaScriptEnabled: Svelte SPA 동작 필수.
+  // transparentBackground: 페이지 로드 전 잠깐 보이는 배경 깜빡임 회피.
+  // allowsInlineMediaPlayback (iOS): 풀스크린 강제 없이 inline 비디오 재생.
+  // iframeAllowFullscreen: Svelte 내부 iframe 사용 시 대비.
+  final InAppWebViewSettings _webview_settings = InAppWebViewSettings(
+    javaScriptEnabled: true,
+    useWideViewPort: true,
+    loadWithOverviewMode: true,
+    mediaPlaybackRequiresUserGesture: false,
+    allowsInlineMediaPlayback: true,
+    transparentBackground: false,
+    supportZoom: false,
+    builtInZoomControls: false,
+    iframeAllowFullscreen: true,
+  );
 
   @override
   void initState() {
@@ -146,69 +180,6 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_check_camera_permission_and_prompt());
     });
-
-    // ───── ② WebView 컨트롤러 chain 설정 ─────
-    _controller =
-        WebViewController(
-            // WebView 안에서 카메라/마이크 같은 권한이 요청될 때 호출. 우리는 OS 권한을 먼저
-            // 다시 확인하고, 허용된 상태면 grant(), 아니면 deny() + (필요 시) 설정 다이얼로그.
-            // 이 콜백은 페이지가 getUserMedia(...) 를 부를 때 트리거된다.
-            onPermissionRequest: (request) async {
-              final local_status = await _ensure_camera_permission();
-              if (local_status.isGranted || local_status.isLimited) {
-                request.grant();
-              } else {
-                request.deny();
-                if (local_status.isPermanentlyDenied) {
-                  unawaited(_show_open_settings_dialog());
-                }
-              }
-            },
-          )
-          // JS 활성화 — Svelte SPA 가 동작하려면 필수.
-          ..setJavaScriptMode(JavaScriptMode.unrestricted)
-          // 페이지 로드 전 잠깐 보이는 백그라운드. 검은색이면 깜빡임이 거슬려서 흰색으로.
-          ..setBackgroundColor(Colors.white)
-          // ───── ③ Svelte → Dart 메시지 입구 (JS 채널 등록) ─────
-          // Svelte 가 `RetinafitFlutterBridgeChannel.postMessage(JSON)` 를 부르면 onMessageReceived
-          // 가 호출된다. 메시지는 _handle_bridge_message 에서 라우팅.
-          ..addJavaScriptChannel(
-            _bridge_channel_name,
-            onMessageReceived: (message) {
-              unawaited(_handle_bridge_message(message.message));
-            },
-          )
-          // ───── ④ 페이지 라이프사이클 콜백 ─────
-          ..setNavigationDelegate(
-            NavigationDelegate(
-              // 0~100 진행률. 상단 LinearProgressIndicator 갱신.
-              onProgress: (progress) {
-                if (mounted) {
-                  setState(() => _loadingProgress = progress);
-                }
-              },
-              // 페이지 시작될 때마다 이전 에러 fallback 화면 해제.
-              onPageStarted: (_) {
-                if (mounted) {
-                  setState(() => _loadError = null);
-                }
-              },
-              // 페이지 로드 완료 시점에 JS 측 브릿지 객체 (`window.__retinafit_flutter_bridge__`)
-              // 를 주입. 페이지 새로고침 / 라우팅 후 매번 호출되어 SPA 라우팅 후에도 브릿지가 살아 있음.
-              onPageFinished: (_) {
-                unawaited(_install_flutter_bridge());
-              },
-              // 메인 프레임 로드 실패 (네트워크/HTTPS/404 등) — 풀스크린 _WebLoadError 노출.
-              // 서브 프레임 (iframe 등) 의 에러는 무시.
-              onWebResourceError: (error) {
-                if (error.isForMainFrame == true && mounted) {
-                  setState(() => _loadError = error.description);
-                }
-              },
-            ),
-          )
-          // 운영 / 빌드 정의된 Svelte 사이트 URL 로 진입.
-          ..loadRequest(Uri.parse(_webAppUrl));
   }
 
   @override
@@ -286,17 +257,19 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
   //
   // 동작 단계:
   //   1) Svelte: bridge.invoke(method, params) 호출
-  //   2) JS: requestId 생성, pending Map 에 {resolve, reject} 저장, postMessage 로 Dart 에 송신,
+  //   2) JS: requestId 생성, pending Map 에 {resolve, reject} 저장, callHandler 로 Dart 에 송신,
   //          Promise 반환
-  //   3) Dart: _handle_bridge_message 가 메시지 받음, method 실행, 결과를 _send_bridge_*
-  //           통해 다시 JS 의 resolve_request/reject_request 호출
+  //   3) Dart: addJavaScriptHandler('RetinafitFlutterBridgeChannel', ...) 가 메시지 받음,
+  //           method 실행, 결과를 _send_bridge_* 통해 다시 JS 의 resolve_request/reject_request 호출
   //   4) JS: pending Map 에서 해당 requestId 의 resolve/reject 꺼내 호출 → Svelte 의 await 풀림
   //
-  // IIFE 로 감싼 이유: 글로벌 스코프 오염 최소화 (g_pending_request_map_obj 가 클로저에 갇힘).
-  // requestId 는 crypto.randomUUID() 우선, 미지원 환경 (구형 브라우저) 폴백으로 timestamp+random.
+  // flutter_inappwebview 의 callHandler 는 인자 배열을 전달하므로 첫 번째 인자에 JSON 문자열을
+  // 그대로 넣어 Dart 측에선 args[0] 으로 받는다.
   // ========================================================================
   Future<void> _install_flutter_bridge() async {
-    await _controller.runJavaScript('''
+    final local_controller = _controller;
+    if (local_controller == null) return;
+    await local_controller.evaluateJavascript(source: '''
       (() => {
         const g_pending_request_map_obj = new Map()
 
@@ -309,7 +282,8 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
 
               g_pending_request_map_obj.set(local_request_id, { resolve, reject })
 
-              ${_bridge_channel_name}.postMessage(
+              window.flutter_inappwebview.callHandler(
+                ${jsonEncode(_bridge_channel_name)},
                 JSON.stringify({
                   request_id: local_request_id,
                   method: method_name,
@@ -419,15 +393,16 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
     required Object? result,
   }) async {
     // request_id 가 비어있으면 보낼 곳이 없음 — JSON 파싱 실패 등으로 ID 가 누락된 케이스.
-    if (request_id.isEmpty) {
-      return;
-    }
+    if (request_id.isEmpty) return;
+
+    final local_controller = _controller;
+    if (local_controller == null) return;
 
     final local_payload_text = jsonEncode({
       'result': result,
     });
 
-    await _controller.runJavaScript('''
+    await local_controller.evaluateJavascript(source: '''
       window.__retinafit_flutter_bridge__?.resolve_request(
         ${jsonEncode(request_id)},
         $local_payload_text,
@@ -441,15 +416,16 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
     required String request_id,
     required String message,
   }) async {
-    if (request_id.isEmpty) {
-      return;
-    }
+    if (request_id.isEmpty) return;
+
+    final local_controller = _controller;
+    if (local_controller == null) return;
 
     final local_payload_text = jsonEncode({
       'message': message,
     });
 
-    await _controller.runJavaScript('''
+    await local_controller.evaluateJavascript(source: '''
       window.__retinafit_flutter_bridge__?.reject_request(
         ${jsonEncode(request_id)},
         $local_payload_text,
@@ -468,18 +444,18 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
   //     const { requestId, event, data } = e.detail   // 표준화된 평탄 모양
   //     if (event === 'captured') { /* data.slot, data.image_base64 */ }
   //   })
-  //
-  // 모든 이벤트가 같은 모양 ({ requestId, event, data }) 으로 표준화되어 있어,
-  // Svelte 에선 event 이름으로 분기만 하면 됨.
   // ========================================================================
   Future<void> _broadcast_ar_event(VirtualFittingEvent event) async {
+    final local_controller = _controller;
+    if (local_controller == null) return;
+
     final local_payload_text = jsonEncode({
       'requestId': event.requestId,
       'event': event.event,
       'data': event.data,
     });
 
-    await _controller.runJavaScript('''
+    await local_controller.evaluateJavascript(source: '''
       window.dispatchEvent(
         new CustomEvent(
           ${jsonEncode(_flutter_event_name)},
@@ -518,14 +494,66 @@ class _WebShellPageState extends State<WebShellPage> with WidgetsBindingObserver
       body: SafeArea(
         child: Stack(
           children: [
-            WebViewWidget(controller: _controller),
+            InAppWebView(
+              initialUrlRequest: URLRequest(url: WebUri(_webAppUrl)),
+              initialSettings: _webview_settings,
+              // 컨트롤러 핸들 확보 + JS 채널 등록.
+              onWebViewCreated: (controller) {
+                _controller = controller;
+                controller.addJavaScriptHandler(
+                  handlerName: _bridge_channel_name,
+                  callback: (args) async {
+                    // Svelte 가 보낸 첫 인자는 JSON 문자열. 이외 인자는 무시.
+                    final raw = args.isNotEmpty ? args.first?.toString() ?? '' : '';
+                    await _handle_bridge_message(raw);
+                    // callHandler 의 응답값은 안 쓰지만, 어쨌든 무언가 반환해야 Promise 가 settle.
+                    return null;
+                  },
+                );
+              },
+              // 0~100 진행률.
+              onProgressChanged: (controller, progress) {
+                if (mounted) setState(() => _loadingProgress = progress);
+              },
+              // 페이지 시작될 때마다 이전 에러 fallback 화면 해제.
+              onLoadStart: (controller, url) {
+                if (mounted) setState(() => _loadError = null);
+              },
+              // 페이지 로드 완료 시점에 JS 측 브릿지 객체 주입. SPA 라우팅 후에도 매번 재주입.
+              onLoadStop: (controller, url) async {
+                await _install_flutter_bridge();
+              },
+              // 메인 프레임 로드 실패 — 풀스크린 _WebLoadError 노출.
+              onReceivedError: (controller, request, error) {
+                if (request.isForMainFrame == true && mounted) {
+                  setState(() => _loadError = error.description);
+                }
+              },
+              // 카메라/마이크 등 권한 요청. OS 권한이 잡혀 있으면 grant, 아니면 deny + 설정 안내.
+              onPermissionRequest: (controller, request) async {
+                final local_status = await _ensure_camera_permission();
+                if (local_status.isGranted || local_status.isLimited) {
+                  return PermissionResponse(
+                    resources: request.resources,
+                    action: PermissionResponseAction.GRANT,
+                  );
+                }
+                if (local_status.isPermanentlyDenied) {
+                  unawaited(_show_open_settings_dialog());
+                }
+                return PermissionResponse(
+                  resources: request.resources,
+                  action: PermissionResponseAction.DENY,
+                );
+              },
+            ),
             if (_loadingProgress < 100)
               LinearProgressIndicator(value: _loadingProgress / 100),
             if (_loadError != null)
               _WebLoadError(
                 message: _loadError!,
                 url: _webAppUrl,
-                onRetry: () => _controller.reload(),
+                onRetry: () => _controller?.reload(),
                 onLaunchAr: _launchArDebug,
                 lastArEvent: _lastArEvent,
               ),

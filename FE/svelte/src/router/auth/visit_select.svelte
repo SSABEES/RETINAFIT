@@ -109,15 +109,20 @@
 >
   <Header show_back={false} />
 
+  <!--
+    Viewport-fit 모드 — 콘텐츠 사이즈를 svh (small viewport height) 비율로 자동 스케일.
+    clamp(min, viewport_ratio, max) 로 디바이스 높이가 작아지면 자동 축소, 커지면 디자인 상한 유지.
+    디바이스 픽셀별로 미세 조정 안 함 — 한 캐스케이드로 모든 viewport 자동 fit.
+  -->
   <section
-    class="flex flex-1 flex-col items-center gap-14 self-stretch pt-10"
+    class="flex flex-1 flex-col items-center self-stretch gap-[clamp(20px,5svh,56px)] pt-[clamp(16px,4svh,40px)]"
     aria-label="방문 유형 선택"
   >
     <div class="grid justify-items-center gap-2 text-center">
-      <h1 class="m-0 text-[34px] font-extrabold leading-tight text-[var(--retina-text)]">
+      <h1 class="m-0 font-extrabold leading-tight text-[var(--retina-text)] text-[clamp(20px,4.5svh,34px)]">
         {g_store_name} 안경점
       </h1>
-      <p class="m-0 text-base font-medium text-[var(--retina-text-500)]">
+      <p class="m-0 font-medium text-[var(--retina-text-500)] text-[clamp(12px,1.8svh,16px)]">
         레티나핏 서비스 이용을 위해 방문 유형을 선택해주세요.
       </p>
     </div>
@@ -132,15 +137,16 @@
     {/if}
 
     <!--
-      카드 두 장을 하나의 section 으로 묶어 viewport 가운데로 모은다.
-      justify-center + gap 으로 카드 사이만 일정 간격 유지하고, 양 옆은 자동 여백.
+      카드 두 장 — md+ 부터 한 행 강제, 모바일~sm 은 wrap.
+      카드 안 모든 사이즈(padding/icon/text/gap) 를 svh 기반 clamp 로 자동 스케일.
+      viewport 세로가 작으면 자동 축소 → 디바이스 픽셀별 분기 없이 한 화면 fit.
     -->
     <section
-      class="flex w-full flex-wrap justify-center gap-10 px-8"
+      class="flex w-full flex-wrap justify-center gap-[clamp(16px,4svh,40px)] px-4 sm:px-8 md:flex-nowrap"
       aria-label="방문 유형 카드"
     >
       <button
-        class="group flex w-[440px] cursor-pointer flex-col items-center gap-10 rounded-[32px] bg-white px-8 py-16 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.10)] transition duration-150 ease-out hover:-translate-y-1 hover:shadow-[0_16px_36px_-12px_rgba(245,107,0,0.20)] active:translate-y-0 active:scale-[0.99] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-60"
+        class="group flex aspect-[5/4] w-full max-w-[clamp(260px,72svh,480px)] flex-1 cursor-pointer flex-col items-center justify-center rounded-[32px] bg-white px-[clamp(20px,4svh,40px)] py-[clamp(20px,5svh,48px)] gap-[clamp(18px,4svh,36px)] shadow-[0_10px_30px_-12px_rgba(0,0,0,0.10)] transition duration-150 ease-out hover:-translate-y-1 hover:shadow-[0_16px_36px_-12px_rgba(245,107,0,0.20)] active:translate-y-0 active:scale-[0.99] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-60"
         type="button"
         onclick={on_click_start_guest_visit}
         disabled={g_is_guest_visit_loading}
@@ -148,37 +154,37 @@
         <img
           src="/icons/LabelFirst.png"
           alt=""
-          class="h-[120px] w-[120px] transition duration-150 group-hover:scale-105"
+          class="h-[clamp(110px,24svh,190px)] w-[clamp(110px,24svh,190px)] transition duration-150 group-hover:scale-105"
           aria-hidden="true"
         />
 
-        <span class="flex flex-col items-center gap-2 text-center">
-          <span class="block text-[26px] font-extrabold leading-tight text-[var(--retina-text)]">
+        <span class="flex flex-col items-center gap-1 text-center">
+          <span class="block font-extrabold leading-tight text-[var(--retina-text)] text-[clamp(20px,4.2svh,30px)]">
             {g_is_guest_visit_loading ? '방문 생성 중...' : '첫 방문이에요'}
           </span>
-          <span class="block text-sm font-medium text-[var(--retina-text-500)]">
+          <span class="block font-medium text-[var(--retina-text-500)] text-[clamp(12px,2svh,16px)]">
             반가워요! 고객님 얼굴형에 맞춘 피팅을 시작해볼까요?
           </span>
         </span>
       </button>
 
       <button
-        class="group flex w-[440px] cursor-pointer flex-col items-center gap-10 rounded-[32px] bg-white px-8 py-16 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.10)] transition duration-150 ease-out hover:-translate-y-1 hover:shadow-[0_16px_36px_-12px_rgba(19,25,40,0.16)] active:translate-y-0 active:scale-[0.99] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--retina-text-500)]/60"
+        class="group flex aspect-[5/4] w-full max-w-[clamp(260px,72svh,480px)] flex-1 cursor-pointer flex-col items-center justify-center rounded-[32px] bg-white px-[clamp(20px,4svh,40px)] py-[clamp(20px,5svh,48px)] gap-[clamp(18px,4svh,36px)] shadow-[0_10px_30px_-12px_rgba(0,0,0,0.10)] transition duration-150 ease-out hover:-translate-y-1 hover:shadow-[0_16px_36px_-12px_rgba(19,25,40,0.16)] active:translate-y-0 active:scale-[0.99] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--retina-text-500)]/60"
         type="button"
         onclick={on_click_select_returning_visit}
       >
         <img
           src="/icons/LabelVisit.png"
           alt=""
-          class="h-[120px] w-[120px] transition duration-150 group-hover:scale-105"
+          class="h-[clamp(110px,24svh,190px)] w-[clamp(110px,24svh,190px)] transition duration-150 group-hover:scale-105"
           aria-hidden="true"
         />
 
-        <span class="flex flex-col items-center gap-2 text-center">
-          <span class="block text-[26px] font-extrabold leading-tight text-[var(--retina-text)]">
+        <span class="flex flex-col items-center gap-1 text-center">
+          <span class="block font-extrabold leading-tight text-[var(--retina-text)] text-[clamp(20px,4.2svh,30px)]">
             방문한 적 있어요
           </span>
-          <span class="block text-sm font-medium text-[var(--retina-text-500)]">
+          <span class="block font-medium text-[var(--retina-text-500)] text-[clamp(12px,2svh,16px)]">
             재방문 감사해요. 기존 내역을 불러올게요.
           </span>
         </span>
