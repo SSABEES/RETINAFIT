@@ -12,7 +12,7 @@
   import { get_video_landmarker, detect_from_video, clear_video_cache } from '@/lib/mediapipe/face_landmarker.js'
   import { init_three_scene, swap_glasses_child } from '@/lib/tryon/three_scene.js'
   import { ensure_glasses_loaded, instantiate_glasses } from '@/lib/tryon/glasses_loader.js'
-  import { apply_face_pose, apply_auto_alignment, compute_yaw_deg } from '@/lib/tryon/face_alignment.js'
+  import { apply_auto_alignment, compute_yaw_deg } from '@/lib/tryon/face_alignment.js'
   import { get_virtual_fitting_model_url } from '@/lib/flutter'
   import { push_error_toast } from '@/lib/stores/toast'
 
@@ -195,6 +195,7 @@
       align_group.add(scene)
       // override_group 은 운영에선 identity 로 그대로 둔다 (사용자 슬라이더 보정 없음).
       const override_group = new ThreeGroup()
+      override_group.name = 'glasses_override_group'
       override_group.add(align_group)
       swap_glasses_child(
         g_scene_ctx.face_anchor_offset_group,
@@ -251,9 +252,8 @@
   // 안경 다리 노드(temple_left/right) 가시성을 yaw 로 토글. 분리 노드가 없는 GLB 는 noop.
   function update_temple_visibility(yaw_deg) {
     if (!g_scene_ctx) return
-    const override_group = g_scene_ctx.face_anchor_offset_group.children.find(
-      (c) => c !== g_scene_ctx.face_anchor_marker,
-    )
+    const override_group =
+      g_scene_ctx.face_anchor_offset_group.getObjectByName('glasses_override_group')
     if (!override_group) return
     const tl = override_group.getObjectByName('temple_left')
     const tr = override_group.getObjectByName('temple_right')
