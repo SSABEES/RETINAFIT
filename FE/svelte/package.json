@@ -41,6 +41,7 @@
     "js-aruco2": "^2.0.0",
     "lucide-svelte": "^1.0.1",
     "onnxruntime-web": "^1.25.1",
-    "tailwindcss": "^4.2.2"
+    "tailwindcss": "^4.2.2",
+    "three": "^0.184.0"
   }
 }
