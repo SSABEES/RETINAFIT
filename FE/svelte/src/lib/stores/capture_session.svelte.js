@@ -64,7 +64,7 @@
  */
 
 import { untrack } from 'svelte'
-import { get_steps_for_mode } from '@/lib/capture/step_config.js'
+import { ALL_STEPS, get_steps_for_mode } from '@/lib/capture/step_config.js'
 import { classify_face_shape } from '@/lib/mediapipe/classify.js'
 import { compute_asymmetry_score } from '@/lib/mediapipe/asymmetry.js'
 import { compute_skin_tone } from '@/lib/mediapipe/skin_tone.js'
@@ -334,6 +334,32 @@ function compute_scale() {
  */
 export function get_current_step() {
   return g_session.steps_arr[g_session.current_step_index] ?? null
+}
+
+/**
+ * 정면 캡처를 마치고 review 단계에 진입한 직후, 사용자가 "측면 촬영하기" 를 선택하면 호출.
+ * 현재 steps_arr 에 빠진 미착용 측면 step(left_no_glasses / right_no_glasses) 을 뒤에 이어붙이고
+ * 다음 인덱스로 진행시켜 phase 를 'capturing' 으로 되돌린다.
+ * 측면 캡처가 끝나면 add_capture 가 다시 face_shape_result/scale/measurements 를 산출하므로
+ * review 진입 시점에 임시로 계산된 값들은 비워서 재계산을 보장한다.
+ */
+export function expand_to_full_no_glasses() {
+  const local_existing_id_set = new Set(g_session.steps_arr.map((local_step) => local_step.step_id))
+  const local_extra_step_arr = ALL_STEPS.filter(
+    (local_step) => !local_step.wears_glasses && !local_existing_id_set.has(local_step.step_id),
+  )
+
+  if (local_extra_step_arr.length === 0) {
+    return
+  }
+
+  g_session.steps_arr = [...g_session.steps_arr, ...local_extra_step_arr]
+  // current_step_index 가 마지막 정면 step 을 가리키므로 +1 해서 새로 추가된 첫 측면 step 으로 진입.
+  g_session.current_step_index += 1
+  g_session.face_shape_result = null
+  g_session.measurements_obj = {}
+  g_session.scale = null
+  g_session.phase = 'capturing'
 }
 
 /**
