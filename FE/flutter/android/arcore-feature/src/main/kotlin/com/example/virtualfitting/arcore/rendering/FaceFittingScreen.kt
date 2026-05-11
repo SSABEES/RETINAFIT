@@ -60,6 +60,9 @@ import com.example.virtualfitting.arcore.contract.VirtualFittingRequest
 import com.example.virtualfitting.arcore.fitting.FaceCalibration
 import com.example.virtualfitting.arcore.fitting.PositionSmoother
 import com.example.virtualfitting.arcore.fitting.RotationSmoother
+import com.example.virtualfitting.arcore.fitting.computeNoseBridgeFaceLocalY
+import com.example.virtualfitting.arcore.fitting.computeNoseBridgeWorld
+import com.example.virtualfitting.arcore.fitting.computeNoseBridgeWorldY
 import com.example.virtualfitting.arcore.fitting.measure
 import com.example.virtualfitting.arcore.fitting.withCalibration
 import com.example.virtualfitting.arcore.fitting.toPreset
@@ -121,6 +124,31 @@ private const val ROTATION_SMOOTHING_ENABLED: Boolean = true
  * 미끌림 발생.
  */
 private const val POSITION_SMOOTHING_ENABLED: Boolean = false
+
+/**
+ * [NOSE_BRIDGE_ANCHOR] 안경 위치를 콧대 정점들의 world 좌표 기준으로 anchor (회전 보정 포함).
+ *
+ * 동기: ARCore Augmented Faces 의 centerPose 가 mesh deformation (광대/입 표정 변화) 시
+ * 같이 이동해 안경 좌표가 흔들림. NOSE_TIP region pose 도 부분적으로 영향 받음 (실측 확인됨).
+ * 콧대 정점 (인덱스 6, 197, 195) 은 코뼈라서 표정에 거의 무관 — 그들의 world 좌표를
+ * anchor 로 쓰면 표정 변화 시에도 안경이 얼굴에 착 달라붙어 유지된다.
+ *
+ * 공식 (회전 보정):
+ *   glassesWorld = bridgeWorld + face.rotation * (calibrated.localPosition - locked.bridgeFaceLocal)
+ *
+ * locked.bridgeFaceLocal 을 쓰는 이유: 표정 변화 시 face.centerPose 가 위로 끌려가면서
+ * mesh 의 face-local 좌표도 미세 변동 (~0.3mm). lock 시점 값을 기준으로 삼아야 그 변동까지
+ * 상쇄돼 안경이 완전히 stable 해진다. current frame 값을 쓰면 rawPos 와 수학적으로 같아져 anchor 효과가 사라짐.
+ *
+ * Simple Y-only 공식 (이전 시도) 은 회전 시 ~3mm 어긋남. 회전 행렬을 명시적으로 적용해야 정확.
+ */
+private const val NOSE_BRIDGE_ANCHOR_ENABLED: Boolean = true
+
+/**
+ * [NOSE_BRIDGE_ANCHOR] 콧대 정점 위치 매 프레임 logcat 출력 토글. 실측 검증용.
+ * 활성화 시 매 프레임 (1초에 30~60회) 로그가 찍히므로 성능 영향 약간 있음. 검증 후 끄기.
+ */
+private const val NOSE_BRIDGE_DEBUG_LOG: Boolean = true
 
 /**
  * Calibration UI 가 표시되는 총 시간. 일찍 lock 되어도 이 시간이 다 차야
@@ -376,13 +404,49 @@ fun FaceFittingScreen(
 
                     val composed = face.centerPose.transform * activeOffset
                     val rawPos = composed.position
+
+                    // [NOSE_BRIDGE_ANCHOR] 검증용 logcat 출력. 콧대 face-local Y 가 매 프레임
+                    // 거의 일정해야 표정 무관 가정이 성립.
+                    if (NOSE_BRIDGE_DEBUG_LOG && isCalibrated) {
+                        val bridgeLocalY = computeNoseBridgeFaceLocalY(face)
+                        val bridgeWorldY = computeNoseBridgeWorldY(face)
+                        Log.d(
+                            TAG,
+                            "noseBridge localY=%.5f worldY=%.5f | centerPose worldY=%.5f"
+                                .format(bridgeLocalY, bridgeWorldY, face.centerPose.ty()),
+                        )
+                    }
+
+                    // [NOSE_BRIDGE_ANCHOR] 회전 보정된 정밀 anchor 공식.
+                    //   glassesWorld = bridgeWorld + face.rotation * (calibrated.localPosition - locked.bridgeFaceLocal)
+                    // - bridgeWorld: 매 프레임 콧대 정점 world 좌표 평균 (표정에 stable).
+                    // - locked.bridgeFaceLocal: calibration 시점 콧대 face-local 좌표 (표정 변동 상쇄용).
+                    // - face.centerPose.rotateVector: face rotation 만 적용해 face-local offset → world.
+                    val anchoredPos = if (NOSE_BRIDGE_ANCHOR_ENABLED && locked != null && isCalibrated) {
+                        val bridgeWorld = computeNoseBridgeWorld(face)
+                        val calibratedLocal = preset.withCalibration(locked).localPosition
+                        val offsetLocal = floatArrayOf(
+                            calibratedLocal.x - locked.noseBridgeFaceLocalX,
+                            calibratedLocal.y - locked.noseBridgeFaceLocalY,
+                            calibratedLocal.z - locked.noseBridgeFaceLocalZ,
+                        )
+                        val rotatedOffset = floatArrayOf(0f, 0f, 0f)
+                        face.centerPose.rotateVector(offsetLocal, 0, rotatedOffset, 0)
+                        Position(
+                            bridgeWorld[0] + rotatedOffset[0],
+                            bridgeWorld[1] + rotatedOffset[1],
+                            bridgeWorld[2] + rotatedOffset[2],
+                        )
+                    } else {
+                        rawPos
+                    }
                     // [POSITION_SMOOTHING] 적응형 One Euro Filter. beta=3.0 으로 평행 이동
                     // 시엔 cutoff 자동 상승해 raw 추종 (lag 없음), 정지 시엔 minCutoff=1Hz 로
                     // 떨림 잡음. 이전 고정 알파 LPF (lag 발생) 와 다른 패턴.
                     node.position = if (POSITION_SMOOTHING_ENABLED) {
-                        positionSmoother.filter(rawPos, frame.timestamp)
+                        positionSmoother.filter(anchoredPos, frame.timestamp)
                     } else {
-                        rawPos
+                        anchoredPos
                     }
                     val rawQuat = composed.toQuaternion()
                     // [ROTATION_SMOOTHING] 회전만 적응형 LPF. 정지 시 lever-arm 증폭 떨림 제거,
