@@ -15,7 +15,7 @@
 </script>
 
 <aside
-  class="grid h-full min-h-0 max-h-full w-[240px] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-[#4B0055] text-white"
+  class="grid h-screen min-h-0 max-h-screen w-[240px] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-[#4B0055] text-white md:h-full md:max-h-full"
 >
   <div class="flex items-center gap-3 px-6 py-6">
     <img

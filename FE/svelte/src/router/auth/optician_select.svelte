@@ -46,7 +46,7 @@
 </script>
 
 <main
-  class="app-frame-page grid min-h-full grid-rows-[1fr_auto] overflow-hidden bg-[var(--retina-bg-1)] px-6 pt-6 pb-4 text-[var(--retina-text)]"
+  class="app-frame-page grid min-h-screen grid-rows-[1fr_auto] bg-[var(--retina-bg-1)] px-4 pt-6 pb-4 sm:px-6 text-[var(--retina-text)]"
 >
   <section
     class="grid w-full max-w-[760px] justify-items-center justify-self-center self-center gap-4"

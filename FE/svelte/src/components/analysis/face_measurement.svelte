@@ -21,6 +21,7 @@
   import { EAR_HEIGHT_DIFF_THRESHOLD_MM } from '@/lib/measurements/thresholds.js'
   import Header from '@/components/layout/header.svelte'
   import MeasureCanvas from '@/components/analysis/measure_canvas.svelte'
+  import ZoomMeasureModal from '@/components/analysis/zoom_measure_modal.svelte'
   import MeasurementList from '@/components/analysis/measurement_list.svelte'
   import PhotoSwitcher from '@/components/analysis/photo_switcher.svelte'
   import ConfirmModal from '@/components/modal/confirm_modal.svelte'
@@ -51,6 +52,9 @@
   const g_session = $derived(get_session())
   const g_face_shape_result = $derived(get_face_shape_result())
   const g_active_item_id = $derived(get_active_item_id())
+
+  // mm 환산 출처 — ArUco 마커 검출 실패 시 PD 63mm 가정으로 fallback. 사용자에게 알려야 한다.
+  const g_is_pd_fallback = $derived(g_session.scale?.source === 'pd_assumption_63mm')
 
   let g_view = $state(/** @type {ViewAngle} */ ('front_no_glasses'))
 
@@ -99,7 +103,7 @@
    * @param {[{x: number, y: number}, {x: number, y: number}]} points
    */
   function on_points_set(item_id, points) {
-    set_item_points(item_id, points)
+    set_item_points(item_id, points, g_view)
   }
 
   // 캔버스 ESC → active 해제.
@@ -133,6 +137,16 @@
   // "측정값 초기화" 확인 모달 — 사용자가 동작 의미를 정확히 인지 후 진행하도록 분리.
   let g_show_clear_modal = $state(false)
 
+  // 확대 모달 open 상태 — 가로 active 와 무관, 가로의 ESC 핸들러는 keyboard_enabled 로 일시 비활성화.
+  let g_zoom_open = $state(false)
+
+  function on_open_zoom() {
+    g_zoom_open = true
+  }
+  function on_close_zoom() {
+    g_zoom_open = false
+  }
+
   // 버튼 클릭은 모달만 띄움. 실제 초기화는 모달의 onconfirm 에서.
   function on_click_clear_all() {
     g_show_clear_modal = true
@@ -155,7 +169,7 @@
 </script>
 
 <main
-  class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-[var(--retina-text)]"
+  class="app-frame-page flex min-h-screen flex-col bg-white text-[var(--retina-text)]"
 >
   <Header onback={on_click_back} onlogout={on_click_logout} />
 
@@ -182,15 +196,39 @@
             유지하며 axisflip. content 변동 면역.
           -->
           <div
-            class="flex aspect-[3/4] max-h-full w-full max-w-[348px] overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_8px_20px_rgba(15,23,42,0.07)]"
+            class="relative flex aspect-[3/4] max-h-full w-full max-w-[348px] overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_8px_20px_rgba(15,23,42,0.07)]"
           >
             <MeasureCanvas
               capture={g_selected_capture}
               items_arr={g_items_arr}
               active_item_id={g_active_item_id}
+              view={g_view}
+              keyboard_enabled={!g_zoom_open}
               onpoints_set={on_points_set}
               oncancel={on_cancel}
             />
+            {#if g_is_pd_fallback}
+              <!--
+                ArUco 마커 검출 실패 시 PD 63mm 추정값으로 환산 중임을 알리는 칩. 이미지 위 absolute
+                오버레이로 띄워 grid 레이아웃이 흔들리지 않게 한다. 마커 인식되면 자동 숨김.
+                aria-label 에 자세한 정보 — 시각적으론 짧게.
+              -->
+              <div
+                class="absolute top-2 left-2 z-20 rounded-full bg-amber-100/90 px-3 py-1 text-xs font-extrabold text-amber-800 shadow-md backdrop-blur-sm"
+                role="status"
+                aria-label="마커 인식 실패 — 평균 PD 63mm 추정치로 표시 중"
+              >
+                마커 인식 실패
+              </div>
+            {/if}
+            <button
+              type="button"
+              class="absolute top-2 right-2 z-20 rounded-full bg-white/85 px-3 py-1 text-xs font-extrabold text-slate-700 shadow-md backdrop-blur-sm transition hover:bg-white"
+              onclick={on_open_zoom}
+              aria-label="이미지를 크게 보기"
+            >
+              크게보기
+            </button>
           </div>
         </section>
 
@@ -317,5 +355,18 @@
     onclose={on_cancel_clear}
     oncancel={on_cancel_clear}
     onconfirm={on_confirm_clear}
+  />
+  <ZoomMeasureModal
+    open={g_zoom_open}
+    capture={g_selected_capture}
+    items_arr={g_items_arr}
+    active_item_id={g_active_item_id}
+    view={g_view}
+    session={g_session}
+    onpoints_set={on_points_set}
+    onselect_item={on_select_item}
+    onclear_item={on_clear_item}
+    onview_change={on_view_change}
+    onclose={on_close_zoom}
   />
 </main>

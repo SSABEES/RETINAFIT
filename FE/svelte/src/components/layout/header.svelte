@@ -3,7 +3,7 @@
   import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import { PATH } from '@/config/path'
   import { clear_login_select_data } from '@/lib/stores/admin'
-  import { clear_auto_login_obj } from '@/lib/stores/auto_login'
+  import { clear_auto_login_obj, load_auto_login_obj } from '@/lib/stores/auto_login'
   import { clear_visit_session_data } from '@/lib/stores/customer'
   import { reset as reset_capture_session } from '@/lib/stores/capture_session.svelte.js'
 
@@ -58,7 +58,11 @@
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('token_no')
     clear_login_select_data()
-    clear_auto_login_obj()
+    // keep_login 미체크 상태로 로그인한 경우에만 localStorage 토큰 삭제.
+    // keep_login 체크 시엔 다음 진입에서도 자동 로그인되도록 보존.
+    if (!load_auto_login_obj()?.keep_login) {
+      clear_auto_login_obj()
+    }
     navigate(PATH.login)
   }
 
@@ -97,40 +101,46 @@
 </script>
 
 <!--
-  position: fixed + .app-edge-extend → .app-frame 좌우 빈 공간까지 viewport 끝까지 확장.
-  .app-edge-extend 의 left/right 가 JS 로 갱신되는 --app-frame-edge-extend 변수를 negative 로 사용.
+  position: fixed — viewport 기준으로 가로 전체. 모바일에서 패딩 축소.
+  높이는 --app-header-h CSS 변수 (모바일 52px / md 이상 56px) 와 연동.
 -->
 <header
-  class="app-edge-extend fixed top-0 z-30 grid h-[52px] grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-[var(--retina-surface)] px-6"
+  class="fixed left-0 right-0 top-0 z-30 grid h-[var(--app-header-h)] grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-[var(--retina-surface)] px-3 sm:px-6"
 >
   <div class="flex justify-start">
     {#if show_back}
       <button
-        class="grid h-12 w-12 cursor-pointer place-items-center rounded-full border-0 bg-transparent transition hover:bg-slate-100"
+        class="grid h-10 w-10 cursor-pointer place-items-center rounded-full border-0 bg-transparent transition hover:bg-slate-100 sm:h-12 sm:w-12"
         type="button"
         aria-label="뒤로가기"
         onclick={handle_back_click}
       >
-        <img src="/icons/DivLeft.png" alt="" class="h-9 w-9" aria-hidden="true" />
+        <img src="/icons/DivLeft.png" alt="" class="h-7 w-7 sm:h-9 sm:w-9" aria-hidden="true" />
       </button>
     {:else}
-      <span class="h-12 w-12" aria-hidden="true"></span>
+      <span class="h-10 w-10 sm:h-12 sm:w-12" aria-hidden="true"></span>
     {/if}
   </div>
 
   <button
     type="button"
-    class="grid h-8 cursor-pointer place-items-center border-0 bg-transparent p-0"
+    class="grid h-7 cursor-pointer place-items-center border-0 bg-transparent p-0 sm:h-8"
     aria-label="홈으로 (캐시/세션 초기화)"
     onclick={handle_logo_click}
   >
-    <img class="h-6 w-auto" src="/logo/LogoWide_2.png" alt="Retina Fit" width="240" height="52" />
+    <img
+      class="h-5 w-auto sm:h-6"
+      src="/logo/LogoWide_2.png"
+      alt="Retina Fit"
+      width="240"
+      height="52"
+    />
   </button>
 
   <div class="flex justify-end">
     {#if show_logout}
       <button
-        class="grid h-12 w-12 cursor-pointer place-items-center rounded-full border-0 bg-transparent transition hover:bg-slate-100"
+        class="grid h-10 w-10 cursor-pointer place-items-center rounded-full border-0 bg-transparent transition hover:bg-slate-100 sm:h-12 sm:w-12"
         type="button"
         aria-label="로그아웃"
         onclick={on_click_logout_button}
@@ -138,12 +148,12 @@
         <img
           src="/icons/BtnLogout.png"
           alt=""
-          class="h-9 w-9 [filter:brightness(0.5)]"
+          class="h-7 w-7 [filter:brightness(0.5)] sm:h-9 sm:w-9"
           aria-hidden="true"
         />
       </button>
     {:else}
-      <span class="h-12 w-12" aria-hidden="true"></span>
+      <span class="h-10 w-10 sm:h-12 sm:w-12" aria-hidden="true"></span>
     {/if}
   </div>
 </header>

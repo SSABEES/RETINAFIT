@@ -284,7 +284,7 @@
 <AnalysisPageLayout
   current_step={2}
   bg_class="bg-[var(--retina-text-100)] text-zinc-950"
-  edge_extend_bg
+  fit_viewport={false}
 >
   <section
     class="flex min-h-0 flex-1 flex-col justify-center overflow-clip [overflow-clip-margin:9999px]"

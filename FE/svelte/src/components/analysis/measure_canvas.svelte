@@ -1,16 +1,20 @@
 <script>
   import { onDestroy, onMount } from 'svelte'
+  import { is_aruco_overlay_enabled } from '@/lib/measurements/aruco_debug_overlay.svelte.js'
 
   /**
    * @typedef {import('@/lib/stores/capture_session.svelte.js').Capture} Capture
    * @typedef {import('@/lib/measurements/measurement_utils.js').MeasurementItem} MeasurementItem
    * @typedef {import('@/lib/mediapipe/face_types.js').Point2D} Point2D
+   * @typedef {import('@/lib/measurements/template.js').ViewAngle} ViewAngle
    */
 
   /** @type {{
    *   capture?: Capture | null,
    *   items_arr?: MeasurementItem[],
    *   active_item_id?: string | null,
+   *   view?: ViewAngle | null,
+   *   keyboard_enabled?: boolean,
    *   onpoints_set?: ((item_id: string, points: [Point2D, Point2D]) => void) | undefined,
    *   oncancel?: (() => void) | undefined,
    * }}
@@ -19,6 +23,8 @@
     capture = null,
     items_arr = [],
     active_item_id = null,
+    view = null,
+    keyboard_enabled = true,
     onpoints_set = undefined,
     oncancel = undefined,
   } = $props()
@@ -70,9 +76,12 @@
 
   /**
    * ESC 입력 시 현재 측정을 취소한다.
+   * keyboard_enabled === false 일 때는 다른 컴포넌트(예: 확대 모달)가 키 입력을
+   * 책임지는 동안 가로 캔버스의 ESC 가 active_item_id 를 의도치 않게 해제하지 않게 한다.
    * @param {KeyboardEvent} evt
    */
   function on_keydown_global(evt) {
+    if (!keyboard_enabled) return
     if (evt.key !== 'Escape') return
     g_pending_first = null
     oncancel?.()
@@ -85,6 +94,12 @@
   onDestroy(() => {
     window.removeEventListener('keydown', on_keydown_global)
   })
+
+  // 활성 항목이 angle 인지 여부 — 진행 중 첫 점에서 수직 가이드선을 그려주기 위한 플래그.
+  const g_active_is_angle = $derived(
+    items_arr.find((it) => it.item_id === active_item_id)?.kind === 'angle',
+  )
+
 
   // 활성 항목만 오버레이 표시 — 측정 항목 전체를 한꺼번에 그리면 가독성/정확도 둘 다 떨어짐.
   // 사용자가 측정 리스트에서 항목을 선택하면 그 항목만 사진 위에 표시.
@@ -99,6 +114,11 @@
   function mirror_x(x) {
     return capture ? capture.width - x : x
   }
+
+  // ArUco 디버그 오버레이 — 운영 UI 에선 기본 OFF. 콘솔에서 window.aruco_overlay(true) 로 켠다.
+  // is_aruco_overlay_enabled 는 $state 기반이라 자동 reactive 갱신.
+  const g_show_aruco_overlay = $derived(is_aruco_overlay_enabled())
+  const g_aruco_marker = $derived(capture?.marker ?? null)
 </script>
 
 {#if capture}
@@ -165,7 +185,40 @@
         <circle cx={x2} cy={p2.y} r="5" fill="#F97316" stroke="white" stroke-width="1.5" />
       {/if}
 
+      {#if g_show_aruco_overlay && g_aruco_marker}
+        <!-- 검출된 마커 corner 다각형 + ID/거리 라벨. 좌표는 unmirrored 이므로 mirror_x 로 변환. -->
+        <polygon
+          points={g_aruco_marker.corners.map((c) => `${mirror_x(c.x)},${c.y}`).join(' ')}
+          fill="rgba(0,200,83,0.15)"
+          stroke="#00c853"
+          stroke-width="3"
+        />
+        <text
+          x={mirror_x(g_aruco_marker.corners[0].x)}
+          y={g_aruco_marker.corners[0].y - 6}
+          fill="#00c853"
+          font-size="20"
+          font-weight="700"
+        >
+          ID {g_aruco_marker.id} z={g_aruco_marker.translation[2].toFixed(0)}mm
+        </text>
+      {/if}
+
       {#if g_pending_first}
+        <!-- 각도 모드: 첫 점 중심으로 수직 가이드선(점선)을 그어 사용자가 수직 기준을 시각적으로 인지하도록.
+             거리 모드는 가이드선 없음 — 두 점 자유 직선. -->
+        {#if g_active_is_angle}
+          <line
+            x1={mirror_x(g_pending_first.x)}
+            y1={g_pending_first.y - 80}
+            x2={mirror_x(g_pending_first.x)}
+            y2={g_pending_first.y + 80}
+            stroke="white"
+            stroke-width="3"
+            stroke-dasharray="6 6"
+            opacity="0.85"
+          />
+        {/if}
         <circle
           cx={mirror_x(g_pending_first.x)}
           cy={g_pending_first.y}

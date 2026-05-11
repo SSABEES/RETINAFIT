@@ -281,6 +281,7 @@
 <AnalysisPageLayout
   current_step={1}
   bg_class="bg-white text-[var(--retina-text)]"
+  fit_viewport={false}
   onback={on_click_back}
   onlogout={on_click_logout}
 >
