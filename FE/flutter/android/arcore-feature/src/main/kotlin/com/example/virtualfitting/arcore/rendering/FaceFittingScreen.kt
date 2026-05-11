@@ -9,12 +9,18 @@ import android.os.Looper
 import android.util.Base64
 import android.util.Log
 import android.view.PixelCopy
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -51,6 +58,11 @@ import com.example.virtualfitting.arcore.contract.ErrorCode
 import com.example.virtualfitting.arcore.contract.VirtualFittingEvent
 import com.example.virtualfitting.arcore.contract.VirtualFittingRequest
 import com.example.virtualfitting.arcore.fitting.FaceCalibration
+import com.example.virtualfitting.arcore.fitting.PositionSmoother
+import com.example.virtualfitting.arcore.fitting.RotationSmoother
+import com.example.virtualfitting.arcore.fitting.computeNoseBridgeFaceLocalY
+import com.example.virtualfitting.arcore.fitting.computeNoseBridgeWorld
+import com.example.virtualfitting.arcore.fitting.computeNoseBridgeWorldY
 import com.example.virtualfitting.arcore.fitting.measure
 import com.example.virtualfitting.arcore.fitting.withCalibration
 import com.example.virtualfitting.arcore.fitting.toPreset
@@ -89,7 +101,65 @@ private const val TAG = "FaceFittingScreen"
  * `temple_right` show, `temple_left` hide. 정면(|yaw| ≤ 임계값) 에선 두 다리 모두
  * 머리 뒤에 가려져야 자연스러우므로 hide.
  */
-private const val TEMPLE_HIDE_YAW_DEG = 5f
+private const val TEMPLE_HIDE_YAW_DEG = 10f
+
+/**
+ * [ROTATION_SMOOTHING] 회전 jitter 스무딩 토글.
+ * false 로 두면 회전을 raw 그대로 적용 (이전 동작과 완전 동일).
+ * 위치(translation) 는 어떤 경우에도 필터링하지 않는다 — 평행 이동 lag 방지.
+ *
+ * 원복 방법: 이 상수를 false 로 바꾸면 즉시 비활성. 모든 관련 코드는 `[ROTATION_SMOOTHING]`
+ * 마커로 표시돼 있어 grep 으로 일괄 제거 가능.
+ */
+private const val ROTATION_SMOOTHING_ENABLED: Boolean = true
+
+/**
+ * [POSITION_SMOOTHING] 위치 jitter 스무딩 토글.
+ *
+ * 현재 false: 적응형 One Euro Filter 도 빠른 회전 시 안경이 얼굴에서 살짝 분리되어
+ * "둥둥 떠있는 느낌" 을 만들어내는 부작용 발견 (2026-05-11 사용자 피드백).
+ * 회전 필터만으로 lever-arm 증폭 떨림을 잡으면 충분히 안정적임이 확인됨.
+ *
+ * true 로 두면 PositionSmoother (One Euro, BETA=10) 적용 — 정지 시 떨림 잡히지만 움직임 시
+ * 미끌림 발생.
+ */
+private const val POSITION_SMOOTHING_ENABLED: Boolean = false
+
+/**
+ * [NOSE_BRIDGE_ANCHOR] 안경 위치를 콧대 정점들의 world 좌표 기준으로 anchor (회전 보정 포함).
+ *
+ * 동기: ARCore Augmented Faces 의 centerPose 가 mesh deformation (광대/입 표정 변화) 시
+ * 같이 이동해 안경 좌표가 흔들림. NOSE_TIP region pose 도 부분적으로 영향 받음 (실측 확인됨).
+ * 콧대 정점 (인덱스 6, 197, 195) 은 코뼈라서 표정에 거의 무관 — 그들의 world 좌표를
+ * anchor 로 쓰면 표정 변화 시에도 안경이 얼굴에 착 달라붙어 유지된다.
+ *
+ * 공식 (회전 보정):
+ *   glassesWorld = bridgeWorld + face.rotation * (calibrated.localPosition - locked.bridgeFaceLocal)
+ *
+ * locked.bridgeFaceLocal 을 쓰는 이유: 표정 변화 시 face.centerPose 가 위로 끌려가면서
+ * mesh 의 face-local 좌표도 미세 변동 (~0.3mm). lock 시점 값을 기준으로 삼아야 그 변동까지
+ * 상쇄돼 안경이 완전히 stable 해진다. current frame 값을 쓰면 rawPos 와 수학적으로 같아져 anchor 효과가 사라짐.
+ *
+ * Simple Y-only 공식 (이전 시도) 은 회전 시 ~3mm 어긋남. 회전 행렬을 명시적으로 적용해야 정확.
+ */
+private const val NOSE_BRIDGE_ANCHOR_ENABLED: Boolean = true
+
+/**
+ * [NOSE_BRIDGE_ANCHOR] 콧대 정점 위치 매 프레임 logcat 출력 토글. 실측 검증용.
+ * 활성화 시 매 프레임 (1초에 30~60회) 로그가 찍히므로 성능 영향 약간 있음. 검증 후 끄기.
+ */
+private const val NOSE_BRIDGE_DEBUG_LOG: Boolean = true
+
+/**
+ * Calibration UI 가 표시되는 총 시간. 일찍 lock 되어도 이 시간이 다 차야
+ * isCalibrated=true 가 되어 오버레이가 사라짐.
+ *
+ * 동기: lock 이 0.5~1.5초만에 발생하면 진행률 바가 짧게 보여 사용자가 정면 응시할 시간이
+ * 부족하다고 느낌. UI 표시 시간을 충분히 확보해 사용자가 자세 잡을 여유를 줌. 그 동안
+ * lock 이 안정적으로 확정되고, fallback timeout (FaceCalibration.TIMEOUT_MS = 3초) 도
+ * 이 시간 안에 발생하므로 어차피 lock 보장됨.
+ */
+private const val CALIBRATION_PROGRESS_DURATION_MS: Long = 4000L
 
 /**
  * 전면 카메라 + Augmented Faces + GLB 안경 렌더링의 핵심 Composable.
@@ -212,7 +282,15 @@ fun FaceFittingScreen(
     // 폭에 맞춰 multiplier 를 곱한다.
     var baseScale by remember { mutableStateOf<Scale?>(null) }
     val calibration = remember { FaceCalibration() }
+    // [ROTATION_SMOOTHING] 회전 jitter 적응형 LPF. Compose 생명주기 동안 유지.
+    val rotationSmoother = remember { RotationSmoother() }
+    // [POSITION_SMOOTHING] 위치 jitter 적응형 LPF.
+    val positionSmoother = remember { PositionSmoother() }
     var appliedPostLock by remember { mutableStateOf(false) }
+    // Calibration UI 상태. 첫 트래킹 시점에 시작, locked 되면 종료.
+    var calibrationStartMs by remember { mutableStateOf(0L) }
+    var calibrationProgress by remember { mutableStateOf(0f) }
+    var isCalibrated by remember { mutableStateOf(false) }
     // 디버그: 현재 yaw 와 temple 가시성을 status overlay 에 표시.
     var debugYawDeg by remember { mutableStateOf(0f) }
     var debugLeftVisible by remember { mutableStateOf(true) }
@@ -266,7 +344,7 @@ fun FaceFittingScreen(
                     )
                 )
             },
-            onSessionUpdated = { session, _ ->
+            onSessionUpdated = { session, frame ->
                 val tracking = session.getAllTrackables(AugmentedFace::class.java)
                     .filter { it.trackingState == TrackingState.TRACKING }
                 if (tracking != detectedFaces) detectedFaces = tracking
@@ -287,14 +365,29 @@ fun FaceFittingScreen(
                 val node = glassesNode
                 if (face != null && node != null) {
                     if (baseScale == null) baseScale = node.scale
+                    val nowMs = System.currentTimeMillis()
+                    if (calibrationStartMs == 0L) calibrationStartMs = nowMs
 
                     // 매 프레임 측정 — lock 전엔 누적, lock 후엔 no-op.
                     val m = measure(face)
-                    calibration.submit(m, nowMs = System.currentTimeMillis())
+                    calibration.submit(m, nowMs = nowMs)
+
+                    // Calibration 진행률은 시간 기반으로 부드럽게 0→100%. lock 이 일찍
+                    // 발생해도 진행률이 점프하지 않고, UI 표시 시간이 일정함 (사용자에게
+                    // 정면 응시할 여유 부여).
+                    val elapsedMs = nowMs - calibrationStartMs
+                    val timeProgress = (elapsedMs.toFloat() / CALIBRATION_PROGRESS_DURATION_MS)
+                        .coerceIn(0f, 1f)
+                    calibrationProgress = timeProgress
 
                     // lock 시점에 한 번 calibrated preset 적용. 이후엔 ModelNode 의
                     // scale/position 이 그 값을 유지하므로 매 프레임 재적용 불필요.
                     val locked = calibration.locked
+                    // 시간이 다 차면 calibration 종료 (lock 은 이 시점 이전에 거의 항상 됨,
+                    // FaceCalibration.TIMEOUT_MS=3000 < CALIBRATION_PROGRESS_DURATION_MS=4000).
+                    if (!isCalibrated && elapsedMs >= CALIBRATION_PROGRESS_DURATION_MS) {
+                        isCalibrated = true
+                    }
                     val activeOffset = if (locked != null) {
                         if (!appliedPostLock) {
                             val calibrated = preset.withCalibration(locked)
@@ -310,12 +403,65 @@ fun FaceFittingScreen(
                     }
 
                     val composed = face.centerPose.transform * activeOffset
-                    node.position = composed.position
-                    node.quaternion = composed.toQuaternion()
-                    node.isVisible = true
+                    val rawPos = composed.position
+
+                    // [NOSE_BRIDGE_ANCHOR] 검증용 logcat 출력. 콧대 face-local Y 가 매 프레임
+                    // 거의 일정해야 표정 무관 가정이 성립.
+                    if (NOSE_BRIDGE_DEBUG_LOG && isCalibrated) {
+                        val bridgeLocalY = computeNoseBridgeFaceLocalY(face)
+                        val bridgeWorldY = computeNoseBridgeWorldY(face)
+                        Log.d(
+                            TAG,
+                            "noseBridge localY=%.5f worldY=%.5f | centerPose worldY=%.5f"
+                                .format(bridgeLocalY, bridgeWorldY, face.centerPose.ty()),
+                        )
+                    }
+
+                    // [NOSE_BRIDGE_ANCHOR] 회전 보정된 정밀 anchor 공식.
+                    //   glassesWorld = bridgeWorld + face.rotation * (calibrated.localPosition - locked.bridgeFaceLocal)
+                    // - bridgeWorld: 매 프레임 콧대 정점 world 좌표 평균 (표정에 stable).
+                    // - locked.bridgeFaceLocal: calibration 시점 콧대 face-local 좌표 (표정 변동 상쇄용).
+                    // - face.centerPose.rotateVector: face rotation 만 적용해 face-local offset → world.
+                    val anchoredPos = if (NOSE_BRIDGE_ANCHOR_ENABLED && locked != null && isCalibrated) {
+                        val bridgeWorld = computeNoseBridgeWorld(face)
+                        val calibratedLocal = preset.withCalibration(locked).localPosition
+                        val offsetLocal = floatArrayOf(
+                            calibratedLocal.x - locked.noseBridgeFaceLocalX,
+                            calibratedLocal.y - locked.noseBridgeFaceLocalY,
+                            calibratedLocal.z - locked.noseBridgeFaceLocalZ,
+                        )
+                        val rotatedOffset = floatArrayOf(0f, 0f, 0f)
+                        face.centerPose.rotateVector(offsetLocal, 0, rotatedOffset, 0)
+                        Position(
+                            bridgeWorld[0] + rotatedOffset[0],
+                            bridgeWorld[1] + rotatedOffset[1],
+                            bridgeWorld[2] + rotatedOffset[2],
+                        )
+                    } else {
+                        rawPos
+                    }
+                    // [POSITION_SMOOTHING] 적응형 One Euro Filter. beta=3.0 으로 평행 이동
+                    // 시엔 cutoff 자동 상승해 raw 추종 (lag 없음), 정지 시엔 minCutoff=1Hz 로
+                    // 떨림 잡음. 이전 고정 알파 LPF (lag 발생) 와 다른 패턴.
+                    node.position = if (POSITION_SMOOTHING_ENABLED) {
+                        positionSmoother.filter(anchoredPos, frame.timestamp)
+                    } else {
+                        anchoredPos
+                    }
+                    val rawQuat = composed.toQuaternion()
+                    // [ROTATION_SMOOTHING] 회전만 적응형 LPF. 정지 시 lever-arm 증폭 떨림 제거,
+                    // 빠른 head turn 시엔 cutoff 자동 상승으로 raw 추종.
+                    node.quaternion = if (ROTATION_SMOOTHING_ENABLED) {
+                        rotationSmoother.filter(rawQuat, frame.timestamp)
+                    } else {
+                        rawQuat
+                    }
+                    // Calibration 끝나기 전엔 안경 숨김 — 사용자가 정면 응시하는 동안 어색한
+                    // 위치 추정이 노출되지 않도록.
+                    node.isVisible = isCalibrated
 
                     // 분리된 GLB 인 경우, yaw 에 따라 반대편 temple 을 숨김.
-                    if (templeEntities.hasTemples) {
+                    if (templeEntities.hasTemples && isCalibrated) {
                         val yawDeg = computeYawDegrees(face.centerPose)
                         val rm = engine.renderableManager
                         // |yaw| ≤ 임계값: 정면 영역 → 두 다리 모두 hide.
@@ -331,6 +477,11 @@ fun FaceFittingScreen(
                     }
                 } else {
                     node?.isVisible = false
+                    // [ROTATION_SMOOTHING] 트래킹 lost 시 필터 state 초기화.
+                    // 안 하면 재트래킹 시 옛 회전으로 "스르륵" 미끄러져 들어오는 아티팩트 발생.
+                    if (ROTATION_SMOOTHING_ENABLED) rotationSmoother.reset()
+                    // [POSITION_SMOOTHING] 위치 필터도 동일 이유로 reset.
+                    if (POSITION_SMOOTHING_ENABLED) positionSmoother.reset()
                 }
 
                 when {
@@ -408,6 +559,65 @@ fun FaceFittingScreen(
                 .padding(bottom = 24.dp, start = 16.dp, end = 16.dp)
                 .alpha(if (hide_overlay_during_capture) 0f else 1f),
         )
+
+        // Calibration overlay 는 fade in/out 으로 부드럽게 전환. 사라지는 동안 안경이
+        // 점차 드러나는 효과 — 안경 노드 자체의 alpha 조정은 Filament material 단에서
+        // 복잡해서, 검은 반투명 overlay 의 alpha 만 보간하는 방식으로 시각적 fade-in 모방.
+        AnimatedVisibility(
+            visible = !isCalibrated,
+            enter = fadeIn(animationSpec = tween(durationMillis = 200)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 500)),
+        ) {
+            CalibrationOverlay(progress = calibrationProgress)
+        }
+    }
+}
+
+/**
+ * 풀스크린 calibration 안내 오버레이. AR 진입 직후 사용자가 정면을 응시하는 동안 표시.
+ * `FaceCalibration` 이 locked 되면 isCalibrated=true 가 되어 부모 측에서 unmount 됨.
+ */
+@Composable
+private fun CalibrationOverlay(progress: Float) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.55f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "정면을 응시해주세요",
+                color = Color.White,
+                fontSize = 22.sp,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "안경 위치를 맞추는 중입니다",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 14.sp,
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Box(
+                modifier = Modifier
+                    .width(240.dp)
+                    .height(8.dp)
+                    .background(
+                        Color.White.copy(alpha = 0.25f),
+                        RoundedCornerShape(4.dp),
+                    ),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .background(
+                            Color(0xFFF97316),
+                            RoundedCornerShape(4.dp),
+                        ),
+                )
+            }
+        }
     }
 }
 

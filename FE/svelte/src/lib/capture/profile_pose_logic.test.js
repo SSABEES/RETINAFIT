@@ -62,20 +62,20 @@ describe('update_stability_step', () => {
   })
 
   it('영역 진입 후 이탈 (pre-stable) → -5 보수적 감소', () => {
-    // initial 10 < STABILITY_FRAMES(12) — 히스테리시스 lock 미발동, 정상 감소.
-    const initial = { stable_count: 10, yaw_buffer: Array(10).fill(89) }
+    // initial 8 < STABILITY_FRAMES(10) — 히스테리시스 lock 미발동, 정상 감소.
+    const initial = { stable_count: 8, yaw_buffer: Array(10).fill(89) }
     const result = update_stability_step({ ...initial, yaw: 0, target_deg: +90 })
-    expect(result.stable_count).toBe(5)
+    expect(result.stable_count).toBe(3)
   })
 
   it('영역 안이지만 yaw 흔들림 큼 (pre-stable) → -5 감소 (holding=false)', () => {
-    // initial 10 < STABILITY_FRAMES(12) — 히스테리시스 lock 미발동.
+    // initial 8 < STABILITY_FRAMES(10) — 히스테리시스 lock 미발동.
     // 새 buffer 의 모든 값이 |target ± TOLERANCE(32.5)| 안에 있어 in_zone 유지하면서,
     // std > YAW_STD_THR(20) 이도록 진동 폭을 키운 시나리오 (default 임계 기준).
-    const initial = { stable_count: 10, yaw_buffer: [60, 120, 60, 120, 60, 120, 60, 120, 60, 120] }
+    const initial = { stable_count: 8, yaw_buffer: [60, 120, 60, 120, 60, 120, 60, 120, 60, 120] }
     const result = update_stability_step({ ...initial, yaw: 90, target_deg: +90 })
     // 새 buffer = [120,60,120,60,120,60,120,60,120,90] — mean=93, std≈26.4 → threshold(20) 초과
-    expect(result.stable_count).toBe(5)
+    expect(result.stable_count).toBe(3)
   })
 
   it('히스테리시스 — max 도달 후 영역 이탈해도 stable_count 유지', () => {
