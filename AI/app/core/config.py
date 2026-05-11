@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     MODEL_DIR: str = "data/models"
 
     # ── LLM ──
+    # LLM_ENABLED: 기능 단위 ON/OFF 스위치.
+    #   - False 면 LLM 의존 엔드포인트가 503 으로 즉시 응답 (provider 빌드 자체를 안 함).
+    #   - LLM 외부 API 가 죽었을 때 운영자가 일시적으로 끄거나, 비용 제한 시 활용.
+    #   - LLM_PROVIDER 와는 독립: ENABLED=true + PROVIDER=dummy 면 정상 동작(에코 응답).
+    #   - 향후 다른 AI 기능(예: 이미지 분석) 추가 시 같은 패턴(`require_xxx_enabled`)으로 재사용.
+    LLM_ENABLED: bool = True
     LLM_PROVIDER: str = "dummy"          # dummy | gemini
     LLM_MODEL: str = "gemini-2.5-flash-lite"
     LLM_API_KEY: str | None = None       # None 이면 GeminiProvider 가 시작 시 예외
