@@ -35,6 +35,9 @@ env/
 .ruff_cache/
 .coverage
 
+# Private Key
+BE/*.pem
+
 ################################
 # Node / FE
 ################################

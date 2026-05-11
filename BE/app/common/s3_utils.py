@@ -1,6 +1,10 @@
 import boto3
 from botocore.exceptions import ClientError
+from botocore.signers import CloudFrontSigner
 import uuid
+from datetime import datetime, timezone, timedelta
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric import padding
 
 from app.core.config import settings
 
@@ -11,6 +15,14 @@ _s3_client = boto3.client(
     aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
     region_name=settings.AWS_REGION,
 )
+
+# CloudFront Signer 한 번만 생성
+def _rsa_signer(message):
+    with open(settings.CLOUDFRONT_PRIVATE_KEY_PATH, 'rb') as f:
+        private_key = serialization.load_pem_private_key(f.read(), password=None)
+    return private_key.sign(message, padding.PKCS1v15(), hashes.SHA1())
+
+_cf_signer = CloudFrontSigner(settings.CLOUDFRONT_KEY_ID, _rsa_signer)
 
 def get_s3_client():
     """S3 클라이언트 반환 (싱글톤)"""
@@ -55,28 +67,20 @@ def generate_object_key(visit_no: int = None, folder: str = None, filename: str 
 
 def get_file_url(object_key: str) -> str:
     """
-    S3 퍼블릭 URL 반환
+    S3 퍼블릭 CloudFront URL 반환
     glasses/ 폴더처럼 퍼블릭 접근 허용된 경우 사용
     """
-    return f"https://{settings.S3_BUCKET_NAME}.s3.{settings.AWS_REGION}.amazonaws.com/{object_key}"
+    return f"{settings.CLOUDFRONT_DOMAIN}/{object_key}"
 
 
 def get_presigned_download_url(object_key: str, expires_in: int = 3600) -> str:
     """
-    S3 조회용 Presigned URL 발급
+    S3 조회용 CloudFront Signed URL 발급
     visits/ 폴더처럼 Private인 경우 사용
     - expires_in: URL 만료 시간 (초, 기본 1시간)
     """
-    s3_client = get_s3_client()
-    try:
-        url = s3_client.generate_presigned_url(
-            "get_object",
-            Params={
-                "Bucket": settings.S3_BUCKET_NAME,
-                "Key": object_key,
-            },
-            ExpiresIn=expires_in,
-        )
-        return url
-    except ClientError as e:
-        raise Exception(f"조회용 Presigned URL 발급 실패: {str(e)}")
+    expire_date = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+    return _cf_signer.generate_presigned_url(
+        f"{settings.CLOUDFRONT_DOMAIN}/{object_key}",
+        date_less_than=expire_date,
+    )
