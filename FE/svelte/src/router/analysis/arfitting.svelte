@@ -378,11 +378,10 @@
         ),
       )
 
-      // result.svelte 가 그대로 src 로 쓸 수 있도록 query string 떼어낸 public URL 만 저장.
-      // 업로드하지 않은 슬롯은 빈 문자열로 남겨 result 측에서 placeholder 처리한다.
-      const local_public_url_arr = local_presigned_url_arr.map((local_url, local_idx) =>
-        local_filled_idx_arr.includes(local_idx) ? String(local_url).split('?')[0] : '',
-      )
+      // capture_arr 에는 S3 object key 만 저장한다 (raw url 은 private 버킷이라 권한 부족).
+      // BE _convert_visit_urls 가 vp_file_arr 만 presigned 변환해주므로, result.svelte 는
+      // vp_file_arr (presigned 배열) 와 capture_arr[].key 를 매칭해 src 를 구성한다.
+      // 업로드하지 않은 슬롯은 빈 key 로 남겨 placeholder 처리.
       const local_filled_key_arr = local_filled_idx_arr.map((local_idx) => local_key_arr[local_idx])
 
       // 로컬 누적 목록 갱신 (같은 안경이면 새 캡쳐로 덮어쓰기, 아니면 append)
@@ -393,7 +392,7 @@
         model: glasses_info?.model ?? '',
         capture_arr: SLOT_LABEL_ARR.map((local_label, local_idx) => ({
           label: local_label,
-          url: local_public_url_arr[local_idx] ?? '',
+          key: local_filled_idx_arr.includes(local_idx) ? local_key_arr[local_idx] : '',
         })),
         file_key_arr: local_filled_key_arr,
       }

@@ -244,12 +244,38 @@
   })
 
   // AR 피팅 결과 (BE 가 fitting_arr 로 저장한다)
+  // capture_arr 의 항목은 S3 object key 만 들고 있고, presigned URL 은 BE 가 vp_file_arr 로 변환해
+  // 별도 응답한다. img src 는 key → vp_file_arr 매칭으로 구성한다.
   const g_saved_fitting_arr = $derived.by(() => {
     const local_arr = Array.isArray(g_vp_json?.fitting_arr) ? g_vp_json.fitting_arr : []
-    return /** @type {{brand: string, model: string, capture_arr: {label: string, url: string}[]}[]} */ (
+    return /** @type {{brand: string, model: string, capture_arr: {label: string, key?: string, url?: string}[]}[]} */ (
       local_arr
     )
   })
+
+  // BE _convert_visit_urls 가 vp_file_arr 를 presigned URL 배열로 응답한다.
+  // capture_arr[].key 로 그 안에서 같은 object key 를 가리키는 presigned URL 을 찾아 src 로 사용.
+  const g_vp_presigned_arr = $derived(
+    Array.isArray(g_visit_obj?.vp_file_arr) ? g_visit_obj.vp_file_arr : [],
+  )
+
+  /**
+   * S3 object key 로 presigned URL 검색. presigned URL 의 path 가 key 와 같거나 끝나는 항목을 매칭.
+   * 둘 다 없으면 빈 문자열 — 호출처에서 placeholder 처리.
+   * 레거시 데이터(예전 저장본의 raw url) 호환: capture_arr 항목에 key 가 없고 url 만 있으면 그대로 반환.
+   * @param {{ key?: string, url?: string }} capture_obj
+   */
+  function resolve_capture_src(capture_obj) {
+    if (!capture_obj) return ''
+    const local_key = capture_obj.key
+    if (!local_key) return capture_obj.url ?? ''
+    const local_matched = g_vp_presigned_arr.find((local_url) => {
+      if (typeof local_url !== 'string') return false
+      const local_path = local_url.split('?')[0]
+      return local_path.endsWith(local_key)
+    })
+    return local_matched ?? ''
+  }
 
   // 측정 상세 — visit.test_json 에 저장된 측정값/측정점/이미지 dims 를 읽어 인터랙티브 화면을 합성.
   const g_measurements_obj = $derived(g_test_json?.measurements ?? null)
@@ -819,15 +845,17 @@
             <div class="mt-2 grid grid-cols-3 gap-3">
               {#each g_saved_fitting_arr as fitting_obj, fitting_index (fitting_index)}
                 {@const local_front_capture_obj =
-                  fitting_obj.capture_arr?.find((local_capture_obj) => local_capture_obj?.url) ??
-                  fitting_obj.capture_arr?.[0]}
+                  fitting_obj.capture_arr?.find(
+                    (local_capture_obj) => local_capture_obj?.key || local_capture_obj?.url,
+                  ) ?? fitting_obj.capture_arr?.[0]}
+                {@const local_front_src = resolve_capture_src(local_front_capture_obj)}
                 <article class="rounded-[12px] border border-slate-100 bg-slate-50 p-3">
                   <div
                     class="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-slate-200 bg-white"
                   >
-                    {#if local_front_capture_obj?.url}
+                    {#if local_front_src}
                       <img
-                        src={local_front_capture_obj.url}
+                        src={local_front_src}
                         alt={`${fitting_obj.model} 정면`}
                         class="h-full w-full object-cover"
                       />
