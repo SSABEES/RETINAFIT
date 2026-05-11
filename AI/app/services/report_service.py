@@ -9,6 +9,7 @@ import re
 from typing import Any
 
 from app.api.schemas import FaceScriptItems, FaceScriptRequest, FaceScriptResponse
+from app.common.logger import logger
 from app.llm.base import LLMProvider
 from app.prompts import build_face_script_prompt
 
@@ -147,7 +148,14 @@ def _parse_face_script(raw_answer: str, *, include_debug: bool) -> FaceScriptRes
             items=items,
             raw_answer=raw_answer_for_debug,
         )
-    except (json.JSONDecodeError, ValueError, TypeError):
+    except (json.JSONDecodeError, ValueError, TypeError) as exc:
+        # 폴백 진입 — LLM 이 JSON 형식을 어겼거나 형태가 안 맞을 때.
+        # 운영 중 LLM/프롬프트 회귀를 감지하려면 반드시 가시화 필요.
+        logger.warning(
+            "face_script JSON parse failed, falling back to raw text: err=%s raw=%s",
+            exc,
+            (raw_answer or "")[:300],
+        )
         return FaceScriptResponse(
             summary=raw_answer.strip() if raw_answer else "",
             items=FaceScriptItems(),

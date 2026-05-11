@@ -6,6 +6,7 @@ export const PATH = {
   analysis: '/analysis',
   analysisResult: '/analysis/result',
   analysisReport: '/analysis/report',
+  analysisFaceMeasurement: '/analysis/face-measurement',
   analysisLensConsult: '/analysis/lens-consult',
   analysisLensConsultLegacy: '/analysis/lens_consult',
   analysisArFitting: '/analysis/arfitting',

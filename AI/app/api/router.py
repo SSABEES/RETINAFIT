@@ -9,8 +9,9 @@ from app.api.schemas import (
 )
 
 # DI provider 함수. Spring 의 @Bean 메서드 비슷한 역할.
-# get_llm_provider() 는 LLMProvider 싱글턴을 반환하는 팩토리.
-from app.core.deps import get_llm_provider
+# get_llm_provider()       — LLMProvider 싱글턴을 반환하는 팩토리.
+# require_llm_enabled      — LLM 기능 ON/OFF 가드. False 면 503 으로 즉시 응답.
+from app.core.deps import get_llm_provider, require_llm_enabled
 from app.llm.base import LLMProvider  # ← 인터페이스(=Java 의 interface). 구현은 dummy/gemini 둘 중 하나가 주입됨.
 from app.services import report_service
 
@@ -32,7 +33,16 @@ def health() -> dict[str, str]:
 
 # ── 리포트 (얼굴 측정 → 상담 스크립트) ─────────────────────────────
 
-@router.post("/report/face-script", response_model=FaceScriptResponse, tags=["report"])
+@router.post(
+    "/report/face-script",
+    response_model=FaceScriptResponse,
+    tags=["report"],
+    # ↓ `dependencies=[...]` 는 "반환값을 안 쓰는" 의존성을 라우트에 부착할 때 쓰는 슬롯.
+    #    Spring 의 @PreAuthorize / 인터셉터처럼 핸들러 진입 직전 실행.
+    #    require_llm_enabled 는 settings.LLM_ENABLED=False 면 HTTPException(503) 을 던져
+    #    아래 핸들러 본문과 get_llm_provider 빌드가 아예 실행되지 않게 만든다.
+    dependencies=[Depends(require_llm_enabled)],
+)
 def report_face_script(
     payload: FaceScriptRequest,
     # ↓ DI 핵심.

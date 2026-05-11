@@ -284,24 +284,24 @@
 <AnalysisPageLayout
   current_step={2}
   bg_class="bg-[var(--retina-text-100)] text-zinc-950"
-  edge_extend_bg
+  fit_viewport={true}
 >
   <section
     class="flex min-h-0 flex-1 flex-col justify-center overflow-clip [overflow-clip-margin:9999px]"
   >
-    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 mt-2">
+    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-[clamp(12px,3svh,32px)] mt-[clamp(3px,0.9svh,10px)]">
       <div class="text-center">
-        <h1 class="m-0 text-[26px] font-extrabold tracking-[-0.02em] text-zinc-950">
+        <h1 class="m-0 font-extrabold tracking-[-0.02em] text-zinc-950 text-[clamp(14px,2.9svh,24px)]">
           {g_customer_name}의 생활패턴
         </h1>
-        <p class="m-0 text-[15px] font-semibold text-slate-500">
+        <p class="m-0 font-semibold text-slate-500 text-[clamp(10px,1.8svh,14px)]">
           고객님이 안경을 착용하는 평소의 생활 환경을 알려주세요. (중복 선택 가능)
         </p>
       </div>
 
-      <div class="mx-auto mt-2 w-full max-w-[820px]">
+      <div class="mx-auto mt-[clamp(3px,0.9svh,10px)] w-full max-w-[820px]">
         {#if g_options_loading}
-          <div class="grid place-items-center py-12">
+          <div class="grid place-items-center py-[clamp(16px,5svh,48px)]">
             <span
               class="h-8 w-8 animate-spin rounded-full border-[3px] border-[var(--retina-primary-300)] border-t-transparent"
               aria-label="옵션 로딩 중"
@@ -315,13 +315,13 @@
           </p>
         {:else}
           <div
-            class="rounded-[18px] border border-slate-200 bg-white px-5 py-7 text-left shadow-[0_6px_16px_rgba(15,23,42,0.05)]"
+            class="rounded-[18px] border border-slate-200 bg-white text-left shadow-[0_6px_16px_rgba(15,23,42,0.05)] px-[clamp(11px,2.2svh,22px)] py-[clamp(7px,1.8svh,18px)]"
           >
             {#each g_question_arr as question_obj, question_index (question_obj.question_text)}
               <section
-                class={`text-left ${question_index === 0 ? '' : 'mt-1.5 border-t border-slate-100 pt-1.5'}`}
+                class={`text-left ${question_index === 0 ? '' : 'mt-[clamp(5px,1.2svh,12px)] border-t border-slate-100 pt-[clamp(5px,1.2svh,12px)]'}`}
               >
-                <h2 class="m-0 text-left text-[18px] font-extrabold text-zinc-950">
+                <h2 class="m-0 text-left font-extrabold text-zinc-950 text-[clamp(11px,2svh,17px)]">
                   Q{question_index + 1}. {question_obj.question_text}
                 </h2>
 
@@ -331,8 +331,8 @@
                   {@const local_value_index = local_selected_index < 0 ? 0 : local_selected_index}
                   {@const local_progress_pct =
                     local_max_index === 0 ? 100 : (local_value_index / local_max_index) * 100}
-                  <div class="mt-2 px-1">
-                    <div class="relative h-4 rounded-full bg-[var(--retina-primary-100)]">
+                  <div class="mt-[clamp(3px,0.9svh,9px)] px-1">
+                    <div class="relative h-[clamp(9px,1.8svh,15px)] rounded-full bg-[var(--retina-primary-100)]">
                       <div
                         class="absolute top-0 left-0 h-full rounded-full bg-[var(--retina-primary-300)] transition-[width] duration-150"
                         style={`width: ${local_progress_pct}%`}
@@ -348,12 +348,12 @@
                         oninput={(local_event) => on_input_slider_answer(question_obj, local_event)}
                       />
                       <span
-                        class="pointer-events-none absolute top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-white shadow-[0_2px_6px_rgba(249,115,22,0.45)] transition"
+                        class="pointer-events-none absolute top-1/2 h-[clamp(15px,3svh,23px)] w-[clamp(15px,3svh,23px)] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-white shadow-[0_2px_6px_rgba(249,115,22,0.45)] transition"
                         style={`left: ${local_progress_pct}%`}
                         aria-hidden="true"
                       ></span>
                     </div>
-                    <div class="mt-1 flex justify-between text-[13px] font-bold text-slate-500">
+                    <div class="mt-[clamp(2px,0.7svh,7px)] flex justify-between font-bold text-slate-500 text-[clamp(9px,1.55svh,12px)]">
                       {#each question_obj.answer_arr as answer_obj, answer_index (answer_obj.option_no)}
                         <span
                           class={answer_index === local_selected_index
@@ -366,14 +366,14 @@
                     </div>
                   </div>
                 {:else}
-                  <div class="mt-2 flex flex-wrap justify-start gap-1.5">
+                  <div class="mt-[clamp(3px,0.9svh,9px)] flex flex-wrap justify-start gap-[clamp(4px,0.9svh,9px)]">
                     {#each question_obj.answer_arr as answer_obj (answer_obj.option_no)}
                       {@const local_active = is_selected(
                         question_obj.question_text,
                         answer_obj.option_no,
                       )}
                       <button
-                        class={`inline-flex min-h-10 cursor-pointer items-center rounded-md border px-4 text-[15px] font-bold transition ${
+                        class={`inline-flex cursor-pointer items-center rounded-md border font-bold transition min-h-[clamp(24px,4.1svh,38px)] px-[clamp(8px,1.8svh,17px)] py-[clamp(2px,0.6svh,7px)] text-[clamp(10px,1.8svh,14px)] ${
                           local_active
                             ? 'border-[var(--retina-primary-300)] bg-white text-[var(--retina-primary-300)] shadow-[0_3px_8px_rgba(249,115,22,0.18)]'
                             : 'border-slate-200 bg-white text-slate-500 hover:border-[var(--retina-primary-300)]/60 hover:text-[var(--retina-primary-300)]'
@@ -397,10 +397,10 @@
 
     <div class="app-bg-edge-extend shrink-0 bg-white">
       <div class="h-px w-full bg-slate-200"></div>
-      <div class="px-4 py-3">
+      <div class="px-[clamp(8px,2svh,16px)] py-[clamp(4px,1.1svh,11px)]">
         <div class="mx-auto w-full max-w-[400px]">
           <button
-            class="inline-flex h-[64px] w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[var(--retina-primary-300)] px-5 text-[26px] tracking-tight text-[var(--retina-surface)] transition hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-60"
+            class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[var(--retina-primary-300)] tracking-tight text-[var(--retina-surface)] transition hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-60 h-[clamp(36px,6.8svh,58px)] px-[clamp(12px,2.5svh,24px)] text-[clamp(13px,2.9svh,23px)]"
             type="button"
             disabled={g_loading}
             onclick={on_click_submit}

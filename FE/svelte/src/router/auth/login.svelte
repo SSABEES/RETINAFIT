@@ -136,7 +136,7 @@
         password: local_password,
       })
 
-      if (ref_auto_login && local_login_response_obj?.token && local_login_response_obj?.token_no) {
+      if (local_login_response_obj?.token && local_login_response_obj?.token_no) {
         save_auto_login_obj({
           token: String(local_login_response_obj.token),
           token_no: String(local_login_response_obj.token_no),
@@ -144,9 +144,8 @@
           member_list: Array.isArray(local_login_response_obj.member_list)
             ? /** @type {Array<Record<string, unknown>>} */ (local_login_response_obj.member_list)
             : [],
+          keep_login: ref_auto_login,
         })
-      } else {
-        clear_auto_login_obj()
       }
 
       apply_login_response(local_login_response_obj)
@@ -188,17 +187,17 @@
 </script>
 
 <main
-  class="app-frame-page grid min-h-full grid-rows-[1fr_auto] overflow-hidden bg-[#FFF3EB] px-6 pt-6 pb-4 text-[var(--retina-text)]"
+  class="app-frame-page grid min-h-screen grid-rows-[1fr_auto] bg-[#FFF3EB] px-4 pt-[clamp(8px,2svh,24px)] pb-[clamp(6px,1.5svh,16px)] sm:px-6 text-[var(--retina-text)]"
 >
   <section
-    class="grid w-full max-w-[460px] justify-self-center self-center"
+    class="grid w-full max-w-[420px] justify-self-center self-center sm:max-w-[480px] lg:max-w-[520px]"
     aria-labelledby="login-title"
   >
     <form
-      class="grid w-full gap-6 rounded-[22px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-14 py-10 shadow-[0_6px_14px_rgba(19,25,40,0.06)]"
+      class="grid w-full rounded-[22px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] shadow-[0_6px_14px_rgba(19,25,40,0.06)] gap-[clamp(14px,3svh,24px)] px-[clamp(16px,3svh,40px)] py-[clamp(16px,3.5svh,40px)]"
       onsubmit={on_submit_login}
     >
-      <div class="grid justify-items-center gap-4 text-center">
+      <div class="grid justify-items-center gap-[clamp(8px,2svh,16px)] text-center">
         <button
           type="button"
           class="m-0 cursor-default border-0 bg-transparent p-0 [-webkit-touch-callout:none]"
@@ -207,7 +206,7 @@
           onclick={on_click_logo}
         >
           <img
-            class="h-auto w-[248px] select-none"
+            class="h-auto w-[clamp(140px,28svh,248px)] select-none"
             src="/logo/LogoHeight.png"
             alt="RetinaFit"
             width="16568"
@@ -218,7 +217,7 @@
         <h1 id="login-title" class="sr-only">로그인</h1>
       </div>
 
-      <div class="grid gap-3.5">
+      <div class="grid gap-[clamp(10px,2svh,14px)]">
         <label class="group relative block">
           <span class="sr-only">아이디</span>
           <User
@@ -229,7 +228,7 @@
           />
           <input
             id="store-id"
-            class="min-h-14 w-full rounded-[4px] border border-[var(--retina-text-300)] bg-[var(--retina-surface)] pl-12 pr-4 text-base text-[var(--retina-text)] outline-none transition placeholder:text-[var(--retina-text-500)] focus:border-[var(--retina-text-800)] focus:bg-[var(--retina-primary-200)]/30"
+            class="w-full rounded-[4px] border border-[var(--retina-text-300)] bg-[var(--retina-surface)] pl-12 pr-4 text-[var(--retina-text)] outline-none transition placeholder:text-[var(--retina-text-500)] focus:border-[var(--retina-text-800)] focus:bg-[var(--retina-primary-200)]/30 min-h-[clamp(44px,8svh,56px)] text-[clamp(14px,2.2svh,16px)]"
             type="text"
             value={ref_store_id}
             placeholder="아이디 (이메일 주소)"
@@ -250,7 +249,7 @@
           />
           <input
             id="password"
-            class="min-h-14 w-full rounded-[4px] border border-[var(--retina-text-300)] bg-[var(--retina-surface)] pl-12 pr-4 text-base text-[var(--retina-text)] outline-none transition placeholder:text-[var(--retina-text-500)] focus:border-[var(--retina-text-800)] focus:bg-[var(--retina-primary-200)]/30"
+            class="w-full rounded-[4px] border border-[var(--retina-text-300)] bg-[var(--retina-surface)] pl-12 pr-4 text-[var(--retina-text)] outline-none transition placeholder:text-[var(--retina-text-500)] focus:border-[var(--retina-text-800)] focus:bg-[var(--retina-primary-200)]/30 min-h-[clamp(44px,8svh,56px)] text-[clamp(14px,2.2svh,16px)]"
             type="password"
             value={ref_password}
             placeholder="비밀번호"
@@ -263,7 +262,7 @@
       </div>
 
       <button
-        class={`min-h-14 w-full cursor-pointer rounded-[8px] border-0 text-[24px] font-bold tracking-[0.18em] text-[var(--retina-text-100)] transition focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--retina-text-300)]/70 disabled:cursor-not-allowed disabled:opacity-60 ${
+        class={`w-full cursor-pointer rounded-[8px] border-0 font-bold tracking-[0.18em] text-[var(--retina-text-100)] transition focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--retina-text-300)]/70 disabled:cursor-not-allowed disabled:opacity-60 min-h-[clamp(44px,8svh,56px)] text-[clamp(16px,3.5svh,24px)] ${
           is_active
             ? 'bg-[var(--retina-primary-400)] hover:bg-[var(--retina-primary-700)]'
             : 'bg-[var(--retina-bg-2)] hover:bg-[var(--retina-text-600)]'
@@ -305,17 +304,3 @@
     © 2026 RETINA Co,Ltd. All rights reserved.
   </p>
 </main>
-
-<style>
-  @media (max-width: 1280px), (max-height: 820px) {
-    form {
-      padding: 2rem 1.75rem;
-    }
-  }
-
-  @media (max-width: 640px) {
-    form {
-      padding: 1.5rem 1.25rem;
-    }
-  }
-</style>

@@ -121,6 +121,7 @@
       measurements_obj: result.measurements_obj,
       measurement_points_obj: result.measurement_points_obj,
       landmarks: result.landmarks,
+      head_pose: result.head_pose,
     }
 
     // 단계 완료 안내를 add_capture (step 전환) 직전에 await — step 변경 시 camera_view.reset()
@@ -203,41 +204,37 @@
     - 우측 컨트롤 패널 ≈ 27% (343/1280), 흰색 bg, 가이드 toggle / step / 상태 / 썸네일 수직 스택
     AnalysisPageLayout 이 위에서 헤더 + AnalysisStepBar 를 렌더링하고, 이 영역은 그 밑으로 채운다.
   -->
-  <div class="flex min-h-0 flex-1 overflow-clip [overflow-clip-margin:9999px]">
+  <div class="flex min-h-0 flex-1">
     {#if g_session.phase === 'capturing' && g_current_step}
       <div
-        class="grid h-full w-full grid-cols-[2.73fr_1fr] items-stretch overflow-clip [overflow-clip-margin:9999px]"
+        class="grid h-full w-full grid-cols-1 grid-rows-[55svh_auto] md:grid-cols-[1fr_220px] md:grid-rows-1 lg:grid-cols-[2.73fr_1fr] items-stretch min-h-0"
       >
-        <!-- 좌: 실시간 카메라. 회색 bg 위에 3:4 비율 preview 를 가운데. viewport 왼쪽 끝까지 확장. -->
+        <!--
+          좌: 실시간 카메라. 모바일에선 위쪽 row(55svh), md+ 에서 좌측 컬럼.
+          real_fitting/arfitting 와 동일 패턴 — CameraView 자체가 영역 fill.
+        -->
         <section
           aria-label="실시간 얼굴 분석"
-          class="app-bg-edge-extend-left flex min-h-0 items-center justify-center overflow-hidden bg-[#E5E7EB] p-6"
+          class="relative flex min-h-0 flex-col overflow-hidden bg-zinc-950 shadow-inner"
         >
-          <!--
-            CameraView 내부가 `aspect-[3/4] w-full` 로 자기 크기를 잡으므로 wrapper 는 width 가
-            정해진 block 박스여야 한다. h-full + aspect-[3/4] 가 height 를 부모(섹션) full 로 채우고
-            width 를 height × 3/4 로 도출 → CameraView 가 그 width 만큼 stretch.
-          -->
-          <div class="aspect-[3/4] h-full">
-            <CameraView
-              bind:this={ref_this_camera}
-              active={true}
-              pose_target={g_current_step.pose_type}
-              capture_mode={g_current_step.capture_mode}
-              is_landmark_visible={g_is_landmark_visible}
-              oncapture={on_capture}
-              oncapture_error={on_capture_error}
-            />
-          </div>
+          <CameraView
+            bind:this={ref_this_camera}
+            active={true}
+            pose_target={g_current_step.pose_type}
+            capture_mode={g_current_step.capture_mode}
+            is_landmark_visible={g_is_landmark_visible}
+            oncapture={on_capture}
+            oncapture_error={on_capture_error}
+          />
         </section>
 
-        <!-- 우: 컨트롤 패널. 위에서 아래로 가이드 toggle / step / 상태 / 썸네일 4 영역. viewport 오른쪽 끝까지 확장. -->
+        <!-- 우: 컨트롤 패널. 모바일에선 하단 stack, md+ 에서 우측 컬럼. -->
         <aside
-          class="app-bg-edge-extend-right flex min-h-0 flex-col overflow-hidden border-l border-[var(--retina-text-200)] bg-white"
+          class="flex min-h-0 flex-col border-t md:border-t-0 md:border-l border-[var(--retina-text-200)] bg-white"
         >
-          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
+          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
             <div class="flex items-center justify-between gap-2">
-              <p class="text-[12px] font-extrabold text-[var(--retina-text-800)]">가이드 표시</p>
+              <p class="font-extrabold text-[var(--retina-text-800)] text-[clamp(10px,1.6svh,14px)]">가이드 표시</p>
               <button
                 type="button"
                 class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
@@ -274,7 +271,7 @@
             </section>
           -->
 
-          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
+          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
             <StepStatusBar
               step={g_current_step}
               is_capturing={g_is_capturing}
@@ -282,7 +279,7 @@
             />
           </section>
 
-          <section class="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-3">
+          <section class="flex min-h-0 flex-1 flex-col overflow-hidden px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
             <CaptureThumbnails />
           </section>
         </aside>

@@ -70,9 +70,11 @@ describe('update_stability_step', () => {
 
   it('영역 안이지만 yaw 흔들림 큼 (pre-stable) → -5 감소 (holding=false)', () => {
     // initial 10 < STABILITY_FRAMES(12) — 히스테리시스 lock 미발동.
-    const initial = { stable_count: 10, yaw_buffer: [80, 100, 80, 100, 80, 100, 80, 100, 80, 100] }
+    // 새 buffer 의 모든 값이 |target ± TOLERANCE(32.5)| 안에 있어 in_zone 유지하면서,
+    // std > YAW_STD_THR(20) 이도록 진동 폭을 키운 시나리오 (default 임계 기준).
+    const initial = { stable_count: 10, yaw_buffer: [60, 120, 60, 120, 60, 120, 60, 120, 60, 120] }
     const result = update_stability_step({ ...initial, yaw: 90, target_deg: +90 })
-    // 새 buffer = [100,80,100,80,100,80,100,80,100,90] — std≈9.43 → threshold(5) 초과
+    // 새 buffer = [120,60,120,60,120,60,120,60,120,90] — mean=93, std≈26.4 → threshold(20) 초과
     expect(result.stable_count).toBe(5)
   })
 
