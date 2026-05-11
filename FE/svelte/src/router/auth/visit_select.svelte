@@ -105,7 +105,7 @@
 </script>
 
 <main
-  class="app-frame-page grid min-h-full grid-rows-[auto_1fr] overflow-hidden bg-[#FAFAFB] text-[var(--retina-text)]"
+  class="app-frame-page grid min-h-screen grid-rows-[auto_1fr] bg-[#FAFAFB] text-[var(--retina-text)]"
 >
   <Header show_back={false} />
 

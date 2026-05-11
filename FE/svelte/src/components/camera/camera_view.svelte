@@ -912,11 +912,10 @@
   ></video>
   <!--
     가운데 3:4 wrapper — 실제 캡처되는 영역. 같은 stream 을 한번 더 깔지만 좌표계 정합 (canvas
-    overlay·가이드 타원이 이 영역 안에 그려짐) 을 위해 분리. 외곽 ring 으로 "이 안만 캡처됨" 을
-    시각적으로 명시.
+    overlay·가이드 타원이 이 영역 안에 그려짐) 을 위해 분리.
   -->
   <div
-    class="relative aspect-[3/4] h-full overflow-hidden bg-black ring-2 ring-[var(--retina-primary-300)]/40"
+    class="relative aspect-[3/4] h-full overflow-hidden bg-black"
   >
     <video
       bind:this={ref_this_video_el}

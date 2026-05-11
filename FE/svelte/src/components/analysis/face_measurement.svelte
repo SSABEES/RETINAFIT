@@ -169,7 +169,7 @@
 </script>
 
 <main
-  class="app-frame-page flex h-full flex-col overflow-hidden bg-white text-[var(--retina-text)]"
+  class="app-frame-page flex min-h-screen flex-col bg-white text-[var(--retina-text)]"
 >
   <Header onback={on_click_back} onlogout={on_click_logout} />
 

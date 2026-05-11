@@ -18,25 +18,22 @@
 </script>
 
 <!--
-  normal flow 로 헤더(fixed top, 52px) 바로 밑에 자연스럽게 자리잡는다.
-  .app-bg-edge-extend 가 negative margin 으로 .app-frame 좌우 빈 공간까지 배경 확장.
-  fixed 를 안 쓰는 이유: app.css 의 unlayered .app-frame-page padding-top 이 Tailwind utility 보다
-  우선순위가 높아 pt-[112px] 가 먹히지 않았다 → flex-col 의 in-flow 자식으로 두면 자연 해결.
+  헤더 바로 밑 in-flow step bar. 모바일에선 라벨 숨기고 번호 원만 표시, sm 이상에서 라벨 노출.
 -->
 <footer
-  class="app-bg-edge-extend shrink-0 border-b border-slate-200 bg-white px-6 py-2"
+  class="shrink-0 border-b border-slate-200 bg-white px-3 py-2 sm:px-6"
   aria-label="얼굴 분석 진행 단계"
 >
   <div
-    class="mx-auto flex w-full max-w-[560px] items-center justify-between gap-3"
+    class="mx-auto flex w-full max-w-[560px] items-center justify-between gap-2 sm:gap-3"
     role="list"
   >
     {#each STEP_ARR as step_obj, step_index (step_obj.num)}
       {@const local_is_done = step_obj.num < current_step}
       {@const local_is_active = step_obj.num === current_step}
-      <div class="flex shrink-0 items-center gap-3" role="listitem">
+      <div class="flex shrink-0 items-center gap-2 sm:gap-3" role="listitem">
         <span
-          class={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-[16px] font-extrabold transition-colors ${
+          class={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[14px] font-extrabold transition-colors sm:h-10 sm:w-10 sm:text-[16px] ${
             local_is_done
               ? 'bg-[var(--retina-primary-300)] text-white'
               : local_is_active
@@ -48,7 +45,7 @@
           {step_obj.num}
         </span>
         <span
-          class={`text-[15px] font-extrabold leading-tight ${
+          class={`hidden text-[13px] font-extrabold leading-tight sm:inline sm:text-[15px] ${
             local_is_active
               ? 'text-[var(--retina-primary-400)]'
               : local_is_done

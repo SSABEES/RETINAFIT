@@ -556,7 +556,7 @@
 <AnalysisPageLayout
   current_step={5}
   bg_class="bg-[var(--retina-text-100)] text-zinc-950"
-  edge_extend_bg
+  fit_viewport={false}
   show_step_bar={false}
 >
 

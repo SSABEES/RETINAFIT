@@ -66,10 +66,10 @@
   }
 </script>
 
-<main class="app-frame-page overflow-hidden bg-[var(--retina-page)] text-[var(--retina-text)]">
-  <section class="grid h-full place-items-center px-8 py-10">
+<main class="app-frame-page min-h-screen bg-[var(--retina-page)] text-[var(--retina-text)]">
+  <section class="grid min-h-screen place-items-center px-4 py-8 sm:px-8 sm:py-10">
     <section
-      class="w-full max-w-[460px] rounded-[28px] border border-[#EFE7F2] bg-white p-8 shadow-sm shadow-slate-200/50"
+      class="w-full max-w-[460px] rounded-[28px] border border-[#EFE7F2] bg-white p-6 shadow-sm shadow-slate-200/50 sm:p-8"
     >
       <div class="mb-8 text-left">
         <h1 class="mt-3 mb-0 text-[1.9rem] font-extrabold tracking-[-0.02em] text-zinc-950">

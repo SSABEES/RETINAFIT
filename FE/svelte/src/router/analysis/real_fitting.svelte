@@ -275,12 +275,15 @@
   onback={on_click_back}
 >
   <div
-    class="flex min-h-0 flex-1 overflow-clip [overflow-clip-margin:9999px] bg-[var(--retina-text-100)]"
+    class="grid flex-1 grid-cols-1 grid-rows-[55svh_auto] min-h-0 md:grid-cols-[1fr_220px] md:grid-rows-1 lg:grid-cols-[1fr_300px] bg-[var(--retina-text-100)]"
   >
-    <!-- 좌측: 카메라 — analysis/index.svelte 와 동일한 자동 캡처 흐름. 정면→좌→우 자동 진행. -->
+    <!--
+      좌측: 카메라 — analysis/index.svelte 와 동일한 자동 캡처 흐름(정면→좌→우 자동 진행).
+      모바일에선 위쪽 row(55svh), md+ 에서 좌측 flex column.
+    -->
     <section class="relative flex min-h-0 flex-1 flex-col">
       <div
-        class="app-bg-edge-extend-left relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner"
+        class="relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner"
       >
         <CameraView
           bind:this={ref_this_camera}
@@ -307,9 +310,9 @@
       </div>
     </section>
 
-    <!-- 우측: 캡쳐 슬롯 + 안내 + 저장 액션 -->
+    <!-- 우측: 캡쳐 슬롯 + 안내 + 저장 액션 — 모바일에선 하단 stack(콘텐츠 크기) -->
     <aside
-      class="app-bg-edge-extend-right relative flex w-[300px] flex-col border-l border-slate-200 bg-white"
+      class="relative flex flex-col border-t md:border-t-0 md:border-l border-slate-200 bg-white"
     >
       <!-- 캡쳐 슬롯 -->
       <div class="px-4 pt-3 pb-2">

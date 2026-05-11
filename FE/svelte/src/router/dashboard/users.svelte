@@ -417,11 +417,11 @@
 </script>
 
 <main
-  class="app-frame-page grid min-h-full grid-rows-[1fr] overflow-clip [overflow-clip-margin:9999px] bg-[var(--retina-surface)] text-[var(--retina-text)]"
+  class="app-frame-page grid min-h-screen grid-rows-[1fr] bg-[var(--retina-surface)] text-[var(--retina-text)]"
 >
   <Header onback={on_click_back} />
 
-  <div class="grid min-h-0 grid-cols-2">
+  <div class="grid min-h-0 grid-cols-1 md:grid-cols-2">
     <section
       class="app-bg-edge-extend-left app-bg-edge-extend-bottom flex h-full min-h-0 flex-col items-center justify-center border-r border-[var(--retina-text-200)] px-8 pt-6 pb-6"
       aria-label="고객 조회 키패드 영역"
@@ -537,18 +537,19 @@
               {@const local_masked_name = mask_name(customer_obj.name)}
               <button
                 type="button"
-                class="grid min-h-[112px] w-full shrink-0 cursor-pointer grid-cols-[1fr_auto] items-center gap-4 rounded-[10px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-7 py-5 text-left shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition hover:-translate-y-0.5 hover:border-[var(--retina-primary-600)] hover:shadow-[0_8px_18px_rgba(245,107,0,0.14)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-70"
+                class="@container/card grid min-h-[112px] w-full shrink-0 cursor-pointer grid-cols-[1fr_auto] items-center gap-4 rounded-[10px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-7 py-5 text-left shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition hover:-translate-y-0.5 hover:border-[var(--retina-primary-600)] hover:shadow-[0_8px_18px_rgba(245,107,0,0.14)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60 disabled:cursor-not-allowed disabled:opacity-70"
                 onclick={() => on_click_select_customer(customer_obj)}
                 aria-label={`${local_masked_name} 얼굴분석 시작`}
                 disabled={g_is_customer_select_loading}
               >
                 <div class="min-w-0">
                   <div class="flex items-center gap-3">
-                    <span class="truncate text-2xl font-extrabold text-[var(--retina-text-800)]">
+                    <!-- 이름은 절대 잘리지 않게 whitespace-nowrap. 카드 폭이 좁으면 전화번호 영역을 통째로 숨김 -->
+                    <span class="whitespace-nowrap text-2xl font-extrabold text-[var(--retina-text-800)]">
                       {local_masked_name}
                     </span>
-                    <span class="text-[var(--retina-text-300)]" aria-hidden="true">|</span>
-                    <span class="truncate text-base font-medium text-[var(--retina-text-500)]">
+                    <span class="hidden @md/card:inline text-[var(--retina-text-300)]" aria-hidden="true">|</span>
+                    <span class="hidden @md/card:inline truncate text-base font-medium text-[var(--retina-text-500)]">
                       {customer_obj.phone}
                     </span>
                   </div>
