@@ -5,44 +5,75 @@ import com.google.ar.core.Pose
 import kotlin.math.sqrt
 
 /**
- * 한 프레임의 얼굴 측정값. centerPose-relative 좌표가 아닌 단순 스칼라 두 개.
+ * Canonical Face Mesh (468 정점) 의 콧대 정점 인덱스.
+ * MediaPipe 표준과 호환되며 ARCore Augmented Faces 도 동일한 인덱스 매핑 사용.
+ *  - 6: 코 뿌리 (이마와 코 사이, glabella)
+ *  - 197: 콧대 윗부분 (눈썹 사이 아래)
+ *  - 195: 콧대 중간
+ * 이 정점들은 코뼈 부분이라 광대/입꼬리 등 표정 변화에 거의 무관.
+ */
+val NOSE_BRIDGE_VERTEX_INDICES: IntArray = intArrayOf(6, 197, 195)
+
+/**
+ * 한 프레임의 얼굴 측정값.
  * - faceWidth: 좌/우 이마 region 의 월드 공간 거리 (meter, rotation-invariant).
  * - noseTipY: 코끝 region 과 centerPose 간 Y 축 거리 (face-local approximation).
+ * - noseBridgeFaceLocal{X,Y,Z}: 콧대 정점들 face-local 좌표 평균 (표정 무관 anchor 용).
+ *   lock 시점의 face-local 콧대 좌표를 보존해, 표정 변화로 인한 mesh deformation
+ *   (centerPose 자체가 위/아래로 끌려가고, 콧대 face-local 좌표도 미세 변동) 을 보상.
  */
 data class FaceMeasurement(
     val faceWidth: Float,
     val noseTipY: Float,
+    val noseBridgeFaceLocalX: Float = 0f,
+    val noseBridgeFaceLocalY: Float = 0f,
+    val noseBridgeFaceLocalZ: Float = 0f,
 )
 
 fun List<FaceMeasurement>.average(): FaceMeasurement {
-    if (isEmpty()) return FaceMeasurement(0f, 0f)
+    if (isEmpty()) return FaceMeasurement(0f, 0f, 0f, 0f, 0f)
     var w = 0f
     var y = 0f
+    var bX = 0f
+    var bY = 0f
+    var bZ = 0f
     for (m in this) {
         w += m.faceWidth
         y += m.noseTipY
+        bX += m.noseBridgeFaceLocalX
+        bY += m.noseBridgeFaceLocalY
+        bZ += m.noseBridgeFaceLocalZ
     }
     val n = size.toFloat()
-    return FaceMeasurement(faceWidth = w / n, noseTipY = y / n)
+    return FaceMeasurement(
+        faceWidth = w / n,
+        noseTipY = y / n,
+        noseBridgeFaceLocalX = bX / n,
+        noseBridgeFaceLocalY = bY / n,
+        noseBridgeFaceLocalZ = bZ / n,
+    )
 }
 
 /**
- * 두 채널 (faceWidth, noseTipY) 의 분산을 합쳐 단일 스칼라로 반환.
- * lock 안정성 판단용. 두 채널이 모두 안정될 때만 작은 값.
+ * 세 채널 (faceWidth, noseTipY, noseBridgeFaceLocalY) 의 분산을 합쳐 단일 스칼라로 반환.
+ * lock 안정성 판단용.
  */
 fun variance(samples: List<FaceMeasurement>): Float {
     if (samples.size < 2) return Float.MAX_VALUE
     val avg = samples.average()
     var sumSqW = 0f
     var sumSqY = 0f
+    var sumSqBY = 0f
     for (m in samples) {
         val dw = m.faceWidth - avg.faceWidth
         val dy = m.noseTipY - avg.noseTipY
+        val dbY = m.noseBridgeFaceLocalY - avg.noseBridgeFaceLocalY
         sumSqW += dw * dw
         sumSqY += dy * dy
+        sumSqBY += dbY * dbY
     }
     val n = samples.size.toFloat()
-    return sumSqW / n + sumSqY / n
+    return sumSqW / n + sumSqY / n + sumSqBY / n
 }
 
 /**
@@ -114,5 +145,82 @@ fun measure(face: AugmentedFace): FaceMeasurement {
 
     // centerPose-local 좌표계로 변환: noseTip 의 face-local Y.
     val noseLocal: Pose = face.centerPose.inverse().compose(nose)
-    return FaceMeasurement(faceWidth = faceWidth, noseTipY = noseLocal.ty())
+
+    // 콧대 정점들의 face-local (x, y, z) 평균. face.meshVertices 는 face-local 좌표.
+    val bridge = computeNoseBridgeFaceLocal(face)
+
+    return FaceMeasurement(
+        faceWidth = faceWidth,
+        noseTipY = noseLocal.ty(),
+        noseBridgeFaceLocalX = bridge[0],
+        noseBridgeFaceLocalY = bridge[1],
+        noseBridgeFaceLocalZ = bridge[2],
+    )
 }
+
+/**
+ * face.meshVertices (FloatBuffer of x,y,z triples) 에서 콧대 정점들의 face-local (x, y, z) 평균.
+ * 콧대 정점은 표정 변화에 거의 무관하므로, 그들의 face-local 좌표가 매 프레임 거의 일정해야 함.
+ * 만약 매 프레임 변하면 ARCore 의 mesh deformation 이 콧대까지 영향 미친다는 신호.
+ */
+fun computeNoseBridgeFaceLocal(face: AugmentedFace): FloatArray {
+    val vertices = face.meshVertices
+    var sumX = 0f
+    var sumY = 0f
+    var sumZ = 0f
+    var count = 0
+    for (idx in NOSE_BRIDGE_VERTEX_INDICES) {
+        val baseIdx = idx * 3
+        if (baseIdx + 2 < vertices.limit()) {
+            sumX += vertices.get(baseIdx)
+            sumY += vertices.get(baseIdx + 1)
+            sumZ += vertices.get(baseIdx + 2)
+            count++
+        }
+    }
+    return if (count > 0) {
+        floatArrayOf(sumX / count, sumY / count, sumZ / count)
+    } else {
+        floatArrayOf(0f, 0f, 0f)
+    }
+}
+
+/** Y 만 필요할 때의 편의 함수. logcat 디버그 로깅에서 사용. */
+fun computeNoseBridgeFaceLocalY(face: AugmentedFace): Float = computeNoseBridgeFaceLocal(face)[1]
+
+/**
+ * 콧대 정점들의 world position (x, y, z) 평균. 매 프레임 anchor 로 사용.
+ * 표정 변화 시 centerPose 가 위로 이동해도, 콧대 face-local 좌표가 그만큼 음수로 보정되어
+ * world 좌표는 거의 변하지 않는다 (실측에서 확인됨).
+ */
+fun computeNoseBridgeWorld(face: AugmentedFace): FloatArray {
+    val vertices = face.meshVertices
+    val centerPose = face.centerPose
+    var sumX = 0f
+    var sumY = 0f
+    var sumZ = 0f
+    var count = 0
+    val worldPoint = floatArrayOf(0f, 0f, 0f)
+    val faceLocal = floatArrayOf(0f, 0f, 0f)
+    for (idx in NOSE_BRIDGE_VERTEX_INDICES) {
+        val baseIdx = idx * 3
+        if (baseIdx + 2 < vertices.limit()) {
+            faceLocal[0] = vertices.get(baseIdx)
+            faceLocal[1] = vertices.get(baseIdx + 1)
+            faceLocal[2] = vertices.get(baseIdx + 2)
+            centerPose.transformPoint(faceLocal, 0, worldPoint, 0)
+            sumX += worldPoint[0]
+            sumY += worldPoint[1]
+            sumZ += worldPoint[2]
+            count++
+        }
+    }
+    return if (count > 0) {
+        floatArrayOf(sumX / count, sumY / count, sumZ / count)
+    } else {
+        floatArrayOf(0f, 0f, 0f)
+    }
+}
+
+/** Y 만 필요할 때의 편의 함수. logcat 디버그 로깅에서 사용. */
+fun computeNoseBridgeWorldY(face: AugmentedFace): Float = computeNoseBridgeWorld(face)[1]

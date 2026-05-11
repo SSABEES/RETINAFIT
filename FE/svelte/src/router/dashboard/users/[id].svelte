@@ -349,39 +349,39 @@
 <main
   class="app-frame-page flex min-h-screen flex-col bg-[var(--retina-text-100)] text-zinc-950"
 >
-  <section class="px-4 py-4 sm:px-6 sm:py-5">
-    <div class="mx-auto flex w-full max-w-[944px] flex-col gap-4">
+  <section class="px-[clamp(12px,3svh,24px)] py-[clamp(8px,2svh,20px)]">
+    <div class="mx-auto flex w-full max-w-[944px] flex-col gap-[clamp(8px,2svh,16px)]">
       <!-- 1) 프로필 카드 -->
       <article
-        class="flex flex-col gap-4 rounded-2xl border border-[var(--retina-text-200)] bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+        class="flex flex-col rounded-2xl border border-[var(--retina-text-200)] bg-white shadow-sm sm:flex-row sm:items-center sm:justify-between gap-[clamp(10px,2svh,18px)] p-[clamp(12px,2.5svh,22px)]"
       >
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-[clamp(10px,2svh,18px)]">
           <div
-            class="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[var(--retina-primary-100)] text-[var(--retina-primary-600)]"
+            class="grid shrink-0 place-items-center rounded-full bg-[var(--retina-primary-100)] text-[var(--retina-primary-600)] h-[clamp(44px,8svh,72px)] w-[clamp(44px,8svh,72px)]"
             aria-hidden="true"
           >
             <UserRound size={32} strokeWidth={2} />
           </div>
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
-              <h1 class="m-0 truncate text-[22px] font-extrabold leading-tight text-zinc-950">
+              <h1 class="m-0 truncate font-extrabold leading-tight text-zinc-950 text-[clamp(16px,3svh,24px)]">
                 {g_customer_obj?.name ?? '고객'}
               </h1>
               <span
-                class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-extrabold text-slate-600"
+                class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 font-extrabold text-slate-600 text-[clamp(9px,1.5svh,12px)]"
               >
                 {g_customer_obj?.gender ?? '-'}
               </span>
               {#if g_age_label}
                 <span
-                  class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-extrabold text-slate-600"
+                  class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 font-extrabold text-slate-600 text-[clamp(9px,1.5svh,12px)]"
                 >
                   {g_age_label}
                 </span>
               {/if}
             </div>
             <div
-              class="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] font-semibold text-slate-600"
+              class="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 font-semibold text-slate-600 text-[clamp(10px,1.7svh,14px)]"
             >
               <span class="inline-flex items-center gap-1.5">
                 <Phone size={14} strokeWidth={2.1} aria-hidden="true" />
@@ -395,21 +395,21 @@
           </div>
         </div>
 
-        <div class="flex shrink-0 items-center gap-4 sm:border-l sm:border-slate-200 sm:pl-5">
+        <div class="flex shrink-0 items-center gap-[clamp(10px,2svh,18px)] sm:border-l sm:border-slate-200 sm:pl-5">
           <div class="text-right">
-            <p class="m-0 text-[11px] font-bold tracking-wide text-slate-500 uppercase">
+            <p class="m-0 font-bold tracking-wide text-slate-500 uppercase text-[clamp(9px,1.4svh,12px)]">
               총 방문
             </p>
-            <p class="m-0 text-[24px] font-extrabold text-[var(--retina-primary-600)]">
-              {g_visible_visit_arr.length}<span class="ml-0.5 text-[14px] font-extrabold">회</span>
+            <p class="m-0 font-extrabold text-[var(--retina-primary-600)] text-[clamp(18px,3.5svh,26px)]">
+              {g_visible_visit_arr.length}<span class="ml-0.5 font-extrabold text-[clamp(10px,1.7svh,15px)]">회</span>
             </p>
           </div>
           <div class="h-10 w-px bg-slate-200" aria-hidden="true"></div>
           <div class="text-right">
-            <p class="m-0 text-[11px] font-bold tracking-wide text-slate-500 uppercase">
+            <p class="m-0 font-bold tracking-wide text-slate-500 uppercase text-[clamp(9px,1.4svh,12px)]">
               최근 방문
             </p>
-            <p class="m-0 text-[15px] font-extrabold text-zinc-950">
+            <p class="m-0 font-extrabold text-zinc-950 text-[clamp(11px,2svh,16px)]">
               {format_dt(g_recent_visit_obj?.create_dt ?? g_recent_visit_obj?.test_dt)}
             </p>
           </div>
@@ -417,7 +417,7 @@
       </article>
 
       <!-- 2) 단계별 시작 버튼 — 얼굴분석 / 생활패턴 / 피팅 (현재는 모두 새 분석 플로우로 진입). -->
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div class="grid grid-cols-1 gap-[clamp(8px,2svh,14px)] sm:grid-cols-3">
         {#each STEP_INFO_ARR as step_obj (step_obj.key)}
           {@const local_done = is_step_done(step_obj.key)}
           {@const local_recent_dt = get_step_recent_dt(step_obj.key)}
@@ -425,24 +425,24 @@
             type="button"
             onclick={() => on_click_start_step(step_obj)}
             disabled={g_is_creating_visit}
-            class="group relative flex flex-col gap-3 rounded-2xl border border-[var(--retina-text-200)] bg-white px-5 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--retina-primary-600)] hover:shadow-[0_8px_20px_rgba(91,0,107,0.10)] disabled:cursor-not-allowed disabled:opacity-60"
+            class="group relative flex flex-col rounded-2xl border border-[var(--retina-text-200)] bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--retina-primary-600)] hover:shadow-[0_8px_20px_rgba(91,0,107,0.10)] disabled:cursor-not-allowed disabled:opacity-60 gap-[clamp(6px,1.5svh,12px)] px-[clamp(12px,2.5svh,22px)] py-[clamp(10px,2svh,18px)]"
             aria-label={`${step_obj.label} 시작`}
           >
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-[clamp(8px,2svh,18px)]">
               <img
                 src={local_done ? step_obj.icon_active : step_obj.icon_default}
                 alt=""
                 aria-hidden="true"
-                class="h-[64px] w-[64px] shrink-0"
+                class="shrink-0 h-[clamp(40px,8svh,72px)] w-[clamp(40px,8svh,72px)]"
               />
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2">
-                  <h2 class="m-0 text-[16px] font-extrabold text-zinc-950">
+                  <h2 class="m-0 font-extrabold text-zinc-950 text-[clamp(12px,2.2svh,18px)]">
                     {step_obj.label}
                   </h2>
                   {#if step_obj.key !== 'fitting'}
                     <span
-                      class={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+                      class={`inline-flex items-center rounded-full px-2 py-0.5 font-extrabold text-[clamp(9px,1.4svh,12px)] ${
                         local_done
                           ? 'bg-[#DCFCE7] text-[#15803D]'
                           : 'bg-slate-100 text-slate-500'
@@ -452,7 +452,7 @@
                     </span>
                   {/if}
                 </div>
-                <p class="m-0 mt-1 truncate text-[12px] font-semibold text-slate-500">
+                <p class="m-0 mt-1 truncate font-semibold text-slate-500 text-[clamp(10px,1.6svh,13px)]">
                   {step_obj.description}
                 </p>
               </div>
@@ -464,7 +464,7 @@
               />
             </div>
             <div
-              class="border-t border-slate-100 pt-2 text-[11px] font-semibold text-slate-500"
+              class="border-t border-slate-100 pt-2 font-semibold text-slate-500 text-[clamp(9px,1.5svh,12px)]"
             >
               {#if local_recent_dt}
                 <span class="flex items-center gap-1.5">
@@ -483,20 +483,20 @@
       <section
         class="flex flex-col rounded-2xl border border-[var(--retina-text-200)] bg-white shadow-sm"
       >
-        <header class="border-b border-slate-100 px-5 py-3.5">
-          <h2 class="m-0 text-[16px] font-extrabold text-zinc-950">방문 이력</h2>
+        <header class="border-b border-slate-100 px-[clamp(12px,2.5svh,22px)] py-[clamp(8px,1.8svh,14px)]">
+          <h2 class="m-0 font-extrabold text-zinc-950 text-[clamp(12px,2.2svh,18px)]">방문 이력</h2>
         </header>
 
         {#if g_visit_loading}
-          <div class="px-5 py-10 text-center text-[13px] font-semibold text-slate-400">
+          <div class="text-center font-semibold text-slate-400 px-[clamp(12px,2.5svh,22px)] py-[clamp(20px,5svh,48px)] text-[clamp(11px,1.9svh,14px)]">
             불러오는 중...
           </div>
         {:else if g_visible_visit_arr.length === 0}
           <div
-            class="flex flex-col items-center justify-center gap-2 px-5 py-12 text-center text-slate-400"
+            class="flex flex-col items-center justify-center gap-2 text-center text-slate-400 px-[clamp(12px,2.5svh,22px)] py-[clamp(24px,6svh,56px)]"
           >
             <ScanFace size={28} strokeWidth={1.8} aria-hidden="true" />
-            <p class="m-0 text-[13px] font-semibold">아직 방문 이력이 없습니다.</p>
+            <p class="m-0 font-semibold text-[clamp(11px,1.9svh,14px)]">아직 방문 이력이 없습니다.</p>
           </div>
         {:else}
           <ul class="m-0 grid list-none gap-0 p-0">
@@ -509,22 +509,22 @@
                 <button
                   type="button"
                   onclick={() => on_click_open_visit(visit_obj)}
-                  class="flex w-full cursor-pointer items-center justify-between gap-4 border-0 bg-transparent px-5 py-3.5 text-left transition hover:bg-slate-50"
+                  class="flex w-full cursor-pointer items-center justify-between border-0 bg-transparent text-left transition hover:bg-slate-50 gap-[clamp(8px,2svh,16px)] px-[clamp(12px,2.5svh,22px)] py-[clamp(8px,1.8svh,14px)]"
                 >
-                  <div class="flex min-w-0 items-center gap-4">
+                  <div class="flex min-w-0 items-center gap-[clamp(8px,2svh,16px)]">
                     <div
-                      class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--retina-primary-100)] text-[var(--retina-primary-600)]"
+                      class="grid shrink-0 place-items-center rounded-full bg-[var(--retina-primary-100)] text-[var(--retina-primary-600)] h-[clamp(28px,5svh,44px)] w-[clamp(28px,5svh,44px)]"
                     >
-                      <span class="text-[13px] font-extrabold">
+                      <span class="font-extrabold text-[clamp(10px,1.7svh,14px)]">
                         {g_visible_visit_arr.length - visit_index}
                       </span>
                     </div>
                     <div class="min-w-0">
-                      <p class="m-0 text-[15px] font-extrabold text-zinc-950">
+                      <p class="m-0 font-extrabold text-zinc-950 text-[clamp(11px,2svh,16px)]">
                         {format_dt(visit_obj.create_dt ?? visit_obj.test_dt)}
                       </p>
                       <div
-                        class="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-extrabold"
+                        class="mt-1 flex flex-wrap items-center gap-1.5 font-extrabold text-[clamp(9px,1.5svh,12px)]"
                       >
                         <span
                           class={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${

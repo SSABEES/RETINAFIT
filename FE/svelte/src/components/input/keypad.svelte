@@ -49,31 +49,40 @@
   })
 </script>
 
-<div class="flex w-full flex-col items-center gap-5">
+<!--
+  Viewport-fit 모드 — 키패드 전체 사이즈를 svh 기반 clamp 로 자동 스케일.
+  버튼 높이/gap/표시 영역 폰트가 viewport 세로에 비례해 작아지므로 좁은 디바이스(예: 537px)
+  에서도 잘림 없이 한 화면 fit. 큰 모니터에선 상한 (원본 디자인 값) 까지만 커진다.
+-->
+<div class="flex w-full flex-col items-center gap-[clamp(10px,2.5svh,20px)]">
   <!-- 표시 영역 -->
   <div class="w-full text-center">
-    <p class="mb-1 text-2xl tracking-wide text-zinc-900">휴대폰 번호를 입력해주세요.</p>
-    <div class="flex items-end justify-center border-b-2 border-zinc-800 pb-2 min-h-[4.5rem]">
+    <p class="mb-1 tracking-wide text-zinc-900 text-[clamp(14px,2.5svh,24px)]">휴대폰 번호를 입력해주세요.</p>
+    <div class="flex items-end justify-center border-b-2 border-zinc-800 pb-2 min-h-[clamp(44px,8svh,72px)]">
       {#if value.length === 0}
         <img
           src="/icons/Property 1=Default.png"
           alt={PLACEHOLDER}
-          class="h-12 w-auto"
+          class="w-auto h-[clamp(28px,5.5svh,48px)]"
         />
       {:else}
-        <span class="text-[3rem] tracking-[0.02em] text-zinc-900 leading-none">{g_formatted_value}</span>
+        <span class="tracking-[0.02em] text-zinc-900 leading-none text-[clamp(28px,5.5svh,48px)]">{g_formatted_value}</span>
       {/if}
     </div>
   </div>
 
-  <!-- 키패드 그리드 -->
-  <div class="grid w-full grid-cols-3 gap-3">
+  <!--
+    키패드 그리드 — 각 버튼은 정사각형에 가까운 비율(4:3) 로 자동 폭/높이 결정.
+    grid-cols-3 + w-full + aspect-[4/3] → 버튼 폭은 컬럼 폭 따라가고 높이는 그 75%.
+    추가로 max-h 를 svh 로 제한해서 큰 화면에서도 키패드가 너무 커지지 않게.
+  -->
+  <div class="grid w-full grid-cols-3 gap-[clamp(6px,1.5svh,12px)]">
     {#each DIGIT_KEY_ARR as key_obj (key_obj.digit)}
       <button
         type="button"
         onclick={() => on_click_digit(key_obj.digit)}
         aria-label={`${key_obj.digit} 입력`}
-        class="block h-20 w-36 cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_3px_10px_rgba(0,0,0,0.08)] transition-all duration-100 hover:shadow-[0_4px_14px_rgba(0,0,0,0.12)] active:translate-y-0.5"
+        class="block w-full max-h-[clamp(48px,10svh,80px)] aspect-[16/9] cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_3px_10px_rgba(0,0,0,0.08)] transition-all duration-100 hover:shadow-[0_4px_14px_rgba(0,0,0,0.12)] active:translate-y-0.5"
       >
         <img src={key_obj.src} alt={key_obj.digit} class="h-full w-full" />
       </button>
@@ -85,7 +94,7 @@
       onclick={on_click_prefix_010}
       disabled={value.length > 0}
       aria-label="010 입력"
-      class="block h-20 w-36 cursor-pointer overflow-hidden rounded-lg border border-[#dbe7ff] bg-[#eef3ff] p-0 shadow-[0_3px_10px_rgba(75,123,236,0.14)] transition-all duration-100 hover:shadow-[0_4px_14px_rgba(75,123,236,0.20)] active:translate-y-0.5 disabled:cursor-not-allowed"
+      class="block w-full max-h-[clamp(48px,10svh,80px)] aspect-[16/9] cursor-pointer overflow-hidden rounded-lg border border-[#dbe7ff] bg-[#eef3ff] p-0 shadow-[0_3px_10px_rgba(75,123,236,0.14)] transition-all duration-100 hover:shadow-[0_4px_14px_rgba(75,123,236,0.20)] active:translate-y-0.5 disabled:cursor-not-allowed"
     >
       <img src="/icons/keypad-9.png" alt="010" class="h-full w-full" />
     </button>
@@ -95,7 +104,7 @@
       type="button"
       onclick={() => on_click_digit('0')}
       aria-label="0 입력"
-      class="block h-20 w-36 cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_3px_10px_rgba(0,0,0,0.08)] transition-all duration-100 hover:shadow-[0_4px_14px_rgba(0,0,0,0.12)] active:translate-y-0.5"
+      class="block w-full max-h-[clamp(48px,10svh,80px)] aspect-[16/9] cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_3px_10px_rgba(0,0,0,0.08)] transition-all duration-100 hover:shadow-[0_4px_14px_rgba(0,0,0,0.12)] active:translate-y-0.5"
     >
       <img src="/icons/keypad-10.png" alt="0" class="h-full w-full" />
     </button>
@@ -106,7 +115,7 @@
       onclick={on_click_backspace}
       aria-label="한 자리 지우기"
       disabled={value.length === 0}
-      class="block h-20 w-36 cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_3px_10px_rgba(0,0,0,0.08)] transition-all duration-100 hover:shadow-[0_4px_14px_rgba(0,0,0,0.12)] active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+      class="block w-full max-h-[clamp(48px,10svh,80px)] aspect-[16/9] cursor-pointer overflow-hidden rounded-lg border border-zinc-200 bg-white p-0 shadow-[0_3px_10px_rgba(0,0,0,0.08)] transition-all duration-100 hover:shadow-[0_4px_14px_rgba(0,0,0,0.12)] active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
     >
       <img src="/icons/keypad-11.png" alt="" class="h-full w-full" aria-hidden="true" />
     </button>
