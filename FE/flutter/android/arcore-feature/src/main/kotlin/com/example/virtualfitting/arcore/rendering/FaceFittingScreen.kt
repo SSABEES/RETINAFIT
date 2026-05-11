@@ -51,6 +51,7 @@ import com.example.virtualfitting.arcore.contract.ErrorCode
 import com.example.virtualfitting.arcore.contract.VirtualFittingEvent
 import com.example.virtualfitting.arcore.contract.VirtualFittingRequest
 import com.example.virtualfitting.arcore.fitting.FaceCalibration
+import com.example.virtualfitting.arcore.fitting.RotationSmoother
 import com.example.virtualfitting.arcore.fitting.measure
 import com.example.virtualfitting.arcore.fitting.withCalibration
 import com.example.virtualfitting.arcore.fitting.toPreset
@@ -90,6 +91,16 @@ private const val TAG = "FaceFittingScreen"
  * 머리 뒤에 가려져야 자연스러우므로 hide.
  */
 private const val TEMPLE_HIDE_YAW_DEG = 5f
+
+/**
+ * [ROTATION_SMOOTHING] 회전 jitter 스무딩 토글.
+ * false 로 두면 회전을 raw 그대로 적용 (이전 동작과 완전 동일).
+ * 위치(translation) 는 어떤 경우에도 필터링하지 않는다 — 평행 이동 lag 방지.
+ *
+ * 원복 방법: 이 상수를 false 로 바꾸면 즉시 비활성. 모든 관련 코드는 `[ROTATION_SMOOTHING]`
+ * 마커로 표시돼 있어 grep 으로 일괄 제거 가능.
+ */
+private const val ROTATION_SMOOTHING_ENABLED: Boolean = true
 
 /**
  * 전면 카메라 + Augmented Faces + GLB 안경 렌더링의 핵심 Composable.
@@ -212,6 +223,8 @@ fun FaceFittingScreen(
     // 폭에 맞춰 multiplier 를 곱한다.
     var baseScale by remember { mutableStateOf<Scale?>(null) }
     val calibration = remember { FaceCalibration() }
+    // [ROTATION_SMOOTHING] 회전 jitter 적응형 LPF. Compose 생명주기 동안 유지.
+    val rotationSmoother = remember { RotationSmoother() }
     var appliedPostLock by remember { mutableStateOf(false) }
     // 디버그: 현재 yaw 와 temple 가시성을 status overlay 에 표시.
     var debugYawDeg by remember { mutableStateOf(0f) }
@@ -266,7 +279,7 @@ fun FaceFittingScreen(
                     )
                 )
             },
-            onSessionUpdated = { session, _ ->
+            onSessionUpdated = { session, frame ->
                 val tracking = session.getAllTrackables(AugmentedFace::class.java)
                     .filter { it.trackingState == TrackingState.TRACKING }
                 if (tracking != detectedFaces) detectedFaces = tracking
@@ -310,8 +323,16 @@ fun FaceFittingScreen(
                     }
 
                     val composed = face.centerPose.transform * activeOffset
+                    // 위치는 항상 raw — LPF 거치면 평행 이동 시 안경이 천천히 따라오는 lag 발생.
                     node.position = composed.position
-                    node.quaternion = composed.toQuaternion()
+                    val rawQuat = composed.toQuaternion()
+                    // [ROTATION_SMOOTHING] 회전만 적응형 LPF. 정지 시 lever-arm 증폭 떨림 제거,
+                    // 빠른 head turn 시엔 cutoff 자동 상승으로 raw 추종.
+                    node.quaternion = if (ROTATION_SMOOTHING_ENABLED) {
+                        rotationSmoother.filter(rawQuat, frame.timestamp)
+                    } else {
+                        rawQuat
+                    }
                     node.isVisible = true
 
                     // 분리된 GLB 인 경우, yaw 에 따라 반대편 temple 을 숨김.
@@ -331,6 +352,9 @@ fun FaceFittingScreen(
                     }
                 } else {
                     node?.isVisible = false
+                    // [ROTATION_SMOOTHING] 트래킹 lost 시 필터 state 초기화.
+                    // 안 하면 재트래킹 시 옛 회전으로 "스르륵" 미끄러져 들어오는 아티팩트 발생.
+                    if (ROTATION_SMOOTHING_ENABLED) rotationSmoother.reset()
                 }
 
                 when {
