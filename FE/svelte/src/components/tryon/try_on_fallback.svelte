@@ -95,10 +95,6 @@
   let g_face_detected = $state(false)
   let g_glb_loading = $state(false)
   let g_capturing = $state(false)
-  // video intrinsic 종횡비 — metadataloaded 이전엔 default 480x640. inner wrapper 의 CSS
-  // aspect-ratio 에 주입해 video / canvas 의 표시 종횡비를 항상 같게 유지 → 비균일 변형 방지.
-  let g_video_aspect_w = $state(480)
-  let g_video_aspect_h = $state(640)
 
   // 비반응형 내부 상태
   let g_start_generation = 0
@@ -207,10 +203,13 @@
       if (my_gen !== g_start_generation) return
       g_landmarker = landmarker
 
+      // 가로 1280×720 (16:9) 로 요청 — camera_view.svelte 와 동일 패턴.
+      // 부모 영역(arfitting 의 카메라 섹션) 이 가로형이라 3:4 stream 으로는 양옆에 letterbox 가 생기거나
+      // 위·아래가 잘려 보임. 16:9 stream 을 object-cover 로 풀필하면 카메라 시야가 자연스럽게 가로 영역을 채움.
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 480 },
-          height: { ideal: 640 },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
           facingMode: 'user',
           // 60Hz 지원 카메라/브라우저면 검출 주기 33ms → 16ms 로 단축. 미지원 시 ideal 무시.
           frameRate: { ideal: 60 },
@@ -231,8 +230,6 @@
       ref_video_el.onloadedmetadata = () => {
         if (my_gen !== g_start_generation || !ref_video_el || !g_stream) return
         void ref_video_el.play()
-        g_video_aspect_w = ref_video_el.videoWidth
-        g_video_aspect_h = ref_video_el.videoHeight
         if (g_scene_ctx) {
           g_scene_ctx.resize(ref_video_el.videoWidth, ref_video_el.videoHeight)
         }
@@ -410,24 +407,58 @@
     g_raf_id = requestAnimationFrame(on_loop_frame)
   }
 
-  // 캡처 버튼 클릭 — video + three.js 를 미러된 픽셀로 합성해 Blob 으로 부모 전달.
+  // 출력 캡처 해상도 — camera_view 와 동일하게 3:4 (480×640) 로 정규화. 라이브는 16:9 풀필이지만
+  // 캡처는 가운데 3:4 영역만 잘라 저장 → real_fitting / analysis index 의 다른 캡처와 해상도 일관.
+  const CAPTURE_OUTPUT_W = 480
+  const CAPTURE_OUTPUT_H = 640
+
+  // 가운데 3:4 영역 crop 좌표 계산. video / canvas 가 서로 다른 intrinsic 해상도(특히 canvas 는
+  // setPixelRatio 로 dpr 곱이 적용된 backing buffer) 라 각자의 width/height 기준으로 따로 계산해야
+  // 동일한 비율 영역이 추출된다. (이전 버그: 비디오 좌표를 그대로 canvas 에 쓰면 dpr 배만큼 어긋난
+  // 좁은 영역만 잘려 안경 레이어가 빠짐.)
+  function compute_center_3to4_crop(source_w, source_h) {
+    const local_target_aspect = CAPTURE_OUTPUT_W / CAPTURE_OUTPUT_H
+    const local_crop_h = source_h
+    const local_crop_w = Math.round(source_h * local_target_aspect)
+    const local_crop_x = Math.round((source_w - local_crop_w) / 2)
+    return { sx: local_crop_x, sy: 0, sw: local_crop_w, sh: local_crop_h }
+  }
+
+  // 캡처 버튼 클릭 — video + three.js 의 가운데 3:4 영역을 crop·미러해 Blob 으로 부모 전달.
   async function on_click_capture(slot_key) {
     if (!g_face_detected || !ref_video_el || !ref_three_canvas_el) return
     if (g_capturing) return
     g_capturing = true
     try {
-      const w = ref_video_el.videoWidth
-      const h = ref_video_el.videoHeight
+      // video crop: stream intrinsic (e.g., 1280×720) 기준.
+      const local_video_crop = compute_center_3to4_crop(
+        ref_video_el.videoWidth,
+        ref_video_el.videoHeight,
+      )
+      // canvas crop: backing buffer (dpr 곱 적용된 canvas.width × canvas.height) 기준.
+      const local_canvas_crop = compute_center_3to4_crop(
+        ref_three_canvas_el.width,
+        ref_three_canvas_el.height,
+      )
+
       const off = document.createElement('canvas')
-      off.width = w
-      off.height = h
+      off.width = CAPTURE_OUTPUT_W
+      off.height = CAPTURE_OUTPUT_H
       const ctx = off.getContext('2d')
       if (!ctx) return
       // CSS scaleX(-1) 미러를 픽셀로 굳혀 native AR 결과(셀피처럼 좌우 반전)와 정합.
-      ctx.translate(w, 0)
+      ctx.translate(CAPTURE_OUTPUT_W, 0)
       ctx.scale(-1, 1)
-      ctx.drawImage(ref_video_el, 0, 0, w, h)
-      ctx.drawImage(ref_three_canvas_el, 0, 0, w, h)
+      ctx.drawImage(
+        ref_video_el,
+        local_video_crop.sx, local_video_crop.sy, local_video_crop.sw, local_video_crop.sh,
+        0, 0, CAPTURE_OUTPUT_W, CAPTURE_OUTPUT_H,
+      )
+      ctx.drawImage(
+        ref_three_canvas_el,
+        local_canvas_crop.sx, local_canvas_crop.sy, local_canvas_crop.sw, local_canvas_crop.sh,
+        0, 0, CAPTURE_OUTPUT_W, CAPTURE_OUTPUT_H,
+      )
       ctx.setTransform(1, 0, 0, 1, 0, 0)
       const blob = await new Promise((resolve) =>
         off.toBlob((b) => resolve(b), 'image/jpeg', 0.9),
@@ -445,29 +476,25 @@
 
 <div class="relative h-full w-full overflow-hidden bg-black">
   <!--
-    cover 효과 (object-fit: cover 와 동일) — video 의 intrinsic 종횡비를 보존하면서 부모를
-    꽉 채움 (모자란 축은 잘림). inner wrapper 의 aspect-ratio + min-width/height:100% 이
-    조합되면 종횡비를 유지한 채 두 축 모두 부모 이상으로 늘어나, 한 축은 부모를 채우고 다른
-    축은 잘림. video / canvas 둘 다 wrapper 100% → 같은 표시 종횡비 → 비균일 변형 없음.
-    scaleX(-1) 은 wrapper 에 한 번만 적용 (translate 와 합성). canvas backing buffer 는
-    video 해상도 그대로 (resize 호출) — face translation NDC 와 정합 유지.
+    부모 영역(가로형) 을 카메라 시야로 풀필. camera_view.svelte 와 동일 패턴 — 16:9 stream 요청 후
+    object-cover 로 가로 영역 전체 채움. video / canvas 둘 다 동일하게 absolute inset-0 h-full w-full
+    + scaleX(-1) 미러 → 같은 박스 안에 표시되므로 AR 오버레이 정합 유지.
+    canvas backing buffer 는 video 해상도(1280×720) 그대로 (resize 호출). DOM 박스 종횡비 ≈ 카메라
+    종횡비라 비균일 스트레치 영향 미미.
   -->
-  <div
-    class="absolute top-1/2 left-1/2"
-    style="aspect-ratio: {g_video_aspect_w} / {g_video_aspect_h}; min-width: 100%; min-height: 100%; transform: translate(-50%, -50%) scaleX(-1); transform-origin: center;"
-  >
-    <video
-      bind:this={ref_video_el}
-      class="block h-full w-full object-cover"
-      autoplay
-      muted
-      playsinline
-    ></video>
-    <canvas
-      bind:this={ref_three_canvas_el}
-      class="pointer-events-none absolute inset-0 h-full w-full"
-    ></canvas>
-  </div>
+  <video
+    bind:this={ref_video_el}
+    class="absolute inset-0 h-full w-full object-cover"
+    style="transform: scaleX(-1);"
+    autoplay
+    muted
+    playsinline
+  ></video>
+  <canvas
+    bind:this={ref_three_canvas_el}
+    class="pointer-events-none absolute inset-0 h-full w-full object-cover"
+    style="transform: scaleX(-1);"
+  ></canvas>
 
   {#if g_init_error}
     <div
