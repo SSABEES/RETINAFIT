@@ -105,6 +105,26 @@ export async function preload_sixdrepnet_model(variant, on_progress, signal) {
   return local_bytes
 }
 
+/**
+ * Cache Storage 에 해당 variant 모델 바이트가 이미 저장되어 있는지 점검만 한다.
+ * 네트워크 fetch / 저장 없이 순수 read-only 확인. 비-secure context (caches 미지원) 에서는 false 반환.
+ *
+ * 호출처 예시: App.svelte 가 일반 웹 환경에서도 cache miss 면 splash 노출, hit 면 skip 분기에 사용.
+ *
+ * @param {ModelVariant} variant
+ * @returns {Promise<boolean>}
+ */
+export async function is_model_cached(variant) {
+  if (typeof caches === 'undefined') return false
+  try {
+    const local_url = build_model_url(variant)
+    const local_cached = await get_cached_model_response(local_url)
+    return Boolean(local_cached)
+  } catch {
+    return false
+  }
+}
+
 /** @type {Map<ModelVariant, Promise<void>>} */
 const g_ensure_promises_obj = new Map()
 

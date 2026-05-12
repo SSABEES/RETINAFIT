@@ -390,7 +390,7 @@
     <div class="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
       <div class="flex flex-col px-5 py-4">
         <div class="flex items-center gap-2">
-          <span class="grid h-7 w-7 place-items-center rounded-full bg-[#FFEDD5] text-[#F97316]" aria-hidden="true">
+          <span class="grid h-7 w-7 place-items-center text-[var(--retina-primary-600)]" aria-hidden="true">
             <Smile size={15} strokeWidth={2.2} />
           </span>
           <h3 class="m-0 text-[12px] font-extrabold tracking-wide text-slate-500">얼굴형</h3>
@@ -417,7 +417,7 @@
 
       <div class="flex flex-col px-5 py-4">
         <div class="flex items-center gap-2">
-          <span class="grid h-7 w-7 place-items-center rounded-full bg-[#DBEAFE] text-[#1660C7]" aria-hidden="true">
+          <span class="grid h-7 w-7 place-items-center text-[var(--retina-primary-600)]" aria-hidden="true">
             <Sparkles size={14} strokeWidth={2.2} />
           </span>
           <h3 class="m-0 text-[12px] font-extrabold tracking-wide text-slate-500">피부 톤</h3>
@@ -449,7 +449,7 @@
       <div class="flex flex-col divide-y divide-slate-100">
         <div class="flex flex-1 flex-col px-5 py-4">
           <div class="flex items-center gap-2">
-            <span class="grid h-7 w-7 place-items-center rounded-full bg-[#F3E8FF] text-[var(--retina-primary-600)]" aria-hidden="true">
+            <span class="grid h-7 w-7 place-items-center text-[var(--retina-primary-600)]" aria-hidden="true">
               <Glasses size={14} strokeWidth={2.2} />
             </span>
             <h3 class="m-0 text-[12px] font-extrabold tracking-wide text-slate-500">추천 프레임</h3>
@@ -476,7 +476,7 @@
 
         <div class="flex flex-1 flex-col px-5 py-4">
           <div class="flex items-center gap-2">
-            <span class="grid h-7 w-7 place-items-center rounded-full bg-[#FCE7F3] text-[#BE185D]" aria-hidden="true">
+            <span class="grid h-7 w-7 place-items-center text-[var(--retina-primary-600)]" aria-hidden="true">
               <Palette size={14} strokeWidth={2.2} />
             </span>
             <h3 class="m-0 text-[12px] font-extrabold tracking-wide text-slate-500">추천 컬러</h3>

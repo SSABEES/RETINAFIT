@@ -487,31 +487,29 @@
       return
     }
 
-    // 정면/측면 공통 시퀀스 — "셔터음 → 캡처 → 인식 완료 음성" 을 한 세트로 보장한다.
+    // 정면/측면 공통 시퀀스 — "셔터음 시작 = 캡처 시점" 이 되도록 셔터음과 캡처를 동시에 발사한다.
+    // 이전엔 셔터음을 await 끝까지 → 그 후 캡처 였는데, 인지상 "찰칵 소리 다 끝나고 찍히는" 느낌이라 부자연스러움.
     // 직전 face_recognition_in_progress (priority high) 가 아직 재생 중이면 동등 priority 의 셔터음이
-    // play() 시점에 false 로 차단된다. 따라서 시퀀스 시작 직전에 stop_voice() 로 active 를 비워둔다.
-    // 각 음성은 끝까지 await — 어떤 음성도 스킵되지 않게 "동기 시퀀스" 화.
+    // play() 시점에 false 로 차단되므로 시퀀스 시작 직전에 stop_voice() 로 active 를 비워둔다.
+    // 셔터음은 캡처 종료 후 await 해서 face_recognition_complete (동일 high priority) 가 차단되지 않게 한다.
     stop_voice()
 
-    // 1) 셔터음 (await — 끝까지 들려야 함)
-    await play_voice('camera_shutter_sound', { priority: 'high' })
-
-    if (
-      my_token !== g_capture_sequence_token ||
-      !active ||
-      !g_is_auto_capture ||
-      g_already_dispatched
-    ) {
-      return
-    }
+    // 1) 셔터음 재생 시작 (await 안 함 — 캡처와 동시에 들리도록)
+    const local_shutter_promise = play_voice('camera_shutter_sound', { priority: 'high' })
 
     // 2) 캡처 — 측면은 MediaPipe 측정값 없음 → measurements_obj=null.
+    //    셔터음 시작과 같은 tick 에 발사돼 "셔터음 = 사진 찍힌 순간" 으로 인지됨.
     const meas = pose_target === 'front' ? get_average() : null
     await trigger_capture_internal(meas)
 
     if (my_token !== g_capture_sequence_token || !active || !g_is_auto_capture) return
 
-    // 3) 인식 완료 음성 (await — 끝까지 들려야 함)
+    // 3) 셔터음이 끝까지 재생되길 보장 — 그래야 다음 단계의 high priority 음성이 차단되지 않음.
+    await local_shutter_promise
+
+    if (my_token !== g_capture_sequence_token || !active || !g_is_auto_capture) return
+
+    // 4) 인식 완료 음성 (await — 끝까지 들려야 함)
     await play_voice('face_recognition_complete', { priority: 'high' })
   }
 
