@@ -12,6 +12,9 @@
     reset as reset_session,
   } from '@/lib/stores/capture_session.svelte.js'
   import { save_face_analysis, upload_captures_to_s3 } from '@/lib/api/analysis.js'
+  import { push_error_toast } from '@/lib/stores/toast'
+
+  const ANALYSIS_TOAST_DURATION_MS = 5000
   import {
     get_skin_tone_recommendation,
     get_frame_styles_for_face_shape,
@@ -56,7 +59,6 @@
   }
 
   let g_is_submitting = $state(false)
-  let g_submit_error = $state('')
   // 로그아웃처럼 PATH.analysis 가 아닌 곳으로 명시적으로 이동할 때, captures 비움 → /analysis 리다이렉트
   // 의 reactive race 를 막는다. (true 면 아래 effect 는 자기 navigate 를 보류한다.)
   let g_is_navigating_away = $state(false)
@@ -246,11 +248,10 @@
 
   async function on_click_continue() {
     if (g_is_submitting) return
-    g_submit_error = ''
 
     const visit_no = get_visit_no()
     if (visit_no === null) {
-      g_submit_error = '방문 정보가 없어 분석 결과를 저장할 수 없습니다.'
+      push_error_toast('방문 정보가 없어 분석 결과를 저장할 수 없습니다.', ANALYSIS_TOAST_DURATION_MS)
       return
     }
 
@@ -271,7 +272,8 @@
       })
       navigate(PATH.analysisLensConsult)
     } catch (err) {
-      g_submit_error = err instanceof Error ? err.message : '저장에 실패했습니다.'
+      const local_message = err instanceof Error ? err.message : '저장에 실패했습니다.'
+      push_error_toast(local_message, ANALYSIS_TOAST_DURATION_MS)
     } finally {
       g_is_submitting = false
     }
@@ -406,15 +408,6 @@
     <div class="shrink-0">
       <div class="h-px w-full bg-slate-200"></div>
       <div class="px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
-        {#if g_submit_error}
-          <p
-            class="m-0 mb-3 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700"
-            role="alert"
-          >
-            {g_submit_error}
-          </p>
-        {/if}
-
         <div class="grid w-full grid-cols-[2fr_3fr] gap-[clamp(8px,2svh,16px)]">
           <button
             type="button"

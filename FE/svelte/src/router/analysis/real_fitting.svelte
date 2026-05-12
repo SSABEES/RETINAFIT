@@ -12,6 +12,8 @@
   import { update_visit } from '@/lib/api/visit.js'
   import { push_error_toast } from '@/lib/stores/toast'
 
+  const ANALYSIS_TOAST_DURATION_MS = 5000
+
   /**
    * @typedef {{ blob: Blob, object_url: string, captured_at: number }} CaptureSlot
    * @typedef {{ id: number, slot_arr: (CaptureSlot | null)[], captured_at: number }} SavedSet
@@ -46,7 +48,6 @@
 
   // 최종 리포트 보기 클릭 시 업로드/PATCH 진행 상태.
   let g_is_submitting = $state(false)
-  let g_submit_error = $state(/** @type {string | null} */ (null))
 
   // 다음 빈 슬롯 인덱스 (0~2). 모두 채워졌으면 3 — 한 세트 완성, 자동 모드 정지.
   const g_next_slot_idx = $derived.by(() => {
@@ -200,7 +201,6 @@
   async function on_click_continue() {
     if (g_is_submitting) return
     g_is_submitting = true
-    g_submit_error = null
 
     try {
       // 사진이 없으면 업로드 없이 바로 result 로.
@@ -211,7 +211,7 @@
 
       const local_visit_no = get_visit_no()
       if (!local_visit_no) {
-        g_submit_error = '방문 번호를 찾을 수 없습니다. 다시 진입해 주세요.'
+        push_error_toast('방문 번호를 찾을 수 없습니다. 다시 진입해 주세요.', ANALYSIS_TOAST_DURATION_MS)
         return
       }
 
@@ -262,9 +262,9 @@
 
       navigate(PATH.analysisResult)
     } catch (err) {
-      g_submit_error = err instanceof Error ? err.message : '업로드에 실패했습니다.'
+      const local_message = err instanceof Error ? err.message : '업로드에 실패했습니다.'
       console.error('[real_fitting] submit failed', err)
-      push_error_toast(g_submit_error)
+      push_error_toast(local_message, ANALYSIS_TOAST_DURATION_MS)
     } finally {
       g_is_submitting = false
     }
@@ -452,17 +452,9 @@
           </div>
         {/if}
 
-        {#if g_submit_error}
-          <p
-            class="mb-1.5 rounded-md bg-rose-50 px-2 py-1 text-center text-[10px] font-bold text-rose-600"
-          >
-            {g_submit_error}
-          </p>
-        {:else}
-          <p class="mb-1.5 text-center text-[10px] font-semibold text-slate-500">
-            1장 이상 촬영하면 세트를 저장할 수 있어요.
-          </p>
-        {/if}
+        <p class="mb-1.5 text-center text-[10px] font-semibold text-slate-500">
+          1장 이상 촬영하면 세트를 저장할 수 있어요.
+        </p>
 
         <div class="grid grid-cols-2 gap-2">
           <button
