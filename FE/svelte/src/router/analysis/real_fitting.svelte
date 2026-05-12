@@ -9,7 +9,10 @@
   import CameraView from '@/components/camera/camera_view.svelte'
   import { flip_blob_horizontally } from '@/lib/capture/capture_utils.js'
   import { request_real_wearing_presigned_urls, upload_blob_to_s3 } from '@/lib/api/analysis.js'
-  import { update_visit } from '@/lib/api/visit.js'
+  import { get_visit, update_visit } from '@/lib/api/visit.js'
+
+  // result.svelte 가 첫 mount 에 즉시 화면을 채우도록 prefetch 한 visit_obj 를 잠시 보관할 sessionStorage 키.
+  const PREFETCH_VISIT_KEY = 'retinal_prefetched_visit_obj'
   import { push_error_toast } from '@/lib/stores/toast'
 
   const ANALYSIS_TOAST_DURATION_MS = 5000
@@ -203,13 +206,25 @@
     g_is_submitting = true
 
     try {
-      // 사진이 없으면 업로드 없이 바로 result 로.
+      const local_visit_no = get_visit_no()
+
+      // 사진이 없으면 업로드 없이 바로 result 로 — 단, prefetch 만 시도해서 즉시 채워질 수 있게 한다.
       if (g_saved_set_arr.length === 0) {
+        if (local_visit_no) {
+          try {
+            const local_fresh_visit_obj = await get_visit({ visit_no: local_visit_no })
+            sessionStorage.setItem(
+              PREFETCH_VISIT_KEY,
+              JSON.stringify({ visit_no: local_visit_no, visit_obj: local_fresh_visit_obj }),
+            )
+          } catch (prefetch_err) {
+            console.warn('[real_fitting] visit prefetch failed', prefetch_err)
+          }
+        }
         navigate(PATH.analysisResult)
         return
       }
 
-      const local_visit_no = get_visit_no()
       if (!local_visit_no) {
         push_error_toast('방문 번호를 찾을 수 없습니다. 다시 진입해 주세요.', ANALYSIS_TOAST_DURATION_MS)
         return
@@ -259,6 +274,18 @@
           real_vp_dt: new Date().toISOString(),
         },
       })
+
+      // PATCH 반영 후 visit 전체를 한 번 GET — result.svelte 진입 즉시 화면이 채워지도록 prefetch.
+      // 실패해도 사용자 흐름을 막지 않음 (result.svelte 가 자체 fetch fallback 함).
+      try {
+        const local_fresh_visit_obj = await get_visit({ visit_no: local_visit_no })
+        sessionStorage.setItem(
+          PREFETCH_VISIT_KEY,
+          JSON.stringify({ visit_no: local_visit_no, visit_obj: local_fresh_visit_obj }),
+        )
+      } catch (prefetch_err) {
+        console.warn('[real_fitting] visit prefetch failed', prefetch_err)
+      }
 
       navigate(PATH.analysisResult)
     } catch (err) {
@@ -497,7 +524,7 @@
     {/if}
   </div>
 
-  <LoadingOverlay open={g_is_submitting} label="분석 결과 저장 중..." />
+  <LoadingOverlay open={g_is_submitting} label="리포트를 준비하고 있어요..." />
 </AnalysisPageLayout>
 
 <style>
