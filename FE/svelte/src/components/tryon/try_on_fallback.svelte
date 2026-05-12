@@ -87,6 +87,10 @@
 
   /** @type {HTMLVideoElement | null} */
   let ref_video_el = $state(null)
+  // 백드롭 video — 부모 영역(가로형) 의 양옆까지 카메라 시야로 채워 letterbox 를 없애는 시각적 fill 용.
+  // 같은 stream 을 한 번 더 paint 할 뿐 decode 는 메인 video 와 공유 (성능 영향 미미). camera_view.svelte 와 동일 패턴.
+  /** @type {HTMLVideoElement | null} */
+  let ref_this_backdrop_video_el = $state(null)
   /** @type {HTMLCanvasElement | null} */
   let ref_three_canvas_el = $state(null)
 
@@ -227,6 +231,11 @@
       if (my_gen !== g_start_generation) return
       if (!ref_video_el) throw new Error('video element missing')
       ref_video_el.srcObject = g_stream
+      // 같은 stream 을 백드롭 video 에도 연결 — 별도 onloadedmetadata 없이 자동재생만.
+      if (ref_this_backdrop_video_el) {
+        ref_this_backdrop_video_el.srcObject = g_stream
+        ref_this_backdrop_video_el.play().catch(() => {})
+      }
       ref_video_el.onloadedmetadata = () => {
         if (my_gen !== g_start_generation || !ref_video_el || !g_stream) return
         void ref_video_el.play()
@@ -263,6 +272,9 @@
     if (ref_video_el) {
       ref_video_el.onloadedmetadata = null
       ref_video_el.srcObject = null
+    }
+    if (ref_this_backdrop_video_el) {
+      ref_this_backdrop_video_el.srcObject = null
     }
     clear_video_cache()
   }
@@ -474,68 +486,82 @@
   }
 </script>
 
-<div class="relative h-full w-full overflow-hidden bg-black">
+<div class="relative flex h-full w-full items-center justify-center overflow-hidden bg-black">
   <!--
-    부모 영역(가로형) 을 카메라 시야로 풀필. camera_view.svelte 와 동일 패턴 — 16:9 stream 요청 후
-    object-cover 로 가로 영역 전체 채움. video / canvas 둘 다 동일하게 absolute inset-0 h-full w-full
-    + scaleX(-1) 미러 → 같은 박스 안에 표시되므로 AR 오버레이 정합 유지.
-    canvas backing buffer 는 video 해상도(1280×720) 그대로 (resize 호출). DOM 박스 종횡비 ≈ 카메라
-    종횡비라 비균일 스트레치 영향 미미.
+    camera_view.svelte 와 동일한 2단 구조 — 백드롭 video(부모 양옆까지 카메라 시야로 fill) +
+    중앙 3:4 wrapper(실제 캡처되는 영역, AR 안경 오버레이가 이 안에서만 그려짐).
+    같은 stream 을 두 video 에 paint 하지만 decode 는 한 번이라 비용 미미. WYSIWYG: 사용자가 보는
+    중앙 3:4 = 캡처되는 영역.
   -->
   <video
-    bind:this={ref_video_el}
-    class="absolute inset-0 h-full w-full object-cover"
-    style="transform: scaleX(-1);"
-    autoplay
-    muted
-    playsinline
-  ></video>
-  <canvas
-    bind:this={ref_three_canvas_el}
+    bind:this={ref_this_backdrop_video_el}
     class="pointer-events-none absolute inset-0 h-full w-full object-cover"
     style="transform: scaleX(-1);"
-  ></canvas>
+    aria-hidden="true"
+    playsinline
+    autoplay
+    muted
+  ></video>
+  <!--
+    중앙 3:4 wrapper — 실제 분석/캡처 영역. 같은 stream 을 한번 더 깔지만 좌표계 정합
+    (canvas overlay 안경 정합 + 가이드/문구가 이 영역 안에서만 그려짐) 을 위해 분리.
+  -->
+  <div class="relative aspect-[3/4] h-full overflow-hidden bg-black">
+    <video
+      bind:this={ref_video_el}
+      class="absolute inset-0 h-full w-full object-cover"
+      style="transform: scaleX(-1);"
+      autoplay
+      muted
+      playsinline
+    ></video>
+    <canvas
+      bind:this={ref_three_canvas_el}
+      class="pointer-events-none absolute inset-0 h-full w-full object-cover"
+      style="transform: scaleX(-1);"
+    ></canvas>
 
-  {#if g_init_error}
-    <div
-      class="absolute inset-x-0 top-3 mx-auto w-fit rounded-md bg-red-500/90 px-3 py-1.5 text-xs font-bold text-white"
-    >
-      {g_init_error}
-      {#if g_permission_denied}
-        <span class="ml-1 text-[10px] opacity-80">
-          브라우저 잠금 아이콘에서 카메라 접근을 허용해 주세요.
-        </span>
-      {/if}
-    </div>
-  {/if}
-
-  {#if g_glb_loading}
-    <div
-      class="absolute inset-x-0 top-3 mx-auto w-fit rounded-md bg-black/60 px-3 py-1 text-xs text-zinc-100"
-    >
-      안경 모델 불러오는 중...
-    </div>
-  {/if}
-
-  {#if !g_face_detected && !g_init_error && !g_glb_loading}
-    <div
-      class="absolute inset-x-0 top-3 mx-auto w-fit rounded-md bg-black/60 px-3 py-1 text-xs text-zinc-100"
-    >
-      얼굴을 화면 안에 비춰주세요
-    </div>
-  {/if}
-
-  <div class="absolute inset-x-0 bottom-6 flex justify-center gap-3">
-    {#each SLOT_KEY_ARR as item (item.key)}
-      <button
-        type="button"
-        disabled={!g_face_detected || g_capturing}
-        onclick={() => on_click_capture(item.key)}
-        aria-label={`${item.label} 촬영`}
-        class="cursor-pointer rounded-full bg-[var(--retinal-primary-600)] px-6 py-3 text-sm font-extrabold text-white shadow-lg transition disabled:cursor-not-allowed disabled:opacity-40"
+    {#if g_init_error}
+      <div
+        class="absolute inset-x-0 top-3 mx-auto w-fit rounded-md bg-red-500/90 px-3 py-1.5 text-xs font-bold text-white"
       >
-        {item.label}
-      </button>
-    {/each}
+        {g_init_error}
+        {#if g_permission_denied}
+          <span class="ml-1 text-[10px] opacity-80">
+            브라우저 잠금 아이콘에서 카메라 접근을 허용해 주세요.
+          </span>
+        {/if}
+      </div>
+    {/if}
+
+    {#if g_glb_loading}
+      <div
+        class="absolute inset-x-0 top-3 mx-auto w-fit rounded-md bg-black/60 px-3 py-1 text-xs text-zinc-100"
+      >
+        안경 모델 불러오는 중...
+      </div>
+    {/if}
+
+    {#if !g_face_detected && !g_init_error && !g_glb_loading}
+      <div
+        class="absolute inset-x-0 top-3 mx-auto w-fit rounded-md bg-black/60 px-3 py-1 text-xs text-zinc-100"
+      >
+        얼굴을 화면 안에 비춰주세요
+      </div>
+    {/if}
+
+    <div class="absolute inset-x-0 bottom-6 flex justify-center gap-3">
+      {#each SLOT_KEY_ARR as item (item.key)}
+        <button
+          type="button"
+          disabled={!g_face_detected || g_capturing}
+          onclick={() => on_click_capture(item.key)}
+          aria-label={`${item.label} 촬영`}
+          class="cursor-pointer rounded-full bg-[var(--retinal-primary-600)] px-6 py-3 text-sm font-extrabold text-white shadow-lg transition disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {item.label}
+        </button>
+      {/each}
+    </div>
   </div>
 </div>
