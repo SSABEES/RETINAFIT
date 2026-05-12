@@ -13,6 +13,7 @@
   } from '@/lib/stores/capture_session.svelte.js'
   import { save_face_analysis, upload_captures_to_s3 } from '@/lib/api/analysis.js'
   import { push_error_toast } from '@/lib/stores/toast'
+  import { trigger_visit_list_reload } from '@/lib/stores/visit_list_reload'
 
   const ANALYSIS_TOAST_DURATION_MS = 5000
   import {
@@ -63,8 +64,11 @@
   // 의 reactive race 를 막는다. (true 면 아래 effect 는 자기 navigate 를 보류한다.)
   let g_is_navigating_away = $state(false)
 
+  let g_is_from_detail = $state(false)
+
   onMount(() => {
     hydrate_from_mirror()
+    g_is_from_detail = Boolean(sessionStorage.getItem('retinal_detail_return_path'))
   })
 
   $effect(() => {
@@ -270,7 +274,14 @@
         test_file_arr: local_test_file_arr,
         test_json: build_test_json(),
       })
-      navigate(PATH.analysisLensConsult)
+      const local_return_path = sessionStorage.getItem('retinal_detail_return_path')
+      if (local_return_path) {
+        sessionStorage.removeItem('retinal_detail_return_path')
+        trigger_visit_list_reload()
+        navigate(local_return_path)
+      } else {
+        navigate(PATH.analysisLensConsult)
+      }
     } catch (err) {
       const local_message = err instanceof Error ? err.message : '저장에 실패했습니다.'
       push_error_toast(local_message, ANALYSIS_TOAST_DURATION_MS)
@@ -423,7 +434,7 @@
             disabled={g_is_submitting}
             onclick={on_click_continue}
           >
-            {g_is_submitting ? '분석 결과 저장 중...' : '생활 패턴 분석하고 피팅 추천받기'}
+            {g_is_submitting ? '분석 결과 저장 중...' : g_is_from_detail ? '얼굴분석 완료' : '생활 패턴 분석하고 피팅 추천받기'}
           </button>
         </div>
       </div>
