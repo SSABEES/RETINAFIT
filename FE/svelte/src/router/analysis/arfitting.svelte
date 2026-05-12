@@ -23,6 +23,7 @@
   import { push_error_toast, push_toast } from '@/lib/stores/toast'
   import { pick_recommended_glasses_arr } from '@/lib/recommendations/frame_recommendations'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
+  import LoadingSpinner from '@/components/loading/loading_spinner.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
   import TryOnFallback from '@/components/tryon/try_on_fallback.svelte'
 
@@ -634,7 +635,7 @@
             {#if !g_ar_check_done}
               <!-- AR 가용 여부 확인 중 — 첫 진입의 검은 화면에 안경 아이콘만 떠있는 빈 구간을 채우는 안내 문구. -->
               <p
-                class="mt-6 inline-flex items-center gap-3 text-[26px] font-extrabold leading-relaxed text-white/90"
+                class="mt-6 inline-flex items-center gap-4 text-[26px] font-extrabold leading-relaxed text-white/90"
               >
                 <span
                   class="h-6 w-6 animate-spin rounded-full border-[3px] border-white/60 border-t-transparent"
@@ -762,9 +763,7 @@
         <div class="min-h-0 flex-1 overflow-y-auto pr-1 custom-scrollbar">
           {#if g_loading}
             <div class="flex justify-center py-10">
-              <span
-                class="h-5 w-5 animate-spin rounded-full border-2 border-[var(--retina-primary-200)] border-t-transparent"
-              ></span>
+              <LoadingSpinner show_label={false} />
             </div>
           {:else if g_glasses_arr.length === 0}
             <div class="flex flex-col items-center gap-2 py-10 text-center">
