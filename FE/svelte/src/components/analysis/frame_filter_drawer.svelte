@@ -2,7 +2,6 @@
   import { fade, fly } from 'svelte/transition'
   import { cubicOut } from 'svelte/easing'
   import { X, RotateCcw } from 'lucide-svelte'
-  import LoadingSpinner from '@/components/loading/loading_spinner.svelte'
 
   /** @type {{
    *   open?: boolean,
@@ -67,7 +66,9 @@
     <div class="min-h-0 flex-1 overflow-y-auto">
       {#if loading}
         <div class="flex justify-center py-20">
-          <LoadingSpinner show_label={false} />
+          <span
+            class="h-6 w-6 animate-spin rounded-full border-2 border-[var(--retina-primary-200)] border-t-transparent"
+          ></span>
         </div>
       {:else}
         <div class="space-y-8 px-8 py-6">

@@ -8,7 +8,6 @@
   import { selected_customer_obj } from '@/lib/stores/customer'
   import { push_error_toast } from '@/lib/stores/toast'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
-  import LoadingSpinner from '@/components/loading/loading_spinner.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
 
   /**
@@ -328,7 +327,10 @@
       <div class="mx-auto mt-[clamp(3px,0.9svh,10px)] w-full max-w-[820px]">
         {#if g_options_loading}
           <div class="grid place-items-center py-[clamp(16px,5svh,48px)]">
-            <LoadingSpinner show_label={false} />
+            <span
+              class="h-8 w-8 animate-spin rounded-full border-[3px] border-[var(--retina-primary-300)] border-t-transparent"
+              aria-label="옵션 로딩 중"
+            ></span>
           </div>
         {:else if g_question_arr.length === 0}
           <p

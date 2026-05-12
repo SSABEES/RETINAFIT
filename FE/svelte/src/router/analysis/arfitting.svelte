@@ -23,7 +23,6 @@
   import { push_error_toast, push_toast } from '@/lib/stores/toast'
   import { pick_recommended_glasses_arr } from '@/lib/recommendations/frame_recommendations'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
-  import LoadingSpinner from '@/components/loading/loading_spinner.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
   import TryOnFallback from '@/components/tryon/try_on_fallback.svelte'
 
@@ -763,7 +762,9 @@
         <div class="min-h-0 flex-1 overflow-y-auto pr-1 custom-scrollbar">
           {#if g_loading}
             <div class="flex justify-center py-10">
-              <LoadingSpinner show_label={false} />
+              <span
+                class="h-5 w-5 animate-spin rounded-full border-2 border-[var(--retina-primary-200)] border-t-transparent"
+              ></span>
             </div>
           {:else if g_glasses_arr.length === 0}
             <div class="flex flex-col items-center gap-2 py-10 text-center">
