@@ -30,11 +30,57 @@ function dispose_subtree(root) {
   })
 }
 
+// 한 face 용 try-on hierarchy (glasses_root → face_occluder, head_back_occluder, face_anchor_offset_group
+// (그 자식 marker)) 를 만들어 반환한다. multi-face 검출 시 N 개를 만든다. geometry / material 은
+// 호출자가 제공한 shared assets 를 모두 share — N 배 메모리 절약 + OBJ 비동기 로드 후 모든 face_set
+// 의 face_occluder geometry 가 동시에 교체된다 (caller 가 set 의 face_occluder ref 를 traverse).
+function create_face_set(scene, shared) {
+  const glasses_root_obj = new Object3D()
+  glasses_root_obj.matrixAutoUpdate = false
+  glasses_root_obj.visible = false
+  scene.add(glasses_root_obj)
+
+  const axes_helper = new AxesHelper(5)
+  axes_helper.visible = false
+  glasses_root_obj.add(axes_helper)
+
+  const face_occluder = new Mesh(shared.face_geo, shared.face_occluder_mat)
+  face_occluder.position.set(0, 0, -1)
+  face_occluder.renderOrder = -1
+  glasses_root_obj.add(face_occluder)
+
+  const head_back_occluder = new Mesh(shared.head_geo, shared.head_occluder_mat)
+  head_back_occluder.scale.set(8, 11, 14)
+  head_back_occluder.position.set(0, 0, -2)
+  head_back_occluder.renderOrder = -1
+  glasses_root_obj.add(head_back_occluder)
+
+  const face_anchor_offset_group = new Object3D()
+  face_anchor_offset_group.position.set(0, 3.27, 5.24)
+  glasses_root_obj.add(face_anchor_offset_group)
+
+  const face_anchor_marker = new Mesh(shared.marker_geo, shared.marker_mat)
+  face_anchor_marker.visible = false
+  face_anchor_marker.renderOrder = 999
+  face_anchor_offset_group.add(face_anchor_marker)
+
+  return {
+    glasses_root_obj,
+    axes_helper,
+    face_occluder,
+    head_back_occluder,
+    face_anchor_offset_group,
+    face_anchor_marker,
+  }
+}
+
 // scene/camera/renderer/안경 root/디버그 axes 를 한 번에 만들어 컨트롤 핸들을 반환한다.
+// num_face_sets 가 1 보다 크면 multi-face 모드 — N 개의 face_set 을 만들어 face_sets array 로 노출.
+// face_sets[0] 의 단일 ref 들은 backward-compat 용으로 평면 export 도 같이 한다.
 /**
- * @param {{ canvas: HTMLCanvasElement, fov_deg?: number }} opts
+ * @param {{ canvas: HTMLCanvasElement, fov_deg?: number, num_face_sets?: number }} opts
  */
-export function init_three_scene({ canvas, fov_deg = 63 }) {
+export function init_three_scene({ canvas, fov_deg = 63, num_face_sets = 1 }) {
   const scene = new Scene()
   // 안경 메탈 / 플라스틱 표면이 어둡게 보이지 않게 약간의 ambient + 정면 directional.
   scene.add(new AmbientLight(0xffffff, 0.7))
@@ -49,76 +95,68 @@ export function init_three_scene({ canvas, fov_deg = 63 }) {
   const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true })
   renderer.setPixelRatio(window.devicePixelRatio || 1)
   renderer.setClearColor(0x000000, 0)
+  // face_occluder 의 좌우 절반을 yaw 따라 잘라낼 수 있게 local clipping 활성화. mesh.material.
+  // clippingPlanes 에 plane 을 넣으면 그 plane 의 음수 영역이 그려지지 않음.
+  renderer.localClippingEnabled = true
 
-  // 안경 root — matrix 직접 주입 (matrixAutoUpdate=false)
-  const glasses_root_obj = new Object3D()
-  glasses_root_obj.matrixAutoUpdate = false
-  glasses_root_obj.visible = false
-  scene.add(glasses_root_obj)
+  // 공유 geometry / material — N 개의 face_set 이 모두 share.
+  //   face_geo : 처음엔 작은 placeholder. canonical_face_model.obj 로드 후 모든 face_occluder mesh 의
+  //              geometry 를 새 face mesh geometry 로 동시 교체한다.
+  //   head_geo : ellipsoid base (radius=1) — face_set 별 scale 은 mesh.scale 로 조정.
+  //   face_occluder_mat, head_occluder_mat : depth-only material (colorWrite=false, depthWrite=true).
+  //     별도 instance 라 face 만 clipping plane 걸어도 head 영향 없음.
+  //   marker_geo / marker_mat : 디버그 anchor 표시용 빨간 작은 sphere.
+  const shared = {
+    face_geo: new SphereGeometry(0.001),
+    head_geo: new SphereGeometry(1, 24, 24, Math.PI, Math.PI),
+    face_occluder_mat: new MeshBasicMaterial({ colorWrite: false, depthWrite: true }),
+    head_occluder_mat: new MeshBasicMaterial({ colorWrite: false, depthWrite: true }),
+    marker_geo: new SphereGeometry(0.25, 12, 12),
+    marker_mat: new MeshBasicMaterial({ color: 0xff3366, depthTest: false, depthWrite: false }),
+  }
 
-  // 디버그용 axes (5cm). 디폴트로 hidden, 토글 시 visible=true.
-  const axes_helper = new AxesHelper(5)
-  axes_helper.visible = false
-  glasses_root_obj.add(axes_helper)
+  const face_sets = []
+  for (let i = 0; i < num_face_sets; i++) {
+    face_sets.push(create_face_set(scene, shared))
+  }
 
-  // 얼굴 occluder — MediaPipe canonical_face_model.obj (468 vertices, 898 triangles, cm 단위)
-  // 를 비동기 로드해 face 모양 mesh 로 정확히 가린다. 색은 안 쓰고 depth buffer 만 채워서
-  // (colorWrite=false, depthWrite=true) 그 뒤로 들어간 안경 다리가 자동으로 카메라에서 가려진다.
-  // 로드 전엔 작은 placeholder geometry. 로드 실패 시엔 사용자에게 콘솔 경고.
-  const placeholder_geo = new SphereGeometry(0.001)
-  const occluder_mat = new MeshBasicMaterial({ colorWrite: false, depthWrite: true })
-  const face_occluder = new Mesh(placeholder_geo, occluder_mat)
-  face_occluder.position.set(0, 0, 0)
-  face_occluder.renderOrder = -1
-  glasses_root_obj.add(face_occluder)
-  // canonical face mesh 비동기 로드 → geometry 만 교체. canonical 좌표계가 face pose canonical
-  // 과 동일하므로 추가 transform 불필요 (face_occluder 가 glasses_root_obj 자식 = face pose 적용).
+  // canonical face mesh 비동기 로드 → shared face_geo 자체를 새 geometry 로 교체할 수 없으니, 모든
+  // face_set 의 face_occluder.geometry 에 새 geometry 를 일괄 set. canonical 좌표계가 face pose
+  // canonical 과 동일하므로 추가 transform 불필요.
   const obj_loader = new OBJLoader()
   obj_loader
     .loadAsync(`${import.meta.env.BASE_URL}mediapipe/models/canonical_face_model.obj`)
     .then((root) => {
-      let replaced = false
+      let new_geo = null
       root.traverse((child) => {
-        if (replaced || !child.isMesh || !child.geometry) return
-        face_occluder.geometry.dispose()
-        face_occluder.geometry = child.geometry
-        replaced = true
+        if (!new_geo && child.isMesh && child.geometry) new_geo = child.geometry
       })
+      if (!new_geo) return
+      shared.face_geo.dispose()
+      shared.face_geo = new_geo
+      for (const set of face_sets) {
+        set.face_occluder.geometry = new_geo
+      }
     })
     .catch((err) => {
       console.warn('[try-on] canonical face mesh load failed', err)
     })
 
-  // face anchor offset — face pose origin (MediaPipe canonical face 의 어떤 점) 에서 우리가
-  // 안경 브릿지를 정합하고 싶은 *face mesh 점* (눈 사이 = 미간) 까지의 offset. 이 group 의 자식이
-  // 실제 안경 (override_group → align_group → GLB clone). face pose rotation 이 적용된 layer 라
-  // 슬라이더 값은 canonical face *local* 좌표계 — 머리가 회전해도 안경이 같은 점에 붙는다.
-  const face_anchor_offset_group = new Object3D()
-  // default = canonical_face_model.obj 의 landmark 168 (nasion = 코뼈 위쪽 = 안경 코걸이가 닿는 점).
-  // 직접 OBJ 에서 추출: v 0.000000 3.271027 5.236015. 양 눈 안쪽 corner 중점 (0, 2.585, 3.758) 보다
-  // 약간 위 + 앞이라 안경 브릿지가 face 표면 위에 자연스럽게 얹히는 위치.
-  face_anchor_offset_group.position.set(0, 3.27, 5.24)
-  glasses_root_obj.add(face_anchor_offset_group)
-
-  // anchor 위치 마커 — 작은 빨간 점. 디버그 토글 ON 시 visible 해서 사용자가 슬라이더 조정 중
-  // anchor 가 화면에서 어느 face 점에 위치하는지 직접 확인 가능. depth test 끄고 renderOrder 999
-  // 로 위에 강제 렌더 — 안경에 가려지지 않게.
-  const marker_geo = new SphereGeometry(0.25, 12, 12)
-  const marker_mat = new MeshBasicMaterial({ color: 0xff3366, depthTest: false, depthWrite: false })
-  const face_anchor_marker = new Mesh(marker_geo, marker_mat)
-  face_anchor_marker.visible = false
-  face_anchor_marker.renderOrder = 999
-  face_anchor_offset_group.add(face_anchor_marker)
+  // face_sets[0] 을 단일 ref 로도 export — backward-compat 용. 단일 face 호출자 (try_on_fallback,
+  // camera_view 측의 기존 코드) 가 그대로 동작.
+  const first = face_sets[0]
 
   return {
     scene,
     camera,
     renderer,
-    glasses_root_obj,
-    axes_helper,
-    face_occluder,
-    face_anchor_offset_group,
-    face_anchor_marker,
+    face_sets,
+    glasses_root_obj: first.glasses_root_obj,
+    axes_helper: first.axes_helper,
+    face_occluder: first.face_occluder,
+    head_back_occluder: first.head_back_occluder,
+    face_anchor_offset_group: first.face_anchor_offset_group,
+    face_anchor_marker: first.face_anchor_marker,
     // 비디오 해상도에 맞춰 renderer / camera aspect 갱신.
     /**
      * @param {number} width
