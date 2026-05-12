@@ -12,7 +12,7 @@
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import { PATH } from '@/config/path'
-  import { get_visit_list, create_visit } from '@/lib/api/visit'
+  import { get_visit_list, create_visit, get_visit } from '@/lib/api/visit'
   import { selected_customer_obj, set_selected_visit } from '@/lib/stores/customer'
   import { selected_admin_obj, selected_opt_store_obj } from '@/lib/stores/admin'
   import { push_error_toast } from '@/lib/stores/toast'
@@ -488,7 +488,8 @@
                 src={local_done ? step_obj.icon_active : step_obj.icon_default}
                 alt=""
                 aria-hidden="true"
-                class="shrink-0 h-[clamp(40px,8svh,72px)] w-[clamp(40px,8svh,72px)]"
+                class="shrink-0 transition h-[clamp(40px,8svh,72px)] w-[clamp(40px,8svh,72px)]"
+                class:opacity-40={!local_done}
               />
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2">

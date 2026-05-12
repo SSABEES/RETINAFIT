@@ -129,6 +129,8 @@
       phone2: String(customer_obj.phone2 ?? customer_obj.PHONE2 ?? ''),
       birth_dt: String(customer_obj.birthday ?? customer_obj.BIRTHDAY ?? ''),
       gender: Number(customer_obj.sex ?? customer_obj.SEX ?? 0) === 0 ? '남' : '여',
+      // TODO: BE가 last_visit_dt 필드 추가하면 아래 주석 해제 후 enrich_customer_arr_with_visit_status 호출 제거
+      // last_visit_dt: format_visit_dt(customer_obj.last_visit_dt ?? customer_obj.LAST_VISIT_DT ?? null),
       last_visit_dt: '-',
       visit_count: 0,
       status_key: 'needs_analysis',
@@ -186,7 +188,6 @@
   }
 
   // 고객 행 클릭 시 — 선택한 고객을 store 에 저장하고 고객 상세 페이지로 이동.
-  // 분석 시작은 상세 페이지의 액션 카드에서 진행.
   /** @param {Record<string, any>} customer_obj */
   function on_click_select_customer(customer_obj) {
     if (g_is_customer_select_loading) return
@@ -205,11 +206,12 @@
     g_search_request_id += 1
     const local_request_id = g_search_request_id
     g_is_search_loading = true
+    const local_opt_no = $selected_opt_store_obj.opt_no
 
     try {
       const local_customer_arr = await search_customer({
         phone_no: local_phone,
-        opt_no: $selected_opt_store_obj.opt_no,
+        opt_no: local_opt_no,
       })
 
       if (local_request_id !== g_search_request_id) {
@@ -223,12 +225,11 @@
       ref_customer_arr = local_normalized_arr
       customer_arr_store.set(local_normalized_arr)
 
+      // TODO: BE가 last_visit_dt 추가하면 아래 enrichment 블록 4줄 제거 (normalize에서 바로 값이 옴)
       const local_enriched_arr = await enrich_customer_arr_with_visit_status(local_normalized_arr)
-
       if (local_request_id !== g_search_request_id) {
         return
       }
-
       ref_customer_arr = local_enriched_arr
       customer_arr_store.set(local_enriched_arr)
     } catch (local_error) {
@@ -508,19 +509,21 @@
                       ? '/icons/Property 1=Face, Property 2=Active.png'
                       : '/icons/Property 1=Face, Property 2=Default.png'}
                     alt={is_face_done ? '얼굴분석 완료' : '얼굴분석 진행 필요'}
-                    class="h-[76px] w-[76px]"
+                    class="h-[76px] w-[76px] transition"
+                    class:opacity-40={!is_face_done}
                   />
                   <img
                     src={is_lifestyle_done
                       ? '/icons/Property 1=Life, Property 2=Active.png'
                       : '/icons/Property 1=Life, Property 2=Default.png'}
                     alt={is_lifestyle_done ? '생활패턴 완료' : '생활패턴 진행 필요'}
-                    class="h-[76px] w-[76px]"
+                    class="h-[76px] w-[76px] transition"
+                    class:opacity-40={!is_lifestyle_done}
                   />
                   <img
                     src="/icons/Property 1=Fitting, Property 2=Default.png"
                     alt="피팅시작"
-                    class="h-[76px] w-[76px]"
+                    class="h-[76px] w-[76px] opacity-40"
                   />
                 </div>
               </button>
