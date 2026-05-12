@@ -19,6 +19,7 @@
   } from '@/lib/stores/customer'
   import { selected_admin_obj, selected_opt_store_obj } from '@/lib/stores/admin'
   import { push_error_toast } from '@/lib/stores/toast'
+  import { visit_list_reload_signal } from '@/lib/stores/visit_list_reload'
   import { get_customer_by_id } from '@/router/dashboard/users/user_data'
 
   /** @type {{ id?: string }} */
@@ -317,6 +318,7 @@
   }
 
   $effect(() => {
+    $visit_list_reload_signal
     void load_visit_arr()
   })
 </script>
