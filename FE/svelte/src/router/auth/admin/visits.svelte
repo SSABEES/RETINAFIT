@@ -50,9 +50,7 @@
 
   // 페이지 슬라이스 + 총 페이지 수 (전체 데이터를 한 번에 받아 FE 에서 자른다.)
   const g_total_pages = $derived(Math.max(1, Math.ceil(g_visit_arr.length / PAGE_SIZE)))
-  const g_paginated_arr = $derived(
-    g_visit_arr.slice((g_page - 1) * PAGE_SIZE, g_page * PAGE_SIZE),
-  )
+  const g_paginated_arr = $derived(g_visit_arr.slice((g_page - 1) * PAGE_SIZE, g_page * PAGE_SIZE))
   const g_page_start_index = $derived(g_visit_arr.length === 0 ? 0 : (g_page - 1) * PAGE_SIZE + 1)
   const g_page_end_index = $derived(Math.min(g_page * PAGE_SIZE, g_visit_arr.length))
 
@@ -176,7 +174,9 @@
       <h2 class="m-0 text-xl font-extrabold text-[var(--retina-text)]">방문자 정보</h2>
       <p class="m-0 text-sm font-bold text-[var(--retina-text-muted)]">
         {#if g_visit_arr.length > 0}
-          <span class="text-[var(--retina-primary-600)]">{g_page_start_index}-{g_page_end_index}</span>
+          <span class="text-[var(--retina-primary-600)]"
+            >{g_page_start_index}-{g_page_end_index}</span
+          >
           / 총 <span class="text-[var(--retina-primary-600)]">{g_total}건</span>
         {:else}
           총 <span class="text-[var(--retina-primary-600)]">{g_total}건</span>
@@ -185,7 +185,9 @@
     </div>
 
     <!-- 리스트 영역 -->
-    <div class="overflow-hidden rounded-2xl border border-[var(--retina-text-200)] bg-white shadow-sm">
+    <div
+      class="overflow-hidden rounded-2xl border border-[var(--retina-text-200)] bg-white shadow-sm"
+    >
       {#if g_is_loading}
         <p class="m-0 px-6 py-10 text-center text-sm font-bold text-[var(--retina-text-muted)]">
           방문자 정보 불러오는 중...
@@ -220,7 +222,9 @@
                 onclick={() => on_click_row(visit_obj.visit_no)}
                 aria-label={`${visit_obj.cust_name ?? ''} 방문 상세 보기`}
               >
-                <span class="text-[12px] font-bold text-[var(--retina-text-400)]">#{visit_obj.visit_no}</span>
+                <span class="text-[12px] font-bold text-[var(--retina-text-400)]"
+                  >#{visit_obj.visit_no}</span
+                >
                 <span class="truncate text-base font-extrabold text-[var(--retina-text-800)]">
                   {visit_obj.cust_name ?? '-'}
                 </span>
@@ -229,8 +233,12 @@
                 <span class="truncate text-[13px] text-[var(--retina-text-500)]">
                   {format_dt(visit_obj.create_dt)}
                 </span>
-                <span class="text-[13px] text-[var(--retina-text-500)]">#{visit_obj.opt_no ?? '-'}</span>
-                <span class="text-[13px] text-[var(--retina-text-500)]">#{visit_obj.member_no ?? '-'}</span>
+                <span class="text-[13px] text-[var(--retina-text-500)]"
+                  >#{visit_obj.opt_no ?? '-'}</span
+                >
+                <span class="text-[13px] text-[var(--retina-text-500)]"
+                  >#{visit_obj.member_no ?? '-'}</span
+                >
                 <span>
                   <span
                     class={`inline-flex rounded-full px-3 py-1 text-[11px] font-extrabold ${local_status.class}`}

@@ -75,10 +75,7 @@ export async function detect_marker_for_capture(capture) {
   try {
     markers_arr = detect_markers(image_data, intrinsics, MARKER_SIZE_MM)
   } catch (err) {
-    console.warn(
-      '[ArUco] 검출 라이브러리(js-aruco2) 가 예외 발생. 이 캡처는 마커 검출 skip:',
-      err,
-    )
+    console.warn('[ArUco] 검출 라이브러리(js-aruco2) 가 예외 발생. 이 캡처는 마커 검출 skip:', err)
     return null
   }
 

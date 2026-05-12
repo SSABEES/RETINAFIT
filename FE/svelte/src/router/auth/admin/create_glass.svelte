@@ -115,10 +115,16 @@
 
     <div class="mt-3 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div class="grid content-start self-start gap-2">
-        <span class="text-sm font-extrabold text-[var(--retina-text-500)]">안경 대표 이미지 미리보기</span>
+        <span class="text-sm font-extrabold text-[var(--retina-text-500)]"
+          >안경 대표 이미지 미리보기</span
+        >
 
-        <div class="overflow-hidden rounded-[14px] border border-dashed border-[var(--retina-primary-200)] bg-[var(--retina-primary-50)]">
-          <div class="aspect-[5/3] bg-[linear-gradient(180deg,var(--retina-primary-50)_0%,var(--retina-bg-1)_100%)]">
+        <div
+          class="overflow-hidden rounded-[14px] border border-dashed border-[var(--retina-primary-200)] bg-[var(--retina-primary-50)]"
+        >
+          <div
+            class="aspect-[5/3] bg-[linear-gradient(180deg,var(--retina-primary-50)_0%,var(--retina-bg-1)_100%)]"
+          >
             <img
               src={g_glass_preview_url}
               alt="안경 대표 이미지 미리보기"
@@ -305,7 +311,9 @@
           {#each g_metric_field_arr as metric_obj (metric_obj.key)}
             <label class="grid min-w-0 gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
               {metric_obj.label}
-              <div class="flex items-center rounded-xl border border-[var(--retina-text-200)] bg-white px-4">
+              <div
+                class="flex items-center rounded-xl border border-[var(--retina-text-200)] bg-white px-4"
+              >
                 <input
                   class="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-[var(--retina-text-800)] outline-none"
                   type="number"
@@ -319,7 +327,9 @@
           {/each}
         {/if}
 
-        <label class="grid min-w-0 gap-2 text-sm font-extrabold text-[var(--retina-text-500)] md:col-span-2">
+        <label
+          class="grid min-w-0 gap-2 text-sm font-extrabold text-[var(--retina-text-500)] md:col-span-2"
+        >
           피팅 메모
           <textarea
             class="min-h-[96px] rounded-xl border border-[var(--retina-text-200)] px-4 py-3 text-base font-bold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-400)] focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"

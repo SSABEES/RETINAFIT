@@ -255,7 +255,10 @@
 
     const visit_no = get_visit_no()
     if (visit_no === null) {
-      push_error_toast('방문 정보가 없어 분석 결과를 저장할 수 없습니다.', ANALYSIS_TOAST_DURATION_MS)
+      push_error_toast(
+        '방문 정보가 없어 분석 결과를 저장할 수 없습니다.',
+        ANALYSIS_TOAST_DURATION_MS,
+      )
       return
     }
 
@@ -312,9 +315,7 @@
         class="mx-auto grid w-fit mt-[clamp(4px,1svh,12px)] px-1 grid-cols-[clamp(220px,38svh,360px)_clamp(200px,32svh,300px)] gap-[clamp(12px,3svh,40px)]"
       >
         <!-- 왼쪽: 촬영 사진 — 카메라와 동일한 3:4 비율, svh 기반 자동 축소 -->
-        <div
-          class="aspect-[3/4] w-full overflow-hidden rounded-[14px] bg-slate-100 shadow-sm"
-        >
+        <div class="aspect-[3/4] w-full overflow-hidden rounded-[14px] bg-slate-100 shadow-sm">
           {#if g_photo_src}
             <img
               class="h-full w-full object-cover"
@@ -337,9 +338,7 @@
               class="flex flex-col justify-center rounded-[8px] border border-[#FFEDD5] bg-[#FFF7ED] text-center px-[clamp(6px,1.5svh,12px)] py-[clamp(8px,2svh,20px)]"
             >
               <p class="m-0 font-bold text-slate-700 text-[clamp(10px,1.6svh,13px)]">얼굴형</p>
-              <p
-                class="m-0 mt-1 font-bold text-[#F97316] text-[clamp(11px,1.8svh,14px)]"
-              >
+              <p class="m-0 mt-1 font-bold text-[#F97316] text-[clamp(11px,1.8svh,14px)]">
                 {g_face_shape_label}
               </p>
             </div>
@@ -401,9 +400,7 @@
             >
               추천 안경테 모양
             </h2>
-            <div
-              class="mt-[clamp(4px,1svh,10px)] grid grid-cols-3 gap-1.5 px-2"
-            >
+            <div class="mt-[clamp(4px,1svh,10px)] grid grid-cols-3 gap-1.5 px-2">
               {#each g_recommended_frame_arr as frame_obj (`${frame_obj.name}-${frame_obj.priority}`)}
                 <div
                   class="flex items-center justify-center rounded-[6px] border border-[#F97316] bg-white text-center font-bold text-[#F97316] px-[clamp(6px,1.5svh,12px)] py-[clamp(2px,0.6svh,6px)] text-[clamp(11px,1.9svh,16px)]"
@@ -434,7 +431,11 @@
             disabled={g_is_submitting}
             onclick={on_click_continue}
           >
-            {g_is_submitting ? '분석 결과 저장 중...' : g_is_from_detail ? '얼굴분석 완료' : '생활 패턴 분석하고 피팅 추천받기'}
+            {g_is_submitting
+              ? '분석 결과 저장 중...'
+              : g_is_from_detail
+                ? '얼굴분석 완료'
+                : '생활 패턴 분석하고 피팅 추천받기'}
           </button>
         </div>
       </div>

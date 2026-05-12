@@ -5,7 +5,7 @@
   import GlobalToast from '@/components/toast/global_toast.svelte'
   import SplashScreen from '@/components/splash/splash_screen.svelte'
   import { wait_for_flutter_bridge } from '@/lib/flutter/bridge'
-  import { ensure_cache_warm } from '@/lib/sixdrepnet360/preload'
+  import { ensure_cache_warm, is_model_cached } from '@/lib/sixdrepnet360/preload'
   import { get_active_variant } from '@/lib/sixdrepnet360/inference'
 
   let url = ''
@@ -24,11 +24,15 @@
   }
 
   onMount(() => {
-    // Flutter WebView 환경에서만 모델 사전 다운로드 splash 노출. 일반 웹은 skip.
-    // bridge 감지가 끝나면 env_detected 를 켜고, 일반 웹이면 model_ready 까지 true.
+    // Flutter WebView 환경에선 항상 splash 노출 (~94MB 모델 다운로드 진행률 표시 목적).
+    // 일반 웹 환경에선 Cache Storage 에 모델 바이트가 이미 있으면 splash skip, 비어있으면 splash 노출.
+    // 이 분기로 "데스크탑 테스트 중 splash 안 뜸 + 첫 캐시 채우는 시점은 splash 로 진행률 보임" 양립.
     void (async () => {
       const local_is_flutter = await wait_for_flutter_bridge(300, 100)
-      if (!local_is_flutter) g_is_model_ready = true
+      if (!local_is_flutter) {
+        const local_already_cached = await is_model_cached(get_active_variant())
+        if (local_already_cached) g_is_model_ready = true
+      }
       g_is_env_detected = true
     })()
 
