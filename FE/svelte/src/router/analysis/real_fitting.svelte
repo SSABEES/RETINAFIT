@@ -1,5 +1,5 @@
 <script>
-  import { onDestroy } from 'svelte'
+  import { onDestroy, onMount } from 'svelte'
   import { fly } from 'svelte/transition'
   import { navigate } from '@maks11060/svelte5-router'
   import { Camera as CameraIcon, X, Loader2, CheckCheck, Glasses } from 'lucide-svelte'
@@ -10,6 +10,10 @@
   import { flip_blob_horizontally } from '@/lib/capture/capture_utils.js'
   import { request_real_wearing_presigned_urls, upload_blob_to_s3 } from '@/lib/api/analysis.js'
   import { get_visit, update_visit } from '@/lib/api/visit.js'
+  // CameraView 가 마지막 캡처 시점에 face_recognition_complete 음성을 재생하는데,
+  // voice_guide 가 모듈 싱글톤이라 사용자가 음성 종료 전에 result 로 navigate 하면
+  // 다음 화면 위에서 그 음성이 계속 재생된다. 언마운트 시점에 명시적으로 stop.
+  import { silence as silence_voice, unsilence as unsilence_voice } from '@/lib/audio/voice_guide.js'
 
   // result.svelte 가 첫 mount 에 즉시 화면을 채우도록 prefetch 한 visit_obj 를 잠시 보관할 sessionStorage 키.
   const PREFETCH_VISIT_KEY = 'retinal_prefetched_visit_obj'
@@ -61,7 +65,14 @@
   let g_is_set_limit_reached = $derived(g_saved_set_arr.length >= MAX_PHOTO_SET_COUNT)
   let g_can_save = $derived(g_has_any_capture && !g_is_set_limit_reached)
 
+  // result 에서 뒤로가기로 다시 들어왔을 때, 이전에 silence_voice() 해둔 봉인을 해제해야 CameraView 음성이 정상 재생된다.
+  onMount(() => {
+    unsilence_voice()
+  })
+
   onDestroy(() => {
+    // 진행 중이던 CameraView 음성을 차단 — result 화면에서 이전 페이지 음성이 이어 들리는 현상 방지.
+    silence_voice()
     for (const local_slot of g_capture_slot_arr) {
       if (local_slot?.object_url) URL.revokeObjectURL(local_slot.object_url)
     }
@@ -196,6 +207,9 @@
   async function on_click_continue() {
     if (g_is_submitting) return
     g_is_submitting = true
+    // 사용자가 버튼 클릭한 순간 CameraView 의 진행 중인 음성(예: face_recognition_complete) 을 즉시 차단.
+    // onDestroy 만으론 navigate 까지의 async 업로드/PATCH 동안 음성이 계속 들리고, 심하면 result 화면까지 끌고 간다.
+    silence_voice()
 
     try {
       const local_visit_no = get_visit_no()
