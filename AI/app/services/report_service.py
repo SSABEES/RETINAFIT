@@ -142,8 +142,14 @@ def _parse_face_script(raw_answer: str, *, include_debug: bool) -> FaceScriptRes
             pd=_str_or_none(items_raw.get("pd")),
             skin_tone=_str_or_none(items_raw.get("skin_tone")),
         )
-        # summary1 / summary2 우선. LLM 이 옛 스키마(단일 summary) 로 응답한 경우 폴백 — 1개를 summary1 에 담아 호환 유지.
-        summary1, summary2 = _extract_summary_pair(data)
+        # summary1: 메타포 한 줄, summary2: 관찰+추천 본문. 둘 다 못 받으면 빈 문자열.
+        # 구버전 LLM 응답(summary 단일 필드)도 들어올 수 있어 호환 처리: summary → summary2 로 흘림.
+        summary1 = _str_or_none(data.get("summary1")) or ""
+        summary2 = (
+            _str_or_none(data.get("summary2"))
+            or _str_or_none(data.get("summary"))
+            or ""
+        )
         return FaceScriptResponse(
             summary1=summary1,
             summary2=summary2,
@@ -159,8 +165,8 @@ def _parse_face_script(raw_answer: str, *, include_debug: bool) -> FaceScriptRes
             (raw_answer or "")[:300],
         )
         return FaceScriptResponse(
-            summary1=raw_answer.strip() if raw_answer else "",
-            summary2="",
+            summary1="",
+            summary2=raw_answer.strip() if raw_answer else "",
             items=FaceScriptItems(),
             raw_answer=raw_answer_for_debug,
         )

@@ -51,7 +51,9 @@ class FaceScriptItems(BaseModel):
 
 
 class FaceScriptResponse(BaseModel):
-    # 종합 멘트를 두 줄로 분리 — UI 에서 줄바꿈을 명시적으로 표현. 둘 중 하나라도 비어있으면 422.
+    # summary 를 두 줄로 분리.
+    # - summary1: 소재·질감 메타포 한 줄 (12~30자). 헤드라인/타이틀처럼 표시.
+    # - summary2: 관찰 + 추천 본문 (50~130자, 1~2문장). 기존 summary 자리.
     summary1: str
     summary2: str
     # 다른 BaseModel 을 필드 타입으로 — Java 의 nested DTO 참조와 동일.
