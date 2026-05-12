@@ -38,16 +38,11 @@
   let {
     /** @type {SelectedGlasses} */
     selected_glasses_obj = null,
+    /** @type {SlotKey | null} */
+    next_slot_key = null,
     /** @type {(slot_key: SlotKey, blob: Blob) => void} */
     oncaptured = () => {},
   } = $props()
-
-  // 1번/2번/3번 버튼 메타 — Flutter FaceFittingScreen 의 CAPTURE_SLOT_ARR 와 정합.
-  const SLOT_KEY_ARR = [
-    { key: 'front', label: '1번' },
-    { key: 'left', label: '2번' },
-    { key: 'right', label: '3번' },
-  ]
 
   // test 페이지 슬라이더 default 그대로 const 화. 향후 사용자 노출 필요해지면 $state 로 풀면 됨.
   // override_group transform 단위는 align_group 의 cm 좌표계 — 자산 단위 무관 1 칸 = 1cm.
@@ -87,6 +82,10 @@
 
   /** @type {HTMLVideoElement | null} */
   let ref_video_el = $state(null)
+  // 백드롭 video — 부모 영역(가로형) 의 양옆까지 카메라 시야로 채워 letterbox 를 없애는 시각적 fill 용.
+  // 같은 stream 을 한 번 더 paint 할 뿐 decode 는 메인 video 와 공유 (성능 영향 미미). camera_view.svelte 와 동일 패턴.
+  /** @type {HTMLVideoElement | null} */
+  let ref_this_backdrop_video_el = $state(null)
   /** @type {HTMLCanvasElement | null} */
   let ref_three_canvas_el = $state(null)
 
@@ -95,10 +94,6 @@
   let g_face_detected = $state(false)
   let g_glb_loading = $state(false)
   let g_capturing = $state(false)
-  // video intrinsic 종횡비 — metadataloaded 이전엔 default 480x640. inner wrapper 의 CSS
-  // aspect-ratio 에 주입해 video / canvas 의 표시 종횡비를 항상 같게 유지 → 비균일 변형 방지.
-  let g_video_aspect_w = $state(480)
-  let g_video_aspect_h = $state(640)
 
   // 비반응형 내부 상태
   let g_start_generation = 0
@@ -207,10 +202,13 @@
       if (my_gen !== g_start_generation) return
       g_landmarker = landmarker
 
+      // 가로 1280×720 (16:9) 로 요청 — camera_view.svelte 와 동일 패턴.
+      // 부모 영역(arfitting 의 카메라 섹션) 이 가로형이라 3:4 stream 으로는 양옆에 letterbox 가 생기거나
+      // 위·아래가 잘려 보임. 16:9 stream 을 object-cover 로 풀필하면 카메라 시야가 자연스럽게 가로 영역을 채움.
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 480 },
-          height: { ideal: 640 },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
           facingMode: 'user',
           // 60Hz 지원 카메라/브라우저면 검출 주기 33ms → 16ms 로 단축. 미지원 시 ideal 무시.
           frameRate: { ideal: 60 },
@@ -228,11 +226,14 @@
       if (my_gen !== g_start_generation) return
       if (!ref_video_el) throw new Error('video element missing')
       ref_video_el.srcObject = g_stream
+      // 같은 stream 을 백드롭 video 에도 연결 — 별도 onloadedmetadata 없이 자동재생만.
+      if (ref_this_backdrop_video_el) {
+        ref_this_backdrop_video_el.srcObject = g_stream
+        ref_this_backdrop_video_el.play().catch(() => {})
+      }
       ref_video_el.onloadedmetadata = () => {
         if (my_gen !== g_start_generation || !ref_video_el || !g_stream) return
         void ref_video_el.play()
-        g_video_aspect_w = ref_video_el.videoWidth
-        g_video_aspect_h = ref_video_el.videoHeight
         if (g_scene_ctx) {
           g_scene_ctx.resize(ref_video_el.videoWidth, ref_video_el.videoHeight)
         }
@@ -266,6 +267,9 @@
     if (ref_video_el) {
       ref_video_el.onloadedmetadata = null
       ref_video_el.srcObject = null
+    }
+    if (ref_this_backdrop_video_el) {
+      ref_this_backdrop_video_el.srcObject = null
     }
     clear_video_cache()
   }
@@ -410,24 +414,58 @@
     g_raf_id = requestAnimationFrame(on_loop_frame)
   }
 
-  // 캡처 버튼 클릭 — video + three.js 를 미러된 픽셀로 합성해 Blob 으로 부모 전달.
+  // 출력 캡처 해상도 — camera_view 와 동일하게 3:4 (480×640) 로 정규화. 라이브는 16:9 풀필이지만
+  // 캡처는 가운데 3:4 영역만 잘라 저장 → real_fitting / analysis index 의 다른 캡처와 해상도 일관.
+  const CAPTURE_OUTPUT_W = 480
+  const CAPTURE_OUTPUT_H = 640
+
+  // 가운데 3:4 영역 crop 좌표 계산. video / canvas 가 서로 다른 intrinsic 해상도(특히 canvas 는
+  // setPixelRatio 로 dpr 곱이 적용된 backing buffer) 라 각자의 width/height 기준으로 따로 계산해야
+  // 동일한 비율 영역이 추출된다. (이전 버그: 비디오 좌표를 그대로 canvas 에 쓰면 dpr 배만큼 어긋난
+  // 좁은 영역만 잘려 안경 레이어가 빠짐.)
+  function compute_center_3to4_crop(source_w, source_h) {
+    const local_target_aspect = CAPTURE_OUTPUT_W / CAPTURE_OUTPUT_H
+    const local_crop_h = source_h
+    const local_crop_w = Math.round(source_h * local_target_aspect)
+    const local_crop_x = Math.round((source_w - local_crop_w) / 2)
+    return { sx: local_crop_x, sy: 0, sw: local_crop_w, sh: local_crop_h }
+  }
+
+  // 캡처 버튼 클릭 — video + three.js 의 가운데 3:4 영역을 crop·미러해 Blob 으로 부모 전달.
   async function on_click_capture(slot_key) {
     if (!g_face_detected || !ref_video_el || !ref_three_canvas_el) return
     if (g_capturing) return
     g_capturing = true
     try {
-      const w = ref_video_el.videoWidth
-      const h = ref_video_el.videoHeight
+      // video crop: stream intrinsic (e.g., 1280×720) 기준.
+      const local_video_crop = compute_center_3to4_crop(
+        ref_video_el.videoWidth,
+        ref_video_el.videoHeight,
+      )
+      // canvas crop: backing buffer (dpr 곱 적용된 canvas.width × canvas.height) 기준.
+      const local_canvas_crop = compute_center_3to4_crop(
+        ref_three_canvas_el.width,
+        ref_three_canvas_el.height,
+      )
+
       const off = document.createElement('canvas')
-      off.width = w
-      off.height = h
+      off.width = CAPTURE_OUTPUT_W
+      off.height = CAPTURE_OUTPUT_H
       const ctx = off.getContext('2d')
       if (!ctx) return
       // CSS scaleX(-1) 미러를 픽셀로 굳혀 native AR 결과(셀피처럼 좌우 반전)와 정합.
-      ctx.translate(w, 0)
+      ctx.translate(CAPTURE_OUTPUT_W, 0)
       ctx.scale(-1, 1)
-      ctx.drawImage(ref_video_el, 0, 0, w, h)
-      ctx.drawImage(ref_three_canvas_el, 0, 0, w, h)
+      ctx.drawImage(
+        ref_video_el,
+        local_video_crop.sx, local_video_crop.sy, local_video_crop.sw, local_video_crop.sh,
+        0, 0, CAPTURE_OUTPUT_W, CAPTURE_OUTPUT_H,
+      )
+      ctx.drawImage(
+        ref_three_canvas_el,
+        local_canvas_crop.sx, local_canvas_crop.sy, local_canvas_crop.sw, local_canvas_crop.sh,
+        0, 0, CAPTURE_OUTPUT_W, CAPTURE_OUTPUT_H,
+      )
       ctx.setTransform(1, 0, 0, 1, 0, 0)
       const blob = await new Promise((resolve) =>
         off.toBlob((b) => resolve(b), 'image/jpeg', 0.9),
@@ -443,72 +481,89 @@
   }
 </script>
 
-<div class="relative h-full w-full overflow-hidden bg-black">
+<div class="relative flex h-full w-full items-center justify-center overflow-hidden bg-black">
   <!--
-    cover 효과 (object-fit: cover 와 동일) — video 의 intrinsic 종횡비를 보존하면서 부모를
-    꽉 채움 (모자란 축은 잘림). inner wrapper 의 aspect-ratio + min-width/height:100% 이
-    조합되면 종횡비를 유지한 채 두 축 모두 부모 이상으로 늘어나, 한 축은 부모를 채우고 다른
-    축은 잘림. video / canvas 둘 다 wrapper 100% → 같은 표시 종횡비 → 비균일 변형 없음.
-    scaleX(-1) 은 wrapper 에 한 번만 적용 (translate 와 합성). canvas backing buffer 는
-    video 해상도 그대로 (resize 호출) — face translation NDC 와 정합 유지.
+    camera_view.svelte 와 동일한 2단 구조 — 백드롭 video(부모 양옆까지 카메라 시야로 fill) +
+    중앙 3:4 wrapper(실제 캡처되는 영역, AR 안경 오버레이가 이 안에서만 그려짐).
+    같은 stream 을 두 video 에 paint 하지만 decode 는 한 번이라 비용 미미. WYSIWYG: 사용자가 보는
+    중앙 3:4 = 캡처되는 영역.
   -->
-  <div
-    class="absolute top-1/2 left-1/2"
-    style="aspect-ratio: {g_video_aspect_w} / {g_video_aspect_h}; min-width: 100%; min-height: 100%; transform: translate(-50%, -50%) scaleX(-1); transform-origin: center;"
-  >
+  <video
+    bind:this={ref_this_backdrop_video_el}
+    class="pointer-events-none absolute inset-0 h-full w-full object-cover"
+    style="transform: scaleX(-1);"
+    aria-hidden="true"
+    playsinline
+    autoplay
+    muted
+  ></video>
+  <!--
+    중앙 3:4 wrapper — 실제 분석/캡처 영역. 같은 stream 을 한번 더 깔지만 좌표계 정합
+    (canvas overlay 안경 정합 + 가이드/문구가 이 영역 안에서만 그려짐) 을 위해 분리.
+  -->
+  <div class="relative aspect-[3/4] h-full overflow-hidden bg-black">
     <video
       bind:this={ref_video_el}
-      class="block h-full w-full object-cover"
+      class="absolute inset-0 h-full w-full object-cover"
+      style="transform: scaleX(-1);"
       autoplay
       muted
       playsinline
     ></video>
     <canvas
       bind:this={ref_three_canvas_el}
-      class="pointer-events-none absolute inset-0 h-full w-full"
+      class="pointer-events-none absolute inset-0 h-full w-full object-cover"
+      style="transform: scaleX(-1);"
     ></canvas>
-  </div>
 
-  {#if g_init_error}
-    <div
-      class="absolute inset-x-0 top-3 mx-auto w-fit rounded-md bg-red-500/90 px-3 py-1.5 text-xs font-bold text-white"
-    >
-      {g_init_error}
-      {#if g_permission_denied}
-        <span class="ml-1 text-[10px] opacity-80">
-          브라우저 잠금 아이콘에서 카메라 접근을 허용해 주세요.
-        </span>
-      {/if}
-    </div>
-  {/if}
+    {#if g_init_error}
+      <div
+        class="absolute inset-x-0 top-3 mx-auto w-fit rounded-md bg-red-500/90 px-3 py-1.5 text-xs font-bold text-white"
+      >
+        {g_init_error}
+        {#if g_permission_denied}
+          <span class="ml-1 text-[10px] opacity-80">
+            브라우저 잠금 아이콘에서 카메라 접근을 허용해 주세요.
+          </span>
+        {/if}
+      </div>
+    {/if}
 
-  {#if g_glb_loading}
-    <div
-      class="absolute inset-x-0 top-3 mx-auto w-fit rounded-md bg-black/60 px-3 py-1 text-xs text-zinc-100"
-    >
-      안경 모델 불러오는 중...
-    </div>
-  {/if}
+    {#if g_glb_loading}
+      <div
+        class="absolute inset-x-0 top-3 mx-auto w-fit rounded-md bg-black/60 px-3 py-1 text-xs text-zinc-100"
+      >
+        안경 모델 불러오는 중...
+      </div>
+    {/if}
 
-  {#if !g_face_detected && !g_init_error && !g_glb_loading}
-    <div
-      class="absolute inset-x-0 top-3 mx-auto w-fit rounded-md bg-black/60 px-3 py-1 text-xs text-zinc-100"
-    >
-      얼굴을 화면 안에 비춰주세요
-    </div>
-  {/if}
+    {#if !g_face_detected && !g_init_error && !g_glb_loading}
+      <div
+        class="absolute inset-x-0 top-3 mx-auto w-fit rounded-md bg-black/60 px-3 py-1 text-xs text-zinc-100"
+      >
+        얼굴을 화면 안에 비춰주세요
+      </div>
+    {/if}
 
-  <div class="absolute inset-x-0 bottom-6 flex justify-center gap-3">
-    {#each SLOT_KEY_ARR as item (item.key)}
+    <!--
+      가운데 셔터 버튼 — 누를 때마다 부모가 계산한 next_slot_key 슬롯을 한 칸씩 채운다.
+      안경 미선택 / 슬롯 만석 / 얼굴 미검출 / 캡처 진행 중에는 비활성화.
+    -->
+    <div class="absolute inset-x-0 bottom-8 flex justify-center">
       <button
         type="button"
-        disabled={!g_face_detected || g_capturing}
-        onclick={() => on_click_capture(item.key)}
-        aria-label={`${item.label} 촬영`}
-        class="cursor-pointer rounded-full bg-[var(--retinal-primary-600)] px-6 py-3 text-sm font-extrabold text-white shadow-lg transition disabled:cursor-not-allowed disabled:opacity-40"
+        disabled={!selected_glasses_obj ||
+          !g_face_detected ||
+          g_capturing ||
+          next_slot_key === null}
+        onclick={() => next_slot_key && on_click_capture(next_slot_key)}
+        aria-label="촬영"
+        class="group relative grid h-[92px] w-[92px] cursor-pointer place-items-center rounded-full border-[4px] border-white bg-transparent shadow-[0_8px_24px_rgba(0,0,0,0.4)] transition-transform duration-150 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {item.label}
+        <span
+          class="block h-[72px] w-[72px] rounded-full bg-[var(--retina-primary-300)] transition-transform duration-150 group-active:scale-90"
+        ></span>
       </button>
-    {/each}
+    </div>
   </div>
 </div>

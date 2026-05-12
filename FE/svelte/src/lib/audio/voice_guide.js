@@ -44,6 +44,12 @@ let g_last_at = 0
 /** @type {Set<VoiceGuideKey>} */
 const g_played_once_set = new Set()
 
+// 봉인 플래그 — true 이면 play() 가 즉시 false 반환하며 새 audio 를 만들지 않는다.
+// 화면 이동 직전에 silence() 로 켜서, 이미 큐잉된 rAF/microtask 안의 fire-and-forget play 호출까지 모두 차단.
+// camera_view 의 rAF 루프와 effect 들이 stop() 호출 직후 마이크로태스크 안에서 새 play_voice 를 또 시작해
+// 이전 화면 음성이 result 화면으로 따라오는 race 를 막기 위함. reset_session() 가 해제한다.
+let g_is_silenced = false
+
 // 활성 audio 핸들을 정리. ended/pause 콜백이 동일 audio 에 한해 안전하게 호출되도록 분리.
 function clear_active() {
   g_active_audio = null
@@ -64,6 +70,8 @@ function clear_active() {
  */
 export async function play(key, opts = {}) {
   if (typeof window === 'undefined') return false
+  // 봉인 모드 — 어떤 priority 든 새 audio 를 만들지 않고 즉시 종료. silence() 호출 후 reset_session() 까지 유지.
+  if (g_is_silenced) return false
   const priority = opts.priority ?? 'low'
 
   if (ONCE_KEYS.has(key) && g_played_once_set.has(key)) return false
@@ -137,10 +145,27 @@ export function stop() {
   clear_active()
 }
 
+// 음성 채널을 완전히 봉인 — 진행 중 음성 정지 + 이후 play() 호출 모두 거부.
+// 화면 이탈 직전(예: real_fitting 의 "최종 리포트 보기" 클릭) 에 호출해서, rAF/microtask 잔여 큐가
+// 깨어나 새 audio 를 만들어 다음 화면까지 끌고 가는 race 를 차단한다.
+// 새 캡처 세션(reset_session) 진입 전까진 어떤 호출자도 voice 재생을 시작할 수 없다.
+export function silence() {
+  stop()
+  g_is_silenced = true
+}
+
+// 봉인 해제 — 카메라 페이지에 (재)진입할 때 호출해 음성 재생을 다시 허용한다.
+// 이전 페이지가 silence() 로 봉인해둔 상태라도, 이 페이지에서는 CameraView 음성이 정상 작동해야 하므로.
+export function unsilence() {
+  g_is_silenced = false
+}
+
 // 새 촬영 세션 시작 시 호출 — 1회성 키 플래그와 디바운스 상태를 초기화한다.
 // camera_view 의 reset() 와 다른 레벨 (세션 단위) — step 전환마다 부르면 안 된다.
+// 봉인 플래그(silence) 도 함께 해제해 새 세션에서 음성이 정상 재생되도록 한다.
 export function reset_session() {
   stop()
+  g_is_silenced = false
   g_played_once_set.clear()
   g_last_key = null
   g_last_at = 0
