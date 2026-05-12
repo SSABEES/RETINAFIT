@@ -29,9 +29,9 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str
 
     # ─── AWS CloudFront ───────────────────────────────────────
-    CLOUDFRONT_DOMAIN: str
-    CLOUDFRONT_KEY_ID: str
-    CLOUDFRONT_PRIVATE_KEY_PATH: str
+    CLOUDFRONT_DOMAIN: str | None = None
+    CLOUDFRONT_KEY_ID: str | None = None
+    CLOUDFRONT_PRIVATE_KEY_PATH: str | None = None
 
     # ─── 관리자 ───────────────────────────────────────────────
     ADMIN_ID: str
