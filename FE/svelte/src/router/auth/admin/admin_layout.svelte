@@ -51,13 +51,14 @@
 
 {#if g_is_authenticated}
   <main
-    class="app-frame-page flex min-h-screen flex-col bg-[var(--retina-page)] text-[var(--retina-text)]"
+    class="app-frame-page flex min-h-screen flex-col bg-[var(--retina-page)] pt-0 text-[var(--retina-text)]"
+    style="padding-top: 0"
   >
-    <section class="min-h-0 flex-1 px-4 py-6 sm:px-6 md:px-8 md:py-8">
+    <section class="min-h-0 flex-1 px-4 pb-6 pt-2 sm:px-6 md:px-8 md:pb-8 md:pt-3">
       <div class="grid min-h-full w-full content-start gap-4">
         <div class="flex items-start justify-between gap-6">
           <button
-            class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)] hover:bg-[var(--retina-soft-purple)]"
+            class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[var(--retina-text-200)] bg-white px-4 text-sm font-extrabold text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-400)] hover:bg-[var(--retina-primary-50)]"
             type="button"
             onclick={on_click_logout_admin}
           >
@@ -66,16 +67,16 @@
           </button>
 
           <div
-            class="relative w-[240px] rounded-2xl border border-[var(--retina-border)] bg-white px-4 py-3 shadow-sm shadow-slate-200/40"
+            class="relative w-[240px] rounded-[14px] border border-[var(--retina-text-200)] bg-white px-4 py-3 shadow-[0_4px_10px_rgba(19,25,40,0.04)]"
           >
             <p
-              class="mb-2 block text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--retina-text-muted)]"
+              class="mb-2 block text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--retina-text-500)]"
             >
               현재 페이지
             </p>
 
             <button
-              class="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)]/35 hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-700)]/15"
+              class="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-[10px] border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-400)] hover:bg-white focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-400)]/20"
               type="button"
               aria-haspopup="listbox"
               aria-expanded={g_admin_page_dropdown_open}
@@ -95,16 +96,16 @@
 
             {#if g_admin_page_dropdown_open}
               <div
-                class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retina-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-[14px] border border-[var(--retina-text-200)] bg-white p-2 shadow-[0_18px_40px_rgba(19,25,40,0.12)]"
                 role="listbox"
                 aria-label="관리자 페이지 목록"
               >
                 {#each g_admin_page_arr as admin_page_obj (admin_page_obj.key)}
                   <button
-                    class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
+                    class={`flex min-h-11 w-full cursor-pointer items-center rounded-[10px] px-3 text-sm font-extrabold transition ${
                       active_key === admin_page_obj.key
-                        ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
-                        : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
+                        ? 'bg-[var(--retina-primary-50)] text-[var(--retina-primary-600)]'
+                        : 'bg-white text-[var(--retina-text-500)] hover:bg-[var(--retina-primary-50)] hover:text-[var(--retina-primary-600)]'
                     }`}
                     type="button"
                     role="option"

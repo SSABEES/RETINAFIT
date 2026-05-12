@@ -9,8 +9,13 @@
   import CameraView from '@/components/camera/camera_view.svelte'
   import { flip_blob_horizontally } from '@/lib/capture/capture_utils.js'
   import { request_real_wearing_presigned_urls, upload_blob_to_s3 } from '@/lib/api/analysis.js'
-  import { update_visit } from '@/lib/api/visit.js'
+  import { get_visit, update_visit } from '@/lib/api/visit.js'
+
+  // result.svelte 가 첫 mount 에 즉시 화면을 채우도록 prefetch 한 visit_obj 를 잠시 보관할 sessionStorage 키.
+  const PREFETCH_VISIT_KEY = 'retinal_prefetched_visit_obj'
   import { push_error_toast } from '@/lib/stores/toast'
+
+  const ANALYSIS_TOAST_DURATION_MS = 5000
 
   /**
    * @typedef {{ blob: Blob, object_url: string, captured_at: number }} CaptureSlot
@@ -46,7 +51,6 @@
 
   // 최종 리포트 보기 클릭 시 업로드/PATCH 진행 상태.
   let g_is_submitting = $state(false)
-  let g_submit_error = $state(/** @type {string | null} */ (null))
 
   // 다음 빈 슬롯 인덱스 (0~2). 모두 채워졌으면 3 — 한 세트 완성, 자동 모드 정지.
   const g_next_slot_idx = $derived.by(() => {
@@ -200,18 +204,29 @@
   async function on_click_continue() {
     if (g_is_submitting) return
     g_is_submitting = true
-    g_submit_error = null
 
     try {
-      // 사진이 없으면 업로드 없이 바로 result 로.
+      const local_visit_no = get_visit_no()
+
+      // 사진이 없으면 업로드 없이 바로 result 로 — 단, prefetch 만 시도해서 즉시 채워질 수 있게 한다.
       if (g_saved_set_arr.length === 0) {
+        if (local_visit_no) {
+          try {
+            const local_fresh_visit_obj = await get_visit({ visit_no: local_visit_no })
+            sessionStorage.setItem(
+              PREFETCH_VISIT_KEY,
+              JSON.stringify({ visit_no: local_visit_no, visit_obj: local_fresh_visit_obj }),
+            )
+          } catch (prefetch_err) {
+            console.warn('[real_fitting] visit prefetch failed', prefetch_err)
+          }
+        }
         navigate(PATH.analysisResult)
         return
       }
 
-      const local_visit_no = get_visit_no()
       if (!local_visit_no) {
-        g_submit_error = '방문 번호를 찾을 수 없습니다. 다시 진입해 주세요.'
+        push_error_toast('방문 번호를 찾을 수 없습니다. 다시 진입해 주세요.', ANALYSIS_TOAST_DURATION_MS)
         return
       }
 
@@ -260,11 +275,23 @@
         },
       })
 
+      // PATCH 반영 후 visit 전체를 한 번 GET — result.svelte 진입 즉시 화면이 채워지도록 prefetch.
+      // 실패해도 사용자 흐름을 막지 않음 (result.svelte 가 자체 fetch fallback 함).
+      try {
+        const local_fresh_visit_obj = await get_visit({ visit_no: local_visit_no })
+        sessionStorage.setItem(
+          PREFETCH_VISIT_KEY,
+          JSON.stringify({ visit_no: local_visit_no, visit_obj: local_fresh_visit_obj }),
+        )
+      } catch (prefetch_err) {
+        console.warn('[real_fitting] visit prefetch failed', prefetch_err)
+      }
+
       navigate(PATH.analysisResult)
     } catch (err) {
-      g_submit_error = err instanceof Error ? err.message : '업로드에 실패했습니다.'
+      const local_message = err instanceof Error ? err.message : '업로드에 실패했습니다.'
       console.error('[real_fitting] submit failed', err)
-      push_error_toast(g_submit_error)
+      push_error_toast(local_message, ANALYSIS_TOAST_DURATION_MS)
     } finally {
       g_is_submitting = false
     }
@@ -452,17 +479,9 @@
           </div>
         {/if}
 
-        {#if g_submit_error}
-          <p
-            class="mb-1.5 rounded-md bg-rose-50 px-2 py-1 text-center text-[10px] font-bold text-rose-600"
-          >
-            {g_submit_error}
-          </p>
-        {:else}
-          <p class="mb-1.5 text-center text-[10px] font-semibold text-slate-500">
-            1장 이상 촬영하면 세트를 저장할 수 있어요.
-          </p>
-        {/if}
+        <p class="mb-1.5 text-center text-[10px] font-semibold text-slate-500">
+          1장 이상 촬영하면 세트를 저장할 수 있어요.
+        </p>
 
         <div class="grid grid-cols-2 gap-2">
           <button
@@ -505,7 +524,7 @@
     {/if}
   </div>
 
-  <LoadingOverlay open={g_is_submitting} label="분석 결과 저장 중..." />
+  <LoadingOverlay open={g_is_submitting} label="리포트를 준비하고 있어요..." />
 </AnalysisPageLayout>
 
 <style>
