@@ -576,7 +576,8 @@
                 {/if}
               </div>
 
-              <span class="ml-3 text-sm font-bold text-[var(--retina-text-500)]">프레임 스타일</span>
+              <span class="ml-3 text-sm font-bold text-[var(--retina-text-500)]">프레임 스타일</span
+              >
               <div class="relative">
                 <button
                   class="flex min-h-11 min-w-40 cursor-pointer items-center justify-between rounded-xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-400)] hover:bg-white"
@@ -727,10 +728,14 @@
 
                   <div class="grid min-w-0 gap-1">
                     <div class="flex min-w-0 items-baseline gap-2">
-                      <p class="m-0 truncate text-base font-extrabold text-[var(--retina-text-800)]">
+                      <p
+                        class="m-0 truncate text-base font-extrabold text-[var(--retina-text-800)]"
+                      >
                         {glass_obj.glasses_name}
                       </p>
-                      <p class="m-0 shrink-0 truncate text-xs font-semibold text-[var(--retina-text-500)]">
+                      <p
+                        class="m-0 shrink-0 truncate text-xs font-semibold text-[var(--retina-text-500)]"
+                      >
                         {glass_obj.glasses_brand || '브랜드 없음'}
                       </p>
                     </div>
@@ -831,7 +836,9 @@
                       <p class="m-0 truncate text-lg font-extrabold text-[var(--retina-text-800)]">
                         {glass_obj.glasses_name}
                       </p>
-                      <p class="mb-0 mt-2 truncate text-sm font-semibold text-[var(--retina-text-500)]">
+                      <p
+                        class="mb-0 mt-2 truncate text-sm font-semibold text-[var(--retina-text-500)]"
+                      >
                         {glass_obj.glasses_brand}
                       </p>
                     </div>

@@ -5,7 +5,11 @@ import { mm_distance } from './aruco_scale.js'
 const intrinsics = {
   device: 'test',
   imageSize: [640, 480],
-  cameraMatrix: [[500, 0, 320], [0, 500, 240], [0, 0, 1]],
+  cameraMatrix: [
+    [500, 0, 320],
+    [0, 500, 240],
+    [0, 0, 1],
+  ],
   distCoeffs: [0, 0, 0, 0, 0],
 }
 
@@ -20,9 +24,17 @@ const marker_frontal = {
     { x: 335, y: 255 },
     { x: 305, y: 255 },
   ],
-  rotation: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+  rotation: [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+  ],
   translation: [0, 0, 500],
-  altRotation: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+  altRotation: [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+  ],
   altTranslation: [0, 0, 500],
   error: 0,
   altError: 0,
@@ -59,7 +71,11 @@ describe('mm_distance — tilted marker', () => {
   /** @type {import('./aruco_detector.js').DetectedMarker} */
   const marker_tilted = {
     ...marker_frontal,
-    rotation: [[c30, 0, s30], [0, 1, 0], [-s30, 0, c30]],
+    rotation: [
+      [c30, 0, s30],
+      [0, 1, 0],
+      [-s30, 0, c30],
+    ],
   }
 
   it('compensates cosine error: 100mm on tilted plane is still 100mm', () => {

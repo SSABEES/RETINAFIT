@@ -46,7 +46,9 @@
     </Link>
   {/snippet}
 
-  <section class="flex flex-1 items-start bg-[#F7F8FA] px-4 py-6 sm:px-6 md:items-center md:px-8 md:py-8">
+  <section
+    class="flex flex-1 items-start bg-[#F7F8FA] px-4 py-6 sm:px-6 md:items-center md:px-8 md:py-8"
+  >
     <div class="mx-auto w-full max-w-[944px]">
       <form class="grid gap-8" onsubmit={on_submit_measurement}>
         <section class="rounded-2xl border border-[#E8EAF0] bg-white px-8 py-8 text-left">

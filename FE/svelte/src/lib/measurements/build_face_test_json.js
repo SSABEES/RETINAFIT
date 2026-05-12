@@ -35,12 +35,7 @@ function pick_measurement_value(item_obj) {
  *   face_shape_result: FaceShapeResult | null | undefined,
  * }} param_obj
  */
-export function build_face_test_json({
-  measurements_obj,
-  scale,
-  captures_obj,
-  face_shape_result,
-}) {
+export function build_face_test_json({ measurements_obj, scale, captures_obj, face_shape_result }) {
   const local_skin_tone_obj = face_shape_result?.skin_tone ?? null
   const local_skin_tone_rec = local_skin_tone_obj
     ? get_skin_tone_recommendation(local_skin_tone_obj.tone)

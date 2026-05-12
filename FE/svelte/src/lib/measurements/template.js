@@ -17,11 +17,41 @@
 /** @type {MeasurementTemplateEntry[]} */
 export const MEASUREMENT_TEMPLATE = [
   // 정면 미착용 자동 측정 항목 — MediaPipe 출력에서 사전 채움.
-  { item_id: 'pd',          label: 'PD (눈 간격)',   kind: 'distance', view: ['front_no_glasses'], source: 'auto' },
-  { item_id: 'right_pd',    label: '우측 PD (단안)', kind: 'distance', view: ['front_no_glasses'], source: 'auto' },
-  { item_id: 'left_pd',     label: '좌측 PD (단안)', kind: 'distance', view: ['front_no_glasses'], source: 'auto' },
-  { item_id: 'face_width',  label: '얼굴 너비',       kind: 'distance', view: ['front_no_glasses'], source: 'auto' },
-  { item_id: 'face_height', label: '얼굴 길이',       kind: 'distance', view: ['front_no_glasses'], source: 'auto' },
+  {
+    item_id: 'pd',
+    label: 'PD (눈 간격)',
+    kind: 'distance',
+    view: ['front_no_glasses'],
+    source: 'auto',
+  },
+  {
+    item_id: 'right_pd',
+    label: '우측 PD (단안)',
+    kind: 'distance',
+    view: ['front_no_glasses'],
+    source: 'auto',
+  },
+  {
+    item_id: 'left_pd',
+    label: '좌측 PD (단안)',
+    kind: 'distance',
+    view: ['front_no_glasses'],
+    source: 'auto',
+  },
+  {
+    item_id: 'face_width',
+    label: '얼굴 너비',
+    kind: 'distance',
+    view: ['front_no_glasses'],
+    source: 'auto',
+  },
+  {
+    item_id: 'face_height',
+    label: '얼굴 길이',
+    kind: 'distance',
+    view: ['front_no_glasses'],
+    source: 'auto',
+  },
 
   // 측면 — 전경각 (pantoscopic tilt). 본래 안경 착용 측면 두 뷰만 대상이지만, 안경 단계 진입 로직이
   // 일시적으로 비활성화된 동안에는 안경 미착용 측면 뷰에서도 측정 가능하도록 4개 측면 모두 view 에 포함.

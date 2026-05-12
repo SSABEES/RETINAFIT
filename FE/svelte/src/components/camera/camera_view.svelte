@@ -201,10 +201,7 @@
     // 영역 진입 이후 ('자세 유지 중 N%' 또는 '✓ 측정 중…') 는 게이지로 대체되므로 hint 숨김.
     if (pose_target !== 'front') {
       const local_hint = profile_pose.hint_text ?? '카메라 앞에 자세를 잡아주세요'
-      if (
-        local_hint.startsWith('자세 유지 중') ||
-        local_hint.startsWith('✓')
-      ) {
+      if (local_hint.startsWith('자세 유지 중') || local_hint.startsWith('✓')) {
         return ''
       }
       return local_hint
@@ -674,14 +671,15 @@
       // 측면 캡처 시점의 머리 자세를 동결 — 전경각 보정에 쓰인다. last_image_tilt 가 buffer 평균
       // 후 안정화된 값이므로 캡처 직전 jitter 영향이 작은 값을 그대로 보관. 정면 캡처거나 추론 결과가
       // 아직 없으면 null (보정 없이 raw 림 각도가 측정값으로 사용됨).
-      const head_pose = pose_target !== 'front' && profile_pose.last_image_tilt !== null
-        ? {
-            image_tilt_deg: profile_pose.last_image_tilt,
-            pitch_deg: profile_pose.last_pitch,
-            yaw_deg: profile_pose.last_yaw,
-            roll_deg: profile_pose.last_roll,
-          }
-        : null
+      const head_pose =
+        pose_target !== 'front' && profile_pose.last_image_tilt !== null
+          ? {
+              image_tilt_deg: profile_pose.last_image_tilt,
+              pitch_deg: profile_pose.last_pitch,
+              yaw_deg: profile_pose.last_yaw,
+              roll_deg: profile_pose.last_roll,
+            }
+          : null
       oncapture?.({
         blob,
         object_url,
@@ -804,9 +802,23 @@
 
     ctx.beginPath()
     ctx.moveTo(cx, top_y)
-    ctx.bezierCurveTo(cx + k_upper_out, top_y, cx + cheek_x, cheek_y - k_upper_vert, cx + cheek_x, cheek_y)
+    ctx.bezierCurveTo(
+      cx + k_upper_out,
+      top_y,
+      cx + cheek_x,
+      cheek_y - k_upper_vert,
+      cx + cheek_x,
+      cheek_y,
+    )
     ctx.bezierCurveTo(cx + cheek_x, cheek_y + k_lower_vert, cx + k_lower_in, bottom_y, cx, bottom_y)
-    ctx.bezierCurveTo(cx - k_lower_in, bottom_y, cx - cheek_x, cheek_y + k_lower_vert, cx - cheek_x, cheek_y)
+    ctx.bezierCurveTo(
+      cx - k_lower_in,
+      bottom_y,
+      cx - cheek_x,
+      cheek_y + k_lower_vert,
+      cx - cheek_x,
+      cheek_y,
+    )
     ctx.bezierCurveTo(cx - cheek_x, cheek_y - k_upper_vert, cx - k_upper_out, top_y, cx, top_y)
     ctx.closePath()
   }
@@ -823,7 +835,7 @@
    * @param {number} face_h
    * @param {1 | -1} sign
    */
-  // eslint-disable-next-line no-unused-vars
+
   function draw_side_face_path(ctx, cx, cy, face_w, face_h, sign) {
     // SVG path 좌표 — 사용자가 외부 editor 에서 그려준 d 문자열을 그대로 변환.
     // bbox: x ∈ [228, 401], y ∈ [21, 238] — 가로 173, 세로 217. 비례 ≈ 0.8:1 (얼굴 비례와 유사).
@@ -1043,9 +1055,7 @@
     가운데 3:4 wrapper — 실제 캡처되는 영역. 같은 stream 을 한번 더 깔지만 좌표계 정합 (canvas
     overlay·가이드 타원이 이 영역 안에 그려짐) 을 위해 분리.
   -->
-  <div
-    class="relative aspect-[3/4] h-full overflow-hidden bg-black"
-  >
+  <div class="relative aspect-[3/4] h-full overflow-hidden bg-black">
     <video
       bind:this={ref_this_video_el}
       class="absolute inset-0 h-full w-full object-cover"

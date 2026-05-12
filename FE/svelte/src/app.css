@@ -53,7 +53,7 @@
   --retina-success-soft: #e8f5e9;
   --retina-measure-auto: #1f7a3a;
   --retina-measure-manual: #f56b00;
-  --retina-bg-1: #FAFAFB;
+  --retina-bg-1: #fafafb;
   --retina-bg-2: #bcc2cc;
   /*
     반응형 브레이크포인트 (Tailwind v4 기본값과 동기화).
@@ -231,4 +231,3 @@ a {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-

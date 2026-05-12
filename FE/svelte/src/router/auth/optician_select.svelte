@@ -64,7 +64,9 @@
       class="min-h-0 w-full rounded-[18px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-[clamp(16px,3svh,28px)] py-[clamp(12px,2.5svh,24px)] shadow-[0_6px_14px_rgba(19,25,40,0.06)]"
       aria-label="안경사 목록"
     >
-      <div class="mb-[clamp(8px,2svh,16px)] grid min-h-10 grid-cols-[1fr_auto_1fr] items-center gap-3">
+      <div
+        class="mb-[clamp(8px,2svh,16px)] grid min-h-10 grid-cols-[1fr_auto_1fr] items-center gap-3"
+      >
         <div></div>
 
         <div class="min-w-0">
@@ -106,7 +108,9 @@
         {/if}
       </div>
 
-      <div class="grid h-[clamp(180px,40svh,320px)] grid-cols-3 grid-rows-2 gap-[clamp(6px,1.5svh,12px)]">
+      <div
+        class="grid h-[clamp(180px,40svh,320px)] grid-cols-3 grid-rows-2 gap-[clamp(6px,1.5svh,12px)]"
+      >
         {#each g_visible_admin_arr as optician_obj (optician_obj.id)}
           <button
             class="group grid h-full cursor-pointer grid-rows-[auto_1fr] gap-[clamp(6px,1.5svh,12px)] rounded-lg border-2 border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-[clamp(10px,2svh,16px)] py-[clamp(8px,1.5svh,12px)] text-left text-[var(--retina-text)] shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition duration-150 ease-out hover:-translate-y-1 hover:border-[var(--retina-primary-600)] hover:bg-[var(--retina-bg-1)] hover:shadow-[0_10px_22px_rgba(245,107,0,0.18)] active:translate-y-0 active:scale-[0.99] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--retina-primary-600)]/60"

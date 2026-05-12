@@ -25,7 +25,6 @@
    * @property {boolean} [is_loading]                                  fetch 중 여부 (true 면 로딩 안내만 노출)
    * @property {string} [empty_loading_text]                           로딩 안내 문구
    * @property {string} [empty_no_visit_text]                          visit_obj 가 null 일 때 안내 문구
-   * @property {string} [empty_no_insight_text]                        test_json/report_json 둘 다 없을 때 안내 문구
    */
 
   /**
@@ -47,7 +46,6 @@
     is_loading = false,
     empty_loading_text = '리포트 불러오는 중...',
     empty_no_visit_text = '방문 데이터를 찾을 수 없습니다.',
-    empty_no_insight_text = '아직 생성된 인사이트가 없습니다.',
   } = $props()
 
   const FACE_SHAPE_LABEL_OBJ = {
@@ -126,8 +124,16 @@
   // text_class 는 detail(따뜻한 톤/차가운 톤/중성 톤) 멘트 컬러에 사용.
   const SKIN_TONE_VISUAL_OBJ = {
     WARM: { icon: Sun, ring_class: 'bg-[#FFF4E1] text-[#F59E0B]', text_class: 'text-[#F59E0B]' },
-    COOL: { icon: Snowflake, ring_class: 'bg-[#E0F2FE] text-[#0284C7]', text_class: 'text-[#0284C7]' },
-    NEUTRAL: { icon: CircleDashed, ring_class: 'bg-[#F1F5F9] text-[#64748B]', text_class: 'text-[#64748B]' },
+    COOL: {
+      icon: Snowflake,
+      ring_class: 'bg-[#E0F2FE] text-[#0284C7]',
+      text_class: 'text-[#0284C7]',
+    },
+    NEUTRAL: {
+      icon: CircleDashed,
+      ring_class: 'bg-[#F1F5F9] text-[#64748B]',
+      text_class: 'text-[#64748B]',
+    },
   }
   const g_skin_tone_visual_obj = $derived.by(() => {
     const local_key = g_skin_tone_recommendation_obj?.key
@@ -172,8 +178,7 @@
   })
   const g_priority_one_frame_arr = $derived(
     g_recommended_frame_arr.filter(
-      (/** @type {{ priority?: number, name?: string }} */ local_obj) =>
-        local_obj.priority === 1,
+      (/** @type {{ priority?: number, name?: string }} */ local_obj) => local_obj.priority === 1,
     ),
   )
 
@@ -192,12 +197,8 @@
     format_mm_label(g_test_json?.measurements?.face_height?.value_mm),
   )
   const g_pd_label = $derived(format_mm_label(g_test_json?.measurements?.pd?.value_mm))
-  const g_left_pd_label = $derived(
-    format_mm_label(g_test_json?.measurements?.left_pd?.value_mm),
-  )
-  const g_right_pd_label = $derived(
-    format_mm_label(g_test_json?.measurements?.right_pd?.value_mm),
-  )
+  const g_left_pd_label = $derived(format_mm_label(g_test_json?.measurements?.left_pd?.value_mm))
+  const g_right_pd_label = $derived(format_mm_label(g_test_json?.measurements?.right_pd?.value_mm))
 
   const g_face_ratio_label = $derived.by(() => {
     const local_value = Number(g_test_json?.face_ratio)
@@ -244,14 +245,7 @@
     return typeof local_value === 'string' && local_value.trim() ? local_value.trim() : null
   })
   // hero 섹션 노출 여부 — 둘 중 하나라도 있으면 노출.
-  const g_has_report_summary = $derived(
-    Boolean(g_report_summary1_text || g_report_summary2_text),
-  )
-  const g_report_item_obj = $derived.by(() => {
-    const local_items_obj = g_report_json?.items
-    return local_items_obj && typeof local_items_obj === 'object' ? local_items_obj : null
-  })
-
+  const g_has_report_summary = $derived(Boolean(g_report_summary1_text || g_report_summary2_text))
   /**
    * 측정값 게이지바 시각화 기준값.
    * - visible_*: 게이지바 좌우 끝 (한국 성인 일반 범위).
@@ -259,13 +253,62 @@
    * 의료적 기준이 아닌 시연용 통계 범위. 추후 BE/AI 가 정밀 기준을 응답에 실어주면 그쪽 우선.
    */
   const MEASUREMENT_RANGE_OBJ = {
-    face_width: { visible_min: 110, visible_max: 160, normal_min: 130, normal_max: 145, unit: 'mm', decimal: 0 },
-    face_height: { visible_min: 150, visible_max: 210, normal_min: 170, normal_max: 195, unit: 'mm', decimal: 0 },
-    face_ratio: { visible_min: 1.0, visible_max: 1.6, normal_min: 1.3, normal_max: 1.5, unit: '', decimal: 1 },
-    pd: { visible_min: 50, visible_max: 75, normal_min: 58, normal_max: 68, unit: 'mm', decimal: 0 },
-    half_pd: { visible_min: 25, visible_max: 40, normal_min: 28, normal_max: 35, unit: 'mm', decimal: 0 },
-    pd_diff: { visible_min: 0, visible_max: 5, normal_min: 0, normal_max: 2, unit: 'mm', decimal: 0 },
-    asymmetry: { visible_min: 0, visible_max: 100, normal_min: 0, normal_max: 20, unit: '', decimal: 0 },
+    face_width: {
+      visible_min: 110,
+      visible_max: 160,
+      normal_min: 130,
+      normal_max: 145,
+      unit: 'mm',
+      decimal: 0,
+    },
+    face_height: {
+      visible_min: 150,
+      visible_max: 210,
+      normal_min: 170,
+      normal_max: 195,
+      unit: 'mm',
+      decimal: 0,
+    },
+    face_ratio: {
+      visible_min: 1.0,
+      visible_max: 1.6,
+      normal_min: 1.3,
+      normal_max: 1.5,
+      unit: '',
+      decimal: 1,
+    },
+    pd: {
+      visible_min: 50,
+      visible_max: 75,
+      normal_min: 58,
+      normal_max: 68,
+      unit: 'mm',
+      decimal: 0,
+    },
+    half_pd: {
+      visible_min: 25,
+      visible_max: 40,
+      normal_min: 28,
+      normal_max: 35,
+      unit: 'mm',
+      decimal: 0,
+    },
+    pd_diff: {
+      visible_min: 0,
+      visible_max: 5,
+      normal_min: 0,
+      normal_max: 2,
+      unit: 'mm',
+      decimal: 0,
+    },
+    asymmetry: {
+      visible_min: 0,
+      visible_max: 100,
+      normal_min: 0,
+      normal_max: 20,
+      unit: '',
+      decimal: 0,
+    },
   }
 
   /**
@@ -282,8 +325,14 @@
     const local_unit_text = range_def.unit ? ` ${range_def.unit}` : ''
     return {
       value_pct: Math.max(0, Math.min(100, local_raw_pct)),
-      normal_left_pct: Math.max(0, ((range_def.normal_min - range_def.visible_min) / local_total) * 100),
-      normal_right_pct: Math.min(100, ((range_def.normal_max - range_def.visible_min) / local_total) * 100),
+      normal_left_pct: Math.max(
+        0,
+        ((range_def.normal_min - range_def.visible_min) / local_total) * 100,
+      ),
+      normal_right_pct: Math.min(
+        100,
+        ((range_def.normal_max - range_def.visible_min) / local_total) * 100,
+      ),
       is_in_normal: local_value >= range_def.normal_min && local_value <= range_def.normal_max,
       is_below: local_value < range_def.normal_min,
       is_above: local_value > range_def.normal_max,
@@ -293,10 +342,16 @@
   }
 
   const g_face_width_range = $derived(
-    compute_range_position(g_test_json?.measurements?.face_width?.value_mm, MEASUREMENT_RANGE_OBJ.face_width),
+    compute_range_position(
+      g_test_json?.measurements?.face_width?.value_mm,
+      MEASUREMENT_RANGE_OBJ.face_width,
+    ),
   )
   const g_face_height_range = $derived(
-    compute_range_position(g_test_json?.measurements?.face_height?.value_mm, MEASUREMENT_RANGE_OBJ.face_height),
+    compute_range_position(
+      g_test_json?.measurements?.face_height?.value_mm,
+      MEASUREMENT_RANGE_OBJ.face_height,
+    ),
   )
   const g_face_ratio_range = $derived(
     compute_range_position(g_test_json?.face_ratio, MEASUREMENT_RANGE_OBJ.face_ratio),
@@ -305,10 +360,16 @@
     compute_range_position(g_test_json?.measurements?.pd?.value_mm, MEASUREMENT_RANGE_OBJ.pd),
   )
   const g_left_pd_range = $derived(
-    compute_range_position(g_test_json?.measurements?.left_pd?.value_mm, MEASUREMENT_RANGE_OBJ.half_pd),
+    compute_range_position(
+      g_test_json?.measurements?.left_pd?.value_mm,
+      MEASUREMENT_RANGE_OBJ.half_pd,
+    ),
   )
   const g_right_pd_range = $derived(
-    compute_range_position(g_test_json?.measurements?.right_pd?.value_mm, MEASUREMENT_RANGE_OBJ.half_pd),
+    compute_range_position(
+      g_test_json?.measurements?.right_pd?.value_mm,
+      MEASUREMENT_RANGE_OBJ.half_pd,
+    ),
   )
   const g_pd_diff_value = $derived.by(() => {
     const local_left = Number(g_test_json?.measurements?.left_pd?.value_mm)
@@ -322,7 +383,6 @@
   const g_asymmetry_range = $derived(
     compute_range_position(g_test_json?.asymmetry_score, MEASUREMENT_RANGE_OBJ.asymmetry),
   )
-
 </script>
 
 {#snippet range_gauge(/** @type {RangePositionObj | null} */ range_obj)}
@@ -346,7 +406,11 @@
   {/if}
 {/snippet}
 
-{#snippet measurement_card(/** @type {string} */ label_text, /** @type {string} */ value_label, /** @type {RangePositionObj | null} */ range_obj)}
+{#snippet measurement_card(
+  /** @type {string} */ label_text,
+  /** @type {string} */ value_label,
+  /** @type {RangePositionObj | null} */ range_obj,
+)}
   <article class="rounded-[10px] bg-slate-50 px-4 py-4">
     <div class="flex items-baseline justify-between gap-2">
       <p class="m-0 text-[12px] font-bold text-slate-500">{label_text}</p>
@@ -392,9 +456,16 @@
   <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
     <!-- 1) AI 종합 의견 hero — 헤더(아이콘 + 텍스트) 한 행, 그 아래 summary1 / summary2 두 줄. -->
     {#if g_has_report_summary}
-      <div class="border-b border-slate-100 bg-gradient-to-br from-[var(--retina-primary-50)] to-[var(--retina-primary-100)] px-6 py-4">
+      <div
+        class="border-b border-slate-100 bg-gradient-to-br from-[var(--retina-primary-50)] to-[var(--retina-primary-100)] px-6 py-4"
+      >
         <header class="flex items-center gap-2">
-          <Sparkles size={16} strokeWidth={2.2} class="text-[var(--retina-primary-600)]" aria-hidden="true" />
+          <Sparkles
+            size={16}
+            strokeWidth={2.2}
+            class="text-[var(--retina-primary-600)]"
+            aria-hidden="true"
+          />
           <h2 class="m-0 text-[16px] font-extrabold text-zinc-900">AI 종합 의견</h2>
         </header>
         <div class="mt-2 flex flex-col gap-1">
@@ -419,7 +490,10 @@
     <div class="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
       <div class="flex flex-col px-6 py-4">
         <div class="flex items-center gap-2">
-          <span class="grid h-7 w-7 place-items-center text-[var(--retina-primary-600)]" aria-hidden="true">
+          <span
+            class="grid h-7 w-7 place-items-center text-[var(--retina-primary-600)]"
+            aria-hidden="true"
+          >
             <Smile size={15} strokeWidth={2.2} />
           </span>
           <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">얼굴형</h3>
@@ -438,7 +512,9 @@
           {g_face_shape_label ?? '-'}
         </p>
         {#if g_face_shape_tip}
-          <p class="m-0 mt-2 text-center text-[12px] font-semibold leading-snug text-[var(--retina-primary-600)]">
+          <p
+            class="m-0 mt-2 text-center text-[12px] font-semibold leading-snug text-[var(--retina-primary-600)]"
+          >
             {g_face_shape_tip}
           </p>
         {/if}
@@ -446,7 +522,10 @@
 
       <div class="flex flex-col px-6 py-4">
         <div class="flex items-center gap-2">
-          <span class="grid h-7 w-7 place-items-center text-[var(--retina-primary-600)]" aria-hidden="true">
+          <span
+            class="grid h-7 w-7 place-items-center text-[var(--retina-primary-600)]"
+            aria-hidden="true"
+          >
             <Sparkles size={14} strokeWidth={2.2} />
           </span>
           <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">피부 톤</h3>
@@ -478,13 +557,18 @@
       <div class="flex flex-col divide-y divide-slate-100">
         <div class="flex flex-1 flex-col px-6 py-4">
           <div class="flex items-center gap-2">
-            <span class="grid h-7 w-7 place-items-center text-[var(--retina-primary-600)]" aria-hidden="true">
+            <span
+              class="grid h-7 w-7 place-items-center text-[var(--retina-primary-600)]"
+              aria-hidden="true"
+            >
               <Glasses size={14} strokeWidth={2.2} />
             </span>
             <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">추천 프레임</h3>
           </div>
           {#if g_priority_one_frame_arr.length === 0}
-            <div class="mt-3 grid flex-1 place-items-center text-[13px] font-bold text-slate-400">-</div>
+            <div class="mt-3 grid flex-1 place-items-center text-[13px] font-bold text-slate-400">
+              -
+            </div>
           {:else}
             <div class="mt-3 grid flex-1 grid-cols-2 grid-rows-2 gap-2">
               {#each Array.from({ length: 4 }) as _, local_frame_index (local_frame_index)}
@@ -493,7 +577,8 @@
                   <div
                     class="flex items-center justify-center rounded-[10px] border-2 border-[#F97316] bg-white px-2 text-center"
                   >
-                    <span class="text-[14px] font-black text-[#F97316]">{local_frame_obj.name}</span>
+                    <span class="text-[14px] font-black text-[#F97316]">{local_frame_obj.name}</span
+                    >
                   </div>
                 {:else}
                   <div aria-hidden="true"></div>
@@ -505,13 +590,18 @@
 
         <div class="flex flex-1 flex-col px-6 py-4">
           <div class="flex items-center gap-2">
-            <span class="grid h-7 w-7 place-items-center text-[var(--retina-primary-600)]" aria-hidden="true">
+            <span
+              class="grid h-7 w-7 place-items-center text-[var(--retina-primary-600)]"
+              aria-hidden="true"
+            >
               <Palette size={14} strokeWidth={2.2} />
             </span>
             <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">추천 컬러</h3>
           </div>
           {#if g_recommended_color_arr.length === 0}
-            <div class="mt-3 grid flex-1 place-items-center text-[13px] font-bold text-slate-400">-</div>
+            <div class="mt-3 grid flex-1 place-items-center text-[13px] font-bold text-slate-400">
+              -
+            </div>
           {:else}
             <div class="mt-3 grid flex-1 grid-cols-2 grid-rows-2 gap-2">
               {#each Array.from({ length: 4 }) as _, local_color_index (local_color_index)}
@@ -537,7 +627,12 @@
     <!-- 3) 측정 요약 -->
     <div class="border-b border-slate-100 px-6 py-5">
       <header class="flex items-center gap-2">
-        <Ruler size={16} strokeWidth={2.2} class="text-[var(--retina-primary-600)]" aria-hidden="true" />
+        <Ruler
+          size={16}
+          strokeWidth={2.2}
+          class="text-[var(--retina-primary-600)]"
+          aria-hidden="true"
+        />
         <h2 class="m-0 text-[16px] font-extrabold text-zinc-900">측정 요약</h2>
       </header>
       <div class="mt-3 grid grid-cols-4 gap-3">
@@ -553,7 +648,12 @@
       <div class="px-6 py-4">
         <header class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2">
-            <Scale size={15} strokeWidth={2.2} class="text-[var(--retina-primary-600)]" aria-hidden="true" />
+            <Scale
+              size={15}
+              strokeWidth={2.2}
+              class="text-[var(--retina-primary-600)]"
+              aria-hidden="true"
+            />
             <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">좌우 대칭 분석</h3>
           </div>
           {#if g_asymmetry_range}
@@ -566,7 +666,9 @@
         </header>
 
         <div class="mt-3 pl-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span class="text-[28px] font-extrabold text-[var(--retina-primary-600)]">{g_asymmetry_label}</span>
+          <span class="text-[28px] font-extrabold text-[var(--retina-primary-600)]"
+            >{g_asymmetry_label}</span
+          >
           <span class="text-[12px] font-bold text-slate-400">/ 100</span>
           <span class="ml-1 text-[12px] font-semibold text-slate-500">{g_asymmetry_hint}</span>
         </div>
@@ -577,7 +679,12 @@
           <div
             class="mt-4 ml-3 flex items-start gap-2 rounded-lg bg-[var(--retina-bg-1)] px-3 py-2.5"
           >
-            <Glasses size={14} strokeWidth={2.2} class="mt-0.5 shrink-0 text-[var(--retina-primary-600)]" aria-hidden="true" />
+            <Glasses
+              size={14}
+              strokeWidth={2.2}
+              class="mt-0.5 shrink-0 text-[var(--retina-primary-600)]"
+              aria-hidden="true"
+            />
             <p class="m-0 text-[12px] font-semibold leading-snug text-[var(--retina-primary-600)]">
               {g_asymmetry_fitting_tip}
             </p>
@@ -587,7 +694,12 @@
 
       <div class="px-6 py-4">
         <header class="flex items-center gap-2">
-          <Eye size={15} strokeWidth={2.2} class="text-[var(--retina-primary-600)]" aria-hidden="true" />
+          <Eye
+            size={15}
+            strokeWidth={2.2}
+            class="text-[var(--retina-primary-600)]"
+            aria-hidden="true"
+          />
           <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">PD 상세 정보</h3>
         </header>
 
@@ -610,7 +722,9 @@
             <div class="flex items-baseline justify-between gap-2">
               <span class="text-[11px] font-bold text-slate-500">좌우 차이</span>
               <span class="flex items-baseline gap-1.5">
-                <span class="text-[14px] font-extrabold text-[var(--retina-primary-600)]">{g_pd_diff_label}</span>
+                <span class="text-[14px] font-extrabold text-[var(--retina-primary-600)]"
+                  >{g_pd_diff_label}</span
+                >
                 {#if g_pd_diff_range}
                   <span
                     class={`text-[10px] font-extrabold ${g_pd_diff_range.is_in_normal ? 'text-emerald-600' : 'text-amber-600'}`}
@@ -635,7 +749,12 @@
       <div class="px-6 py-4">
         <header class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2">
-            <Ruler size={15} strokeWidth={2.2} class="text-[var(--retina-primary-600)]" aria-hidden="true" />
+            <Ruler
+              size={15}
+              strokeWidth={2.2}
+              class="text-[var(--retina-primary-600)]"
+              aria-hidden="true"
+            />
             <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">OH 상세 정보</h3>
           </div>
           <span class="text-[10px] font-extrabold text-slate-400">측정 예정</span>
@@ -666,7 +785,12 @@
       <div class="px-6 py-4">
         <!-- 우측은 OH 보조 영역 — 추후 등급/안내 멘트 등이 들어갈 자리. -->
         <header class="flex items-center gap-2">
-          <Sparkles size={15} strokeWidth={2.2} class="text-[var(--retina-primary-600)]" aria-hidden="true" />
+          <Sparkles
+            size={15}
+            strokeWidth={2.2}
+            class="text-[var(--retina-primary-600)]"
+            aria-hidden="true"
+          />
           <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">OH 분석 안내</h3>
         </header>
         <div

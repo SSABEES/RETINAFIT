@@ -27,13 +27,7 @@
       stroke="#00c853"
       stroke-width="3"
     />
-    <text
-      x={m.corners[0].x}
-      y={m.corners[0].y - 6}
-      fill="#00c853"
-      font-size="20"
-      font-weight="700"
-    >
+    <text x={m.corners[0].x} y={m.corners[0].y - 6} fill="#00c853" font-size="20" font-weight="700">
       ID {m.id} z={m.translation[2].toFixed(0)}mm
     </text>
   {/each}

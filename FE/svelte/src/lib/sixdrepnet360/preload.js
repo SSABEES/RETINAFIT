@@ -162,7 +162,7 @@ export function ensure_cache_warm(variant) {
       if (!local_response.ok) return
 
       const local_content_type = local_response.headers.get('Content-Type') ?? ''
-      if (local_content_type.includes('text/html')) return  // SPA fallback HTML 응답 차단
+      if (local_content_type.includes('text/html')) return // SPA fallback HTML 응답 차단
 
       await store_model_response(local_url, local_response)
     } catch {
