@@ -1,6 +1,5 @@
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import BackgroundTasks
 
 from app.core.config import settings
 from app.core.http_client import http_client
@@ -8,7 +7,6 @@ from app.common.s3_utils import get_presigned_download_url
 from app.common.exceptions import ExternalAPIException, NotFoundException
 from app.common.error_codes import ErrorCode
 from app.modules.visit import repository
-from app.modules.visit.tasks import generate_and_save_face_script
 from app.modules.visit.schemas import (
     CustomerCreateRequest,
     CustomerSearchResponse,
@@ -202,7 +200,6 @@ async def update_visit(
     db: AsyncSession,
     visit_no: int,
     request: VisitUpdateRequest,
-    background_tasks: BackgroundTasks,
 ) -> VisitResponse:
     """방문 데이터 업데이트"""
     visit = await repository.update_visit(
@@ -212,14 +209,6 @@ async def update_visit(
         raise NotFoundException(
             error_code=ErrorCode.VISIT_NOT_FOUND,
             message="방문 정보를 찾을 수 없습니다.",
-        )
-
-    # test_json 새로 들어오면 백그라운드로 AI face-script 요청
-    if request.test_json is not None:
-        background_tasks.add_task(
-            generate_and_save_face_script,
-            visit_no,
-            request.test_json,
         )
 
     return _convert_visit_urls(VisitResponse.model_validate(visit))
