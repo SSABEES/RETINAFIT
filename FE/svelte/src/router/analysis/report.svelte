@@ -357,19 +357,20 @@
             <!--
               기본 4개 슬롯 (2×2) 고정 — 데이터가 없어도 그리드 자리는 예약되지만 chip 시각화는
               노출하지 않아 레이아웃은 일정하면서도 빈 chip 잔재가 안 보인다.
-              row 높이도 svh 기반으로 줄여 짧은 viewport 에서 카드가 잘리지 않도록 한다.
+              row 를 flex-1 / grid-rows-2 로 부모 가용 공간에 맞춰 균등 분할 — 짧은 viewport 에서
+              고정 row 높이가 부모를 넘어 아래 divider 까지 침범하던 문제 해결.
             -->
             <div
-              class="mt-[clamp(4px,1svh,10px)] grid grid-cols-2 gap-[clamp(6px,1.5svh,12px)] grid-rows-[repeat(2,clamp(34px,6.5svh,56px))]"
+              class="mt-[clamp(4px,1svh,10px)] grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-[clamp(6px,1.5svh,12px)]"
             >
               {#each Array.from({ length: 4 }) as _, color_index (color_index)}
                 {@const local_color_obj = g_recommended_color_arr[color_index]}
                 {#if local_color_obj}
                   <div
-                    class={`flex items-center justify-center rounded-[10px] border border-black/5 text-center shadow-sm px-[clamp(6px,1.5svh,12px)] py-[clamp(4px,1svh,8px)] ${local_color_obj.tone_class}`}
+                    class={`flex min-h-0 items-center justify-center rounded-[10px] border border-black/5 text-center shadow-sm px-[clamp(6px,1.5svh,12px)] py-[clamp(2px,0.6svh,6px)] ${local_color_obj.tone_class}`}
                   >
                     <p
-                      class={`m-0 font-normal text-[clamp(11px,1.9svh,15px)] ${get_chip_text_class(local_color_obj)}`}
+                      class={`m-0 font-normal text-[clamp(10px,1.7svh,15px)] ${get_chip_text_class(local_color_obj)}`}
                     >
                       {local_color_obj.label}
                     </p>

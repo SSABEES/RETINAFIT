@@ -143,23 +143,21 @@ export function classify_face_shape(m) {
   const forehead_to_cheekbone_ratio = m.forehead_width / m.cheekbone_width
   const jaw_to_cheekbone_ratio = m.jaw_width / m.cheekbone_width
 
-  // 1. 얼굴이 광대 대비 1.55배 이상 길면 oblong (긴형)
-  if (length_to_cheekbone_ratio >= 1.55) return 'oblong'
+  // 1. 얼굴이 광대 대비 1.38배 이상 길면 oblong (긴형)
+  if (length_to_cheekbone_ratio >= 1.39) return 'oblong'
 
   // 2. 이마가 광대보다 3% 이상 넓고 턱이 광대보다 3% 이상 좁으면 heart (하트형)
   if (forehead_to_cheekbone_ratio > 1.03 && jaw_to_cheekbone_ratio < 0.97) return 'heart'
 
-  // 3. 이마/턱 모두 광대와 7% 이내로 비슷하면 square (사각형)
-  if (
-    Math.abs(forehead_to_cheekbone_ratio - 1) < 0.07 &&
-    Math.abs(jaw_to_cheekbone_ratio - 1) < 0.07
-  )
-    return 'square'
+  // 3. 턱이 광대의 90% 이상(=거의 같은 폭)이고 길이비가 1.40 미만이면 square (사각형 — 박스형)
+  //    이마는 무시 — 사각형의 본질은 "광대~턱이 줄지 않는 직선적 라인" + "박스형 비율".
+  if (jaw_to_cheekbone_ratio >= 0.9 && length_to_cheekbone_ratio < 1.4) return 'square'
 
   // 4. 광대 대비 길이가 1.40 미만이면 round (둥근형)
-  if (length_to_cheekbone_ratio < 1.4) return 'round'
+  if (length_to_cheekbone_ratio < 1.35) return 'round'
 
-  // 5. 기본은 oval (계란형) — 길이 [1.40, 1.55), 폭 비율은 어디에도 안 걸린 일반형
+  // 5. 기본은 oval (계란형) — 현재 임계값(oblong 1.38 / round 1.40)에서는 도달 불가 fallback.
+  //    oblong 임계값을 다시 올리거나 round 임계값을 내리면 살아남.
   return 'oval'
 }
 
