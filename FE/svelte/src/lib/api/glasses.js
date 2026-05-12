@@ -84,3 +84,14 @@ export const load_normalized_glasses = async () => {
   const local_raw_arr = await get_all_glasses()
   return normalize_glasses_arr(local_raw_arr)
 }
+
+/**
+ * /test 검증 페이지 전용 — dev 서버의 vite_plugin_local_glasses middleware 로부터 로컬
+ * GLB 카탈로그를 가져온다. 응답 형태는 load_normalized_glasses 와 호환. prod 빌드에선
+ * manifest 부재로 404 — /test 페이지가 직접 catch.
+ */
+export const load_local_glasses = async () => {
+  const local_res = await fetch('/local-glasses/manifest.json')
+  if (!local_res.ok) throw new Error(`local-glasses manifest fetch failed: ${local_res.status}`)
+  return local_res.json()
+}

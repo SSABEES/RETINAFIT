@@ -60,24 +60,24 @@ const FACE_BBOX_STALE_THRESHOLD = 5
  */
 export function create_profile_pose_detector({ get_pose_target, get_video_el, on_stable_reached }) {
   // reactive 상태 — UI 가 읽음
-  let _stable_count  = $state(0)
-  let _last_yaw        = $state(/** @type {number | null} */ (null))
-  let _last_pitch      = $state(/** @type {number | null} */ (null))
-  let _last_roll       = $state(/** @type {number | null} */ (null))
+  let _stable_count = $state(0)
+  let _last_yaw = $state(/** @type {number | null} */ (null))
+  let _last_pitch = $state(/** @type {number | null} */ (null))
+  let _last_roll = $state(/** @type {number | null} */ (null))
   let _last_image_tilt = $state(/** @type {number | null} */ (null))
-  let _last_rotation   = $state(/** @type {Float32Array | null} */ (null))
+  let _last_rotation = $state(/** @type {Float32Array | null} */ (null))
   let _session_ready = $state(false)
 
   // non-reactive — 내부용
   /** @type {number[]} */
-  let _yaw_buffer        = []      // stability 판정용 (std 검사) — raw 값들
+  let _yaw_buffer = [] // stability 판정용 (std 검사) — raw 값들
   /** @type {number[]} */
-  let _yaw_smooth_buffer = []      // 화면 표시 평균용 — last_yaw jitter 완화
+  let _yaw_smooth_buffer = [] // 화면 표시 평균용 — last_yaw jitter 완화
   /** @type {number[]} */
   let _image_tilt_buffer = []
-  let _ort_inflight      = false
-  let _frame_counter     = 0
-  let _reset_id          = 0
+  let _ort_inflight = false
+  let _frame_counter = 0
+  let _reset_id = 0
   // FaceLandmarker 가 검출 성공한 마지막 face bbox — 일시적 검출 누락 시 직전 bbox 로 lock-in.
   /** @type {import('@/lib/sixdrepnet360/inference.js').BBoxNorm | null} */
   let _last_face_bbox = null
@@ -123,7 +123,7 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
         _bbox_stale_count = 0
       }
       const result = await predict_pose(video, bbox)
-      if (snapshot_id !== _reset_id) return       // 카메라 재시작 후 stale 결과 폐기
+      if (snapshot_id !== _reset_id) return // 카메라 재시작 후 stale 결과 폐기
 
       const { yaw, pitch, roll } = rotation_matrix_to_euler(result.rotation_matrix)
       const prev_count = _stable_count
@@ -188,8 +188,10 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
   return {
     tick,
     reset,
-    get is_stable()      { return _stable_count >= PROFILE_CONSTANTS.STABILITY_FRAMES },
-    get progress()       {
+    get is_stable() {
+      return _stable_count >= PROFILE_CONSTANTS.STABILITY_FRAMES
+    },
+    get progress() {
       return Math.min(100, Math.round((_stable_count / PROFILE_CONSTANTS.STABILITY_FRAMES) * 100))
     },
     get hint_text() {
@@ -199,14 +201,29 @@ export function create_profile_pose_detector({ get_pose_target, get_video_el, on
         last_yaw: _last_yaw,
         target_deg,
         is_stable: _stable_count >= PROFILE_CONSTANTS.STABILITY_FRAMES,
-        progress: Math.min(100, Math.round((_stable_count / PROFILE_CONSTANTS.STABILITY_FRAMES) * 100)),
+        progress: Math.min(
+          100,
+          Math.round((_stable_count / PROFILE_CONSTANTS.STABILITY_FRAMES) * 100),
+        ),
       })
     },
-    get session_ready()  { return _session_ready },
-    get last_yaw()        { return _last_yaw },
-    get last_pitch()      { return _last_pitch },
-    get last_roll()       { return _last_roll },
-    get last_image_tilt() { return _last_image_tilt },
-    get last_rotation()   { return _last_rotation },
+    get session_ready() {
+      return _session_ready
+    },
+    get last_yaw() {
+      return _last_yaw
+    },
+    get last_pitch() {
+      return _last_pitch
+    },
+    get last_roll() {
+      return _last_roll
+    },
+    get last_image_tilt() {
+      return _last_image_tilt
+    },
+    get last_rotation() {
+      return _last_rotation
+    },
   }
 }

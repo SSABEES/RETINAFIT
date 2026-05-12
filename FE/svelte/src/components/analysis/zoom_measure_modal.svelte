@@ -170,11 +170,7 @@
       </button>
 
       <div class="mx-auto w-full max-w-[280px]">
-        <PhotoSwitcher
-          {session}
-          {view}
-          onview_change={(v) => onview_change?.(v)}
-        />
+        <PhotoSwitcher {session} {view} onview_change={(v) => onview_change?.(v)} />
       </div>
 
       <span class="h-9 w-9" aria-hidden="true"></span>
@@ -191,7 +187,9 @@
           → 카드 가로폭 = min(가로 가용 폭, 세로 가용 높이 × 3/4) 로 모든 viewport 비율 안전.
         -->
         <div class="flex shrink-0 justify-center px-4 pt-4 pb-3">
-          <div class="zoom-image-card relative overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
+          <div
+            class="zoom-image-card relative overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_8px_20px_rgba(15,23,42,0.07)]"
+          >
             <img
               class="absolute inset-0 block h-full w-full select-none"
               src={capture.object_url}
@@ -219,8 +217,27 @@
                 {@const x1 = mirror_x(p1.x)}
                 {@const x2 = mirror_x(p2.x)}
                 {@const dash = g_active_item.source === 'auto' ? '8 6' : undefined}
-                <line {x1} y1={p1.y} {x2} y2={p2.y} stroke="white" stroke-width="5" stroke-linecap="round" stroke-dasharray={dash} opacity="0.85" />
-                <line {x1} y1={p1.y} {x2} y2={p2.y} stroke="#F97316" stroke-width="2.5" stroke-linecap="round" stroke-dasharray={dash} />
+                <line
+                  {x1}
+                  y1={p1.y}
+                  {x2}
+                  y2={p2.y}
+                  stroke="white"
+                  stroke-width="5"
+                  stroke-linecap="round"
+                  stroke-dasharray={dash}
+                  opacity="0.85"
+                />
+                <line
+                  {x1}
+                  y1={p1.y}
+                  {x2}
+                  y2={p2.y}
+                  stroke="#F97316"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-dasharray={dash}
+                />
                 <circle cx={x1} cy={p1.y} r="5" fill="#F97316" stroke="white" stroke-width="1.5" />
                 <circle cx={x2} cy={p2.y} r="5" fill="#F97316" stroke="white" stroke-width="1.5" />
               {/if}
@@ -274,7 +291,9 @@
           letterbox 영역 포함) 을 차지. 내부 ul 이 자동 스크롤 처리 (MeasurementList 의
           flex-1 + overflow-y-auto).
         -->
-        <section class="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-slate-200 bg-white px-5 pt-4 pb-4">
+        <section
+          class="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-slate-200 bg-white px-5 pt-4 pb-4"
+        >
           <MeasurementList
             {items_arr}
             {active_item_id}
@@ -284,7 +303,9 @@
         </section>
       </div>
     {:else}
-      <div class="flex min-h-0 flex-1 items-center justify-center text-sm font-semibold text-slate-400">
+      <div
+        class="flex min-h-0 flex-1 items-center justify-center text-sm font-semibold text-slate-400"
+      >
         사진이 선택되지 않았습니다.
       </div>
     {/if}

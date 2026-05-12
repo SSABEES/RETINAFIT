@@ -22,13 +22,6 @@ function R_x(deg) {
   return [1, 0, 0, 0, c, -s, 0, s, c]
 }
 
-function R_z(deg) {
-  const r = (deg * Math.PI) / 180
-  const c = Math.cos(r)
-  const s = Math.sin(r)
-  return [c, -s, 0, s, c, 0, 0, 0, 1]
-}
-
 function multiply(A, B) {
   const out = new Array(9).fill(0)
   for (let i = 0; i < 3; i++) {

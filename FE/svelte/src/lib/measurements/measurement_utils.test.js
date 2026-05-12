@@ -94,19 +94,19 @@ describe('apply_image_tilt_correction', () => {
   // 좌·우 일치성 검증 — 같은 안경 + 같은 머리 자세에서 측정 view 만 다를 때 같은 결과가 나와야 한다.
   // raw R 의 image_tilt 는 좌·우 부호 반대로 나오므로 좌측면 입력에는 부호 반전을 미리 거친 값을 넣는다.
   it('좌·우 측면에서 같은 안경 자세 → 보정값 일치', () => {
-    const ANGLE_GLASSES = 10  // 안경 자체 전경각
-    const PITCH = 5           // 사용자 머리 pitch (턱 들기)
+    const ANGLE_GLASSES = 10 // 안경 자체 전경각
+    const PITCH = 5 // 사용자 머리 pitch (턱 들기)
 
     // 측정 raw 는 두 view 모두 광학 표준 부호(angle + pitch) 로 정렬됨.
-    const raw_right = ANGLE_GLASSES + PITCH      // +15
-    const raw_left  = ANGLE_GLASSES + PITCH      // +15 (vertical_signed_angle_deg 가 좌측 부호 반전 적용)
+    const raw_right = ANGLE_GLASSES + PITCH // +15
+    const raw_left = ANGLE_GLASSES + PITCH // +15 (vertical_signed_angle_deg 가 좌측 부호 반전 적용)
 
     // image_plane_tilt_deg 은 카메라 좌표계라 좌·우 부호 반대. 호출측이 좌측이면 부호 반전 후 사용.
-    const image_tilt_right = +PITCH              // +5
-    const image_tilt_left_raw = -PITCH           // -5 (raw 그대로)
+    const image_tilt_right = +PITCH // +5
+    const image_tilt_left_raw = -PITCH // -5 (raw 그대로)
     const image_tilt_left = -image_tilt_left_raw // +5 (좌측면 부호 보정 후)
 
     expect(apply_image_tilt_correction(raw_right, image_tilt_right)).toBe(ANGLE_GLASSES)
-    expect(apply_image_tilt_correction(raw_left,  image_tilt_left)).toBe(ANGLE_GLASSES)
+    expect(apply_image_tilt_correction(raw_left, image_tilt_left)).toBe(ANGLE_GLASSES)
   })
 })

@@ -508,24 +508,24 @@
   {#if !ref_glass_editor_open}
     <section class="grid gap-4">
       <div class="flex items-center justify-between gap-4">
-        <h2 class="m-0 text-2xl font-extrabold text-zinc-950">안경 정보</h2>
+        <h2 class="m-0 text-2xl font-extrabold text-[var(--retina-text-800)]">안경 정보</h2>
         <span
-          class="rounded-full bg-[var(--retina-soft-purple)] px-3 py-1 text-sm font-extrabold text-[var(--retina-primary-700)]"
+          class="rounded-full bg-[var(--retina-primary-50)] px-3 py-1 text-sm font-extrabold text-[var(--retina-primary-600)]"
         >
           총 {ref_glass_list_arr.length}개
         </span>
       </div>
 
       <section
-        class="rounded-2xl border border-slate-200 bg-white px-8 py-5 shadow-sm shadow-slate-200/50"
+        class="rounded-2xl border border-[var(--retina-text-200)] bg-white px-8 py-5 shadow-sm shadow-slate-200/50"
       >
         <div class="grid gap-3">
           <div class="flex items-center justify-between gap-3">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="text-sm font-bold text-slate-500">카테고리</span>
+              <span class="text-sm font-bold text-[var(--retina-text-500)]">카테고리</span>
               <div class="relative">
                 <button
-                  class="flex min-h-11 min-w-36 cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)]/35 hover:bg-white"
+                  class="flex min-h-11 min-w-36 cursor-pointer items-center justify-between rounded-xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-400)] hover:bg-white"
                   type="button"
                   onclick={() => on_click_toggle_glass_dropdown('list_category_filter')}
                 >
@@ -544,13 +544,13 @@
 
                 {#if ref_open_glass_dropdown_key === 'list_category_filter'}
                   <div
-                    class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retina-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                    class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retina-text-200)] bg-white p-2 shadow-[0_18px_40px_rgba(19,25,40,0.12)]"
                   >
                     <button
                       class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                         ref_glass_list_category_filter === 'all'
-                          ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
-                          : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
+                          ? 'bg-[var(--retina-primary-50)] text-[var(--retina-primary-600)]'
+                          : 'bg-white text-[var(--retina-text-500)] hover:bg-[var(--retina-primary-50)] hover:text-[var(--retina-primary-600)]'
                       }`}
                       type="button"
                       onclick={() => on_click_select_glass_dropdown('list_category_filter', 'all')}
@@ -562,8 +562,8 @@
                       <button
                         class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                           ref_glass_list_category_filter === category_option
-                            ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
-                            : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
+                            ? 'bg-[var(--retina-primary-50)] text-[var(--retina-primary-600)]'
+                            : 'bg-white text-[var(--retina-text-500)] hover:bg-[var(--retina-primary-50)] hover:text-[var(--retina-primary-600)]'
                         }`}
                         type="button"
                         onclick={() =>
@@ -576,10 +576,11 @@
                 {/if}
               </div>
 
-              <span class="ml-3 text-sm font-bold text-slate-500">프레임 스타일</span>
+              <span class="ml-3 text-sm font-bold text-[var(--retina-text-500)]">프레임 스타일</span
+              >
               <div class="relative">
                 <button
-                  class="flex min-h-11 min-w-40 cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)]/35 hover:bg-white"
+                  class="flex min-h-11 min-w-40 cursor-pointer items-center justify-between rounded-xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-400)] hover:bg-white"
                   type="button"
                   onclick={() => on_click_toggle_glass_dropdown('list_frame_style_filter')}
                 >
@@ -598,13 +599,13 @@
 
                 {#if ref_open_glass_dropdown_key === 'list_frame_style_filter'}
                   <div
-                    class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retina-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                    class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retina-text-200)] bg-white p-2 shadow-[0_18px_40px_rgba(19,25,40,0.12)]"
                   >
                     <button
                       class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                         ref_glass_list_frame_style_filter === 'all'
-                          ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
-                          : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
+                          ? 'bg-[var(--retina-primary-50)] text-[var(--retina-primary-600)]'
+                          : 'bg-white text-[var(--retina-text-500)] hover:bg-[var(--retina-primary-50)] hover:text-[var(--retina-primary-600)]'
                       }`}
                       type="button"
                       onclick={() =>
@@ -617,8 +618,8 @@
                       <button
                         class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                           ref_glass_list_frame_style_filter === frame_style_option.value
-                            ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
-                            : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
+                            ? 'bg-[var(--retina-primary-50)] text-[var(--retina-primary-600)]'
+                            : 'bg-white text-[var(--retina-text-500)] hover:bg-[var(--retina-primary-50)] hover:text-[var(--retina-primary-600)]'
                         }`}
                         type="button"
                         onclick={() =>
@@ -634,10 +635,10 @@
                 {/if}
               </div>
 
-              <span class="ml-3 text-sm font-bold text-slate-500">재질</span>
+              <span class="ml-3 text-sm font-bold text-[var(--retina-text-500)]">재질</span>
               <div class="relative">
                 <button
-                  class="flex min-h-11 min-w-36 cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)]/35 hover:bg-white"
+                  class="flex min-h-11 min-w-36 cursor-pointer items-center justify-between rounded-xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-400)] hover:bg-white"
                   type="button"
                   onclick={() => on_click_toggle_glass_dropdown('list_material_filter')}
                 >
@@ -656,13 +657,13 @@
 
                 {#if ref_open_glass_dropdown_key === 'list_material_filter'}
                   <div
-                    class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retina-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                    class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retina-text-200)] bg-white p-2 shadow-[0_18px_40px_rgba(19,25,40,0.12)]"
                   >
                     <button
                       class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                         ref_glass_list_material_filter === 'all'
-                          ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
-                          : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
+                          ? 'bg-[var(--retina-primary-50)] text-[var(--retina-primary-600)]'
+                          : 'bg-white text-[var(--retina-text-500)] hover:bg-[var(--retina-primary-50)] hover:text-[var(--retina-primary-600)]'
                       }`}
                       type="button"
                       onclick={() => on_click_select_glass_dropdown('list_material_filter', 'all')}
@@ -674,8 +675,8 @@
                       <button
                         class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                           ref_glass_list_material_filter === material_option
-                            ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
-                            : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
+                            ? 'bg-[var(--retina-primary-50)] text-[var(--retina-primary-600)]'
+                            : 'bg-white text-[var(--retina-text-500)] hover:bg-[var(--retina-primary-50)] hover:text-[var(--retina-primary-600)]'
                         }`}
                         type="button"
                         onclick={() =>
@@ -689,7 +690,7 @@
               </div>
             </div>
             <button
-              class="inline-flex min-h-11 cursor-pointer items-center rounded-xl border border-[#D8C6E0] bg-[#FAF7FC] px-4 text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)] hover:bg-[#F8F1F8]"
+              class="inline-flex min-h-11 cursor-pointer items-center rounded-xl border border-[var(--retina-primary-200)] bg-[var(--retina-primary-50)] px-4 text-sm font-extrabold text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-400)] hover:bg-white"
               type="button"
               onclick={on_click_open_glass_create}
             >
@@ -699,13 +700,13 @@
 
           {#if ref_glass_list_loading}
             <div
-              class="grid min-h-40 place-items-center rounded-2xl border border-slate-200 bg-slate-50 px-6 text-center text-sm font-bold text-slate-500"
+              class="grid min-h-40 place-items-center rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-6 text-center text-sm font-bold text-[var(--retina-text-500)]"
             >
               안경 목록을 불러오는 중입니다.
             </div>
           {:else if g_filtered_glass_list_arr.length === 0}
             <div
-              class="grid min-h-40 place-items-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 text-center text-sm font-bold text-slate-500"
+              class="grid min-h-40 place-items-center rounded-2xl border border-dashed border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-6 text-center text-sm font-bold text-[var(--retina-text-500)]"
             >
               등록된 안경이 없습니다.
             </div>
@@ -713,11 +714,11 @@
             <div class="grid gap-2">
               {#each g_filtered_glass_list_arr as glass_obj (glass_obj.glasses_no)}
                 <button
-                  class="grid cursor-pointer grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2 text-left transition hover:border-[#D8C6E0] hover:shadow-sm"
+                  class="grid cursor-pointer grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-[var(--retina-text-200)] bg-white px-4 py-2 text-left transition hover:border-[var(--retina-primary-300)] hover:shadow-sm"
                   type="button"
                   onclick={() => on_click_edit_glass(glass_obj)}
                 >
-                  <div class="h-14 w-14 overflow-hidden rounded-lg bg-[#F7F1F9]">
+                  <div class="h-14 w-14 overflow-hidden rounded-lg bg-[var(--retina-primary-50)]">
                     <img
                       src={glass_obj.glasses_img_url || g_glass_placeholder_image_url}
                       alt={`${glass_obj.glasses_brand} ${glass_obj.glasses_name}`}
@@ -727,40 +728,44 @@
 
                   <div class="grid min-w-0 gap-1">
                     <div class="flex min-w-0 items-baseline gap-2">
-                      <p class="m-0 truncate text-base font-extrabold text-zinc-950">
+                      <p
+                        class="m-0 truncate text-base font-extrabold text-[var(--retina-text-800)]"
+                      >
                         {glass_obj.glasses_name}
                       </p>
-                      <p class="m-0 shrink-0 truncate text-xs font-semibold text-slate-500">
+                      <p
+                        class="m-0 shrink-0 truncate text-xs font-semibold text-[var(--retina-text-500)]"
+                      >
                         {glass_obj.glasses_brand || '브랜드 없음'}
                       </p>
                     </div>
 
                     <div class="flex flex-wrap gap-1.5">
                       <span
-                        class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600"
+                        class="rounded-full bg-[var(--retina-text-100)] px-2 py-0.5 text-[11px] font-bold text-[var(--retina-text-500)]"
                       >
                         {get_glass_meta_label('category', glass_obj.category)}
                       </span>
                       <span
-                        class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600"
+                        class="rounded-full bg-[var(--retina-text-100)] px-2 py-0.5 text-[11px] font-bold text-[var(--retina-text-500)]"
                       >
                         {get_glass_meta_label('frame_style', glass_obj.frame_style)}
                       </span>
                       <span
-                        class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600"
+                        class="rounded-full bg-[var(--retina-text-100)] px-2 py-0.5 text-[11px] font-bold text-[var(--retina-text-500)]"
                       >
                         {get_glass_meta_label('frame_type', glass_obj.frame_type)}
                       </span>
                       {#if glass_obj.model_code}
                         <span
-                          class="rounded-full bg-[#F5EAF7] px-2 py-0.5 text-[11px] font-bold text-[#7B3F8A]"
+                          class="rounded-full bg-[var(--retina-primary-50)] px-2 py-0.5 text-[11px] font-bold text-[var(--retina-primary-500)]"
                         >
                           {glass_obj.model_code}
                         </span>
                       {/if}
                       {#if glass_obj.color}
                         <span
-                          class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600"
+                          class="rounded-full bg-[var(--retina-text-100)] px-2 py-0.5 text-[11px] font-bold text-[var(--retina-text-500)]"
                         >
                           {glass_obj.color}
                         </span>
@@ -770,7 +775,7 @@
 
                   <div class="grid justify-items-end gap-1">
                     {#if glass_obj.price}
-                      <span class="text-sm font-extrabold text-[var(--retina-primary-700)]">
+                      <span class="text-sm font-extrabold text-[var(--retina-primary-500)]">
                         {format_price_label(glass_obj.price)}
                       </span>
                     {/if}
@@ -791,7 +796,7 @@
 
           {#if false}
             <button
-              class="grid aspect-[4/3] cursor-pointer place-items-center rounded-2xl border border-dashed border-[#D8C6E0] bg-[#FAF7FC] text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)] hover:bg-[#F8F1F8]"
+              class="grid aspect-[4/3] cursor-pointer place-items-center rounded-2xl border border-dashed border-[var(--retina-primary-200)] bg-[var(--retina-primary-50)] text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-400)] hover:bg-white"
               type="button"
               onclick={on_click_open_glass_create}
             >
@@ -806,7 +811,7 @@
 
             {#if ref_glass_list_loading}
               <div
-                class="grid aspect-[4/3] place-items-center rounded-2xl border border-slate-200 bg-slate-50 px-6 text-center text-sm font-bold text-slate-500"
+                class="grid aspect-[4/3] place-items-center rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-6 text-center text-sm font-bold text-[var(--retina-text-500)]"
               >
                 안경 목록을 불러오는 중입니다.
               </div>
@@ -814,11 +819,11 @@
 
             {#each ref_glass_list_arr as glass_obj (glass_obj.glasses_no)}
               <button
-                class="overflow-hidden rounded-2xl border border-slate-200 bg-white text-left transition hover:border-[#D8C6E0] hover:shadow-sm"
+                class="overflow-hidden rounded-2xl border border-[var(--retina-text-200)] bg-white text-left transition hover:border-[var(--retina-primary-300)] hover:shadow-sm"
                 type="button"
                 onclick={() => on_click_edit_glass(glass_obj)}
               >
-                <div class="aspect-[4/3] bg-[#F7F1F9]">
+                <div class="aspect-[4/3] bg-[var(--retina-primary-50)]">
                   <img
                     src={glass_obj.glasses_img_url || g_glass_placeholder_image_url}
                     alt={`${glass_obj.glasses_brand} ${glass_obj.glasses_name}`}
@@ -828,10 +833,12 @@
                 <div class="px-5 py-4">
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                      <p class="m-0 truncate text-lg font-extrabold text-zinc-950">
+                      <p class="m-0 truncate text-lg font-extrabold text-[var(--retina-text-800)]">
                         {glass_obj.glasses_name}
                       </p>
-                      <p class="mb-0 mt-2 truncate text-sm font-semibold text-slate-500">
+                      <p
+                        class="mb-0 mt-2 truncate text-sm font-semibold text-[var(--retina-text-500)]"
+                      >
                         {glass_obj.glasses_brand}
                       </p>
                     </div>
@@ -856,7 +863,7 @@
   {:else}
     {#await ensure_glass_editor_component()}
       <section
-        class="grid min-h-40 place-items-center rounded-2xl border border-slate-200 bg-slate-50 px-6 text-center text-sm font-bold text-slate-500"
+        class="grid min-h-40 place-items-center rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-6 text-center text-sm font-bold text-[var(--retina-text-500)]"
       >
         안경 편집 화면을 불러오는 중입니다.
       </section>

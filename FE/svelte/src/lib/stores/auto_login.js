@@ -18,7 +18,10 @@ function get_next_midnight_ts() {
     local_now.getFullYear(),
     local_now.getMonth(),
     local_now.getDate() + 1,
-    0, 0, 0, 0,
+    0,
+    0,
+    0,
+    0,
   ).getTime()
 }
 

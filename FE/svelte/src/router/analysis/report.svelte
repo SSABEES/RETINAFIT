@@ -12,6 +12,10 @@
     reset as reset_session,
   } from '@/lib/stores/capture_session.svelte.js'
   import { save_face_analysis, upload_captures_to_s3 } from '@/lib/api/analysis.js'
+  import { push_error_toast } from '@/lib/stores/toast'
+  import { trigger_visit_list_reload } from '@/lib/stores/visit_list_reload'
+
+  const ANALYSIS_TOAST_DURATION_MS = 5000
   import {
     get_skin_tone_recommendation,
     get_frame_styles_for_face_shape,
@@ -56,13 +60,15 @@
   }
 
   let g_is_submitting = $state(false)
-  let g_submit_error = $state('')
   // 로그아웃처럼 PATH.analysis 가 아닌 곳으로 명시적으로 이동할 때, captures 비움 → /analysis 리다이렉트
   // 의 reactive race 를 막는다. (true 면 아래 effect 는 자기 navigate 를 보류한다.)
   let g_is_navigating_away = $state(false)
 
+  let g_is_from_detail = $state(false)
+
   onMount(() => {
     hydrate_from_mirror()
+    g_is_from_detail = Boolean(sessionStorage.getItem('retinal_detail_return_path'))
   })
 
   $effect(() => {
@@ -246,11 +252,13 @@
 
   async function on_click_continue() {
     if (g_is_submitting) return
-    g_submit_error = ''
 
     const visit_no = get_visit_no()
     if (visit_no === null) {
-      g_submit_error = '방문 정보가 없어 분석 결과를 저장할 수 없습니다.'
+      push_error_toast(
+        '방문 정보가 없어 분석 결과를 저장할 수 없습니다.',
+        ANALYSIS_TOAST_DURATION_MS,
+      )
       return
     }
 
@@ -269,9 +277,17 @@
         test_file_arr: local_test_file_arr,
         test_json: build_test_json(),
       })
-      navigate(PATH.analysisLensConsult)
+      const local_return_path = sessionStorage.getItem('retinal_detail_return_path')
+      if (local_return_path) {
+        sessionStorage.removeItem('retinal_detail_return_path')
+        trigger_visit_list_reload()
+        navigate(local_return_path)
+      } else {
+        navigate(PATH.analysisLensConsult)
+      }
     } catch (err) {
-      g_submit_error = err instanceof Error ? err.message : '저장에 실패했습니다.'
+      const local_message = err instanceof Error ? err.message : '저장에 실패했습니다.'
+      push_error_toast(local_message, ANALYSIS_TOAST_DURATION_MS)
     } finally {
       g_is_submitting = false
     }
@@ -299,9 +315,7 @@
         class="mx-auto grid w-fit mt-[clamp(4px,1svh,12px)] px-1 grid-cols-[clamp(220px,38svh,360px)_clamp(200px,32svh,300px)] gap-[clamp(12px,3svh,40px)]"
       >
         <!-- 왼쪽: 촬영 사진 — 카메라와 동일한 3:4 비율, svh 기반 자동 축소 -->
-        <div
-          class="aspect-[3/4] w-full overflow-hidden rounded-[14px] bg-slate-100 shadow-sm"
-        >
+        <div class="aspect-[3/4] w-full overflow-hidden rounded-[14px] bg-slate-100 shadow-sm">
           {#if g_photo_src}
             <img
               class="h-full w-full object-cover"
@@ -324,9 +338,7 @@
               class="flex flex-col justify-center rounded-[8px] border border-[#FFEDD5] bg-[#FFF7ED] text-center px-[clamp(6px,1.5svh,12px)] py-[clamp(8px,2svh,20px)]"
             >
               <p class="m-0 font-bold text-slate-700 text-[clamp(10px,1.6svh,13px)]">얼굴형</p>
-              <p
-                class="m-0 mt-1 font-bold text-[#F97316] text-[clamp(11px,1.8svh,14px)]"
-              >
+              <p class="m-0 mt-1 font-bold text-[#F97316] text-[clamp(11px,1.8svh,14px)]">
                 {g_face_shape_label}
               </p>
             </div>
@@ -355,19 +367,20 @@
             <!--
               기본 4개 슬롯 (2×2) 고정 — 데이터가 없어도 그리드 자리는 예약되지만 chip 시각화는
               노출하지 않아 레이아웃은 일정하면서도 빈 chip 잔재가 안 보인다.
-              row 높이도 svh 기반으로 줄여 짧은 viewport 에서 카드가 잘리지 않도록 한다.
+              row 를 flex-1 / grid-rows-2 로 부모 가용 공간에 맞춰 균등 분할 — 짧은 viewport 에서
+              고정 row 높이가 부모를 넘어 아래 divider 까지 침범하던 문제 해결.
             -->
             <div
-              class="mt-[clamp(4px,1svh,10px)] grid grid-cols-2 gap-[clamp(6px,1.5svh,12px)] grid-rows-[repeat(2,clamp(34px,6.5svh,56px))]"
+              class="mt-[clamp(4px,1svh,10px)] grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-[clamp(6px,1.5svh,12px)]"
             >
               {#each Array.from({ length: 4 }) as _, color_index (color_index)}
                 {@const local_color_obj = g_recommended_color_arr[color_index]}
                 {#if local_color_obj}
                   <div
-                    class={`flex items-center justify-center rounded-[10px] border border-black/5 text-center shadow-sm px-[clamp(6px,1.5svh,12px)] py-[clamp(4px,1svh,8px)] ${local_color_obj.tone_class}`}
+                    class={`flex min-h-0 items-center justify-center rounded-[10px] border border-black/5 text-center shadow-sm px-[clamp(6px,1.5svh,12px)] py-[clamp(2px,0.6svh,6px)] ${local_color_obj.tone_class}`}
                   >
                     <p
-                      class={`m-0 font-normal text-[clamp(11px,1.9svh,15px)] ${get_chip_text_class(local_color_obj)}`}
+                      class={`m-0 font-normal text-[clamp(10px,1.7svh,15px)] ${get_chip_text_class(local_color_obj)}`}
                     >
                       {local_color_obj.label}
                     </p>
@@ -387,9 +400,7 @@
             >
               추천 안경테 모양
             </h2>
-            <div
-              class="mt-[clamp(4px,1svh,10px)] grid grid-cols-3 gap-1.5 px-2"
-            >
+            <div class="mt-[clamp(4px,1svh,10px)] grid grid-cols-3 gap-1.5 px-2">
               {#each g_recommended_frame_arr as frame_obj (`${frame_obj.name}-${frame_obj.priority}`)}
                 <div
                   class="flex items-center justify-center rounded-[6px] border border-[#F97316] bg-white text-center font-bold text-[#F97316] px-[clamp(6px,1.5svh,12px)] py-[clamp(2px,0.6svh,6px)] text-[clamp(11px,1.9svh,16px)]"
@@ -406,15 +417,6 @@
     <div class="shrink-0">
       <div class="h-px w-full bg-slate-200"></div>
       <div class="px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
-        {#if g_submit_error}
-          <p
-            class="m-0 mb-3 rounded-lg bg-red-50 px-4 py-3 text-sm font-bold text-red-700"
-            role="alert"
-          >
-            {g_submit_error}
-          </p>
-        {/if}
-
         <div class="grid w-full grid-cols-[2fr_3fr] gap-[clamp(8px,2svh,16px)]">
           <button
             type="button"
@@ -429,7 +431,11 @@
             disabled={g_is_submitting}
             onclick={on_click_continue}
           >
-            {g_is_submitting ? '분석 결과 저장 중...' : '생활 패턴 분석하고 피팅 추천받기'}
+            {g_is_submitting
+              ? '분석 결과 저장 중...'
+              : g_is_from_detail
+                ? '얼굴분석 완료'
+                : '생활 패턴 분석하고 피팅 추천받기'}
           </button>
         </div>
       </div>
