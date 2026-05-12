@@ -18,8 +18,9 @@ let g_clear_timer = null
  *
  * @param {string | null | undefined} message
  * @param {'success' | 'error' | 'info'} [type]
+ * @param {number} [duration_ms] 표시 시간(ms), 미지정 시 기본값 사용
  */
-export function push_toast(message, type = 'info') {
+export function push_toast(message, type = 'info', duration_ms = TOAST_DURATION_MS) {
   const local_text = String(message ?? '').trim()
   if (!local_text) return
 
@@ -29,15 +30,21 @@ export function push_toast(message, type = 'info') {
   g_clear_timer = setTimeout(() => {
     toast_obj_store.set(null)
     g_clear_timer = null
-  }, TOAST_DURATION_MS)
+  }, duration_ms)
 }
 
-/** @param {string | null | undefined} message */
-export function push_error_toast(message) {
-  push_toast(message, 'error')
+/**
+ * @param {string | null | undefined} message
+ * @param {number} [duration_ms]
+ */
+export function push_error_toast(message, duration_ms) {
+  push_toast(message, 'error', duration_ms)
 }
 
-/** @param {string | null | undefined} message */
-export function push_success_toast(message) {
-  push_toast(message, 'success')
+/**
+ * @param {string | null | undefined} message
+ * @param {number} [duration_ms]
+ */
+export function push_success_toast(message, duration_ms) {
+  push_toast(message, 'success', duration_ms)
 }

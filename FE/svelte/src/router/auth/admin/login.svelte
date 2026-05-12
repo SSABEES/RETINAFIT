@@ -69,10 +69,10 @@
 <main class="app-frame-page min-h-screen bg-[var(--retina-page)] text-[var(--retina-text)]">
   <section class="grid min-h-screen place-items-center px-4 py-8 sm:px-8 sm:py-10">
     <section
-      class="w-full max-w-[460px] rounded-[28px] border border-[#EFE7F2] bg-white p-6 shadow-sm shadow-slate-200/50 sm:p-8"
+      class="w-full max-w-[460px] rounded-[20px] border border-[var(--retina-text-200)] bg-white p-6 shadow-[0_4px_10px_rgba(19,25,40,0.04)] sm:p-8"
     >
       <div class="mb-8 text-left">
-        <h1 class="mt-3 mb-0 text-[1.9rem] font-extrabold tracking-[-0.02em] text-zinc-950">
+        <h1 class="mt-3 mb-0 text-[1.9rem] font-extrabold tracking-[-0.02em] text-[var(--retina-text-800)]">
           관리자 로그인
         </h1>
       </div>
@@ -99,7 +99,7 @@
         />
 
         <button
-          class="min-h-14 cursor-pointer rounded-xl border-0 bg-[var(--retina-primary-700)] text-lg font-extrabold text-white transition hover:bg-[var(--retina-primary-500)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-700)]/30 disabled:cursor-not-allowed disabled:opacity-60"
+          class="min-h-14 cursor-pointer rounded-xl border-0 bg-[var(--retina-primary-300)] text-lg font-extrabold text-white transition hover:bg-[var(--retina-primary-400)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-400)]/30 disabled:cursor-not-allowed disabled:opacity-60"
           type="submit"
           disabled={g_is_loading}
         >
@@ -107,7 +107,7 @@
         </button>
 
         <button
-          class="min-h-14 cursor-pointer rounded-xl border border-[var(--retina-primary-700)] bg-white text-lg font-extrabold text-[var(--retina-primary-700)] transition hover:bg-[var(--retina-primary-700)]/5 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-700)]/30 disabled:cursor-not-allowed disabled:opacity-60"
+          class="min-h-14 cursor-pointer rounded-xl border border-[var(--retina-primary-600)] bg-white text-lg font-extrabold text-[var(--retina-primary-600)] transition hover:bg-[var(--retina-primary-50)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-400)]/30 disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
           disabled={g_is_loading}
           onclick={() => navigate(PATH.login)}
