@@ -3,7 +3,7 @@
   import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import { PATH } from '@/config/path'
   import { clear_login_select_data } from '@/lib/stores/admin'
-  import { clear_auto_login_obj, load_auto_login_obj } from '@/lib/stores/auto_login'
+  import { clear_auto_login_obj } from '@/lib/stores/auto_login'
   import { clear_visit_session_data } from '@/lib/stores/customer'
   import { reset as reset_capture_session } from '@/lib/stores/capture_session.svelte.js'
 
@@ -58,11 +58,7 @@
     sessionStorage.removeItem('token')
     sessionStorage.removeItem('token_no')
     clear_login_select_data()
-    // keep_login 미체크 상태로 로그인한 경우에만 localStorage 토큰 삭제.
-    // keep_login 체크 시엔 다음 진입에서도 자동 로그인되도록 보존.
-    if (!load_auto_login_obj()?.keep_login) {
-      clear_auto_login_obj()
-    }
+    clear_auto_login_obj()
     navigate(PATH.login)
   }
 
