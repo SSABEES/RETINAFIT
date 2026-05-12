@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     AWS_REGION: str = "ap-northeast-2"
     S3_BUCKET_NAME: str
 
+    # ─── AWS CloudFront ───────────────────────────────────────
+    CLOUDFRONT_DOMAIN: str
+    CLOUDFRONT_KEY_ID: str
+    CLOUDFRONT_PRIVATE_KEY_PATH: str
+
     # ─── 관리자 ───────────────────────────────────────────────
     ADMIN_ID: str
     ADMIN_PASSWORD: str

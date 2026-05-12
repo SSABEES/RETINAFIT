@@ -98,11 +98,14 @@
   /** @type {import("@mediapipe/tasks-vision").FaceLandmarkerResult | null} */
   let g_last_detection = null
   let g_frame_counter = 0
-  let g_already_dispatched = false
+  // g_can_auto_fire ($derived) 와 자동 발사 $effect 의 deps 로 사용되므로 $state 로 선언해야
+  // reset 시 false 로 되돌리는 변경이 reactive 하게 추적된다. 그냥 let 으로 두면 plain 변수라
+  // derived 가 재계산되지 않아 reset 후에도 stale=true 가 유지되어 자동 캡처가 발사되지 않는다.
+  let g_already_dispatched = $state(false)
   /** @type {ReturnType<typeof setTimeout> | null} */
   let g_capture_timeout = null
   /** @type {'idle' | 'started' | 'final'} */
-  let g_stability_audio_stage = 'idle'
+  let g_stability_audio_stage = $state('idle')
   let g_capture_sequence_token = 0
   // step 단위 1회 안내 — 자세 OK 후 안정화 미달 상태에서 "가만히 계세요" 음성. reset() 에서 false 로.
   let g_did_announce_in_progress = false
@@ -198,10 +201,7 @@
     // 영역 진입 이후 ('자세 유지 중 N%' 또는 '✓ 측정 중…') 는 게이지로 대체되므로 hint 숨김.
     if (pose_target !== 'front') {
       const local_hint = profile_pose.hint_text ?? '카메라 앞에 자세를 잡아주세요'
-      if (
-        local_hint.startsWith('자세 유지 중') ||
-        local_hint.startsWith('✓')
-      ) {
+      if (local_hint.startsWith('자세 유지 중') || local_hint.startsWith('✓')) {
         return ''
       }
       return local_hint
@@ -484,31 +484,29 @@
       return
     }
 
-    // 정면/측면 공통 시퀀스 — "셔터음 → 캡처 → 인식 완료 음성" 을 한 세트로 보장한다.
+    // 정면/측면 공통 시퀀스 — "셔터음 시작 = 캡처 시점" 이 되도록 셔터음과 캡처를 동시에 발사한다.
+    // 이전엔 셔터음을 await 끝까지 → 그 후 캡처 였는데, 인지상 "찰칵 소리 다 끝나고 찍히는" 느낌이라 부자연스러움.
     // 직전 face_recognition_in_progress (priority high) 가 아직 재생 중이면 동등 priority 의 셔터음이
-    // play() 시점에 false 로 차단된다. 따라서 시퀀스 시작 직전에 stop_voice() 로 active 를 비워둔다.
-    // 각 음성은 끝까지 await — 어떤 음성도 스킵되지 않게 "동기 시퀀스" 화.
+    // play() 시점에 false 로 차단되므로 시퀀스 시작 직전에 stop_voice() 로 active 를 비워둔다.
+    // 셔터음은 캡처 종료 후 await 해서 face_recognition_complete (동일 high priority) 가 차단되지 않게 한다.
     stop_voice()
 
-    // 1) 셔터음 (await — 끝까지 들려야 함)
-    await play_voice('camera_shutter_sound', { priority: 'high' })
-
-    if (
-      my_token !== g_capture_sequence_token ||
-      !active ||
-      !g_is_auto_capture ||
-      g_already_dispatched
-    ) {
-      return
-    }
+    // 1) 셔터음 재생 시작 (await 안 함 — 캡처와 동시에 들리도록)
+    const local_shutter_promise = play_voice('camera_shutter_sound', { priority: 'high' })
 
     // 2) 캡처 — 측면은 MediaPipe 측정값 없음 → measurements_obj=null.
+    //    셔터음 시작과 같은 tick 에 발사돼 "셔터음 = 사진 찍힌 순간" 으로 인지됨.
     const meas = pose_target === 'front' ? get_average() : null
     await trigger_capture_internal(meas)
 
     if (my_token !== g_capture_sequence_token || !active || !g_is_auto_capture) return
 
-    // 3) 인식 완료 음성 (await — 끝까지 들려야 함)
+    // 3) 셔터음이 끝까지 재생되길 보장 — 그래야 다음 단계의 high priority 음성이 차단되지 않음.
+    await local_shutter_promise
+
+    if (my_token !== g_capture_sequence_token || !active || !g_is_auto_capture) return
+
+    // 4) 인식 완료 음성 (await — 끝까지 들려야 함)
     await play_voice('face_recognition_complete', { priority: 'high' })
   }
 
@@ -608,8 +606,11 @@
           g_stable_count = 0
         }
       } else {
-        // ───── 측면: MediaPipe 미가동. 정면 전용 상태 비움 ─────
-        g_last_detection = null
+        // ───── 측면: yaw 기반 자세 판정은 profile_pose 가 담당하지만, face mesh 시각화를 위해
+        // MediaPipe 검출은 계속 돌린다. 정면 전용 게이트(frontal/completeness/안정성)는 끄고
+        // landmarks 만 g_last_detection 에 보관해 draw_face_mesh 가 그릴 수 있도록.
+        const local_result = detect_from_video(g_landmarker, ref_this_video_el)
+        g_last_detection = local_result
         g_face_detected = false
         g_frontal_obj = null
         g_complete_obj = { is_complete: true, reason: null }
@@ -630,7 +631,7 @@
       if (ctx) {
         ctx.clearRect(0, 0, ref_this_canvas_el.width, ref_this_canvas_el.height)
       }
-      if (is_landmark_visible && pose_target === 'front') {
+      if (is_landmark_visible) {
         draw_face_mesh(ref_this_canvas_el, g_last_detection)
       }
       draw_guide_ellipse()
@@ -670,14 +671,15 @@
       // 측면 캡처 시점의 머리 자세를 동결 — 전경각 보정에 쓰인다. last_image_tilt 가 buffer 평균
       // 후 안정화된 값이므로 캡처 직전 jitter 영향이 작은 값을 그대로 보관. 정면 캡처거나 추론 결과가
       // 아직 없으면 null (보정 없이 raw 림 각도가 측정값으로 사용됨).
-      const head_pose = pose_target !== 'front' && profile_pose.last_image_tilt !== null
-        ? {
-            image_tilt_deg: profile_pose.last_image_tilt,
-            pitch_deg: profile_pose.last_pitch,
-            yaw_deg: profile_pose.last_yaw,
-            roll_deg: profile_pose.last_roll,
-          }
-        : null
+      const head_pose =
+        pose_target !== 'front' && profile_pose.last_image_tilt !== null
+          ? {
+              image_tilt_deg: profile_pose.last_image_tilt,
+              pitch_deg: profile_pose.last_pitch,
+              yaw_deg: profile_pose.last_yaw,
+              roll_deg: profile_pose.last_roll,
+            }
+          : null
       oncapture?.({
         blob,
         object_url,
@@ -739,15 +741,15 @@
 
   /**
    * 상태색이 적용된 얼굴형 가이드를 canvas 위에 그린다.
-   * 단순 타원 대신 계란형(이마는 둥글게, 턱은 좁게) 베지어 곡선으로 현실적 얼굴 실루엣을 근사한다.
-   * 해부학적 비율 근사: 얼굴 세로/가로 ≈ 1.32, 광대뼈 라인이 세로 중앙 살짝 아래, 하반부가 상반부보다 길다.
+   * pose_target 에 따라 정면(계란형) / 측면(옆얼굴 실루엣) 으로 분기.
+   * 색 의미는 동일 (회색=대기, 노랑=자세 잡는 중, 초록=안정 도달, 빨강=프레임 이탈).
    */
   function draw_guide_ellipse() {
     if (!ref_this_canvas_el || ref_this_canvas_el.width === 0) return
     const ctx = ref_this_canvas_el.getContext('2d')
     if (!ctx) return
 
-    // 가이드는 캡처와 동일한 가운데 3:4 영역을 기준으로 그린다 — 사용자가 보는 가이드 타원이
+    // 가이드는 캡처와 동일한 가운데 3:4 영역을 기준으로 그린다 — 사용자가 보는 가이드가
     // "캡처될 영역" 과 같은 공간을 지칭하도록.
     const crop = get_center_crop_box(ref_this_canvas_el.width, ref_this_canvas_el.height)
     const cx = crop.crop_x + crop.crop_w * 0.5
@@ -758,18 +760,6 @@
     // 광대뼈 너비(최대 가로) — 얼굴 세로의 약 76% 가 일반적 해부학 평균.
     const face_w = face_h * 0.76
 
-    // 4개 앵커: top(이마), right(광대), bottom(턱), left(광대 대칭)
-    const top_y = cy - face_h * 0.46 // 상반부 46% (이마 위쪽이 하반부보다 살짝 짧음)
-    const bottom_y = cy + face_h * 0.54 // 하반부 54% (턱이 아래로 더 돌출)
-    const cheek_y = cy + face_h * 0.04 // 광대 라인은 중심 살짝 아래
-    const cheek_x = face_w * 0.5
-
-    // 베지어 제어점: 상단은 수평으로 넓게 벌려 둥근 이마, 하단은 좁게 모아 뾰족한 턱.
-    const k_upper_out = cheek_x * 1.05
-    const k_upper_vert = (cheek_y - top_y) * 0.55
-    const k_lower_in = cheek_x * 0.45
-    const k_lower_vert = (bottom_y - cheek_y) * 0.55
-
     ctx.save()
     // 배경 영상에 관계없이 선이 잘 보이도록 약한 드롭섀도.
     ctx.shadowColor = 'rgba(0,0,0,0.55)'
@@ -778,9 +768,40 @@
     ctx.lineWidth = 3
     ctx.setLineDash([14, 7])
 
+    if (pose_target === 'front') {
+      draw_front_face_path(ctx, cx, cy, face_w, face_h)
+    } else {
+      // canvas 가 scaleX(-1) 로 거울 반전되어 표시되므로, 사용자가 거울에서 보는 방향과
+      // 캔버스 작도 방향은 반대다. left_profile 단계는 사용자가 거울에서 본인 코가 우측을 향하도록
+      // 고개를 돌려야 하므로, 캔버스에는 코가 좌측 (sign=-1) 으로 향하게 그린다. right_profile 은 반대.
+      const local_face_sign = pose_target === 'left_profile' ? -1 : 1
+      draw_side_face_path(ctx, cx, cy, face_w, face_h, local_face_sign)
+    }
+
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  /**
+   * 정면 얼굴 가이드 — 계란형(이마는 둥글게, 턱은 좁게) 베지어. 기존 로직 그대로.
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} cx
+   * @param {number} cy
+   * @param {number} face_w
+   * @param {number} face_h
+   */
+  function draw_front_face_path(ctx, cx, cy, face_w, face_h) {
+    const top_y = cy - face_h * 0.46
+    const bottom_y = cy + face_h * 0.54
+    const cheek_y = cy + face_h * 0.04
+    const cheek_x = face_w * 0.5
+    const k_upper_out = cheek_x * 1.05
+    const k_upper_vert = (cheek_y - top_y) * 0.55
+    const k_lower_in = cheek_x * 0.45
+    const k_lower_vert = (bottom_y - cheek_y) * 0.55
+
     ctx.beginPath()
     ctx.moveTo(cx, top_y)
-    // 이마 → 오른 광대 (둥글게 벌어짐)
     ctx.bezierCurveTo(
       cx + k_upper_out,
       top_y,
@@ -789,9 +810,7 @@
       cx + cheek_x,
       cheek_y,
     )
-    // 오른 광대 → 턱 (안쪽으로 좁아짐)
     ctx.bezierCurveTo(cx + cheek_x, cheek_y + k_lower_vert, cx + k_lower_in, bottom_y, cx, bottom_y)
-    // 턱 → 왼 광대 (대칭)
     ctx.bezierCurveTo(
       cx - k_lower_in,
       bottom_y,
@@ -800,10 +819,132 @@
       cx - cheek_x,
       cheek_y,
     )
-    // 왼 광대 → 이마 (대칭)
     ctx.bezierCurveTo(cx - cheek_x, cheek_y - k_upper_vert, cx - k_upper_out, top_y, cx, top_y)
     ctx.closePath()
-    ctx.stroke()
+  }
+
+  /**
+   * 측면 얼굴 가이드 — 사용자가 외부 SVG path editor 로 그린 좌표를 그대로 사용.
+   * SVG path 의 bbox 중심을 (cx, cy) 에 매핑하고 face_h 비례로 스케일.
+   * sign 으로 좌우 반전 (canvas scaleX(-1) 반전 보정).
+   *
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} cx
+   * @param {number} cy
+   * @param {number} face_w           (현재 미사용 — SVG path 자체 비율 유지)
+   * @param {number} face_h
+   * @param {1 | -1} sign
+   */
+
+  function draw_side_face_path(ctx, cx, cy, face_w, face_h, sign) {
+    // SVG path 좌표 — 사용자가 외부 editor 에서 그려준 d 문자열을 그대로 변환.
+    // bbox: x ∈ [228, 401], y ∈ [21, 238] — 가로 173, 세로 217. 비례 ≈ 0.8:1 (얼굴 비례와 유사).
+    const SVG_CX = 314.5
+    const SVG_CY = 129.5
+    const SVG_H = 217
+    const scale = face_h / SVG_H
+
+    // SVG path 에서 코가 svg_x 작은 쪽(좌측) 에 위치하므로, sign 부호를 반전해
+    // sign=+1 (right_profile) 일 때 캔버스 +x (우측) 가 머리, -x (좌측) 가 코가 되도록 매핑.
+    /** @param {number} svg_x */
+    const Xc = (svg_x) => cx - sign * (svg_x - SVG_CX) * scale
+    /** @param {number} svg_y */
+    const Yc = (svg_y) => cy + (svg_y - SVG_CY) * scale
+
+    // 디버그 색상 모드 — true 면 segment 별 다른 색, false 면 g_guide_color 단색 + 외부 dash 유지.
+    const SEGMENT_DEBUG_COLOR = false
+
+    ctx.save()
+
+    /**
+     * 한 segment 를 지정 색으로 stroke.
+     * @param {string} color
+     * @param {() => void} build_path
+     */
+    const stroke_seg = (color, build_path) => {
+      ctx.strokeStyle = SEGMENT_DEBUG_COLOR ? color : g_guide_color
+      ctx.beginPath()
+      build_path()
+      ctx.stroke()
+    }
+
+    // M (323, 22) — 시작점
+    // 1. C 367 23 401 55 → (401, 92)
+    stroke_seg('#ff3b30', () => {
+      ctx.moveTo(Xc(323), Yc(22))
+      ctx.bezierCurveTo(Xc(367), Yc(23), Xc(401), Yc(55), Xc(401), Yc(92))
+    })
+    // 2. C 401 116 392 136 → (384, 157)
+    stroke_seg('#ff9500', () => {
+      ctx.moveTo(Xc(401), Yc(92))
+      ctx.bezierCurveTo(Xc(401), Yc(116), Xc(392), Yc(136), Xc(384), Yc(157))
+    })
+    // 3. C 376 177 367 197 → (367, 221)
+    stroke_seg('#ffcc00', () => {
+      ctx.moveTo(Xc(384), Yc(157))
+      ctx.bezierCurveTo(Xc(376), Yc(177), Xc(367), Yc(197), Xc(367), Yc(221))
+    })
+    // 4. L → (367, 238)
+    stroke_seg('#34c759', () => {
+      ctx.moveTo(Xc(367), Yc(221))
+      ctx.lineTo(Xc(367), Yc(238))
+    })
+    // 5. L → (315, 238)
+    stroke_seg('#00c7be', () => {
+      ctx.moveTo(Xc(367), Yc(238))
+      ctx.lineTo(Xc(315), Yc(238))
+    })
+    // 6. C 306 238 299 232 → (299, 223)
+    stroke_seg('#007aff', () => {
+      ctx.moveTo(Xc(315), Yc(238))
+      ctx.bezierCurveTo(Xc(306), Yc(238), Xc(299), Yc(232), Xc(299), Yc(223))
+    })
+    // 7. L → (299, 196)
+    stroke_seg('#5856d6', () => {
+      ctx.moveTo(Xc(299), Yc(223))
+      ctx.lineTo(Xc(299), Yc(196))
+    })
+    // 8. C 289 196 279 196 → (270, 196)
+    stroke_seg('#af52de', () => {
+      ctx.moveTo(Xc(299), Yc(196))
+      ctx.bezierCurveTo(Xc(289), Yc(196), Xc(279), Yc(196), Xc(270), Yc(196))
+    })
+    // 9. C 257 196 247 189 → (250, 174)
+    stroke_seg('#ff2d55', () => {
+      ctx.moveTo(Xc(270), Yc(196))
+      ctx.bezierCurveTo(Xc(257), Yc(196), Xc(247), Yc(189), Xc(250), Yc(174))
+    })
+    // 10. C 242 169 241 161 → (240, 154)
+    stroke_seg('#a2845e', () => {
+      ctx.moveTo(Xc(250), Yc(174))
+      ctx.bezierCurveTo(Xc(242), Yc(169), Xc(241), Yc(161), Xc(240), Yc(154))
+    })
+    // 11. C 231 151 228 145 → (233, 138)
+    stroke_seg('#8e8e93', () => {
+      ctx.moveTo(Xc(240), Yc(154))
+      ctx.bezierCurveTo(Xc(231), Yc(151), Xc(228), Yc(145), Xc(233), Yc(138))
+    })
+    // 12. L → (248, 117)
+    stroke_seg('#ffd60a', () => {
+      ctx.moveTo(Xc(233), Yc(138))
+      ctx.lineTo(Xc(248), Yc(117))
+    })
+    // 13. C 250 114 250 111 → (250, 107)
+    stroke_seg('#30d158', () => {
+      ctx.moveTo(Xc(248), Yc(117))
+      ctx.bezierCurveTo(Xc(250), Yc(114), Xc(250), Yc(111), Xc(250), Yc(107))
+    })
+    // 14. L → (250, 92)
+    stroke_seg('#5ac8fa', () => {
+      ctx.moveTo(Xc(250), Yc(107))
+      ctx.lineTo(Xc(250), Yc(92))
+    })
+    // 15. C 250 51 282 21 → (323, 22) — Z (시작점 닫음)
+    stroke_seg('#3a3a3c', () => {
+      ctx.moveTo(Xc(250), Yc(92))
+      ctx.bezierCurveTo(Xc(250), Yc(51), Xc(282), Yc(21), Xc(323), Yc(22))
+    })
+
     ctx.restore()
   }
 
@@ -912,12 +1053,9 @@
   ></video>
   <!--
     가운데 3:4 wrapper — 실제 캡처되는 영역. 같은 stream 을 한번 더 깔지만 좌표계 정합 (canvas
-    overlay·가이드 타원이 이 영역 안에 그려짐) 을 위해 분리. 외곽 ring 으로 "이 안만 캡처됨" 을
-    시각적으로 명시.
+    overlay·가이드 타원이 이 영역 안에 그려짐) 을 위해 분리.
   -->
-  <div
-    class="relative aspect-[3/4] h-full overflow-hidden bg-black ring-2 ring-[var(--retina-primary-300)]/40"
-  >
+  <div class="relative aspect-[3/4] h-full overflow-hidden bg-black">
     <video
       bind:this={ref_this_video_el}
       class="absolute inset-0 h-full w-full object-cover"
@@ -1152,7 +1290,7 @@
         </div>
         <div class="h-1.5 overflow-hidden rounded-sm bg-emerald-900/50">
           <div
-            class="h-full bg-emerald-400 transition-[width] duration-100"
+            class="h-full bg-emerald-400 transition-[width] duration-300 ease-out"
             style="width: {profile_pose.progress}%;"
           ></div>
         </div>
@@ -1175,7 +1313,7 @@
         </div>
         <div class="h-1.5 overflow-hidden rounded-sm bg-emerald-900/50">
           <div
-            class="h-full bg-emerald-400 transition-[width] duration-100"
+            class="h-full bg-emerald-400 transition-[width] duration-200 ease-out"
             style="width: {g_stability_progress}%;"
           ></div>
         </div>

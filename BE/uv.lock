@@ -475,6 +475,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "pymysql" },
     { name = "python-jose", extra = ["cryptography"] },
+    { name = "rsa" },
     { name = "sqlalchemy" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -495,6 +496,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.6.0" },
     { name = "pymysql", specifier = ">=1.1.0" },
     { name = "python-jose", extras = ["cryptography"], specifier = ">=3.3.0" },
+    { name = "rsa", specifier = ">=4.9.1" },
     { name = "sqlalchemy", specifier = ">=2.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
 ]

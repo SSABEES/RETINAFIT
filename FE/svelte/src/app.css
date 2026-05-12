@@ -1,6 +1,17 @@
 @import 'tailwindcss';
 
 /*
+  Breakpoint 튜닝 — 안경원 태블릿 디바이스 (SM-T733 등) 의 CSS viewport 는 dpr 1.75 영향으로
+  layout 가로가 약 940~948 로 잡혀 Tailwind 기본 lg(1024) 가 발동 안 됨. lg 를 900 으로 낮춰
+  이 클래스 태블릿들에서도 데스크탑 레이아웃(사이드바 + 분석 페이지 우측 300px 패널 등) 이
+  활성화되게 한다. xl 도 같이 낮춰 hierarchy 유지.
+*/
+@theme {
+  --breakpoint-lg: 900px;
+  --breakpoint-xl: 1200px;
+}
+
+/*
   Pretendard Variable — public/font/Pretendard-1.3.9/web/variable/ 에 번들된 가변 폰트.
   하나의 woff2 로 weight 45~920 전부 커버 (font-weight 무엇이든 같은 파일 재사용).
   font-display: swap → 폰트 다운로드 동안 시스템 폰트로 즉시 렌더, 도착 후 교체.
@@ -42,18 +53,31 @@
   --retina-success-soft: #e8f5e9;
   --retina-measure-auto: #1f7a3a;
   --retina-measure-manual: #f56b00;
-  --retina-bg-1: #FAFAFB;
+  --retina-bg-1: #fafafb;
   --retina-bg-2: #bcc2cc;
-  --app-frame-width: 1024px;
-  --app-frame-height: 768px;
   /*
-    1024×768 (4:3) 을 디자인 베이스로 두고, viewport 에 맞춰 JS 가 균일 scale 을 덮어써
-    UI 가 화면에 맞게 자연스럽게 떨어져 보이게 한다. 기본값은 1 (스케일 없음).
-    4개 대표 해상도 (1024×768 / 1280×800 / 1366×768 / 1920×1080) 에 일관되게 동작.
+    반응형 브레이크포인트 (Tailwind v4 기본값과 동기화).
+    모바일 우선 — 기본 스타일은 mobile, sm 이상부터 점진적으로 확장.
+      sm:  >=640px   소형 태블릿/대형 모바일
+      md:  >=768px   태블릿
+      lg:  >=1024px  데스크탑 (기존 1024 베이스 동등)
+      xl:  >=1280px  와이드 데스크탑
+      2xl: >=1536px  대형 모니터
   */
-  --app-frame-scale: 1;
-  --app-frame-edge-extend: 0px;
-  --app-frame-edge-extend-y: 0px;
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1536px;
+
+  /* 헤더 높이 — 모바일에서 짧게, 태블릿/데스크탑에서 길게 */
+  --app-header-h: 52px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --app-header-h: 56px;
+  }
 }
 
 * {
@@ -89,33 +113,38 @@ html {
     'Segoe UI',
     sans-serif;
   color: var(--retina-text);
-  background: #131928;
+  background: var(--retina-bg-1);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  /* viewport 밖으로 흘러나가는 .app-frame 자연 1024×768 박스를 body 까지 못 올라오게 차단. */
-  overflow: hidden;
-  height: 100svh;
+  /* 가로 스크롤 차단 — 모바일 viewport 에서 의도치 않은 가로 overflow 방지. */
+  overflow-x: hidden;
+  min-height: 100svh;
 }
 
 body {
   min-width: 320px;
-  height: 100svh;
+  min-height: 100svh;
   margin: 0;
-  background: #131928;
-  overflow: hidden;
+  background: var(--retina-bg-1);
+  overflow-x: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
 #app {
-  height: 100svh;
-  overflow: hidden;
+  min-height: 100svh;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+.app-root {
+  min-height: 100svh;
+  width: 100%;
+  background: var(--retina-bg-1);
 }
 
 @layer base {
@@ -162,112 +191,43 @@ a {
   outline-offset: 4px;
 }
 
-.app-frame-shell {
-  display: grid;
-  height: 100svh;
-  /*
-    place-items: start center — frame 을 viewport 상단(세로 start) + 가로 중앙으로.
-    center 였다면 viewport 가 frame 보다 세로로 클 때 frame 이 중앙으로 밀려 fixed-position 헤더의
-    containing block(transform: scale 영향) 까지 같이 밀려 헤더 위에 빈 공간 노출.
-  */
-  place-items: start center;
-  overflow: hidden;
-  background: #131928;
-}
-
-.app-frame {
-  position: relative;
-  /*
-    1024×768 디자인 베이스 + transform: scale 로 viewport 에 맞게 균일 축소.
-    viewport 가 1024×768 보다 작을 때 UI 전체가 비율 유지하며 줄어들어 컨텐츠가 안 튀어나간다.
-    overflow visible — 자식 .app-edge-extend (header/stepbar) 가 좌우 빈 공간까지 확장 가능.
-  */
-  width: var(--app-frame-width);
-  height: var(--app-frame-height);
-  min-width: var(--app-frame-width);
-  min-height: var(--app-frame-height);
-  flex: none;
-  overflow: visible;
-  background: transparent;
-  transform: scale(var(--app-frame-scale));
-  /*
-    transform-origin: top center — shell 의 place-items: start center 와 짝.
-    center origin 이면 scale 후 visual 위치가 다시 중앙으로 밀려 빈 공간이 다시 위에 생긴다.
-  */
-  transform-origin: top center;
-}
-
 /*
-  header / step bar (position: fixed) 가 .app-frame 좌우 빈 공간까지 visual 로 확장.
-  App.svelte 가 갱신하는 --app-frame-edge-extend 를 negative left/right offset 으로 사용.
+  ---------------------------------------------------------------------------
+  레거시 frame 클래스 — 모두 no-op 또는 자연 flow 로 변환.
+
+  기존엔 1024×768 고정 캔버스를 transform:scale 로 viewport 에 맞게 축소했지만,
+  모바일까지 지원하기 위해 미디어 쿼리 기반 자연 flow 로 전환.
+  기존 페이지가 이 클래스들을 사용 중이라 식별자는 유지하되 효과는 없거나 단순화.
+  ---------------------------------------------------------------------------
 */
-.app-edge-extend {
-  left: calc(-1 * var(--app-frame-edge-extend, 0px));
-  right: calc(-1 * var(--app-frame-edge-extend, 0px));
-}
 
-/*
-  in-flow 요소(예: 페이지 안의 회색 섹션 배경) 를 좌우 viewport 끝까지 확장.
-  negative margin 으로 .app-frame 의 좌우 빈 공간을 메운다.
-*/
-.app-bg-edge-extend {
-  margin-left: calc(-1 * var(--app-frame-edge-extend, 0px));
-  margin-right: calc(-1 * var(--app-frame-edge-extend, 0px));
-}
-
-/*
-  오른쪽 끝까지만 확장. 2-컬럼 레이아웃의 오른쪽 컬럼이 viewport 오른쪽 빈 공간까지 배경을
-  확장할 때 사용. 좌측은 건드리지 않아 왼쪽 컬럼 위로 깔리지 않는다.
-*/
-.app-bg-edge-extend-right {
-  margin-right: calc(-1 * var(--app-frame-edge-extend, 0px));
-}
-
-/*
-  왼쪽 끝까지만 확장. 2-컬럼 레이아웃의 왼쪽 컬럼이 viewport 왼쪽 빈 공간까지 배경을
-  확장할 때 사용. 우측은 건드리지 않아 오른쪽 컬럼 위로 깔리지 않는다.
-*/
-.app-bg-edge-extend-left {
-  margin-left: calc(-1 * var(--app-frame-edge-extend, 0px));
-}
-
-/*
-  아래쪽으로 확장. viewport 가 .app-frame 보다 세로로 클 때 frame 아래 빈 공간까지 배경을 채운다.
-  (App.svelte 가 갱신하는 --app-frame-edge-extend-y 사용)
-*/
-.app-bg-edge-extend-bottom {
-  margin-bottom: calc(-1 * var(--app-frame-edge-extend-y, 0px));
-}
-
-.app-frame-content {
-  display: grid;
-  place-items: center;
-  text-align: center;
-  width: 100%;
-  height: 100%;
-  /*
-    overflow visible — main 이 .app-bg-edge-extend (negative margin) 로 좌우 viewport 까지
-    확장될 수 있게. 컨텐츠 자체의 클리핑은 main 의 overflow-hidden 이 담당.
-  */
-  overflow: visible;
-}
-
+/* 페이지 루트 — fixed 헤더가 가리지 않게 헤더 높이만큼 상단 패딩만 예약. */
 .app-frame-page {
   width: 100%;
-  min-height: 100%;
-  height: 100%;
-  /*
-    fixed-positioned header(52px) 가 컨텐츠 상단을 가리지 않게 padding-top 으로 영역 예약.
-    AnalysisStepBar 는 분석 페이지에서 normal flow 로 이 padding 영역 바로 아래 자식으로
-    렌더되어 자연스럽게 헤더 밑에 따라붙는다 (analysis_page_layout.svelte 참고).
-  */
-  padding-top: 52px;
+  min-height: 100svh;
+  padding-top: var(--app-header-h, 52px);
+}
+
+/* 분석 페이지처럼 헤더 + step bar 가 동시에 떠있는 경우 step bar 가 있는 자식 컴포넌트가
+   자체적으로 위치 잡으므로 별도 처리 불필요. */
+
+/* fixed 헤더는 이제 viewport 기준으로 직접 left:0/right:0 — 별도 offset 없음. */
+.app-edge-extend {
+  left: 0;
+  right: 0;
+}
+
+/* in-flow 배경 확장 utility 들은 scale 이 사라져 항상 0 offset → no-op. */
+.app-bg-edge-extend,
+.app-bg-edge-extend-left,
+.app-bg-edge-extend-right,
+.app-bg-edge-extend-bottom {
+  margin: 0;
 }
 
 .app-page-scroll {
-  height: 100%;
+  min-height: 100%;
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-

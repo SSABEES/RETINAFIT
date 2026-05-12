@@ -9,7 +9,8 @@ from __future__ import annotations
 # RAG 미사용. 정상 범위/도메인 라벨은 프롬프트에 직접 내장해 환각 방지.
 
 FACE_SCRIPT_OUTPUT_SCHEMA = """{
-  "summary": "string",                              // 1~2문장 종합 코멘트
+  "summary1": "string",                              // 1문장: 가장 두드러진 측정값/특징 관찰 (25~70자)
+  "summary2": "string",                              // 1문장: summary1 에서 도출되는 디자인/핏팅 추천 (25~70자)
   "items": {                                         // 입력에 없는 항목은 키 자체를 생략
     "face_width": "string?",                         // 얼굴 너비 멘트 (1~2문장)
     "face_height": "string?",                        // 얼굴 길이 멘트
@@ -45,7 +46,23 @@ def build_face_script_prompt(measurements_json: str) -> str:
         "3. 측정값이 누락된(null/없는) 항목은 items에서 키 자체를 생략.\n"
         "4. 정상 범위·임계값 인용은 위 '도메인 정상 범위' 목록에 있는 값만 사용. 새 수치/임계값을 만들지 말 것.\n"
         "5. 의학적 진단·도수 단정 금지. '예상돼요/추천드려요' 같은 부드러운 어조.\n"
-        "6. summary는 1~2문장 종합 코멘트.\n"
+        "6. summary1 / summary2 작성 원칙 (각각 정확히 1문장, 합쳐서 50~130자 권장):\n"
+        "   - 두 줄을 한 짝으로 본다 — UI 에서 summary1 위, summary2 아래로 노출.\n"
+        "   - items 각 항목 멘트와 절대 중복 금지. 모든 항목을 다 언급하지 말 것.\n"
+        "   - '가장 두드러진 특징 1가지' 만 골라 강조. 나머지 항목은 묶어 짧게 처리하거나 생략.\n"
+        "   - 권장 형식 ① '관찰 + 추천' (두드러진 항목이 있을 때):\n"
+        "       · summary1: 가장 눈에 띄는 측정값 또는 특징 하나를 짚음.\n"
+        "       · summary2: 거기서 도출되는 디자인·핏팅 추천 한 줄.\n"
+        "       · 예) summary1='얼굴 비율이 1.26으로 가로형 쪽이라 또렷한 인상이세요.'\n"
+        "              summary2='프레임 세로 폭이 살짝 깊은 디자인을 고르시면 균형이 가장 자연스러워요.'\n"
+        "   - 권장 형식 ② '조화 강조' (모든 항목이 평균 범위라 특별히 두드러진 게 없을 때):\n"
+        "       · summary1: 모든 항목이 균형 잡혔다는 점을 짚음.\n"
+        "       · summary2: 어떤 디자인도 잘 맞는다는 결론으로 마무리.\n"
+        "       · 예) summary1='얼굴 비율·PD·피부톤 모두 균형 잡힌 범위세요.'\n"
+        "              summary2='어떤 스타일의 프레임을 고르셔도 자연스럽게 어울리세요.'\n"
+        "   - 수치는 가급적 summary1 에 1개만 직접 인용 (예: '63.4 mm'). 모든 측정값을 다 나열하지 말 것.\n"
+        "   - items 의 face_shape / skin_tone / 추천 색상·프레임 라벨을 summary1·summary2 에 다시 적지 말 것.\n"
+        "   - summary1·summary2 둘 다 비어있게 두지 말 것 — 데이터가 일부만 있어도 가능한 범위에서 채울 것.\n"
         "7. items 각 멘트는 1~2문장.\n"
         "8. items.face_shape: 얼굴형 라벨을 한국어로 풀어 설명하고, asymmetry_score가 있으면 함께 언급. recommended_frames 목록이 있으면 'OO/OO 형태가 잘 어울려요' 식으로 자연스럽게 녹임.\n"
         "9. items.pd: pd_mm을 메인으로 멘트하고, right_pd_mm/left_pd_mm이 있으면 좌우 균형(차이가 1 mm 이내면 양호)을 같이 짚음.\n"

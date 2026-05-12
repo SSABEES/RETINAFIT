@@ -28,7 +28,9 @@
     </Link>
   {/snippet}
 
-  <section class="app-bg-edge-extend flex min-h-full items-center bg-[#F7F8FA] px-8 py-8">
+  <section
+    class="flex flex-1 items-start bg-[#F7F8FA] px-4 py-6 sm:px-6 md:items-center md:px-8 md:py-8"
+  >
     <div class="mx-auto w-full max-w-[944px]">
       <section class="grid gap-8">
         <div

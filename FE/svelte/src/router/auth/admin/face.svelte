@@ -322,7 +322,7 @@
       <div class="pointer-events-none fixed bottom-8 left-1/2 z-50 -translate-x-1/2">
         <div
           class={`rounded-2xl px-5 py-3 text-sm font-extrabold text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] ${
-            g_toast_variant === 'error' ? 'bg-[#B42318]' : 'bg-[#4B0055]'
+            g_toast_variant === 'error' ? 'bg-[#B42318]' : 'bg-[var(--retina-primary-400)]'
           }`}
         >
           {g_toast_message}
@@ -330,18 +330,20 @@
       </div>
     {/if}
 
-    <h2 class="m-0 justify-self-start text-left text-2xl font-extrabold text-zinc-950">
+    <h2
+      class="m-0 justify-self-start text-left text-2xl font-extrabold text-[var(--retina-text-800)]"
+    >
       얼굴형 기준 설정
     </h2>
 
     <form
-      class="grid gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm shadow-slate-200/50 md:grid-cols-[1fr_220px_auto]"
+      class="grid gap-4 rounded-2xl border border-[var(--retina-text-200)] bg-white px-6 py-5 shadow-sm shadow-slate-200/50 md:grid-cols-[1fr_220px_auto]"
       onsubmit={on_submit_create_face_shape}
     >
-      <label class="grid gap-2 text-sm font-extrabold text-slate-500">
+      <label class="grid gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
         얼굴형 이름
         <input
-          class="min-h-12 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
+          class="min-h-12 rounded-xl border border-[var(--retina-text-200)] px-4 text-base font-bold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-400)] focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
           type="text"
           value={ref_new_shape_key}
           placeholder="예: 계란형, 둥근형"
@@ -349,10 +351,10 @@
         />
       </label>
 
-      <label class="grid gap-2 text-sm font-extrabold text-slate-500">
+      <label class="grid gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
         영문 라벨 (선택)
         <input
-          class="min-h-12 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
+          class="min-h-12 rounded-xl border border-[var(--retina-text-200)] px-4 text-base font-bold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-400)] focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
           type="text"
           value={ref_new_shape_en}
           placeholder="예: Oval"
@@ -361,7 +363,7 @@
       </label>
 
       <button
-        class="mt-[1.7rem] inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-0 bg-[#4B0055] px-5 text-sm font-extrabold text-white transition hover:bg-[#65006F]"
+        class="mt-[1.7rem] inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-0 bg-[var(--retina-primary-300)] px-5 text-sm font-extrabold text-white transition hover:bg-[var(--retina-primary-400)]"
         type="submit"
       >
         <Plus size={16} strokeWidth={2.5} aria-hidden="true" />
@@ -371,13 +373,13 @@
 
     {#if g_is_loading}
       <div
-        class="rounded-2xl border border-slate-200 bg-white px-8 py-10 text-center text-base font-bold text-slate-500 shadow-sm shadow-slate-200/50"
+        class="rounded-2xl border border-[var(--retina-text-200)] bg-white px-8 py-10 text-center text-base font-bold text-[var(--retina-text-500)] shadow-sm shadow-slate-200/50"
       >
         판단 기준을 불러오는 중입니다.
       </div>
     {:else if g_face_shape_arr.length === 0}
       <div
-        class="rounded-2xl border border-dashed border-slate-200 bg-white px-8 py-12 text-center text-sm font-bold text-slate-500 shadow-sm shadow-slate-200/50"
+        class="rounded-2xl border border-dashed border-[var(--retina-text-200)] bg-white px-8 py-12 text-center text-sm font-bold text-[var(--retina-text-500)] shadow-sm shadow-slate-200/50"
       >
         등록된 얼굴형이 없습니다. 위에서 [얼굴형 추가]로 항목을 등록해 주세요.
       </div>
@@ -385,14 +387,16 @@
       <div class="grid gap-6">
         {#each g_face_shape_arr as shape_obj (shape_obj.key)}
           <section
-            class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
+            class="rounded-2xl border border-[var(--retina-text-200)] bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
           >
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div class="flex items-center gap-3">
-                <h3 class="m-0 text-2xl font-extrabold text-zinc-950">{shape_obj.key}</h3>
+                <h3 class="m-0 text-2xl font-extrabold text-[var(--retina-text-800)]">
+                  {shape_obj.key}
+                </h3>
                 {#if shape_obj.en}
                   <span
-                    class="rounded-full bg-[#F5EAF7] px-3 py-1 text-xs font-extrabold text-[#4B0055]"
+                    class="rounded-full bg-[var(--retina-primary-50)] px-3 py-1 text-xs font-extrabold text-[var(--retina-primary-600)]"
                   >
                     {shape_obj.en}
                   </span>
@@ -401,7 +405,7 @@
 
               <div class="flex flex-wrap items-center gap-2">
                 <button
-                  class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border-0 bg-[#4B0055] px-4 text-sm font-extrabold text-white transition hover:bg-[#65006F] disabled:cursor-not-allowed disabled:opacity-60"
+                  class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border-0 bg-[var(--retina-primary-300)] px-4 text-sm font-extrabold text-white transition hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-60"
                   type="button"
                   disabled={g_saving_shape_key === shape_obj.key}
                   onclick={() => on_click_save_face_shape(shape_obj)}
@@ -424,38 +428,46 @@
               {#each MEASUREMENT_ARR as measurement_obj (measurement_obj.key)}
                 {@const cell_key = get_criteria_key(shape_obj.key, measurement_obj.key)}
                 {#if g_criteria_matrix_obj[cell_key]}
-                  <div class="rounded-2xl border border-[#E9E8F0] bg-[#FAFBFC] px-5 py-5">
-                    <p class="m-0 text-base font-extrabold text-slate-700">{measurement_obj.key}</p>
+                  <div
+                    class="rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-5 py-5"
+                  >
+                    <p class="m-0 text-base font-extrabold text-[var(--retina-text-700)]">
+                      {measurement_obj.key}
+                    </p>
 
                     <div class="mt-4 grid gap-4">
-                      <label class="grid gap-1 text-sm font-extrabold text-slate-500">
+                      <label
+                        class="grid gap-1 text-sm font-extrabold text-[var(--retina-text-500)]"
+                      >
                         최소
                         <span class="relative">
                           <input
-                            class="min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 pr-12 text-base font-extrabold text-zinc-950 outline-none transition focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
+                            class="min-h-12 w-full rounded-xl border border-[var(--retina-text-200)] bg-white px-4 pr-12 text-base font-extrabold text-[var(--retina-text-800)] outline-none transition focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
                             type="number"
                             step="0.01"
                             bind:value={g_criteria_matrix_obj[cell_key].lower_bound}
                           />
                           <span
-                            class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400"
+                            class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[var(--retina-text-400)]"
                           >
                             {measurement_obj.unit}
                           </span>
                         </span>
                       </label>
 
-                      <label class="grid gap-1 text-sm font-extrabold text-slate-500">
+                      <label
+                        class="grid gap-1 text-sm font-extrabold text-[var(--retina-text-500)]"
+                      >
                         최대
                         <span class="relative">
                           <input
-                            class="min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 pr-12 text-base font-extrabold text-zinc-950 outline-none transition focus:border-[#4B0055] focus:ring-3 focus:ring-[#4B0055]/12"
+                            class="min-h-12 w-full rounded-xl border border-[var(--retina-text-200)] bg-white px-4 pr-12 text-base font-extrabold text-[var(--retina-text-800)] outline-none transition focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
                             type="number"
                             step="0.01"
                             bind:value={g_criteria_matrix_obj[cell_key].upper_bound}
                           />
                           <span
-                            class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400"
+                            class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[var(--retina-text-400)]"
                           >
                             {measurement_obj.unit}
                           </span>
@@ -471,11 +483,11 @@
 
         {#if g_extra_criteria_arr.length > 0}
           <section
-            class="rounded-2xl border border-slate-200 bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
+            class="rounded-2xl border border-[var(--retina-text-200)] bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
           >
             <div>
-              <h3 class="m-0 text-xl font-extrabold text-zinc-950">기타 기준</h3>
-              <p class="mt-2 mb-0 text-sm font-semibold text-slate-500">
+              <h3 class="m-0 text-xl font-extrabold text-[var(--retina-text-800)]">기타 기준</h3>
+              <p class="mt-2 mb-0 text-sm font-semibold text-[var(--retina-text-500)]">
                 위 매트릭스 형식에 속하지 않는 기존 데이터입니다. 필요 없는 항목은 삭제할 수
                 있습니다.
               </p>
@@ -484,13 +496,13 @@
             <div class="mt-6 grid gap-3">
               {#each g_extra_criteria_arr as criteria_obj (criteria_obj.criteria_no)}
                 <div
-                  class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E9E8F0] bg-[#FAFBFC] px-5 py-4"
+                  class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-5 py-4"
                 >
                   <div class="grid gap-1">
-                    <span class="text-sm font-extrabold text-zinc-950"
+                    <span class="text-sm font-extrabold text-[var(--retina-text-800)]"
                       >{criteria_obj.criteria_label}</span
                     >
-                    <span class="text-xs font-bold text-slate-500">
+                    <span class="text-xs font-bold text-[var(--retina-text-500)]">
                       {criteria_obj.range_type} · {criteria_obj.lower_bound} ~ {criteria_obj.upper_bound}
                     </span>
                   </div>

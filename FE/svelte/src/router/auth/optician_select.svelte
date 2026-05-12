@@ -46,14 +46,14 @@
 </script>
 
 <main
-  class="app-frame-page grid min-h-full grid-rows-[1fr_auto] overflow-hidden bg-[var(--retina-bg-1)] px-6 pt-6 pb-4 text-[var(--retina-text)]"
+  class="app-frame-page grid min-h-screen grid-rows-[1fr_auto] bg-[var(--retina-bg-1)] px-4 pt-[clamp(8px,2svh,24px)] pb-[clamp(6px,1.5svh,16px)] sm:px-6 text-[var(--retina-text)]"
 >
   <section
-    class="grid w-full max-w-[760px] justify-items-center justify-self-center self-center gap-4"
+    class="grid w-full max-w-[760px] justify-items-center justify-self-center self-center gap-[clamp(8px,2svh,16px)]"
     aria-label="안경사 선택"
   >
     <img
-      class="h-auto w-[180px]"
+      class="h-auto w-[clamp(120px,22svh,200px)]"
       src="/logo/LogoWide_2.png"
       alt="RetinaFit"
       width="16568"
@@ -61,10 +61,12 @@
     />
 
     <section
-      class="min-h-0 w-full rounded-[18px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-6 py-5 shadow-[0_6px_14px_rgba(19,25,40,0.06)]"
+      class="min-h-0 w-full rounded-[18px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-[clamp(16px,3svh,28px)] py-[clamp(12px,2.5svh,24px)] shadow-[0_6px_14px_rgba(19,25,40,0.06)]"
       aria-label="안경사 목록"
     >
-      <div class="mb-4 grid min-h-10 grid-cols-[1fr_auto_1fr] items-center gap-3">
+      <div
+        class="mb-[clamp(8px,2svh,16px)] grid min-h-10 grid-cols-[1fr_auto_1fr] items-center gap-3"
+      >
         <div></div>
 
         <div class="min-w-0">
@@ -106,16 +108,18 @@
         {/if}
       </div>
 
-      <div class="grid h-[280px] grid-cols-3 grid-rows-2 gap-3">
+      <div
+        class="grid h-[clamp(180px,40svh,320px)] grid-cols-3 grid-rows-2 gap-[clamp(6px,1.5svh,12px)]"
+      >
         {#each g_visible_admin_arr as optician_obj (optician_obj.id)}
           <button
-            class="group grid h-[136px] cursor-pointer grid-rows-[auto_1fr] gap-3 rounded-lg border-2 border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-4 py-3 text-left text-[var(--retina-text)] shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition duration-150 ease-out hover:-translate-y-1 hover:border-[var(--retina-primary-600)] hover:bg-[var(--retina-bg-1)] hover:shadow-[0_10px_22px_rgba(245,107,0,0.18)] active:translate-y-0 active:scale-[0.99] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--retina-primary-600)]/60"
+            class="group grid h-full cursor-pointer grid-rows-[auto_1fr] gap-[clamp(6px,1.5svh,12px)] rounded-lg border-2 border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-[clamp(10px,2svh,16px)] py-[clamp(8px,1.5svh,12px)] text-left text-[var(--retina-text)] shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition duration-150 ease-out hover:-translate-y-1 hover:border-[var(--retina-primary-600)] hover:bg-[var(--retina-bg-1)] hover:shadow-[0_10px_22px_rgba(245,107,0,0.18)] active:translate-y-0 active:scale-[0.99] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--retina-primary-600)]/60"
             type="button"
             onclick={() => on_click_select_optician(optician_obj)}
           >
             <span class="flex items-start justify-between gap-3">
               <span
-                class="grid h-10 w-10 flex-none place-items-center rounded-full bg-[var(--retina-bg-1)] text-[var(--retina-primary-600)] transition duration-150 group-hover:bg-[var(--retina-primary-600)] group-hover:text-[var(--retina-text-100)] group-hover:shadow-lg group-hover:shadow-[var(--retina-primary-600)]/25"
+                class="grid flex-none place-items-center rounded-full bg-[var(--retina-bg-1)] text-[var(--retina-primary-600)] transition duration-150 group-hover:bg-[var(--retina-primary-600)] group-hover:text-[var(--retina-text-100)] group-hover:shadow-lg group-hover:shadow-[var(--retina-primary-600)]/25 h-[clamp(32px,5.5svh,44px)] w-[clamp(32px,5.5svh,44px)]"
               >
                 <UserRound size={22} strokeWidth={2.3} aria-hidden="true" />
               </span>
@@ -123,12 +127,12 @@
 
             <span class="grid min-w-0 content-end">
               <span
-                class="block max-w-full truncate text-base font-extrabold leading-6 text-[var(--retina-text)]"
+                class="block max-w-full truncate font-extrabold leading-tight text-[var(--retina-text)] text-[clamp(13px,2.4svh,18px)]"
               >
                 {optician_obj.name}
               </span>
               <span
-                class="mt-0.5 block max-w-full truncate text-xs font-bold leading-4 text-[var(--retina-text-500)]"
+                class="mt-0.5 block max-w-full truncate font-bold leading-tight text-[var(--retina-text-500)] text-[clamp(10px,1.6svh,13px)]"
               >
                 {optician_obj.position}
               </span>
@@ -137,7 +141,7 @@
         {/each}
 
         {#each g_empty_slot_arr as local_empty_slot (local_empty_slot)}
-          <div class="h-[136px] rounded-lg border-2 border-transparent" aria-hidden="true"></div>
+          <div class="h-full rounded-lg border-2 border-transparent" aria-hidden="true"></div>
         {/each}
       </div>
     </section>

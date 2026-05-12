@@ -39,7 +39,7 @@
 
 <form class="grid gap-4" onsubmit={on_submit_glass_form}>
   <div class="flex items-start justify-between gap-6">
-    <h2 class="m-0 text-2xl font-extrabold text-zinc-950">
+    <h2 class="m-0 text-2xl font-extrabold text-[var(--retina-text-800)]">
       {ref_selected_glasses_no ? '안경 수정' : '안경 추가'}
     </h2>
 
@@ -56,7 +56,7 @@
       {/if}
 
       <button
-        class="min-h-12 cursor-pointer rounded-xl border border-slate-200 bg-white px-5 text-base font-extrabold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+        class="min-h-12 cursor-pointer rounded-xl border border-[var(--retina-text-200)] bg-white px-5 text-base font-extrabold text-[var(--retina-text-500)] transition hover:border-[var(--retina-text-300)] hover:bg-[var(--retina-bg-1)] disabled:cursor-not-allowed disabled:opacity-60"
         type="button"
         onclick={on_click_close_glass_editor}
         disabled={ref_glass_submit_loading || ref_glass_delete_loading}
@@ -65,7 +65,7 @@
       </button>
 
       <button
-        class="min-h-12 cursor-pointer rounded-xl border-0 bg-[var(--retina-primary-700)] px-7 text-base font-extrabold text-white transition hover:bg-[var(--retina-primary-500)]"
+        class="min-h-12 cursor-pointer rounded-xl border-0 bg-[var(--retina-primary-300)] px-7 text-base font-extrabold text-white transition hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-60"
         type="submit"
         disabled={ref_glass_submit_loading || ref_glass_delete_loading}
       >
@@ -81,17 +81,17 @@
   </div>
 
   <section
-    class="rounded-2xl border border-slate-200 bg-white px-8 py-5 shadow-sm shadow-slate-200/50"
+    class="rounded-2xl border border-[var(--retina-text-200)] bg-white px-8 py-5 shadow-sm shadow-slate-200/50"
   >
     <div class="flex justify-end">
       <div
-        class="grid min-h-12 grid-cols-2 gap-2 rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] p-1"
+        class="grid min-h-12 grid-cols-2 gap-2 rounded-xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] p-1"
       >
         <button
           class={`cursor-pointer rounded-[10px] px-4 text-sm font-extrabold transition ${
             ref_glass_form_obj.is_active
               ? 'bg-emerald-500 text-white shadow-sm'
-              : 'bg-transparent text-slate-500 hover:bg-white hover:text-zinc-950'
+              : 'bg-transparent text-[var(--retina-text-500)] hover:bg-white hover:text-[var(--retina-text-800)]'
           }`}
           type="button"
           onclick={() => on_click_select_glass_dropdown('is_active', true)}
@@ -103,7 +103,7 @@
           class={`cursor-pointer rounded-[10px] px-4 text-sm font-extrabold transition ${
             !ref_glass_form_obj.is_active
               ? 'bg-rose-500 text-white shadow-sm'
-              : 'bg-transparent text-slate-500 hover:bg-white hover:text-zinc-950'
+              : 'bg-transparent text-[var(--retina-text-500)] hover:bg-white hover:text-[var(--retina-text-800)]'
           }`}
           type="button"
           onclick={() => on_click_select_glass_dropdown('is_active', false)}
@@ -115,10 +115,16 @@
 
     <div class="mt-3 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div class="grid content-start self-start gap-2">
-        <span class="text-sm font-extrabold text-slate-500">안경 대표 이미지 미리보기</span>
+        <span class="text-sm font-extrabold text-[var(--retina-text-500)]"
+          >안경 대표 이미지 미리보기</span
+        >
 
-        <div class="overflow-hidden rounded-2xl border border-dashed border-[#D8C6E0] bg-[#FAF7FC]">
-          <div class="aspect-[5/3] bg-[linear-gradient(180deg,#F8F1F8_0%,#F3F4F6_100%)]">
+        <div
+          class="overflow-hidden rounded-[14px] border border-dashed border-[var(--retina-primary-200)] bg-[var(--retina-primary-50)]"
+        >
+          <div
+            class="aspect-[5/3] bg-[linear-gradient(180deg,var(--retina-primary-50)_0%,var(--retina-bg-1)_100%)]"
+          >
             <img
               src={g_glass_preview_url}
               alt="안경 대표 이미지 미리보기"
@@ -126,11 +132,11 @@
             />
           </div>
 
-          <div class="grid gap-3 border-t border-[#E8DAEE] px-4 py-4">
-            <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+          <div class="grid gap-3 border-t border-[var(--retina-text-200)] px-4 py-4">
+            <label class="grid min-w-0 gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
               대표 이미지 파일
               <div
-                class="relative flex min-h-12 min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition focus-within:border-[#4B0055] focus-within:ring-3 focus-within:ring-[#4B0055]/12"
+                class="relative flex min-h-12 min-w-0 items-center gap-3 rounded-xl border border-[var(--retina-text-200)] bg-white px-4 py-3 transition focus-within:border-[var(--retina-primary-400)] focus-within:ring-3 focus-within:ring-[var(--retina-primary-400)]/15"
               >
                 <input
                   class="absolute inset-0 cursor-pointer opacity-0"
@@ -139,12 +145,12 @@
                   onchange={on_change_glass_img_file}
                 />
                 <span
-                  class="shrink-0 rounded-lg bg-[#F3E8F5] px-3 py-2 text-sm font-extrabold text-[#4B0055]"
+                  class="shrink-0 rounded-lg bg-[var(--retina-primary-50)] px-3 py-2 text-sm font-extrabold text-[var(--retina-primary-600)]"
                 >
                   파일 선택
                 </span>
                 <span
-                  class="truncate text-base font-bold text-zinc-950"
+                  class="truncate text-base font-bold text-[var(--retina-text-800)]"
                   title={ref_glass_img_file_obj?.name ??
                     get_filename_from_url(ref_glass_form_obj.glasses_img_url)}
                 >
@@ -160,10 +166,10 @@
               </div>
             </label>
 
-            <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+            <label class="grid min-w-0 gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
               3D 모델 파일
               <div
-                class="relative flex min-h-12 min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition focus-within:border-[#4B0055] focus-within:ring-3 focus-within:ring-[#4B0055]/12"
+                class="relative flex min-h-12 min-w-0 items-center gap-3 rounded-xl border border-[var(--retina-text-200)] bg-white px-4 py-3 transition focus-within:border-[var(--retina-primary-400)] focus-within:ring-3 focus-within:ring-[var(--retina-primary-400)]/15"
               >
                 <input
                   class="absolute inset-0 cursor-pointer opacity-0"
@@ -172,12 +178,12 @@
                   onchange={on_change_glass_3d_file}
                 />
                 <span
-                  class="shrink-0 rounded-lg bg-[#F3E8F5] px-3 py-2 text-sm font-extrabold text-[#4B0055]"
+                  class="shrink-0 rounded-lg bg-[var(--retina-primary-50)] px-3 py-2 text-sm font-extrabold text-[var(--retina-primary-600)]"
                 >
                   파일 선택
                 </span>
                 <span
-                  class="truncate text-base font-bold text-zinc-950"
+                  class="truncate text-base font-bold text-[var(--retina-text-800)]"
                   title={ref_glass_3d_file_obj?.name ??
                     get_filename_from_url(ref_glass_form_obj.glasses_3d_url)}
                 >
@@ -197,10 +203,10 @@
       </div>
 
       <div class="grid min-w-0 content-start self-start gap-4 md:grid-cols-2">
-        <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+        <label class="grid min-w-0 gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
           제품명
           <input
-            class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retina-primary-700)] focus:ring-3 focus:ring-[var(--retina-primary-700)]/12"
+            class="min-h-12 min-w-0 rounded-xl border border-[var(--retina-text-200)] px-4 text-base font-bold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-400)] focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
             type="text"
             bind:value={ref_glass_form_obj.glasses_name}
             placeholder="예: 쿠보 01"
@@ -208,10 +214,10 @@
           />
         </label>
 
-        <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+        <label class="grid min-w-0 gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
           브랜드명
           <input
-            class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retina-primary-700)] focus:ring-3 focus:ring-[var(--retina-primary-700)]/12"
+            class="min-h-12 min-w-0 rounded-xl border border-[var(--retina-text-200)] px-4 text-base font-bold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-400)] focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
             type="text"
             bind:value={ref_glass_form_obj.glasses_brand}
             placeholder="예: 모스콧"
@@ -220,12 +226,12 @@
         </label>
 
         {#each g_glass_dropdown_arr.filter( (dropdown_obj) => ['category', 'frame_style', 'frame_type'].includes(dropdown_obj.key), ) as dropdown_obj (dropdown_obj.key)}
-          <div class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+          <div class="grid min-w-0 gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
             {dropdown_obj.label}
 
             <div class="relative">
               <button
-                class="flex min-h-12 w-full cursor-pointer items-center justify-between rounded-xl border border-[#EFE7F2] bg-[#F8F9FB] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)]/35 hover:bg-white"
+                class="flex min-h-12 w-full cursor-pointer items-center justify-between rounded-xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-3 text-left text-sm font-extrabold text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-400)] hover:bg-white"
                 type="button"
                 onclick={() => on_click_toggle_glass_dropdown(dropdown_obj.key)}
               >
@@ -245,15 +251,15 @@
 
               {#if ref_open_glass_dropdown_key === dropdown_obj.key}
                 <div
-                  class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retina-border)] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+                  class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-2xl border border-[var(--retina-text-200)] bg-white p-2 shadow-[0_18px_40px_rgba(19,25,40,0.12)]"
                 >
                   {#each dropdown_obj.option_arr as option_obj (`${dropdown_obj.key}-${get_glass_dropdown_option_value(option_obj)}`)}
                     <button
                       class={`flex min-h-11 w-full cursor-pointer items-center rounded-xl px-3 text-sm font-extrabold transition ${
                         ref_glass_form_obj[dropdown_obj.key] ===
                         get_glass_dropdown_option_value(option_obj)
-                          ? 'bg-[var(--retina-soft-purple)] text-[var(--retina-primary-700)]'
-                          : 'bg-white text-slate-600 hover:bg-[#F8F1F8] hover:text-[var(--retina-primary-700)]'
+                          ? 'bg-[var(--retina-primary-50)] text-[var(--retina-primary-600)]'
+                          : 'bg-white text-[var(--retina-text-500)] hover:bg-[var(--retina-primary-50)] hover:text-[var(--retina-primary-600)]'
                       }`}
                       type="button"
                       onclick={() =>
@@ -271,30 +277,30 @@
           </div>
         {/each}
 
-        <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+        <label class="grid min-w-0 gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
           컬러
           <input
-            class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retina-primary-700)] focus:ring-3 focus:ring-[var(--retina-primary-700)]/12"
+            class="min-h-12 min-w-0 rounded-xl border border-[var(--retina-text-200)] px-4 text-base font-bold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-400)] focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
             type="text"
             bind:value={ref_glass_form_obj.color}
             placeholder="예: 블랙"
           />
         </label>
 
-        <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+        <label class="grid min-w-0 gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
           모델 코드
           <input
-            class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retina-primary-700)] focus:ring-3 focus:ring-[var(--retina-primary-700)]/12"
+            class="min-h-12 min-w-0 rounded-xl border border-[var(--retina-text-200)] px-4 text-base font-bold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-400)] focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
             type="text"
             bind:value={ref_glass_form_obj.model_code}
             placeholder="예: RB5154"
           />
         </label>
 
-        <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+        <label class="grid min-w-0 gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
           가격
           <input
-            class="min-h-12 min-w-0 rounded-xl border border-slate-200 px-4 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retina-primary-700)] focus:ring-3 focus:ring-[var(--retina-primary-700)]/12"
+            class="min-h-12 min-w-0 rounded-xl border border-[var(--retina-text-200)] px-4 text-base font-bold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-400)] focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
             type="text"
             bind:value={ref_glass_form_obj.price}
             placeholder="예: 159,000원"
@@ -303,26 +309,30 @@
 
         {#if false}
           {#each g_metric_field_arr as metric_obj (metric_obj.key)}
-            <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500">
+            <label class="grid min-w-0 gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
               {metric_obj.label}
-              <div class="flex items-center rounded-xl border border-slate-200 bg-white px-4">
+              <div
+                class="flex items-center rounded-xl border border-[var(--retina-text-200)] bg-white px-4"
+              >
                 <input
-                  class="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-zinc-950 outline-none"
+                  class="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-base font-bold text-[var(--retina-text-800)] outline-none"
                   type="number"
                   min="0"
                   bind:value={ref_glass_form_obj[metric_obj.key]}
                   placeholder={metric_obj.placeholder}
                 />
-                <span class="text-sm font-bold text-slate-400">mm</span>
+                <span class="text-sm font-bold text-[var(--retina-text-400)]">mm</span>
               </div>
             </label>
           {/each}
         {/if}
 
-        <label class="grid min-w-0 gap-2 text-sm font-extrabold text-slate-500 md:col-span-2">
+        <label
+          class="grid min-w-0 gap-2 text-sm font-extrabold text-[var(--retina-text-500)] md:col-span-2"
+        >
           피팅 메모
           <textarea
-            class="min-h-[96px] rounded-xl border border-slate-200 px-4 py-3 text-base font-bold text-zinc-950 outline-none transition placeholder:text-slate-400 focus:border-[var(--retina-primary-700)] focus:ring-3 focus:ring-[var(--retina-primary-700)]/12"
+            class="min-h-[96px] rounded-xl border border-[var(--retina-text-200)] px-4 py-3 text-base font-bold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-400)] focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
             bind:value={ref_glass_form_obj.fit_note}
             placeholder="예: 얼굴 너비 대비 안정적인 비율, 장시간 착용 적합"
           ></textarea>

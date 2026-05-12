@@ -3,15 +3,16 @@
   import { get } from 'svelte/store'
   import { navigate } from '@maks11060/svelte5-router'
   import CameraView from '@/components/camera/camera_view.svelte'
-  import StepIndicator from '@/components/capture/step_indicator.svelte'
   import StepStatusBar from '@/components/capture/step_status_bar.svelte'
   import CaptureThumbnails from '@/components/capture/capture_thumbnails.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
+  import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import {
     get_session,
     set_glasses_mode,
     add_capture,
     get_current_step,
+    expand_to_full_no_glasses,
     reset as reset_session,
   } from '@/lib/stores/capture_session.svelte.js'
   import { selected_customer_obj } from '@/lib/stores/customer'
@@ -44,6 +45,9 @@
   const CAPTURE_BUTTON_RESET_DELAY_MS = 100
   // 얼굴 미검출 토스트 노출 시간.
   const TOAST_VISIBLE_MS = 2000
+  // 측면 촬영 안내 모달 본문 — 줄바꿈 포함 문자열을 attribute 로 직접 쓰면 eslint 의 svelte/no-useless-mustaches 가 걸리므로 const 로 분리.
+  const SIDE_CAPTURE_MODAL_MESSAGE =
+    '측면 촬영시 추후 더 자세한 얼굴 데이터를 확보할 수 있어요.\n좌측 / 우측 측면 촬영을 이어서 진행할 수 있습니다.'
 
   const g_session = $derived(get_session())
   const g_current_step = $derived(get_current_step())
@@ -53,6 +57,10 @@
   let g_is_capturing = $state(false)
   let g_toast_message = $state(/** @type {string | null} */ (null))
   let g_is_landmark_visible = $state(true)
+  // 정면 캡처 완료 후 측면 추가 촬영 여부 모달 — 사용자가 선택을 하면 true 로 잠금.
+  // 잠긴 후에는 phase='review' 진입 시 모달 대신 바로 리포트로 navigate.
+  let g_side_capture_modal_open = $state(false)
+  let g_side_capture_decision_made = $state(false)
 
   // 비회원(cust_no=0)으로 진입한 경우 방문 유형 선택 화면으로, 회원이면 해당 고객 상세 페이지로 돌아간다.
   function on_click_go_back() {
@@ -174,15 +182,39 @@
     }, TOAST_VISIBLE_MS)
   }
 
-  // 마지막 캡쳐 완료 → "촬영이 완료되었습니다" 안내 후 얼굴 측정 페이지로 이동.
+  // 정면 캡처 후 review 진입 시점에 한 번만 측면 촬영 여부 모달을 띄운다.
+  // 사용자가 선택하면 g_side_capture_decision_made=true 로 잠겨 이후 review 진입에선 모달이 안 뜬다.
+  $effect(() => {
+    if (g_session.phase === 'review' && !g_side_capture_decision_made) {
+      g_side_capture_modal_open = true
+    }
+  })
+
+  // 사용자가 측면 촬영 여부를 선택한 뒤 review 단계가 유지되면 "촬영이 완료되었습니다" 안내 후 리포트로 이동.
   // capture_complete 는 1회성 키 — 페이지가 결과 페이지로 넘어가는 동안 모듈 단위 audio 가
   // 끊김 없이 재생됨 (onDestroy 가 review phase 에선 voice 를 stop 하지 않음).
   $effect(() => {
-    if (g_session.phase === 'review') {
+    if (g_session.phase === 'review' && g_side_capture_decision_made) {
       void play_voice('capture_complete', { priority: 'high' })
       navigate(PATH.analysisReport)
     }
   })
+
+  // 모달 닫기/취소 — "다음단계 넘어가기" 와 동일하게 결정을 잠그고 리포트로 진행시킨다.
+  // 두 effect 가 reactive 로 동작하므로 g_side_capture_decision_made=true 가 되는 순간
+  // navigate effect 가 자동 발사된다.
+  function on_close_side_capture_modal() {
+    g_side_capture_modal_open = false
+    g_side_capture_decision_made = true
+  }
+
+  // 모달 confirm — "측면 촬영하기": 미착용 측면 step(left/right) 을 세션에 추가하고 capturing 으로 복귀.
+  // 결정 플래그를 먼저 잠가 측면 캡처가 모두 끝나 review 가 되면 그땐 모달 없이 곧장 navigate 되도록.
+  function on_confirm_side_capture() {
+    g_side_capture_modal_open = false
+    g_side_capture_decision_made = true
+    expand_to_full_no_glasses()
+  }
 
   // 페이지 이탈 시 ObjectURL 전부 정리.
   // 단, phase === 'review' 이면 결과 페이지로 이동하는 중이므로 세션을 보존해야 한다.
@@ -204,15 +236,18 @@
     - 우측 컨트롤 패널 ≈ 27% (343/1280), 흰색 bg, 가이드 toggle / step / 상태 / 썸네일 수직 스택
     AnalysisPageLayout 이 위에서 헤더 + AnalysisStepBar 를 렌더링하고, 이 영역은 그 밑으로 채운다.
   -->
-  <div class="flex min-h-0 flex-1 overflow-clip [overflow-clip-margin:9999px]">
+  <div class="flex min-h-0 flex-1">
     {#if g_session.phase === 'capturing' && g_current_step}
       <div
-        class="grid h-full w-full grid-cols-[2.73fr_1fr] items-stretch overflow-clip [overflow-clip-margin:9999px]"
+        class="grid h-full w-full grid-cols-1 grid-rows-[55svh_auto] md:grid-cols-[1fr_220px] md:grid-rows-1 lg:grid-cols-[2.73fr_1fr] items-stretch min-h-0"
       >
-        <!-- 좌: 실시간 카메라. real_fitting/arfitting 와 동일하게 좌측 영역 전체를 채운다. -->
+        <!--
+          좌: 실시간 카메라. 모바일에선 위쪽 row(55svh), md+ 에서 좌측 컬럼.
+          real_fitting/arfitting 와 동일 패턴 — CameraView 자체가 영역 fill.
+        -->
         <section
           aria-label="실시간 얼굴 분석"
-          class="app-bg-edge-extend-left relative flex min-h-0 flex-col overflow-hidden bg-zinc-950 shadow-inner"
+          class="relative flex min-h-0 flex-col overflow-hidden bg-zinc-950 shadow-inner"
         >
           <CameraView
             bind:this={ref_this_camera}
@@ -225,13 +260,19 @@
           />
         </section>
 
-        <!-- 우: 컨트롤 패널. 위에서 아래로 가이드 toggle / step / 상태 / 썸네일 4 영역. viewport 오른쪽 끝까지 확장. -->
+        <!-- 우: 컨트롤 패널. 모바일에선 하단 stack, md+ 에서 우측 컬럼. -->
         <aside
-          class="app-bg-edge-extend-right flex min-h-0 flex-col overflow-hidden border-l border-[var(--retina-text-200)] bg-white"
+          class="flex min-h-0 flex-col border-t md:border-t-0 md:border-l border-[var(--retina-text-200)] bg-white"
         >
-          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
+          <section
+            class="shrink-0 border-b border-[var(--retina-text-200)] px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]"
+          >
             <div class="flex items-center justify-between gap-2">
-              <p class="text-[12px] font-extrabold text-[var(--retina-text-800)]">가이드 표시</p>
+              <p
+                class="font-extrabold text-[var(--retina-text-800)] text-[clamp(10px,1.6svh,14px)]"
+              >
+                가이드 표시
+              </p>
               <button
                 type="button"
                 class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
@@ -268,7 +309,9 @@
             </section>
           -->
 
-          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-4 py-3">
+          <section
+            class="shrink-0 border-b border-[var(--retina-text-200)] px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]"
+          >
             <StepStatusBar
               step={g_current_step}
               is_capturing={g_is_capturing}
@@ -276,7 +319,9 @@
             />
           </section>
 
-          <section class="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-3">
+          <section
+            class="flex min-h-0 flex-1 flex-col overflow-hidden px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]"
+          >
             <CaptureThumbnails />
           </section>
         </aside>
@@ -293,4 +338,15 @@
       </div>
     {/if}
   </div>
+
+  <ConfirmModal
+    open={g_side_capture_modal_open}
+    title="측면 촬영도 진행하시겠습니까?"
+    message={SIDE_CAPTURE_MODAL_MESSAGE}
+    cancelLabel="다음단계 넘어가기"
+    confirmLabel="측면 촬영하기"
+    onclose={on_close_side_capture_modal}
+    oncancel={on_close_side_capture_modal}
+    onconfirm={on_confirm_side_capture}
+  />
 </AnalysisPageLayout>

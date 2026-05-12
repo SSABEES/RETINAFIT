@@ -13,7 +13,6 @@
    *   capture?: Capture | null,
    *   items_arr?: MeasurementItem[],
    *   active_item_id?: string | null,
-   *   view?: ViewAngle | null,
    *   keyboard_enabled?: boolean,
    *   onpoints_set?: ((item_id: string, points: [Point2D, Point2D]) => void) | undefined,
    *   oncancel?: (() => void) | undefined,
@@ -23,7 +22,6 @@
     capture = null,
     items_arr = [],
     active_item_id = null,
-    view = null,
     keyboard_enabled = true,
     onpoints_set = undefined,
     oncancel = undefined,
@@ -99,7 +97,6 @@
   const g_active_is_angle = $derived(
     items_arr.find((it) => it.item_id === active_item_id)?.kind === 'angle',
   )
-
 
   // 활성 항목만 오버레이 표시 — 측정 항목 전체를 한꺼번에 그리면 가독성/정확도 둘 다 떨어짐.
   // 사용자가 측정 리스트에서 항목을 선택하면 그 항목만 사진 위에 표시.

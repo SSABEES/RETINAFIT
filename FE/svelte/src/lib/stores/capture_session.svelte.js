@@ -64,7 +64,8 @@
  */
 
 import { untrack } from 'svelte'
-import { get_steps_for_mode } from '@/lib/capture/step_config.js'
+import { SvelteSet } from 'svelte/reactivity'
+import { ALL_STEPS, get_steps_for_mode } from '@/lib/capture/step_config.js'
 import { classify_face_shape } from '@/lib/mediapipe/classify.js'
 import { compute_asymmetry_score } from '@/lib/mediapipe/asymmetry.js'
 import { compute_skin_tone } from '@/lib/mediapipe/skin_tone.js'
@@ -244,11 +245,11 @@ function log_marker_detection(capture) {
   const step = capture.step_id
   if (capture.marker) {
     const m = capture.marker
-    console.log(
+    console.warn(
       `[ArUco] 마커 검출 성공 — 단계=${step}, ID=${m.id}, 카메라거리=${m.translation[2].toFixed(0)}mm, 픽셀크기=${m.sizePx.toFixed(0)}px`,
     )
   } else {
-    console.log(`[ArUco] 마커 미검출 — 단계=${step} (사진에 마커가 없거나 인식 불가)`)
+    console.warn(`[ArUco] 마커 미검출 — 단계=${step} (사진에 마커가 없거나 인식 불가)`)
   }
 }
 
@@ -258,11 +259,13 @@ function log_marker_detection(capture) {
  */
 function log_scale_decision(scale) {
   if (!scale) {
-    console.warn('[ArUco] mm 환산 비율 산출 실패 — 마커도 PD 측정값도 없음. 모든 측정이 px 로만 표시됩니다.')
+    console.warn(
+      '[ArUco] mm 환산 비율 산출 실패 — 마커도 PD 측정값도 없음. 모든 측정이 px 로만 표시됩니다.',
+    )
     return
   }
   if (scale.source === 'aruco_marker') {
-    console.log(
+    console.warn(
       `[ArUco] mm 환산: ArUco 마커 사용 — 단계=${scale.aruco_step_id}, 마커 픽셀크기=${scale.aruco_size_px?.toFixed(0)}px, 1px=${scale.mm_per_px.toFixed(4)}mm`,
     )
   } else {
@@ -334,6 +337,34 @@ function compute_scale() {
  */
 export function get_current_step() {
   return g_session.steps_arr[g_session.current_step_index] ?? null
+}
+
+/**
+ * 정면 캡처를 마치고 review 단계에 진입한 직후, 사용자가 "측면 촬영하기" 를 선택하면 호출.
+ * 현재 steps_arr 에 빠진 미착용 측면 step(left_no_glasses / right_no_glasses) 을 뒤에 이어붙이고
+ * 다음 인덱스로 진행시켜 phase 를 'capturing' 으로 되돌린다.
+ * 측면 캡처가 끝나면 add_capture 가 다시 face_shape_result/scale/measurements 를 산출하므로
+ * review 진입 시점에 임시로 계산된 값들은 비워서 재계산을 보장한다.
+ */
+export function expand_to_full_no_glasses() {
+  const local_existing_id_set = new SvelteSet(
+    g_session.steps_arr.map((local_step) => local_step.step_id),
+  )
+  const local_extra_step_arr = ALL_STEPS.filter(
+    (local_step) => !local_step.wears_glasses && !local_existing_id_set.has(local_step.step_id),
+  )
+
+  if (local_extra_step_arr.length === 0) {
+    return
+  }
+
+  g_session.steps_arr = [...g_session.steps_arr, ...local_extra_step_arr]
+  // current_step_index 가 마지막 정면 step 을 가리키므로 +1 해서 새로 추가된 첫 측면 step 으로 진입.
+  g_session.current_step_index += 1
+  g_session.face_shape_result = null
+  g_session.measurements_obj = {}
+  g_session.scale = null
+  g_session.phase = 'capturing'
 }
 
 /**
@@ -517,14 +548,14 @@ export function set_item_points(item_id, points, source_view) {
     // 나옴. vertical_signed_angle_deg 는 이미 좌측면 부호를 반전해 광학 표준 컨벤션(좌·우 일치)으로
     // 맞추므로, 보정 입력값도 같은 컨벤션이 되도록 좌측면일 때 image_tilt 부호 반전.
     const raw_image_tilt = head_pose?.image_tilt_deg ?? null
-    const image_tilt = raw_image_tilt !== null && source_view.startsWith('left_')
-      ? -raw_image_tilt
-      : raw_image_tilt
+    const image_tilt =
+      raw_image_tilt !== null && source_view.startsWith('left_') ? -raw_image_tilt : raw_image_tilt
     item.points = points
     item.value_px = null
     item.value_mm = null
     item.value_deg_raw = raw
-    item.value_deg_corrected = image_tilt !== null ? apply_image_tilt_correction(raw, image_tilt) : raw
+    item.value_deg_corrected =
+      image_tilt !== null ? apply_image_tilt_correction(raw, image_tilt) : raw
     item.head_image_tilt_deg_used = image_tilt
     item.source = 'manual'
     mirror_now()

@@ -1,8 +1,4 @@
-"""AI 서버 /report/face-script 호출 + 결과 저장.
-
-PATCH /visits/{visit_no} 에서 test_json 이 새로 들어오면 BackgroundTasks 로 호출된다.
-실패해도 예외를 던지지 않고 logger.warning 만 — visit 응답 자체는 성공으로 응답하기 위함.
-"""
+"""AI 서버 /report/face-script 호출."""
 from __future__ import annotations
 
 import logging
@@ -11,38 +7,32 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
-from app.core.database import AsyncSessionLocal
-from app.modules.visit import repository
+from app.core.http_client import http_client
 
 logger = logging.getLogger(__name__)
 
-AI_REQUEST_TIMEOUT_SEC = 30.0
+AI_REQUEST_TIMEOUT_SEC = 60.0
 
 
-async def generate_and_save_face_script(visit_no: int, test_json: dict[str, Any]) -> None:
+async def call_face_script(test_json: dict[str, Any]) -> dict | None:  # ← visit_no 제거, 반환타입 수정
+    """AI face-script 호출만 담당 - 저장은 하지 않음"""
     url = f"{settings.AI_SERVER_URL.rstrip('/')}/api/v1/report/face-script"
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=test_json, timeout=AI_REQUEST_TIMEOUT_SEC)
-            response.raise_for_status()
-            data = response.json()
+        response = await http_client.post(url, json=test_json, timeout=AI_REQUEST_TIMEOUT_SEC)
+        response.raise_for_status()
+        data = response.json()
     except httpx.TimeoutException:
-        logger.warning("AI face-script timeout: visit_no=%s url=%s", visit_no, url)
-        return
+        logger.warning("AI face-script timeout url=%s", url)
+        return None
     except httpx.HTTPError as e:
-        logger.warning("AI face-script HTTP error: visit_no=%s err=%s", visit_no, e)
-        return
+        logger.warning("AI face-script HTTP error err=%s", e)
+        return None
     except Exception as e:
-        logger.warning("AI face-script unexpected error: visit_no=%s err=%s", visit_no, e)
-        return
+        logger.warning("AI face-script unexpected error err=%s", e)
+        return None
 
     if not isinstance(data, dict):
-        logger.warning("AI face-script invalid response (not dict): visit_no=%s", visit_no)
-        return
+        logger.warning("AI face-script invalid response (not dict)")
+        return None
 
-    async with AsyncSessionLocal() as session:
-        try:
-            await repository.update_report_json(session, visit_no, data)
-        except Exception as e:
-            await session.rollback()
-            logger.warning("AI face-script save failed: visit_no=%s err=%s", visit_no, e)
+    return data
