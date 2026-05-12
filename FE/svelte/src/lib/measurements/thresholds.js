@@ -37,8 +37,8 @@ export const ASYMMETRY_CANVAS_H = 250
 //   (COOL_MAX, WARM_MIN)                 → NEUTRAL
 //   [WARM_MIN, WARM_MAX]                 → WARM
 export const SKIN_HUE_COOL_MAX = 15
-export const SKIN_HUE_WARM_MIN = 45
-export const SKIN_HUE_WARM_MAX = 60
+export const SKIN_HUE_WARM_MIN = 30
+export const SKIN_HUE_WARM_MAX = 65
 
 // 피부 톤 패치 크기/위치 상수.
 export const SKIN_PATCH_SIZE = 30

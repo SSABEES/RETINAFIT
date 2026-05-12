@@ -122,6 +122,9 @@
     shift_active_tab(local_dx < 0 ? 1 : -1)
   }
 
+  // real_fitting.svelte 가 prefetch 한 visit_obj 를 즉시 사용하기 위한 sessionStorage 키.
+  const PREFETCH_VISIT_KEY = 'retinal_prefetched_visit_obj'
+
   // 비회원(cust_no = 0) 으로 진입한 경우에만 고객정보등록 버튼을 노출한다.
   const g_is_guest_visit = $derived(Number($selected_customer_obj?.id) === 0)
 
@@ -513,40 +516,25 @@
     }
   }
 
-  // BE 의 face-script BG 작업이 끝날 때까지 짧게 폴링 — 첫 진입 직후에도 AI 인사이트가 채워지게.
-  // 응답이 즉시 오는 PATCH 와 별개로 report_json 은 수 초 뒤 DB 에 박히므로 mount 시 1회 fetch 만으로는 비어 있을 수 있다.
-  const REPORT_POLL_MAX_ATTEMPTS = 6
-  const REPORT_POLL_INTERVAL_MS = 3000
-  let g_report_poll_count = $state(0)
-  let g_report_poll_timer_id = /** @type {ReturnType<typeof setTimeout> | null} */ (null)
-
-  function clear_report_poll_timer() {
-    if (g_report_poll_timer_id !== null) {
-      clearTimeout(g_report_poll_timer_id)
-      g_report_poll_timer_id = null
-    }
-  }
-
-  // report_json 이 아직 비어 있으면 일정 간격으로 visit 를 다시 가져와 AI 결과가 들어왔는지 확인.
-  function schedule_report_poll() {
-    if (g_report_poll_timer_id !== null) return
-    if (g_report_poll_count >= REPORT_POLL_MAX_ATTEMPTS) return
-
-    g_report_poll_timer_id = setTimeout(async () => {
-      g_report_poll_timer_id = null
-      g_report_poll_count += 1
-      const local_visit_no = Number($selected_visit_obj?.visit_no)
-      if (!Number.isFinite(local_visit_no) || local_visit_no <= 0) return
+  // real_fitting.svelte 가 미리 GET 해둔 visit_obj 가 sessionStorage 에 있으면 즉시 화면에 채운다.
+  // 캐시는 1회용 — 사용 직후 제거해서 다음 진입 시 항상 fresh fetch 가 일어나게 한다.
+  function try_consume_prefetched_visit(local_visit_no) {
+    try {
+      const local_cached_text = sessionStorage.getItem(PREFETCH_VISIT_KEY)
+      if (!local_cached_text) return null
+      const local_cached_obj = JSON.parse(local_cached_text)
+      sessionStorage.removeItem(PREFETCH_VISIT_KEY)
+      if (Number(local_cached_obj?.visit_no) !== local_visit_no) return null
+      if (!local_cached_obj?.visit_obj) return null
+      return local_cached_obj.visit_obj
+    } catch {
       try {
-        const local_fresh_obj = await get_visit({ visit_no: local_visit_no })
-        g_visit_obj = local_fresh_obj
-        if (!local_fresh_obj?.report_json) {
-          schedule_report_poll()
-        }
+        sessionStorage.removeItem(PREFETCH_VISIT_KEY)
       } catch {
-        // 백그라운드 재요청은 조용히 무시 — 첫 mount fetch 가 이미 화면을 채워둔 상태라 사용자 액션 불필요.
+        // ignore
       }
-    }, REPORT_POLL_INTERVAL_MS)
+      return null
+    }
   }
 
   // 현재 visit 의 분석/리포트/피팅 데이터를 한 번에 GET 해서 화면을 채운다.
@@ -556,12 +544,17 @@
       g_visit_loading = false
       return
     }
+
+    // real_fitting → result 전환 시 prefetch 된 데이터가 있으면 그걸로 즉시 채워 BE GET 생략.
+    const local_prefetched_obj = try_consume_prefetched_visit(local_visit_no)
+    if (local_prefetched_obj) {
+      g_visit_obj = local_prefetched_obj
+      g_visit_loading = false
+      return
+    }
+
     try {
       g_visit_obj = await get_visit({ visit_no: local_visit_no })
-      // 첫 fetch 에 report_json 이 비어 있으면 BG AI 가 끝나길 기다리며 폴링 시작.
-      if (!g_visit_obj?.report_json) {
-        schedule_report_poll()
-      }
     } catch (local_err) {
       push_error_toast(
         local_err instanceof Error ? local_err.message : '방문 정보를 불러오지 못했습니다.',
@@ -573,9 +566,6 @@
 
   onMount(() => {
     void load_visit_data()
-    return () => {
-      clear_report_poll_timer()
-    }
   })
 </script>
 
@@ -705,11 +695,11 @@
                   기본 4개 슬롯 (2×2). 데이터가 있을 때만 chip 노출, 없으면 grid 영역에 '-' 한 번만.
                 -->
                 {#if g_recommended_color_arr.length === 0}
-                  <div class="mt-2 grid place-items-center font-extrabold text-slate-400 text-[clamp(14px,2.4svh,20px)] grid-rows-[repeat(2,clamp(34px,6.5svh,56px))]">
+                  <div class="mt-2 grid place-items-center font-extrabold text-slate-400 text-[clamp(14px,2.4svh,20px)] grid-rows-[repeat(2,clamp(48px,9svh,84px))]">
                     -
                   </div>
                 {:else}
-                  <div class="mt-2 grid grid-cols-2 gap-[clamp(6px,1.5svh,12px)] grid-rows-[repeat(2,clamp(34px,6.5svh,56px))]">
+                  <div class="mt-2 grid grid-cols-2 gap-[clamp(6px,1.5svh,12px)] grid-rows-[repeat(2,clamp(48px,9svh,84px))]">
                     {#each Array.from({ length: 4 }) as _, color_index (color_index)}
                       {@const local_color_obj = g_recommended_color_arr[color_index]}
                       {#if local_color_obj}
@@ -735,11 +725,11 @@
                   추천 안경테 모양
                 </h3>
                 {#if g_priority_one_frame_arr.length === 0}
-                  <div class="mt-2 grid place-items-center font-extrabold text-slate-400 text-[clamp(14px,2.4svh,20px)] grid-rows-[repeat(2,clamp(34px,6.5svh,56px))]">
+                  <div class="mt-2 grid place-items-center font-extrabold text-slate-400 text-[clamp(14px,2.4svh,20px)] grid-rows-[repeat(2,clamp(48px,9svh,84px))]">
                     -
                   </div>
                 {:else}
-                  <div class="mt-2 grid grid-cols-2 gap-[clamp(6px,1.5svh,12px)] grid-rows-[repeat(2,clamp(34px,6.5svh,56px))]">
+                  <div class="mt-2 grid grid-cols-2 gap-[clamp(6px,1.5svh,12px)] grid-rows-[repeat(2,clamp(48px,9svh,84px))]">
                     {#each Array.from({ length: 4 }) as _, frame_index (frame_index)}
                       {@const local_frame_obj = g_priority_one_frame_arr[frame_index]}
                       {#if local_frame_obj}

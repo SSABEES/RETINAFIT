@@ -9,8 +9,13 @@
   import CameraView from '@/components/camera/camera_view.svelte'
   import { flip_blob_horizontally } from '@/lib/capture/capture_utils.js'
   import { request_real_wearing_presigned_urls, upload_blob_to_s3 } from '@/lib/api/analysis.js'
-  import { update_visit } from '@/lib/api/visit.js'
+  import { get_visit, update_visit } from '@/lib/api/visit.js'
+
+  // result.svelte 가 첫 mount 에 즉시 화면을 채우도록 prefetch 한 visit_obj 를 잠시 보관할 sessionStorage 키.
+  const PREFETCH_VISIT_KEY = 'retinal_prefetched_visit_obj'
   import { push_error_toast } from '@/lib/stores/toast'
+
+  const ANALYSIS_TOAST_DURATION_MS = 5000
 
   /**
    * @typedef {{ blob: Blob, object_url: string, captured_at: number }} CaptureSlot
@@ -20,11 +25,7 @@
   // 한 번 분석 세션에서 저장 가능한 최대 세트 수.
   const MAX_PHOTO_SET_COUNT = 5
   const SLOT_LABEL_ARR = ['정면', '좌측', '우측']
-  const SLOT_ICON_ARR = [
-    '/icons/face_center.png',
-    '/icons/face_left.png',
-    '/icons/face_right.png',
-  ]
+  const SLOT_ICON_ARR = ['/icons/face_center.png', '/icons/face_left.png', '/icons/face_right.png']
   // 슬롯 인덱스 → CameraView pose_target 매핑. analysis/index.svelte 의 step 정책과 동일하게
   // 정면 → 좌측 → 우측 순서.
   /** @type {('front'|'left_profile'|'right_profile')[]} */
@@ -46,7 +47,6 @@
 
   // 최종 리포트 보기 클릭 시 업로드/PATCH 진행 상태.
   let g_is_submitting = $state(false)
-  let g_submit_error = $state(/** @type {string | null} */ (null))
 
   // 다음 빈 슬롯 인덱스 (0~2). 모두 채워졌으면 3 — 한 세트 완성, 자동 모드 정지.
   const g_next_slot_idx = $derived.by(() => {
@@ -200,18 +200,33 @@
   async function on_click_continue() {
     if (g_is_submitting) return
     g_is_submitting = true
-    g_submit_error = null
 
     try {
-      // 사진이 없으면 업로드 없이 바로 result 로.
+      const local_visit_no = get_visit_no()
+
+      // 사진이 없으면 업로드 없이 바로 result 로 — 단, prefetch 만 시도해서 즉시 채워질 수 있게 한다.
       if (g_saved_set_arr.length === 0) {
+        sessionStorage.removeItem('retinal_detail_return_path')
+        if (local_visit_no) {
+          try {
+            const local_fresh_visit_obj = await get_visit({ visit_no: local_visit_no })
+            sessionStorage.setItem(
+              PREFETCH_VISIT_KEY,
+              JSON.stringify({ visit_no: local_visit_no, visit_obj: local_fresh_visit_obj }),
+            )
+          } catch (prefetch_err) {
+            console.warn('[real_fitting] visit prefetch failed', prefetch_err)
+          }
+        }
         navigate(PATH.analysisResult)
         return
       }
 
-      const local_visit_no = get_visit_no()
       if (!local_visit_no) {
-        g_submit_error = '방문 번호를 찾을 수 없습니다. 다시 진입해 주세요.'
+        push_error_toast(
+          '방문 번호를 찾을 수 없습니다. 다시 진입해 주세요.',
+          ANALYSIS_TOAST_DURATION_MS,
+        )
         return
       }
 
@@ -260,22 +275,31 @@
         },
       })
 
+      sessionStorage.removeItem('retinal_detail_return_path')
+      // PATCH 반영 후 visit 전체를 한 번 GET — result.svelte 진입 즉시 화면이 채워지도록 prefetch.
+      // 실패해도 사용자 흐름을 막지 않음 (result.svelte 가 자체 fetch fallback 함).
+      try {
+        const local_fresh_visit_obj = await get_visit({ visit_no: local_visit_no })
+        sessionStorage.setItem(
+          PREFETCH_VISIT_KEY,
+          JSON.stringify({ visit_no: local_visit_no, visit_obj: local_fresh_visit_obj }),
+        )
+      } catch (prefetch_err) {
+        console.warn('[real_fitting] visit prefetch failed', prefetch_err)
+      }
+
       navigate(PATH.analysisResult)
     } catch (err) {
-      g_submit_error = err instanceof Error ? err.message : '업로드에 실패했습니다.'
+      const local_message = err instanceof Error ? err.message : '업로드에 실패했습니다.'
       console.error('[real_fitting] submit failed', err)
-      push_error_toast(g_submit_error)
+      push_error_toast(local_message, ANALYSIS_TOAST_DURATION_MS)
     } finally {
       g_is_submitting = false
     }
   }
 </script>
 
-<AnalysisPageLayout
-  current_step={3}
-  bg_class="bg-white text-zinc-900"
-  onback={on_click_back}
->
+<AnalysisPageLayout current_step={3} bg_class="bg-white text-zinc-900" onback={on_click_back}>
   <div
     class="grid flex-1 grid-cols-1 grid-rows-[55svh_auto] min-h-0 md:grid-cols-[1fr_220px] md:grid-rows-1 lg:grid-cols-[1fr_300px] bg-[var(--retina-text-100)]"
   >
@@ -284,9 +308,7 @@
       모바일에선 위쪽 row(55svh), md+ 에서 좌측 flex column.
     -->
     <section class="relative flex min-h-0 flex-1 flex-col">
-      <div
-        class="relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner"
-      >
+      <div class="relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner">
         <!--
           3장 모두 채워지면 카메라 자체를 비활성화 (스트림/추론 모두 정지).
           사용자가 [세트 저장] 또는 슬롯 X 버튼으로 슬롯이 비워지면 g_is_set_complete=false 가 되어
@@ -309,7 +331,8 @@
             <div class="rounded-xl border border-white/10 bg-zinc-900/85 px-6 py-4 shadow-xl">
               <p class="text-[18px] font-extrabold text-white">3장 모두 촬영 완료</p>
               <p class="mt-2 text-[13px] font-semibold leading-relaxed text-white/75">
-                [세트 저장]으로 보관 후 다른 안경 추가촬영 진행하거나 <br> 촬영 기록의 슬롯 X 버튼으로 해당 각도 재촬영 할 수 있어요.
+                [세트 저장]으로 보관 후 다른 안경 추가촬영 진행하거나 <br /> 촬영 기록의 슬롯 X 버튼으로
+                해당 각도 재촬영 할 수 있어요.
               </p>
             </div>
           </div>
@@ -324,7 +347,9 @@
       <!-- 캡쳐 슬롯 -->
       <div class="px-[clamp(8px,2svh,16px)] pt-[clamp(6px,1.5svh,12px)] pb-[clamp(4px,1svh,8px)]">
         <div class="mb-[clamp(4px,1svh,8px)] flex items-center justify-between">
-          <h2 class="font-extrabold tracking-wide text-[#374151] text-[clamp(9px,1.4svh,12px)]">촬영 기록</h2>
+          <h2 class="font-extrabold tracking-wide text-[#374151] text-[clamp(9px,1.4svh,12px)]">
+            촬영 기록
+          </h2>
         </div>
         <div class="grid grid-cols-3 gap-[clamp(4px,1svh,8px)] pr-1">
           {#each g_capture_slot_arr as slot, idx (idx)}
@@ -355,10 +380,7 @@
                   />
                 {/if}
                 {#if is_current}
-                  <span
-                    class="absolute -top-1 -right-1 flex h-2.5 w-2.5"
-                    aria-hidden="true"
-                  >
+                  <span class="absolute -top-1 -right-1 flex h-2.5 w-2.5" aria-hidden="true">
                     <span
                       class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--retina-primary-300)] opacity-75"
                     ></span>
@@ -397,8 +419,14 @@
       <hr class="mx-4 my-1 border-slate-200" />
 
       <!-- 안내 영역 (arfitting 의 추천 안경 자리) -->
-      <div class="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-[clamp(8px,2svh,16px)] py-[clamp(8px,2svh,16px)]">
-        <h2 class="mb-[clamp(4px,1svh,8px)] font-extrabold text-zinc-900 text-[clamp(11px,1.8svh,14px)]">실제 착용 촬영</h2>
+      <div
+        class="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-[clamp(8px,2svh,16px)] py-[clamp(8px,2svh,16px)]"
+      >
+        <h2
+          class="mb-[clamp(4px,1svh,8px)] font-extrabold text-zinc-900 text-[clamp(11px,1.8svh,14px)]"
+        >
+          실제 착용 촬영
+        </h2>
         <div
           class="rounded-lg bg-[var(--retina-text-100)] font-medium leading-relaxed text-slate-600 px-[clamp(8px,1.8svh,14px)] py-[clamp(8px,1.8svh,14px)] text-[clamp(10px,1.7svh,13px)]"
         >
@@ -415,7 +443,9 @@
       </div>
 
       <!-- 저장된 세트 + 액션 버튼 -->
-      <div class="border-t border-slate-100 bg-white px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
+      <div
+        class="border-t border-slate-100 bg-white px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]"
+      >
         {#if g_saved_set_arr.length > 0}
           <div class="mb-2">
             <div class="mb-1 flex items-center justify-between">
@@ -452,17 +482,9 @@
           </div>
         {/if}
 
-        {#if g_submit_error}
-          <p
-            class="mb-1.5 rounded-md bg-rose-50 px-2 py-1 text-center text-[10px] font-bold text-rose-600"
-          >
-            {g_submit_error}
-          </p>
-        {:else}
-          <p class="mb-1.5 text-center text-[10px] font-semibold text-slate-500">
-            1장 이상 촬영하면 세트를 저장할 수 있어요.
-          </p>
-        {/if}
+        <p class="mb-1.5 text-center text-[10px] font-semibold text-slate-500">
+          1장 이상 촬영하면 세트를 저장할 수 있어요.
+        </p>
 
         <div class="grid grid-cols-2 gap-2">
           <button
@@ -478,7 +500,7 @@
 
           <button
             type="button"
-            disabled={(!g_can_submit && g_saved_set_arr.length === 0) || g_is_submitting}
+            disabled={g_is_submitting}
             onclick={on_click_continue}
             aria-label="최종 리포트 보기"
             class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale text-[clamp(10px,1.7svh,14px)]"
@@ -505,7 +527,7 @@
     {/if}
   </div>
 
-  <LoadingOverlay open={g_is_submitting} label="분석 결과 저장 중..." />
+  <LoadingOverlay open={g_is_submitting} label="리포트를 준비하고 있어요..." />
 </AnalysisPageLayout>
 
 <style>
