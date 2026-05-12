@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { preload_sixdrepnet_model } from '@/lib/sixdrepnet360/preload.js'
   import { warm_session_from_bytes } from '@/lib/sixdrepnet360/inference'
+  import { get_video_detector } from '@/lib/mediapipe/face_detector.js'
 
   /**
    * @type {{
@@ -15,6 +16,9 @@
   let g_received_bytes = $state(0)
   let g_total_bytes = $state(0)
   let g_error_message = $state(/** @type {string | null} */ (null))
+  // 단계 라벨 — sixdrepnet360 다운로드 → 그래프 컴파일 → BlazeFace 검출기 워밍 순으로 변동.
+  // 진행률 표시는 sixdrepnet 다운로드 구간만 의미가 있어 BlazeFace 워밍 단계에선 라벨만 갱신한다.
+  let g_stage_label = $state('AI 모델 준비 중...')
 
   /** @type {AbortController | null} */
   let g_abort_controller = null
@@ -44,6 +48,7 @@
     g_progress_ratio = 0
     g_received_bytes = 0
     g_total_bytes = 0
+    g_stage_label = 'AI 모델 준비 중...'
 
     g_abort_controller = new AbortController()
     const local_signal = g_abort_controller.signal
@@ -63,6 +68,16 @@
 
       // 컴파일 단계 — 캐시 hit/miss 무관하게 항상 발생하며 splash 가 시각적으로 머무는 주된 이유.
       await warm_session_from_bytes(variant, local_bytes)
+
+      if (local_signal.aborted) return
+
+      // BlazeFace 워밍 — 측면 캡처 단계에서 처음 로드되면 multi-second freeze 가 발생해 stable_count
+      // 가 정체되는 문제를 사전에 차단한다. FilesetResolver(WASM) + tflite 모델 fetch + VIDEO mode
+      // 검출기 인스턴스 생성까지 끝내 측면 진입 시 즉시 detect 가능. (sixdrepnet 과 달리 MediaPipe
+      // 가 자체 캐싱을 가지므로 별도 Cache Storage 워밍은 불필요.) get_video_detector 는 모듈 레벨
+      // 싱글톤 promise 라 본 호출이 캐시 시드 — 이후 어디서 다시 호출해도 즉시 반환.
+      g_stage_label = '얼굴 검출 모델 준비 중...'
+      await get_video_detector()
 
       if (local_signal.aborted) return
       onready?.()
@@ -137,7 +152,7 @@
       </div>
     {:else}
       <div class="flex w-full flex-col items-center gap-3">
-        <p class="m-0 text-sm font-bold text-[var(--retina-text-700)]">AI 모델 준비 중...</p>
+        <p class="m-0 text-sm font-bold text-[var(--retina-text-700)]">{g_stage_label}</p>
 
         <div
           class="h-2 w-full overflow-hidden rounded-full bg-[var(--retina-text-200)]"
