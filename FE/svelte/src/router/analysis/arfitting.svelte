@@ -23,6 +23,7 @@
   import { pick_recommended_glasses_arr } from '@/lib/recommendations/frame_recommendations'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
+  import TryOnFallback from '@/components/tryon/try_on_fallback.svelte'
 
   /**
    * @typedef {{
@@ -76,8 +77,8 @@
     g_has_any_capture &&
       (g_saved_fittings_arr.length < MAX_FITTINGS || g_is_selected_already_saved),
   )
-  // AR 미지원 디바이스 (예: iOS) 는 피팅을 저장할 수 없으므로 저장 0건이어도 리포트로 진행 가능하게 한다.
-  let g_can_submit = $derived(g_saved_fittings_arr.length > 0 || g_ar_unavailable)
+  // fallback 환경에서도 정상 캡처/저장이 가능해졌으므로 ar_unavailable 우회 제거.
+  let g_can_submit = $derived(g_saved_fittings_arr.length > 0)
 
   // 안경 id별 저장 횟수 맵 (목록 카드 배지 표시용)
   let g_saved_count_map = $derived(
@@ -174,7 +175,7 @@
 
       // native AR 가 캡처한 이미지를 슬롯에 채운다.
       if (local_event_name === 'captured') {
-        on_native_captured(local_data_obj)
+        on_flutter_captured(local_data_obj)
       }
     })
 
@@ -218,11 +219,11 @@
       g_selected_id = id
     }
 
-    // 안경 선택과 동시에 native AR 화면을 띄운다. 카메라 + 캡처 모두 native 가 담당.
-    // 브리지 미연결/디바이스 미지원 시에는 토스트 대신 placeholder 영역의 안내 문구로 처리한다.
+    // 안경 선택과 동시에 native AR 화면을 띄운다 (Android only). fallback 환경에선 별도 launch
+    // 없이 <TryOnFallback> 의 $effect 가 selected_glasses_obj prop 변경으로 알아서 swap 한다.
     const local_glasses_obj =
       g_glasses_arr.find((local_item_obj) => local_item_obj.id === id) ?? null
-    if (local_glasses_obj && g_flutter_bridge_ready && g_flutter_availability === 'SUPPORTED') {
+    if (local_glasses_obj && !g_ar_unavailable) {
       void launch_flutter_fitting_for_glasses(local_glasses_obj).catch((local_err) => {
         const local_err_text =
           local_err instanceof Error ? local_err.message : 'AR 피팅 실행에 실패했습니다.'
@@ -232,41 +233,57 @@
   }
 
   /**
-   * Flutter native 에서 base64 JPEG 와 slot 키로 도착한 캡처 결과를 슬롯에 반영한다.
-   * data: { slot: 'front' | 'left' | 'right', image_base64: string }
+   * Flutter native AR 의 captured 이벤트 페이로드를 처리한다.
+   * 형식: { slot, image_base64 }. base64 → Blob 디코딩 후 공통 슬롯 채움 함수로 위임.
+   * @param {{ slot?: string, image_base64?: string }} data_obj
    */
-  function on_native_captured(data_obj) {
-    const local_slot_key = String(data_obj?.slot ?? '')
+  function on_flutter_captured(data_obj) {
     const local_base64_text = String(data_obj?.image_base64 ?? '')
-    const local_slot_idx = SLOT_KEY_TO_INDEX[local_slot_key]
-
-    if (!Number.isInteger(local_slot_idx) || !local_base64_text) {
-      return
-    }
-
-    let local_byte_arr
+    if (!local_base64_text) return
+    let local_blob
     try {
       const local_binary_text = atob(local_base64_text)
-      local_byte_arr = new Uint8Array(local_binary_text.length)
+      const local_byte_arr = new Uint8Array(local_binary_text.length)
       for (let i = 0; i < local_binary_text.length; i++) {
         local_byte_arr[i] = local_binary_text.charCodeAt(i)
       }
+      local_blob = new Blob([local_byte_arr], { type: 'image/jpeg' })
     } catch {
       show_toast('캡처 이미지 디코딩에 실패했습니다.')
       return
     }
+    apply_capture_slot(String(data_obj?.slot ?? ''), local_blob)
+  }
 
-    const local_blob = new Blob([local_byte_arr], { type: 'image/jpeg' })
+  /**
+   * Three.js fallback 컴포넌트(try_on_fallback.svelte) 의 oncaptured 콜백 시그니처에 맞춘 어댑터.
+   * 형식: (slot_key, blob). 공통 슬롯 채움 함수로 바로 위임.
+   * @param {'front' | 'left' | 'right'} slot_key
+   * @param {Blob} blob
+   */
+  function on_fallback_captured(slot_key, blob) {
+    apply_capture_slot(slot_key, blob)
+  }
+
+  /**
+   * 두 경로 공통의 슬롯 갱신 로직 — Blob 을 File 로 감싸고 object_url 발급, 이전 슬롯 url revoke.
+   * Flutter / Fallback 호출 분기에서 호출되며 두 경로 모두 동일하게 동작해야 한다.
+   * @param {string} slot_key
+   * @param {Blob} blob
+   */
+  function apply_capture_slot(slot_key, blob) {
+    const local_slot_idx = SLOT_KEY_TO_INDEX[slot_key]
+    if (!Number.isInteger(local_slot_idx)) return
+
     const local_captured_at = Date.now()
     const local_file_obj = new File(
-      [local_blob],
+      [blob],
       `arfitting_${String(local_slot_idx + 1)}_${String(local_captured_at)}.jpg`,
       { type: 'image/jpeg' },
     )
-    const local_object_url = URL.createObjectURL(local_blob)
+    const local_object_url = URL.createObjectURL(blob)
 
     const local_capture_slot_arr = [...g_capture_slot_arr]
-    // 같은 슬롯이 이미 채워져있으면 기존 object_url 을 revoke 해 메모리 누수를 막는다.
     const local_prev_slot_obj = local_capture_slot_arr[local_slot_idx]
     if (local_prev_slot_obj?.object_url) {
       URL.revokeObjectURL(local_prev_slot_obj.object_url)
@@ -609,23 +626,14 @@
         class:ring-inset={g_highlight_camera}
       >
         <!-- native AR 이 화면을 takeover 하므로 이 영역은 안내 placeholder 만 표시한다. -->
-        <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-          <Glasses size={64} class="mb-4 text-white/40" />
-
-          {#if g_ar_unavailable}
-            <!-- AR 불가 기기: 가이드 버튼 숨기고 redirect 안내만 노출. -->
-            <p class="text-[20px] font-extrabold leading-relaxed text-white/90">
-              해당 기기는 AR 피팅 사용이 불가합니다<br />
-              <span class="text-[16px] font-bold text-white/70">(Android 기기로 접속해주세요)</span>
-            </p>
-            <p
-              class="mt-5 max-w-[560px] text-[17px] font-semibold leading-relaxed text-[var(--retina-primary-200)]"
-            >
-              대신 우측 하단의 <span class="font-extrabold text-white">실제 착용 분석하기</span>
-              버튼으로 매장에서 직접 착용한 안경 사진을 <br /> 촬영해 분석을 이어갈 수 있어요.
-            </p>
-          {:else}
-            <!-- AR 사용 가능(또는 확인 중): Glasses 아이콘 아래 가이드 버튼 표시. -->
+        {#if g_ar_unavailable}
+          <TryOnFallback
+            selected_glasses_obj={g_selected_glasses_obj}
+            oncaptured={on_fallback_captured}
+          />
+        {:else}
+          <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
+            <Glasses size={64} class="mb-4 text-white/40" />
             <button
               type="button"
               onclick={on_click_guide_open}
@@ -650,8 +658,8 @@
                 {/if}
               </p>
             {/if}
-          {/if}
-        </div>
+          </div>
+        {/if}
       </div>
     </section>
 
@@ -768,9 +776,8 @@
                 <button
                   type="button"
                   onclick={() => on_click_select_glasses(item.id)}
-                  disabled={g_ar_unavailable}
-                  aria-label={g_ar_unavailable ? `${item.model} (AR 피팅 사용 불가)` : item.model}
-                  class={`group relative flex items-center rounded-sm border text-left transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 gap-[clamp(6px,1.6svh,12px)] p-[clamp(4px,1svh,8px)] ${
+                  aria-label={item.model}
+                  class={`group relative flex items-center rounded-sm border text-left transition-all gap-[clamp(6px,1.6svh,12px)] p-[clamp(4px,1svh,8px)] ${
                     active
                       ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)] shadow-sm'
                       : 'border-slate-200 bg-white hover:border-[var(--retina-primary-100)]'
