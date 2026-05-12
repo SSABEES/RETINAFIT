@@ -7,6 +7,7 @@ from app.common.s3_utils import get_presigned_download_url
 from app.common.exceptions import ExternalAPIException, NotFoundException
 from app.common.error_codes import ErrorCode
 from app.modules.visit import repository
+from app.modules.visit.tasks import call_face_script
 from app.modules.visit.schemas import (
     CustomerCreateRequest,
     CustomerSearchResponse,
@@ -186,13 +187,20 @@ async def get_visit(
     db: AsyncSession,
     visit_no: int,
 ) -> VisitResponse:
-    """방문 단건 상세 조회"""
+    """방문 단건 상세 조회 - report_json 없으면 AI face-script 동기 호출"""
     visit = await repository.get_visit(db, visit_no)
     if not visit:
         raise NotFoundException(
             error_code=ErrorCode.VISIT_NOT_FOUND,
             message="방문 정보를 찾을 수 없습니다.",
         )
+    # test_json 있고 report_json 없으면 AI 동기 호출
+    if visit.test_json is not None and visit.report_json is None:
+        report_json = await call_face_script(visit.test_json)  # AI 호출만
+        if report_json:
+            await repository.update_report_json(db, visit_no, report_json)  # 같은 세션으로 저장
+            visit = await repository.get_visit(db, visit_no)
+
     return _convert_visit_urls(VisitResponse.model_validate(visit))
 
 
