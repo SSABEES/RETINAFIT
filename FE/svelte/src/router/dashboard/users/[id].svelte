@@ -287,6 +287,8 @@
       sessionStorage.setItem('retinal_visit_no', String(local_visit_no))
       sessionStorage.removeItem('retinal_lens_selections')
       sessionStorage.removeItem('retinal_saved_fittings')
+      // 상세 페이지 직진입 컨텍스트를 기록 — 각 단계 완료 후 이 경로로 복귀한다.
+      sessionStorage.setItem('retinal_detail_return_path', PATH.userDetail(id))
       navigate(step_obj.target_path)
     } catch (local_error) {
       push_error_toast(

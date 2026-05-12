@@ -203,6 +203,18 @@
     }
   }
 
+  let g_is_from_detail = $state(false)
+
+  function on_click_back() {
+    const local_return_path = sessionStorage.getItem('retinal_detail_return_path')
+    if (local_return_path) {
+      sessionStorage.removeItem('retinal_detail_return_path')
+      navigate(local_return_path)
+      return
+    }
+    window.history.back()
+  }
+
   // 선택한 추천 옵션을 방문 데이터에 저장한 뒤 AR 피팅 화면으로 이동한다.
   async function on_click_submit() {
     if (g_loading) return
@@ -246,7 +258,13 @@
         },
       })
 
-      navigate(PATH.analysisArFitting)
+      const local_return_path = sessionStorage.getItem('retinal_detail_return_path')
+      if (local_return_path) {
+        sessionStorage.removeItem('retinal_detail_return_path')
+        navigate(local_return_path)
+      } else {
+        navigate(PATH.analysisArFitting)
+      }
     } catch (local_err) {
       const local_message =
         local_err instanceof Error ? local_err.message : '조건 저장에 실패했습니다.'
@@ -256,6 +274,8 @@
   }
 
   onMount(() => {
+    g_is_from_detail = Boolean(sessionStorage.getItem('retinal_detail_return_path'))
+
     if (!ensure_session_auth_tokens()) {
       push_error_toast('로그인 토큰 정보가 없습니다. 다시 로그인해주세요.')
       g_options_loading = false
@@ -285,6 +305,7 @@
   current_step={2}
   bg_class="bg-[var(--retina-text-100)] text-zinc-950"
   fit_viewport={true}
+  onback={on_click_back}
 >
   <section
     class="flex min-h-0 flex-1 flex-col justify-center overflow-clip [overflow-clip-margin:9999px]"
@@ -412,7 +433,7 @@
               ></span>
               <span>저장 중...</span>
             {:else}
-              <span>AR 피팅하기</span>
+              <span>{g_is_from_detail ? '생활패턴 저장' : 'AR 피팅하기'}</span>
             {/if}
           </button>
         </div>

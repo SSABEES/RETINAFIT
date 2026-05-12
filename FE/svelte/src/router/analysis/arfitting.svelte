@@ -448,6 +448,16 @@
     })
   }
 
+  function on_click_back() {
+    const local_return_path = sessionStorage.getItem('retinal_detail_return_path')
+    if (local_return_path) {
+      sessionStorage.removeItem('retinal_detail_return_path')
+      navigate(local_return_path)
+      return
+    }
+    window.history.back()
+  }
+
   /**
    * 저장된 피팅이 1개 이상이면 리포트 페이지로 이동
    */
@@ -579,7 +589,7 @@
   let g_highlight_aside = $derived([1, 2, 4, 5, 6].includes(g_guide_step))
 </script>
 
-<AnalysisPageLayout current_step={3} bg_class="bg-white text-zinc-900">
+<AnalysisPageLayout current_step={3} bg_class="bg-white text-zinc-900" onback={on_click_back}>
   <div
     class="grid flex-1 grid-cols-1 grid-rows-[55svh_auto] min-h-0 md:grid-cols-[1fr_220px] md:grid-rows-1 lg:grid-cols-[1fr_300px] bg-[var(--retina-text-100)]"
   >
