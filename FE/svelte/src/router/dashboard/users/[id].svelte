@@ -31,9 +31,44 @@
       : get_customer_by_id(id),
   )
 
+  // 방문 이력 sessionStorage 캐시 — 같은 고객 재진입 시 fetch 끝나기 전에 직전 데이터로 즉시 그리기 위함.
+  // sessionStorage 라 탭/세션 닫히면 폐기. localStorage 가 아닌 이유: 다른 세션·기기·계정에서 본 옛 visit 을 노출하지 않기 위해.
+  const VISIT_CACHE_KEY_PREFIX = 'retinal_user_detail_visits_'
+
+  // 현 id 의 캐시를 읽어 visit 배열 반환. 없거나 형태가 깨졌으면 null.
+  function read_cached_visit_arr() {
+    try {
+      const local_raw = sessionStorage.getItem(VISIT_CACHE_KEY_PREFIX + id)
+      if (!local_raw) return null
+      const local_parsed = JSON.parse(local_raw)
+      return Array.isArray(local_parsed) ? local_parsed : null
+    } catch {
+      return null
+    }
+  }
+
+  // visit 배열을 캐시에 기록. QuotaExceeded 등으로 실패해도 무시 (best-effort).
+  /** @param {Array<Record<string, any>>} arr */
+  function write_cached_visit_arr(arr) {
+    try {
+      sessionStorage.setItem(VISIT_CACHE_KEY_PREFIX + id, JSON.stringify(arr))
+    } catch {
+      // sessionStorage 비활성/꽉찬 경우 — 캐시 미스는 동작에 영향 없으니 swallow.
+    }
+  }
+
+  // 초기 mount 시점에 캐시 hit 이면 스피너 없이 즉시 표시 (이후 effect 에서 백그라운드로 최신화).
+  // miss 면 빈 배열 + 스피너 ON 으로 시작 → effect 에서 foreground fetch.
+  const g_initial_cached_visit_arr = read_cached_visit_arr()
+
   /** @type {Array<Record<string, any>>} */
-  let g_visit_arr = $state([])
-  let g_visit_loading = $state(true)
+  let g_visit_arr = $state(g_initial_cached_visit_arr ?? [])
+  let g_visit_loading = $state(!g_initial_cached_visit_arr)
+
+  // 캐시 hit 이면 store 의 selected visit 도 즉시 갱신 — 다른 화면이 참조해도 직전 상태와 일치.
+  if (g_initial_cached_visit_arr?.[0]) {
+    set_selected_visit(g_initial_cached_visit_arr[0])
+  }
   let g_is_creating_visit = $state(false)
   // 얼굴분석 미이수 상태에서 생활패턴/피팅을 시작하려 할 때 띄우는 안내 모달.
   // 확인 시 얼굴분석 단계부터 강제로 진행하도록 유도.
@@ -196,8 +231,11 @@
   }
 
   // 고객 상세 진입 시 방문 이력 전체 로드 (최신순). 첫 항목이 최근 방문.
-  async function load_visit_arr() {
-    g_visit_loading = true
+  // silent=true 면 스피너/실패 시 빈배열 초기화를 건너뛴다 — 캐시로 이미 그려놓은 화면 위에 백그라운드로만 최신화.
+  /** @param {{ silent?: boolean }} [options] */
+  async function load_visit_arr(options = {}) {
+    const local_silent = options.silent === true
+    if (!local_silent) g_visit_loading = true
     try {
       const local_result_obj = await get_visit_list({ cust_no: id })
       const local_visit_arr = Array.isArray(local_result_obj?.visits)
@@ -207,10 +245,12 @@
       if (local_visit_arr[0]) {
         set_selected_visit(local_visit_arr[0])
       }
+      write_cached_visit_arr(local_visit_arr)
     } catch {
-      g_visit_arr = []
+      // silent 모드에선 이전(=캐시) 데이터를 그대로 유지. 사용자 체감 깨짐 방지.
+      if (!local_silent) g_visit_arr = []
     } finally {
-      g_visit_loading = false
+      if (!local_silent) g_visit_loading = false
     }
   }
 
@@ -340,7 +380,19 @@
   }
 
   $effect(() => {
-    void load_visit_arr()
+    // id 가 바뀌면 ($props 추적) 새 고객의 캐시를 다시 시도.
+    // 캐시 hit → 스피너 없이 즉시 갱신 후 백그라운드 silent fetch.
+    // 캐시 miss → 일반 foreground fetch (스피너 노출).
+    // 초기 mount 직후에도 한 번 돌지만 그땐 캐시 hit 이면 state 가 이미 같은 내용이라 사실상 background sync 만 실행.
+    const local_cached = read_cached_visit_arr()
+    if (local_cached) {
+      g_visit_arr = local_cached
+      if (local_cached[0]) set_selected_visit(local_cached[0])
+      g_visit_loading = false
+      void load_visit_arr({ silent: true })
+    } else {
+      void load_visit_arr()
+    }
   })
 </script>
 
