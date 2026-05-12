@@ -2,8 +2,7 @@
   import { onMount } from 'svelte'
   import { navigate } from '@maks11060/svelte5-router'
   import { fade, fly } from 'svelte/transition'
-  import { Glasses, CheckCheck, X, ChevronRight, RefreshCw, Save, FileText } from 'lucide-svelte'
-  import Header from '@/components/layout/header.svelte'
+  import { Glasses, CheckCheck, X, ChevronRight } from 'lucide-svelte'
   import { PATH } from '@/config/path'
   import {
     load_normalized_glasses,
@@ -52,7 +51,11 @@
   let ref_camera_section_el = $state(null)
 
   const SLOT_LABEL_ARR = ['1번', '2번', '3번']
-  const SLOT_ICON_ARR = ['/icons/face_center.png', '/icons/face_center.png', '/icons/face_center.png']
+  const SLOT_ICON_ARR = [
+    '/icons/face_center.png',
+    '/icons/face_center.png',
+    '/icons/face_center.png',
+  ]
   // native 가 emit 하는 slot 키 -> 슬롯 인덱스 매핑
   const SLOT_KEY_TO_INDEX = { front: 0, left: 1, right: 2 }
   const MAX_FITTINGS = 5
@@ -619,7 +622,7 @@
               class="mt-5 max-w-[560px] text-[17px] font-semibold leading-relaxed text-[var(--retina-primary-200)]"
             >
               대신 우측 하단의 <span class="font-extrabold text-white">실제 착용 분석하기</span>
-              버튼으로 매장에서 직접 착용한 안경 사진을 <br> 촬영해 분석을 이어갈 수 있어요.
+              버튼으로 매장에서 직접 착용한 안경 사진을 <br /> 촬영해 분석을 이어갈 수 있어요.
             </p>
           {:else}
             <!-- AR 사용 가능(또는 확인 중): Glasses 아이콘 아래 가이드 버튼 표시. -->
@@ -665,7 +668,9 @@
         class:ring-inset={g_guide_step === 4}
       >
         <div class="mb-[clamp(4px,1svh,8px)] flex items-center justify-between">
-          <h2 class="font-extrabold tracking-wide text-[#374151] text-[clamp(9px,1.4svh,12px)]">촬영 기록</h2>
+          <h2 class="font-extrabold tracking-wide text-[#374151] text-[clamp(9px,1.4svh,12px)]">
+            촬영 기록
+          </h2>
         </div>
         <div class="grid grid-cols-3 gap-[clamp(4px,1svh,8px)] pr-1">
           {#each g_capture_slot_arr as slot, idx (idx)}
@@ -788,12 +793,16 @@
                         <img src="/icons/fitting.png" alt="피팅중" class="h-2 w-auto" />
                       </span>
                     {/if}
-                    <p class="truncate font-extrabold text-zinc-900 text-[clamp(11px,2svh,16px)]">{item.model}</p>
-                    <span class="truncate font-semibold text-slate-400 text-[clamp(9px,1.5svh,12px)]"
+                    <p class="truncate font-extrabold text-zinc-900 text-[clamp(11px,2svh,16px)]">
+                      {item.model}
+                    </p>
+                    <span
+                      class="truncate font-semibold text-slate-400 text-[clamp(9px,1.5svh,12px)]"
                       >{item.brand}</span
                     >
                     <div class="mt-0.5 flex items-center justify-between gap-1.5">
-                      <span class="font-extrabold text-[var(--retina-primary-300)] text-[clamp(10px,1.7svh,13px)]"
+                      <span
+                        class="font-extrabold text-[var(--retina-primary-300)] text-[clamp(10px,1.7svh,13px)]"
                         >{format_price_label(item.price)}</span
                       >
                       {#if !active && saved_count > 0}
@@ -937,7 +946,7 @@
         <div class="mt-4 overflow-hidden rounded-2xl bg-zinc-900 px-4 py-4">
           <p class="mb-3 text-center text-[12px] font-semibold text-white/50">AR 화면 하단 버튼</p>
           <div class="grid grid-cols-3 gap-2.5">
-            {#each ['1번', '2번', '3번'] as label}
+            {#each ['1번', '2번', '3번'] as label (label)}
               <div
                 class="flex items-center justify-center rounded-full bg-[var(--retina-primary-300)] py-3 text-[14px] font-bold text-white"
               >

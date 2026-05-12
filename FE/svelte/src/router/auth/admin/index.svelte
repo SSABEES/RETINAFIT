@@ -23,7 +23,9 @@
         type="button"
         onclick={() => on_click_move_admin_page(admin_card_obj.href)}
       >
-        <span class="text-2xl font-extrabold text-[var(--retina-text-800)]">{admin_card_obj.title}</span>
+        <span class="text-2xl font-extrabold text-[var(--retina-text-800)]"
+          >{admin_card_obj.title}</span
+        >
       </button>
     {/each}
   </section>

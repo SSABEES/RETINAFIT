@@ -107,12 +107,18 @@
 
     <!-- 고객 정보 카드 -->
     {#if g_visit_obj}
-      <section class="rounded-[14px] border border-[var(--retina-text-200)] bg-white px-7 py-5 shadow-[0_4px_10px_rgba(19,25,40,0.04)]">
-        <h2 class="m-0 text-xl font-extrabold text-[var(--retina-text-800)]">{g_visit_obj.cust_name ?? '-'}</h2>
+      <section
+        class="rounded-[14px] border border-[var(--retina-text-200)] bg-white px-7 py-5 shadow-[0_4px_10px_rgba(19,25,40,0.04)]"
+      >
+        <h2 class="m-0 text-xl font-extrabold text-[var(--retina-text-800)]">
+          {g_visit_obj.cust_name ?? '-'}
+        </h2>
         <div class="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div>
             <p class="m-0 text-[12px] font-bold text-[var(--retina-text-400)]">성별</p>
-            <p class="mt-1 text-sm font-extrabold text-[var(--retina-text-800)]">{format_sex(g_visit_obj.sex)}</p>
+            <p class="mt-1 text-sm font-extrabold text-[var(--retina-text-800)]">
+              {format_sex(g_visit_obj.sex)}
+            </p>
           </div>
           <div>
             <p class="m-0 text-[12px] font-bold text-[var(--retina-text-400)]">생년월일</p>

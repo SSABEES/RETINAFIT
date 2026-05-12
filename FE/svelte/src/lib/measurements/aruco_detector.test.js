@@ -5,7 +5,11 @@ import { _pick_pose, _to_centered_corners, _focal_scalar } from './aruco_detecto
 const intrinsics = {
   device: 'test',
   imageSize: [640, 480],
-  cameraMatrix: [[500, 0, 320], [0, 510, 240], [0, 0, 1]],
+  cameraMatrix: [
+    [500, 0, 320],
+    [0, 510, 240],
+    [0, 0, 1],
+  ],
   distCoeffs: [0, 0, 0, 0, 0],
 }
 
@@ -16,7 +20,14 @@ describe('_focal_scalar', () => {
 
   it('warns when |fx - fy| / mean > 0.01', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    _focal_scalar({ ...intrinsics, cameraMatrix: [[500, 0, 320], [0, 540, 240], [0, 0, 1]] })
+    _focal_scalar({
+      ...intrinsics,
+      cameraMatrix: [
+        [500, 0, 320],
+        [0, 540, 240],
+        [0, 0, 1],
+      ],
+    })
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('비대칭'))
     warn.mockRestore()
   })
@@ -41,8 +52,16 @@ describe('_to_centered_corners', () => {
 })
 
 describe('_pick_pose', () => {
-  const baseRot = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-  const altRot = [[0, 1, 0], [1, 0, 0], [0, 0, -1]]
+  const baseRot = [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+  ]
+  const altRot = [
+    [0, 1, 0],
+    [1, 0, 0],
+    [0, 0, -1],
+  ]
 
   it('picks the lower-error solution as primary', () => {
     const pose = {

@@ -22,6 +22,7 @@ import AdminLensPage from '@/router/auth/admin/lens.svelte'
 import AdminGlassPage from '@/router/auth/admin/glass.svelte'
 import AdminVisitsPage from '@/router/auth/admin/visits.svelte'
 import AdminVisitDetailPage from '@/router/auth/admin/visit_detail.svelte'
+import NotFoundPage from '@/router/not_found.svelte'
 import { PATH, ROUTE_PATH } from '@/config/path'
 
 export const routes = [
@@ -53,4 +54,6 @@ export const routes = [
   { path: ROUTE_PATH.userAnalysisHistory, component: UserAnalysisHistoryPage },
   // userDetail(:id) 은 sub path 들보다 매칭이 느슨하므로 마지막에 등록.
   { path: ROUTE_PATH.userDetail, component: UserDetailPage },
+  // 404 fallback — 위 라우트가 어디에도 매칭되지 않으면 노출. 반드시 routes 배열의 맨 끝에 둔다.
+  { path: '*', component: NotFoundPage },
 ]

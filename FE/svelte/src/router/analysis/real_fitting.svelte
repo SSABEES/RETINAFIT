@@ -42,7 +42,6 @@
   let g_saved_set_arr = $state([])
   let g_set_id_seq = 0
 
-  let g_is_capturing = $state(false)
   let g_toast_message = $state(/** @type {string | null} */ (null))
 
   // 최종 리포트 보기 클릭 시 업로드/PATCH 진행 상태.
@@ -61,7 +60,6 @@
   let g_has_any_capture = $derived(g_capture_slot_arr.some((s) => s !== null))
   let g_is_set_limit_reached = $derived(g_saved_set_arr.length >= MAX_PHOTO_SET_COUNT)
   let g_can_save = $derived(g_has_any_capture && !g_is_set_limit_reached)
-  let g_can_submit = $derived(g_saved_set_arr.length > 0)
 
   onDestroy(() => {
     for (const local_slot of g_capture_slot_arr) {
@@ -90,7 +88,6 @@
    * @param {{ blob: Blob, object_url: string, captured_at: number }} result
    */
   async function on_capture(result) {
-    g_is_capturing = false
     const local_idx = g_next_slot_idx
     if (local_idx >= 3) return
 
@@ -116,7 +113,6 @@
 
   // CameraView 가 toBlob 실패 등으로 에러를 던지면 호출됨. 사용자 토스트로 노출하고 자동 재무장.
   function on_capture_error() {
-    g_is_capturing = false
     show_toast('촬영에 실패했어요')
     if (ref_this_camera) ref_this_camera.reset()
   }

@@ -156,10 +156,6 @@
     show_toast('질문을 추가했습니다. 답변을 등록해 주세요.')
   }
 
-  function on_click_select_question(question_obj) {
-    ref_active_question_text = question_obj.question_text
-  }
-
   // 좌우 스와이프 / 마우스 드래그로 활성 질문을 옆으로 넘긴다. 네브바와 상세 카드가 함께 동기화.
   const SWIPE_THRESHOLD_PX = 60
   let g_swipe_start_x = /** @type {number | null} */ (null)
@@ -171,7 +167,10 @@
       (local_question_obj) => local_question_obj.question_text === ref_active_question_text,
     )
     if (local_current_idx < 0) return
-    const local_next_idx = Math.max(0, Math.min(g_question_arr.length - 1, local_current_idx + delta))
+    const local_next_idx = Math.max(
+      0,
+      Math.min(g_question_arr.length - 1, local_current_idx + delta),
+    )
     if (local_next_idx === local_current_idx) return
     ref_active_question_text = g_question_arr[local_next_idx].question_text
   }
@@ -219,7 +218,6 @@
     if (Math.abs(local_dx) < SWIPE_THRESHOLD_PX) return
     shift_active_question(local_dx < 0 ? 1 : -1)
   }
-
 
   // 질문 순서를 한 칸 이동시키고, 전체 답변의 display_order 를 다시 부여해 서버에 반영한다.
   async function on_click_move_question(question_obj, direction) {
@@ -397,7 +395,9 @@
 
     <div class="flex items-start justify-between gap-6">
       <div>
-        <h2 class="m-0 text-2xl font-extrabold text-[var(--retina-text-800)]">렌즈 추천 질문 설정</h2>
+        <h2 class="m-0 text-2xl font-extrabold text-[var(--retina-text-800)]">
+          렌즈 추천 질문 설정
+        </h2>
         <p class="mt-2 mb-0 text-sm font-semibold text-[var(--retina-text-500)]">
           질문을 등록하고, 각 질문에 대해 선택 가능한 답변을 추가하세요.
         </p>
@@ -457,153 +457,155 @@
         onpointerdown={on_pointerdown_swipe}
         onpointerup={on_pointerup_swipe}
       >
-      <nav
-        class="flex items-center justify-center"
-        aria-label="질문 네브바"
-      >
-        {#if g_active_question_obj && local_active_idx >= 0}
-          <div
-            class="inline-flex min-h-14 items-center gap-2 rounded-[14px] border border-[var(--retina-primary-400)] bg-[var(--retina-primary-400)] pl-2 pr-4 text-base font-extrabold text-white shadow-[0_10px_24px_rgba(234,106,15,0.28)]"
-          >
-            <button
-              class="grid h-10 w-10 cursor-pointer place-items-center rounded-[10px] text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-30"
-              type="button"
-              aria-label="질문 앞으로 이동"
-              disabled={local_active_idx === 0}
-              onclick={() => on_click_move_question(g_active_question_obj, -1)}
-            >
-              <ChevronLeft size={22} strokeWidth={2.4} aria-hidden="true" />
-            </button>
-
-            <span
-              aria-pressed="true"
-              class="inline-flex items-center gap-3 px-2 text-base font-extrabold text-white"
-            >
-              <span class="grid h-8 min-w-16 place-items-center rounded-full bg-white/20 px-3 text-sm font-extrabold text-white">
-                {local_active_idx + 1} / {g_question_arr.length}
-              </span>
-              <span class="max-w-[360px] truncate text-lg">{g_active_question_obj.question_text}</span>
-            </span>
-
-            <button
-              class="grid h-10 w-10 cursor-pointer place-items-center rounded-[10px] text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-30"
-              type="button"
-              aria-label="질문 뒤로 이동"
-              disabled={local_active_idx === g_question_arr.length - 1}
-              onclick={() => on_click_move_question(g_active_question_obj, 1)}
-            >
-              <ChevronRight size={22} strokeWidth={2.4} aria-hidden="true" />
-            </button>
-          </div>
-        {/if}
-      </nav>
-
-      {#if g_active_question_obj}
-        <section
-          class="rounded-2xl border border-[var(--retina-text-200)] bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
-        >
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 class="m-0 text-xl font-extrabold text-[var(--retina-text-800)]">
-                {g_active_question_obj.question_text}
-              </h3>
-              <p class="mb-0 mt-2 text-sm font-semibold text-[var(--retina-text-500)]">
-                총 {g_active_question_obj.answer_arr.length}개 답변
-              </p>
-            </div>
-
-            <button
-              class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[#F3D1D8] bg-[#FFF6F7] px-4 text-sm font-extrabold text-[#B42318] transition hover:bg-[#FEECEE]"
-              type="button"
-              onclick={() => on_click_delete_question(g_active_question_obj)}
-            >
-              <Trash2 size={16} strokeWidth={2.3} aria-hidden="true" />
-              <span>질문 삭제</span>
-            </button>
-          </div>
-
-          <form
-            class="mt-6 grid gap-3 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-primary-50)] px-5 py-5 md:grid-cols-[1fr_auto]"
-            onsubmit={(local_event) => on_submit_create_answer(g_active_question_obj, local_event)}
-          >
-            <label class="grid gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
-              답변 내용
-              <input
-                class="min-h-12 rounded-xl border border-[var(--retina-text-200)] bg-white px-4 text-base font-bold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-400)] focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
-                type="text"
-                value={ref_new_answer_text_obj[g_active_question_obj.question_text] ?? ''}
-                placeholder="답변 내용을 입력해 주세요."
-                oninput={(local_event) =>
-                  on_input_new_answer_text(g_active_question_obj, local_event)}
-              />
-            </label>
-
-            <button
-              class="mt-[1.7rem] inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-0 bg-[var(--retina-primary-300)] px-5 text-sm font-extrabold text-white transition hover:bg-[var(--retina-primary-400)]"
-              type="submit"
-            >
-              <Plus size={16} strokeWidth={2.5} aria-hidden="true" />
-              <span>답변 추가</span>
-            </button>
-          </form>
-
-          {#if g_active_question_obj.answer_arr.length > 0}
-            <div class="mt-5 grid gap-3">
-              {#each g_active_question_obj.answer_arr as answer_obj (answer_obj.option_no)}
-                <article
-                  class="grid gap-3 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-5 py-4 lg:grid-cols-[1fr_140px_auto] lg:items-center"
-                >
-                  <input
-                    class="min-h-12 rounded-xl border border-[var(--retina-text-200)] bg-white px-4 text-base font-bold text-[var(--retina-text-800)] outline-none transition focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
-                    type="text"
-                    bind:value={answer_obj.option_name}
-                  />
-
-                  <label class="grid text-sm font-extrabold text-[var(--retina-text-500)]">
-                    <span
-                      class="flex min-h-12 items-center gap-3 rounded-xl border border-[var(--retina-text-200)] bg-white px-4"
-                    >
-                      <input
-                        class="h-4 w-4 accent-[var(--retina-primary-400)]"
-                        type="checkbox"
-                        bind:checked={answer_obj.is_active}
-                      />
-                      <span class="text-base font-bold text-[var(--retina-text-800)]">
-                        {answer_obj.is_active ? '활성' : '비활성화'}
-                      </span>
-                    </span>
-                  </label>
-
-                  <div class="flex flex-wrap items-center justify-end gap-2">
-                    <button
-                      class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border-0 bg-[var(--retina-primary-300)] px-4 text-sm font-extrabold text-white transition hover:bg-[var(--retina-primary-400)]"
-                      type="button"
-                      onclick={() => on_click_save_answer(answer_obj)}
-                    >
-                      <Save size={16} strokeWidth={2.3} aria-hidden="true" />
-                      <span>저장</span>
-                    </button>
-                    <button
-                      class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[#F3D1D8] bg-[#FFF6F7] px-4 text-sm font-extrabold text-[#B42318] transition hover:bg-[#FEECEE]"
-                      type="button"
-                      onclick={() => on_click_delete_answer(answer_obj)}
-                    >
-                      <Trash2 size={16} strokeWidth={2.3} aria-hidden="true" />
-                      <span>삭제</span>
-                    </button>
-                  </div>
-                </article>
-              {/each}
-            </div>
-          {:else}
+        <nav class="flex items-center justify-center" aria-label="질문 네브바">
+          {#if g_active_question_obj && local_active_idx >= 0}
             <div
-              class="mt-5 rounded-2xl border border-dashed border-[var(--retina-text-200)] bg-white px-5 py-6 text-center text-sm font-bold text-[var(--retina-text-500)]"
+              class="inline-flex min-h-14 items-center gap-2 rounded-[14px] border border-[var(--retina-primary-400)] bg-[var(--retina-primary-400)] pl-2 pr-4 text-base font-extrabold text-white shadow-[0_10px_24px_rgba(234,106,15,0.28)]"
             >
-              등록된 답변이 없습니다. 위 입력란에서 답변을 추가해 주세요.
+              <button
+                class="grid h-10 w-10 cursor-pointer place-items-center rounded-[10px] text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-30"
+                type="button"
+                aria-label="질문 앞으로 이동"
+                disabled={local_active_idx === 0}
+                onclick={() => on_click_move_question(g_active_question_obj, -1)}
+              >
+                <ChevronLeft size={22} strokeWidth={2.4} aria-hidden="true" />
+              </button>
+
+              <span
+                aria-pressed="true"
+                class="inline-flex items-center gap-3 px-2 text-base font-extrabold text-white"
+              >
+                <span
+                  class="grid h-8 min-w-16 place-items-center rounded-full bg-white/20 px-3 text-sm font-extrabold text-white"
+                >
+                  {local_active_idx + 1} / {g_question_arr.length}
+                </span>
+                <span class="max-w-[360px] truncate text-lg"
+                  >{g_active_question_obj.question_text}</span
+                >
+              </span>
+
+              <button
+                class="grid h-10 w-10 cursor-pointer place-items-center rounded-[10px] text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-30"
+                type="button"
+                aria-label="질문 뒤로 이동"
+                disabled={local_active_idx === g_question_arr.length - 1}
+                onclick={() => on_click_move_question(g_active_question_obj, 1)}
+              >
+                <ChevronRight size={22} strokeWidth={2.4} aria-hidden="true" />
+              </button>
             </div>
           {/if}
-        </section>
-      {/if}
+        </nav>
+
+        {#if g_active_question_obj}
+          <section
+            class="rounded-2xl border border-[var(--retina-text-200)] bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
+          >
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 class="m-0 text-xl font-extrabold text-[var(--retina-text-800)]">
+                  {g_active_question_obj.question_text}
+                </h3>
+                <p class="mb-0 mt-2 text-sm font-semibold text-[var(--retina-text-500)]">
+                  총 {g_active_question_obj.answer_arr.length}개 답변
+                </p>
+              </div>
+
+              <button
+                class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[#F3D1D8] bg-[#FFF6F7] px-4 text-sm font-extrabold text-[#B42318] transition hover:bg-[#FEECEE]"
+                type="button"
+                onclick={() => on_click_delete_question(g_active_question_obj)}
+              >
+                <Trash2 size={16} strokeWidth={2.3} aria-hidden="true" />
+                <span>질문 삭제</span>
+              </button>
+            </div>
+
+            <form
+              class="mt-6 grid gap-3 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-primary-50)] px-5 py-5 md:grid-cols-[1fr_auto]"
+              onsubmit={(local_event) =>
+                on_submit_create_answer(g_active_question_obj, local_event)}
+            >
+              <label class="grid gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
+                답변 내용
+                <input
+                  class="min-h-12 rounded-xl border border-[var(--retina-text-200)] bg-white px-4 text-base font-bold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-400)] focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
+                  type="text"
+                  value={ref_new_answer_text_obj[g_active_question_obj.question_text] ?? ''}
+                  placeholder="답변 내용을 입력해 주세요."
+                  oninput={(local_event) =>
+                    on_input_new_answer_text(g_active_question_obj, local_event)}
+                />
+              </label>
+
+              <button
+                class="mt-[1.7rem] inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-0 bg-[var(--retina-primary-300)] px-5 text-sm font-extrabold text-white transition hover:bg-[var(--retina-primary-400)]"
+                type="submit"
+              >
+                <Plus size={16} strokeWidth={2.5} aria-hidden="true" />
+                <span>답변 추가</span>
+              </button>
+            </form>
+
+            {#if g_active_question_obj.answer_arr.length > 0}
+              <div class="mt-5 grid gap-3">
+                {#each g_active_question_obj.answer_arr as answer_obj (answer_obj.option_no)}
+                  <article
+                    class="grid gap-3 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-5 py-4 lg:grid-cols-[1fr_140px_auto] lg:items-center"
+                  >
+                    <input
+                      class="min-h-12 rounded-xl border border-[var(--retina-text-200)] bg-white px-4 text-base font-bold text-[var(--retina-text-800)] outline-none transition focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
+                      type="text"
+                      bind:value={answer_obj.option_name}
+                    />
+
+                    <label class="grid text-sm font-extrabold text-[var(--retina-text-500)]">
+                      <span
+                        class="flex min-h-12 items-center gap-3 rounded-xl border border-[var(--retina-text-200)] bg-white px-4"
+                      >
+                        <input
+                          class="h-4 w-4 accent-[var(--retina-primary-400)]"
+                          type="checkbox"
+                          bind:checked={answer_obj.is_active}
+                        />
+                        <span class="text-base font-bold text-[var(--retina-text-800)]">
+                          {answer_obj.is_active ? '활성' : '비활성화'}
+                        </span>
+                      </span>
+                    </label>
+
+                    <div class="flex flex-wrap items-center justify-end gap-2">
+                      <button
+                        class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border-0 bg-[var(--retina-primary-300)] px-4 text-sm font-extrabold text-white transition hover:bg-[var(--retina-primary-400)]"
+                        type="button"
+                        onclick={() => on_click_save_answer(answer_obj)}
+                      >
+                        <Save size={16} strokeWidth={2.3} aria-hidden="true" />
+                        <span>저장</span>
+                      </button>
+                      <button
+                        class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[#F3D1D8] bg-[#FFF6F7] px-4 text-sm font-extrabold text-[#B42318] transition hover:bg-[#FEECEE]"
+                        type="button"
+                        onclick={() => on_click_delete_answer(answer_obj)}
+                      >
+                        <Trash2 size={16} strokeWidth={2.3} aria-hidden="true" />
+                        <span>삭제</span>
+                      </button>
+                    </div>
+                  </article>
+                {/each}
+              </div>
+            {:else}
+              <div
+                class="mt-5 rounded-2xl border border-dashed border-[var(--retina-text-200)] bg-white px-5 py-6 text-center text-sm font-bold text-[var(--retina-text-500)]"
+              >
+                등록된 답변이 없습니다. 위 입력란에서 답변을 추가해 주세요.
+              </div>
+            {/if}
+          </section>
+        {/if}
       </div>
     {/if}
   </section>

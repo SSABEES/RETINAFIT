@@ -51,8 +51,9 @@ class FaceScriptItems(BaseModel):
 
 
 class FaceScriptResponse(BaseModel):
-    # 필수 필드 (디폴트 값 없음). 비어 있으면 422.
-    summary: str
+    # 종합 멘트를 두 줄로 분리 — UI 에서 줄바꿈을 명시적으로 표현. 둘 중 하나라도 비어있으면 422.
+    summary1: str
+    summary2: str
     # 다른 BaseModel 을 필드 타입으로 — Java 의 nested DTO 참조와 동일.
     # 직렬화 시 자동으로 nested JSON object 로 펼쳐짐.
     items: FaceScriptItems

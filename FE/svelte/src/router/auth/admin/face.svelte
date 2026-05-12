@@ -330,7 +330,9 @@
       </div>
     {/if}
 
-    <h2 class="m-0 justify-self-start text-left text-2xl font-extrabold text-[var(--retina-text-800)]">
+    <h2
+      class="m-0 justify-self-start text-left text-2xl font-extrabold text-[var(--retina-text-800)]"
+    >
       얼굴형 기준 설정
     </h2>
 
@@ -389,7 +391,9 @@
           >
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div class="flex items-center gap-3">
-                <h3 class="m-0 text-2xl font-extrabold text-[var(--retina-text-800)]">{shape_obj.key}</h3>
+                <h3 class="m-0 text-2xl font-extrabold text-[var(--retina-text-800)]">
+                  {shape_obj.key}
+                </h3>
                 {#if shape_obj.en}
                   <span
                     class="rounded-full bg-[var(--retina-primary-50)] px-3 py-1 text-xs font-extrabold text-[var(--retina-primary-600)]"
@@ -424,11 +428,17 @@
               {#each MEASUREMENT_ARR as measurement_obj (measurement_obj.key)}
                 {@const cell_key = get_criteria_key(shape_obj.key, measurement_obj.key)}
                 {#if g_criteria_matrix_obj[cell_key]}
-                  <div class="rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-5 py-5">
-                    <p class="m-0 text-base font-extrabold text-[var(--retina-text-700)]">{measurement_obj.key}</p>
+                  <div
+                    class="rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-5 py-5"
+                  >
+                    <p class="m-0 text-base font-extrabold text-[var(--retina-text-700)]">
+                      {measurement_obj.key}
+                    </p>
 
                     <div class="mt-4 grid gap-4">
-                      <label class="grid gap-1 text-sm font-extrabold text-[var(--retina-text-500)]">
+                      <label
+                        class="grid gap-1 text-sm font-extrabold text-[var(--retina-text-500)]"
+                      >
                         최소
                         <span class="relative">
                           <input
@@ -445,7 +455,9 @@
                         </span>
                       </label>
 
-                      <label class="grid gap-1 text-sm font-extrabold text-[var(--retina-text-500)]">
+                      <label
+                        class="grid gap-1 text-sm font-extrabold text-[var(--retina-text-500)]"
+                      >
                         최대
                         <span class="relative">
                           <input

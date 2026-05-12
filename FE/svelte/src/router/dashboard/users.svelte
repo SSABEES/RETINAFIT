@@ -1,19 +1,15 @@
 <script>
   import { navigate } from '@maks11060/svelte5-router'
-  import { ChevronRight, CircleCheck, Plus } from 'lucide-svelte'
+  import { CircleCheck, Plus } from 'lucide-svelte'
   import Header from '@/components/layout/header.svelte'
   import Keypad from '@/components/input/keypad.svelte'
   import CustomerCreateModal from '@/components/modal/customer_create_modal.svelte'
   import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import { PATH } from '@/config/path'
   import { create_customer, search_customer } from '@/lib/api/customers'
-  import { get_visit_list, create_visit } from '@/lib/api/visit'
-  import {
-    customer_arr_store,
-    set_selected_customer,
-    set_selected_visit,
-  } from '@/lib/stores/customer'
-  import { selected_admin_obj, selected_opt_store_obj } from '@/lib/stores/admin'
+  import { get_visit_list } from '@/lib/api/visit'
+  import { customer_arr_store, set_selected_customer } from '@/lib/stores/customer'
+  import { selected_opt_store_obj } from '@/lib/stores/admin'
   import { push_error_toast } from '@/lib/stores/toast'
 
   const g_six_month_millisecond = 1000 * 60 * 60 * 24 * 30 * 6
@@ -28,7 +24,6 @@
     '· 이용 목적: 얼굴 분석 및 안경 추천·가상 피팅 서비스 제공\n' +
     '· 보유 기간: 동의 철회 시까지 (관련 법령에 따른 보관 기간 포함)\n\n' +
     '동의를 거부할 권리가 있으며, 거부 시 서비스 이용이 제한될 수 있습니다.'
-  let g_visit_target_customer = $state(/** @type {any} */ (null))
   let ref_search_phone = $state('')
   let ref_consent_agreed = $state(false)
   let g_is_search_loading = $state(false)
@@ -125,18 +120,6 @@
     return local_date_obj.toLocaleDateString('ko-KR')
   }
 
-  /** @param {Record<string, any>} customer_obj */
-  function get_visit_customer_payload(customer_obj) {
-    return {
-      cust_no: customer_obj.id,
-      cust_name: customer_obj.name,
-      birthday: customer_obj.birth_dt ?? '',
-      phone_no1: customer_obj.phone ?? '',
-      phone_no2: customer_obj.phone2 ?? '',
-      sex: customer_obj.gender === '여' ? 1 : 0,
-    }
-  }
-
   /** @param {Array<Record<string, any>>} customer_arr */
   function normalize_customer_arr(customer_arr) {
     return customer_arr.map((/** @type {Record<string, any>} */ customer_obj, local_index) => ({
@@ -210,53 +193,6 @@
 
     set_selected_customer(customer_obj)
     navigate(PATH.userDetail(customer_obj.id))
-  }
-
-  async function on_start_new_visit() {
-    if (!$selected_opt_store_obj?.opt_no) {
-      push_error_toast('선택한 안경원 정보가 없습니다. 다시 로그인해 주세요.')
-      return
-    }
-
-    try {
-      const local_visit_customer_obj = get_visit_customer_payload(g_visit_target_customer)
-      const local_result_obj = await create_visit({
-        opt_no: $selected_opt_store_obj.opt_no,
-        member_no: $selected_admin_obj?.member_no ?? 0,
-        ...local_visit_customer_obj,
-      })
-
-      const local_visit_no = Number(local_result_obj?.visit_no)
-
-      if (!Number.isFinite(local_visit_no)) {
-        push_error_toast('방문 정보 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.')
-        return
-      }
-
-      set_selected_visit({
-        ...local_result_obj,
-        visit_no: local_visit_no,
-        test_dt: null,
-        vp_dt: null,
-        real_vp_dt: null,
-        update_dt: null,
-        is_new: true,
-      })
-
-      // report.svelte 가 우선 조회하는 visit_no 키도 함께 갱신해 둔다.
-      sessionStorage.setItem('retinal_visit_no', String(local_visit_no))
-      // 새 방문이므로 직전 방문에서 result.svelte 가 보던 데이터는 제거한다.
-      sessionStorage.removeItem('retinal_lens_selections')
-      sessionStorage.removeItem('retinal_saved_fittings')
-
-      navigate(PATH.analysis)
-    } catch (local_error) {
-      push_error_toast(
-        local_error instanceof Error
-          ? local_error.message
-          : '방문 정보 생성 중 오류가 발생했습니다.',
-      )
-    }
   }
 
   /** @param {string} local_phone */
@@ -430,43 +366,45 @@
         <Keypad value={ref_search_phone} onchange={on_change_keypad} />
 
         <div class="grid w-full gap-[clamp(8px,1.5svh,12px)]">
-        <button
-          class="flex w-full cursor-pointer items-center gap-3 rounded-none border-0 bg-[var(--retina-primary-50)] px-4 py-[clamp(4px,1svh,6px)] text-left font-bold text-[var(--retina-text-800)] transition hover:bg-[var(--retina-primary-200)]/40 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
-          type="button"
-          aria-pressed={ref_consent_agreed}
-          onclick={on_click_open_consent_modal}
-        >
-          {#if ref_consent_agreed}
-            <img
-              src="/icons/circle-check-purple.png"
-              alt=""
-              class="flex-none h-[clamp(18px,3.5svh,28px)] w-[clamp(18px,3.5svh,28px)]"
-              width="28"
-              height="28"
-              aria-hidden="true"
-            />
-          {:else}
-            <CircleCheck
-              class="flex-none text-[var(--retina-text-300)] transition h-[clamp(18px,3.5svh,28px)] w-[clamp(18px,3.5svh,28px)]"
-              strokeWidth={2}
-              aria-hidden="true"
-            />
-          {/if}
-          <span class="font-bold text-[clamp(13px,2svh,18px)]">개인정보 수집 및 이용에 동의합니다.</span>
-        </button>
+          <button
+            class="flex w-full cursor-pointer items-center gap-3 rounded-none border-0 bg-[var(--retina-primary-50)] px-4 py-[clamp(4px,1svh,6px)] text-left font-bold text-[var(--retina-text-800)] transition hover:bg-[var(--retina-primary-200)]/40 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
+            type="button"
+            aria-pressed={ref_consent_agreed}
+            onclick={on_click_open_consent_modal}
+          >
+            {#if ref_consent_agreed}
+              <img
+                src="/icons/circle-check-purple.png"
+                alt=""
+                class="flex-none h-[clamp(18px,3.5svh,28px)] w-[clamp(18px,3.5svh,28px)]"
+                width="28"
+                height="28"
+                aria-hidden="true"
+              />
+            {:else}
+              <CircleCheck
+                class="flex-none text-[var(--retina-text-300)] transition h-[clamp(18px,3.5svh,28px)] w-[clamp(18px,3.5svh,28px)]"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+            {/if}
+            <span class="font-bold text-[clamp(13px,2svh,18px)]"
+              >개인정보 수집 및 이용에 동의합니다.</span
+            >
+          </button>
 
-        <button
-          class={`w-full cursor-pointer rounded-xl border-0 leading-none font-bold tracking-[0.3em] text-white transition disabled:cursor-not-allowed min-h-[clamp(44px,8svh,72px)] text-[clamp(16px,3svh,24px)] ${
-            is_search_active
-              ? 'bg-[var(--retina-primary-500)] hover:bg-[var(--retina-primary-600)]'
-              : 'bg-[#E3B68E]'
-          }`}
-          type="button"
-          onclick={on_click_search_submit}
-          disabled={!is_search_active || g_is_search_loading}
-        >
-          {g_is_search_loading ? '조회 중' : '조 회'}
-        </button>
+          <button
+            class={`w-full cursor-pointer rounded-xl border-0 leading-none font-bold tracking-[0.3em] text-white transition disabled:cursor-not-allowed min-h-[clamp(44px,8svh,72px)] text-[clamp(16px,3svh,24px)] ${
+              is_search_active
+                ? 'bg-[var(--retina-primary-500)] hover:bg-[var(--retina-primary-600)]'
+                : 'bg-[#E3B68E]'
+            }`}
+            type="button"
+            onclick={on_click_search_submit}
+            disabled={!is_search_active || g_is_search_loading}
+          >
+            {g_is_search_loading ? '조회 중' : '조 회'}
+          </button>
         </div>
       </div>
     </section>
@@ -544,11 +482,18 @@
                 <div class="min-w-0">
                   <div class="flex items-center gap-3">
                     <!-- 이름은 절대 잘리지 않게 whitespace-nowrap. 카드 폭이 좁으면 전화번호 영역을 통째로 숨김 -->
-                    <span class="whitespace-nowrap text-2xl font-extrabold text-[var(--retina-text-800)]">
+                    <span
+                      class="whitespace-nowrap text-2xl font-extrabold text-[var(--retina-text-800)]"
+                    >
                       {local_masked_name}
                     </span>
-                    <span class="hidden @md/card:inline text-[var(--retina-text-300)]" aria-hidden="true">|</span>
-                    <span class="hidden @md/card:inline truncate text-base font-medium text-[var(--retina-text-500)]">
+                    <span
+                      class="hidden @md/card:inline text-[var(--retina-text-300)]"
+                      aria-hidden="true">|</span
+                    >
+                    <span
+                      class="hidden @md/card:inline truncate text-base font-medium text-[var(--retina-text-500)]"
+                    >
                       {customer_obj.phone}
                     </span>
                   </div>
