@@ -40,8 +40,8 @@ const MESH_COLOR_IRIS = 'rgba(255,255,255,0.5)'
 
 /** @type {Promise<FaceLandmarker> | null} */
 let g_image_promise = null
-/** @type {Promise<FaceLandmarker> | null} */
-let g_video_promise = null
+/** @type {Map<number, Promise<FaceLandmarker>>} */
+const g_video_promises = new Map()
 /** @type {FaceLandmarkerResult | null} */
 let g_cached_result = null
 let g_cached_timestamp = -1
@@ -66,13 +66,14 @@ async function load_image_landmarker() {
   })
 }
 
-// VIDEO 러닝 모드의 FaceLandmarker 를 생성한다.
-async function load_video_landmarker() {
+// VIDEO 러닝 모드의 FaceLandmarker 를 생성한다. numFaces 가 다른 인스턴스는 별도 캐시 (multi-face
+// 모드는 단일보다 더 느려서 호출자 의도에 맞춘 인스턴스를 따로 보존).
+async function load_video_landmarker(num_faces) {
   const fileset = await load_fileset()
   return MpFaceLandmarker.createFromOptions(fileset, {
     baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
     runningMode: 'VIDEO',
-    numFaces: 1,
+    numFaces: num_faces,
     minFaceDetectionConfidence: 0.5,
     minFacePresenceConfidence: 0.5,
     minTrackingConfidence: 0.5,
@@ -91,12 +92,15 @@ export function get_image_landmarker() {
 }
 
 /**
- * VIDEO 모드 FaceLandmarker 를 lazy 로딩해 반환한다.
+ * VIDEO 모드 FaceLandmarker 를 lazy 로딩해 반환한다. numFaces 가 다르면 별도 인스턴스 캐시.
+ * @param {number} [num_faces=1]
  * @returns {Promise<FaceLandmarker>}
  */
-export function get_video_landmarker() {
-  if (!g_video_promise) g_video_promise = load_video_landmarker()
-  return g_video_promise
+export function get_video_landmarker(num_faces = 1) {
+  if (!g_video_promises.has(num_faces)) {
+    g_video_promises.set(num_faces, load_video_landmarker(num_faces))
+  }
+  return g_video_promises.get(num_faces)
 }
 
 /**
@@ -438,11 +442,11 @@ export async function dispose_landmarker() {
     l.close()
     g_image_promise = null
   }
-  if (g_video_promise) {
-    const l = await g_video_promise
+  for (const [, promise] of g_video_promises) {
+    const l = await promise
     l.close()
-    g_video_promise = null
   }
+  g_video_promises.clear()
   g_fileset_promise = null
   clear_video_cache()
 }

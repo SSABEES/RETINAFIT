@@ -172,10 +172,7 @@
 
       // native AR 가 캡처한 이미지를 슬롯에 채운다.
       if (local_event_name === 'captured') {
-        on_captured({
-          slot: local_data_obj?.slot,
-          image_base64: local_data_obj?.image_base64,
-        })
+        on_flutter_captured(local_data_obj)
       }
     })
 
@@ -233,41 +230,55 @@
   }
 
   /**
-   * Flutter native (base64) 와 Three.js fallback (Blob) 양쪽에서 호출되는 통합 슬롯 갱신.
-   * native 는 { slot, image_base64 }, fallback 은 { slot, blob } 형태로 호출.
-   * @param {{ slot: 'front' | 'left' | 'right', image_base64?: string, blob?: Blob }} arg_obj
+   * Flutter native AR 의 captured 이벤트 페이로드를 처리한다.
+   * 형식: { slot, image_base64 }. base64 → Blob 디코딩 후 공통 슬롯 채움 함수로 위임.
+   * @param {{ slot?: string, image_base64?: string }} data_obj
    */
-  function on_captured(arg_obj) {
-    const local_slot_key = String(arg_obj?.slot ?? '')
-    const local_slot_idx = SLOT_KEY_TO_INDEX[local_slot_key]
-    if (!Number.isInteger(local_slot_idx)) return
-
+  function on_flutter_captured(data_obj) {
+    const local_base64_text = String(data_obj?.image_base64 ?? '')
+    if (!local_base64_text) return
     let local_blob
-    if (arg_obj?.blob instanceof Blob) {
-      local_blob = arg_obj.blob
-    } else if (typeof arg_obj?.image_base64 === 'string' && arg_obj.image_base64.length > 0) {
-      try {
-        const local_binary_text = atob(arg_obj.image_base64)
-        const local_byte_arr = new Uint8Array(local_binary_text.length)
-        for (let i = 0; i < local_binary_text.length; i++) {
-          local_byte_arr[i] = local_binary_text.charCodeAt(i)
-        }
-        local_blob = new Blob([local_byte_arr], { type: 'image/jpeg' })
-      } catch {
-        show_toast('캡처 이미지 디코딩에 실패했습니다.')
-        return
+    try {
+      const local_binary_text = atob(local_base64_text)
+      const local_byte_arr = new Uint8Array(local_binary_text.length)
+      for (let i = 0; i < local_binary_text.length; i++) {
+        local_byte_arr[i] = local_binary_text.charCodeAt(i)
       }
-    } else {
+      local_blob = new Blob([local_byte_arr], { type: 'image/jpeg' })
+    } catch {
+      show_toast('캡처 이미지 디코딩에 실패했습니다.')
       return
     }
+    apply_capture_slot(String(data_obj?.slot ?? ''), local_blob)
+  }
+
+  /**
+   * Three.js fallback 컴포넌트(try_on_fallback.svelte) 의 oncaptured 콜백 시그니처에 맞춘 어댑터.
+   * 형식: (slot_key, blob). 공통 슬롯 채움 함수로 바로 위임.
+   * @param {'front' | 'left' | 'right'} slot_key
+   * @param {Blob} blob
+   */
+  function on_fallback_captured(slot_key, blob) {
+    apply_capture_slot(slot_key, blob)
+  }
+
+  /**
+   * 두 경로 공통의 슬롯 갱신 로직 — Blob 을 File 로 감싸고 object_url 발급, 이전 슬롯 url revoke.
+   * Flutter / Fallback 호출 분기에서 호출되며 두 경로 모두 동일하게 동작해야 한다.
+   * @param {string} slot_key
+   * @param {Blob} blob
+   */
+  function apply_capture_slot(slot_key, blob) {
+    const local_slot_idx = SLOT_KEY_TO_INDEX[slot_key]
+    if (!Number.isInteger(local_slot_idx)) return
 
     const local_captured_at = Date.now()
     const local_file_obj = new File(
-      [local_blob],
+      [blob],
       `arfitting_${String(local_slot_idx + 1)}_${String(local_captured_at)}.jpg`,
       { type: 'image/jpeg' },
     )
-    const local_object_url = URL.createObjectURL(local_blob)
+    const local_object_url = URL.createObjectURL(blob)
 
     const local_capture_slot_arr = [...g_capture_slot_arr]
     const local_prev_slot_obj = local_capture_slot_arr[local_slot_idx]
@@ -606,7 +617,7 @@
         {#if g_ar_unavailable}
           <TryOnFallback
             selected_glasses_obj={g_selected_glasses_obj}
-            oncaptured={(slot_key, blob) => on_captured({ slot: slot_key, blob })}
+            oncaptured={on_fallback_captured}
           />
         {:else}
           <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-6">

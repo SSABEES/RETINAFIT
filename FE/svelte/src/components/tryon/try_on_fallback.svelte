@@ -1,15 +1,22 @@
 <script>
   /**
-   * AR 미지원 환경(웹/iOS) 용 Three.js 가상 안경 try-on. arfitting.svelte 의 카메라 영역에
-   * mount 되어 getUserMedia + MediaPipe FaceLandmarker(video mode) + Three.js 로 GLB 안경을
-   * 얼굴 위에 실시간 합성한다. 캡처는 1/2/3 버튼으로 수동 (Flutter native AR UX 와 정합).
+   * AR 미지원 환경(웹/iOS) 용 Three.js 가상 안경 try-on.
+   * /test 검증 페이지(`src/router/test.svelte`) 의 안경 렌더링 로직을 그대로 옮긴 컴포넌트.
+   * Flutter native AR 경로와 완전히 분리된 코드 — arfitting.svelte 가 환경에 따라 둘 중 하나만 mount.
    *
    * 부모 부담: selected_glasses_obj prop 으로 안경 선택 알림 + oncaptured 콜백으로 슬롯 갱신.
-   * 부모는 GLB url 추출/모델 다운로드/카메라 라이프사이클을 신경쓰지 않음.
+   * 부모는 GLB url 추출 / 모델 다운로드 / 카메라 라이프사이클을 신경쓰지 않음.
+   *
+   * test 페이지에 있던 디버그 UI (슬라이더, 토글, face landmark overlay) 는 운영용이 아니라 제외.
+   * 안경 보정값은 슬라이더의 default 그대로 const 로 박아두며, 향후 필요 시 노출 가능한 형태.
    */
   import { onMount } from 'svelte'
-  import { Group as ThreeGroup, Matrix4, Quaternion, Vector3 } from 'three'
-  import { get_video_landmarker, detect_from_video, clear_video_cache } from '@/lib/mediapipe/face_landmarker.js'
+  import { Group as ThreeGroup, Matrix4, Plane, Quaternion, Vector3 } from 'three'
+  import {
+    get_video_landmarker,
+    detect_from_video,
+    clear_video_cache,
+  } from '@/lib/mediapipe/face_landmarker.js'
   import { init_three_scene, swap_glasses_child } from '@/lib/tryon/three_scene.js'
   import { ensure_glasses_loaded, instantiate_glasses } from '@/lib/tryon/glasses_loader.js'
   import { apply_auto_alignment, compute_yaw_deg } from '@/lib/tryon/face_alignment.js'
@@ -42,12 +49,41 @@
     { key: 'right', label: '3번' },
   ]
 
-  // Flutter FaceFittingScreen.kt:92 의 TEMPLE_HIDE_YAW_DEG = 5f 와 정합.
-  const TEMPLE_HIDE_YAW_DEG = 5
-  // MediaPipe 검출 빈도 — 1 = 매 프레임 (60Hz desktop).
+  // test 페이지 슬라이더 default 그대로 const 화. 향후 사용자 노출 필요해지면 $state 로 풀면 됨.
+  // override_group transform 단위는 align_group 의 cm 좌표계 — 자산 단위 무관 1 칸 = 1cm.
+  const POSE_OVERRIDE = Object.freeze({
+    offset_x: 0,
+    offset_y: 0,
+    offset_z: 0,
+    rot_x_deg: 0,
+    rot_y_deg: 0,
+    rot_z_deg: 0,
+    scale_factor: 1,
+  })
+  // MediaPipe 검출 빈도 — 1 = 매 프레임 (60Hz). lag 없음.
   const FRAME_SKIP = 1
-  // pose 보간 강도 — 0.5 = jitter 흡수 + 빠른 반응.
-  const POSE_LERP = 0.5
+  // pose 보간 강도 — 1.0 = 보간 완전 제거, 검출 결과 그대로 적용.
+  // 남은 lag = MediaPipe inference + video frame transit (불가피한 하한). jitter 가 시인되면
+  // 0.85-0.9 로 절충 가능.
+  const POSE_LERP = 1.0
+  // PerspectiveCamera fov (degree). test 페이지의 슬라이더 default 와 정합.
+  const FOV_DEG = 63
+  // 안경 mesh polygonOffset — face_occluder 와 z 충돌로 다리가 잘리는 것 방지. fragment depth 를
+  // 카메라쪽으로 끌어와 face mesh 보다 항상 앞에 그려지게. test 페이지 슬라이더 default 와 정합.
+  const POLY_OFFSET_ENABLED = true
+  const POLY_OFFSET_FACTOR = -15
+  const POLY_OFFSET_UNITS = -8
+  // 다리 끝 (귀 영역) 자르기 — face anchor frame 의 z 임계점 (cm). z<clip_z 영역 (face 뒤쪽) clip.
+  // plane_a 가 대칭 clip 보장 + plane_b 가 yaw 비대칭 (한쪽 다리 더 짧게).
+  const TEMPLE_CLIP_ENABLED = true
+  const TEMPLE_CLIP_Z = -9
+  const TEMPLE_CLIP_YAW_ASYM = -0.03
+  // head_back_occluder — test 페이지에선 default off (다리 옆 / 뒤 가리개로 효용 < 부작용). 운영도
+  // 동일. yaw gate 의 default 임계도 같이 박아둠 (활성화 시 동작 유지).
+  const HEAD_OCC_USE = false
+  const HEAD_OCC_YAW_GATE_ENABLED = true
+  const HEAD_OCC_YAW_HIDE_START = 15
+  const HEAD_OCC_YAW_HIDE_END = 45
 
   /** @type {HTMLVideoElement | null} */
   let ref_video_el = $state(null)
@@ -59,6 +95,10 @@
   let g_face_detected = $state(false)
   let g_glb_loading = $state(false)
   let g_capturing = $state(false)
+  // video intrinsic 종횡비 — metadataloaded 이전엔 default 480x640. inner wrapper 의 CSS
+  // aspect-ratio 에 주입해 video / canvas 의 표시 종횡비를 항상 같게 유지 → 비균일 변형 방지.
+  let g_video_aspect_w = $state(480)
+  let g_video_aspect_h = $state(640)
 
   // 비반응형 내부 상태
   let g_start_generation = 0
@@ -77,7 +117,7 @@
   /** @type {string | null} */
   let g_pending_glb_url = null
 
-  // pose 보간 (test.svelte 와 동일 패턴)
+  // pose 보간 — 마지막 검출의 target + 매 프레임 current 를 보간 (test 페이지와 동일 패턴).
   const g_target_translation = new Vector3()
   const g_target_quaternion = new Quaternion()
   const g_current_translation = new Vector3()
@@ -85,6 +125,50 @@
   const g_decompose_scale = new Vector3()
   const g_pose_temp_matrix = new Matrix4()
   let g_pose_initialized = false
+  // 다리 끝 clip plane 두 개 (union). plane_a: 대칭 (정면 / 회전 무관 다리 끝 clip 보장). plane_b:
+  // yaw 비대칭 (한쪽 다리만 더 짧음). face_anchor_offset_group.matrixWorld 로 매 프레임 world 변환.
+  const g_temple_clip_plane_a = new Plane(new Vector3(0, 0, 1), 6)
+  const g_temple_clip_plane_b = new Plane(new Vector3(0, 0, 1), 6)
+
+  // 사용자 보정 (cm 단위 평행이동 + deg 회전 + uniform scale) 을 override_group transform 에 적용.
+  // override_group 은 자동 정렬 group 의 *부모* 라, 단위는 자산 모델 단위가 아닌 cm.
+  function apply_pose_overrides(override_group, ox, oy, oz, rx_deg, ry_deg, rz_deg, sf) {
+    if (!override_group) return
+    override_group.position.set(ox, oy, oz)
+    const k = Math.PI / 180
+    override_group.rotation.set(rx_deg * k, ry_deg * k, rz_deg * k)
+    override_group.scale.setScalar(sf)
+  }
+
+  // 안경 mesh 의 material 전체에 polygonOffset 설정 — fragment depth 를 카메라쪽으로 끌어와 face
+  // mesh 보다 앞에 그려지게. 다리가 face mesh 에 잘리는 z-fighting 해소.
+  function apply_glasses_poly_offset(root_obj, enabled, factor, units) {
+    if (!root_obj) return
+    root_obj.traverse((obj) => {
+      if (!obj.isMesh || !obj.material) return
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
+      for (const m of mats) {
+        m.polygonOffset = enabled
+        m.polygonOffsetFactor = factor
+        m.polygonOffsetUnits = units
+      }
+    })
+  }
+
+  // 안경 mesh material 의 clippingPlanes 에 다리 끝 clip plane reference 등록. plane.normal /
+  // .constant 는 매 프레임 face_anchor_offset_group.matrixWorld 따라 갱신되므로 reference 만 한 번
+  // 묶어두면 자동 반영. shader 재컴파일 필요 → m.needsUpdate=true.
+  function apply_glasses_clip(root_obj, enabled, planes) {
+    if (!root_obj) return
+    root_obj.traverse((obj) => {
+      if (!obj.isMesh || !obj.material) return
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
+      for (const m of mats) {
+        m.clippingPlanes = enabled ? planes : []
+        m.needsUpdate = true
+      }
+    })
+  }
 
   // 마운트 시 카메라 + landmarker 시작. 언마운트 시 모두 해제.
   onMount(() => {
@@ -96,10 +180,12 @@
     }
   })
 
-  // three.js 캔버스가 mount 되면 1회 init.
+  // three.js 캔버스가 mount 되면 1회 init. 모든 occluder default (face_occluder 위치 (0,0,-1) +
+  // head_back_occluder ellipsoid scale 8/11/14 / position (0,0,-2) + face_anchor_offset_group
+  // (0, 3.27, 5.24)) 가 init_three_scene 안에서 세팅되어 추가 셋업 불필요.
   $effect(() => {
     if (!ref_three_canvas_el || g_scene_ctx) return
-    g_scene_ctx = init_three_scene({ canvas: ref_three_canvas_el, fov_deg: 63 })
+    g_scene_ctx = init_three_scene({ canvas: ref_three_canvas_el, fov_deg: FOV_DEG })
   })
 
   // selected_glasses_obj 변경 → GLB swap.
@@ -122,7 +208,13 @@
       g_landmarker = landmarker
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 480 }, height: { ideal: 640 }, facingMode: 'user' },
+        video: {
+          width: { ideal: 480 },
+          height: { ideal: 640 },
+          facingMode: 'user',
+          // 60Hz 지원 카메라/브라우저면 검출 주기 33ms → 16ms 로 단축. 미지원 시 ideal 무시.
+          frameRate: { ideal: 60 },
+        },
         audio: false,
       })
       if (my_gen !== g_start_generation) {
@@ -139,6 +231,8 @@
       ref_video_el.onloadedmetadata = () => {
         if (my_gen !== g_start_generation || !ref_video_el || !g_stream) return
         void ref_video_el.play()
+        g_video_aspect_w = ref_video_el.videoWidth
+        g_video_aspect_h = ref_video_el.videoHeight
         if (g_scene_ctx) {
           g_scene_ctx.resize(ref_video_el.videoWidth, ref_video_el.videoHeight)
         }
@@ -177,6 +271,8 @@
   }
 
   // 선택된 GLB 를 캐시로부터 받아 씬에 swap. 캐시 원본 보호용 instantiate_glasses 로 clone.
+  // test 페이지의 load_and_swap_glasses 와 동일한 group 합성 패턴:
+  // face_anchor_offset_group → override_group → align_group → GLB scene
   async function load_and_swap_glasses(url) {
     if (!g_scene_ctx) return
     if (g_active_glb_url === url) {
@@ -193,15 +289,37 @@
       const align_group = new ThreeGroup()
       apply_auto_alignment(align_group, calibration)
       align_group.add(scene)
-      // override_group 은 운영에선 identity 로 그대로 둔다 (사용자 슬라이더 보정 없음).
+      // 자동 정렬 group 위에 사용자 보정 group 을 한 단계 끼워 단위가 자산 무관 cm 가 되게.
       const override_group = new ThreeGroup()
-      override_group.name = 'glasses_override_group'
       override_group.add(align_group)
+      // face_anchor_offset_group 의 자식으로 둔다 (그 group 이 미간 정합 layer). marker 는 보존.
       swap_glasses_child(
         g_scene_ctx.face_anchor_offset_group,
         override_group,
         g_scene_ctx.face_anchor_marker,
       )
+      // 새 child 에도 override default 즉시 반영 (test 페이지와 동일 패턴).
+      apply_pose_overrides(
+        override_group,
+        POSE_OVERRIDE.offset_x,
+        POSE_OVERRIDE.offset_y,
+        POSE_OVERRIDE.offset_z,
+        POSE_OVERRIDE.rot_x_deg,
+        POSE_OVERRIDE.rot_y_deg,
+        POSE_OVERRIDE.rot_z_deg,
+        POSE_OVERRIDE.scale_factor,
+      )
+      // polygonOffset — z-fighting 해소 (다리 잘림 방지). 안경 mesh material 에 적용.
+      apply_glasses_poly_offset(
+        scene,
+        POLY_OFFSET_ENABLED,
+        POLY_OFFSET_FACTOR,
+        POLY_OFFSET_UNITS,
+      )
+      // 다리 끝 clip plane reference 등록 — plane 의 normal / constant 는 매 프레임 갱신.
+      apply_glasses_clip(scene, TEMPLE_CLIP_ENABLED, [g_temple_clip_plane_a, g_temple_clip_plane_b])
+      // head_back_occluder 토글 — 운영 default off (test 와 동일).
+      g_scene_ctx.head_back_occluder.visible = HEAD_OCC_USE
       g_active_glb_url = url
     } catch (err) {
       push_error_toast('안경 모델을 불러오지 못했습니다.')
@@ -212,29 +330,37 @@
     }
   }
 
-  // FRAME_SKIP 마다 MediaPipe 검출 → target pose 갱신, 매 프레임 보간 + render + 다리 가시성.
+  // rAF 한 틱: FRAME_SKIP 마다 MediaPipe 검출 + target pose 갱신, 매 프레임 보간 + render.
+  // test 페이지의 on_loop_frame 과 동일 알고리즘.
   function on_loop_frame() {
     if (!g_stream || !ref_video_el || !g_landmarker || !g_scene_ctx) return
     g_frame_counter++
 
     if (g_frame_counter % FRAME_SKIP === 0) {
       const result = detect_from_video(g_landmarker, ref_video_el)
-      if (result?.faceLandmarks?.length && result.facialTransformationMatrixes?.length) {
-        g_face_detected = true
-        g_pose_temp_matrix.fromArray(result.facialTransformationMatrixes[0].data)
-        g_pose_temp_matrix.decompose(g_target_translation, g_target_quaternion, g_decompose_scale)
-        g_scene_ctx.glasses_root_obj.visible = true
-        if (!g_pose_initialized) {
-          g_current_translation.copy(g_target_translation)
-          g_current_quaternion.copy(g_target_quaternion)
-          g_pose_initialized = true
+      if (result?.faceLandmarks?.length) {
+        const matrices = result.facialTransformationMatrixes
+        if (matrices?.length) {
+          // column-major matrix → temp 에 그대로 복사 → decompose 해 target 갱신.
+          g_pose_temp_matrix.fromArray(matrices[0].data)
+          g_pose_temp_matrix.decompose(g_target_translation, g_target_quaternion, g_decompose_scale)
+          g_face_detected = true
+          g_scene_ctx.glasses_root_obj.visible = true
+          if (!g_pose_initialized) {
+            g_current_translation.copy(g_target_translation)
+            g_current_quaternion.copy(g_target_quaternion)
+            g_pose_initialized = true
+          }
+        } else {
+          g_face_detected = false
+          g_scene_ctx.glasses_root_obj.visible = false
         }
-        update_temple_visibility(compute_yaw_deg(g_target_quaternion))
       } else {
         g_face_detected = false
         g_scene_ctx.glasses_root_obj.visible = false
       }
     }
+    // 매 프레임: current 를 target 으로 lerp/slerp → matrix 합성. 검출 사이를 부드럽게 따라감.
     if (g_pose_initialized && g_scene_ctx.glasses_root_obj.visible) {
       g_current_translation.lerp(g_target_translation, POSE_LERP)
       g_current_quaternion.slerp(g_target_quaternion, POSE_LERP)
@@ -244,21 +370,44 @@
         g_decompose_scale,
       )
       g_scene_ctx.glasses_root_obj.matrixWorldNeedsUpdate = true
+      // head_back occluder yaw gate (활성 시) — yaw 가 임계 넘으면 점진적 scale 0.
+      const yaw_deg = compute_yaw_deg(g_current_quaternion)
+      const abs_yaw = Math.abs(yaw_deg)
+      if (HEAD_OCC_USE) {
+        const s = Math.min(HEAD_OCC_YAW_HIDE_START, HEAD_OCC_YAW_HIDE_END)
+        const e = Math.max(HEAD_OCC_YAW_HIDE_START, HEAD_OCC_YAW_HIDE_END)
+        const span = e - s
+        const factor = !HEAD_OCC_YAW_GATE_ENABLED
+          ? 1
+          : abs_yaw <= s
+            ? 1
+            : abs_yaw >= e || span <= 0
+              ? 0
+              : (e - abs_yaw) / span
+        const head_occ = g_scene_ctx.head_back_occluder
+        if (factor <= 0.001) {
+          head_occ.visible = false
+        } else {
+          head_occ.visible = true
+          // init_three_scene default scale (8, 11, 14) 에 factor 곱.
+          head_occ.scale.set(8 * factor, 11 * factor, 14 * factor)
+        }
+      }
+      // 다리 끝 clip plane — face_anchor_offset_group.matrixWorld 로 world 변환. plane_a 항상 대칭,
+      // plane_b 가 yaw 따라 비대칭 (한쪽 다리 더 짧음).
+      if (TEMPLE_CLIP_ENABLED) {
+        g_scene_ctx.glasses_root_obj.updateMatrixWorld(true)
+        const face_anchor_group = g_scene_ctx.face_anchor_offset_group
+        g_temple_clip_plane_a.normal.set(0, 0, 1)
+        g_temple_clip_plane_a.constant = -TEMPLE_CLIP_Z
+        g_temple_clip_plane_a.applyMatrix4(face_anchor_group.matrixWorld)
+        g_temple_clip_plane_b.normal.set(yaw_deg * TEMPLE_CLIP_YAW_ASYM, 0, 1).normalize()
+        g_temple_clip_plane_b.constant = -g_temple_clip_plane_b.normal.z * TEMPLE_CLIP_Z
+        g_temple_clip_plane_b.applyMatrix4(face_anchor_group.matrixWorld)
+      }
     }
     g_scene_ctx.render()
     g_raf_id = requestAnimationFrame(on_loop_frame)
-  }
-
-  // 안경 다리 노드(temple_left/right) 가시성을 yaw 로 토글. 분리 노드가 없는 GLB 는 noop.
-  function update_temple_visibility(yaw_deg) {
-    if (!g_scene_ctx) return
-    const override_group =
-      g_scene_ctx.face_anchor_offset_group.getObjectByName('glasses_override_group')
-    if (!override_group) return
-    const tl = override_group.getObjectByName('temple_left')
-    const tr = override_group.getObjectByName('temple_right')
-    if (tl) tl.visible = yaw_deg < -TEMPLE_HIDE_YAW_DEG
-    if (tr) tr.visible = yaw_deg > TEMPLE_HIDE_YAW_DEG
   }
 
   // 캡처 버튼 클릭 — video + three.js 를 미러된 픽셀로 합성해 Blob 으로 부모 전달.
@@ -294,20 +443,31 @@
   }
 </script>
 
-<div class="relative h-full w-full bg-black">
-  <video
-    bind:this={ref_video_el}
-    class="absolute inset-0 h-full w-full object-cover"
-    style="transform: scaleX(-1); transform-origin: center;"
-    autoplay
-    muted
-    playsinline
-  ></video>
-  <canvas
-    bind:this={ref_three_canvas_el}
-    class="pointer-events-none absolute inset-0 h-full w-full"
-    style="transform: scaleX(-1); transform-origin: center;"
-  ></canvas>
+<div class="relative h-full w-full overflow-hidden bg-black">
+  <!--
+    cover 효과 (object-fit: cover 와 동일) — video 의 intrinsic 종횡비를 보존하면서 부모를
+    꽉 채움 (모자란 축은 잘림). inner wrapper 의 aspect-ratio + min-width/height:100% 이
+    조합되면 종횡비를 유지한 채 두 축 모두 부모 이상으로 늘어나, 한 축은 부모를 채우고 다른
+    축은 잘림. video / canvas 둘 다 wrapper 100% → 같은 표시 종횡비 → 비균일 변형 없음.
+    scaleX(-1) 은 wrapper 에 한 번만 적용 (translate 와 합성). canvas backing buffer 는
+    video 해상도 그대로 (resize 호출) — face translation NDC 와 정합 유지.
+  -->
+  <div
+    class="absolute top-1/2 left-1/2"
+    style="aspect-ratio: {g_video_aspect_w} / {g_video_aspect_h}; min-width: 100%; min-height: 100%; transform: translate(-50%, -50%) scaleX(-1); transform-origin: center;"
+  >
+    <video
+      bind:this={ref_video_el}
+      class="block h-full w-full object-cover"
+      autoplay
+      muted
+      playsinline
+    ></video>
+    <canvas
+      bind:this={ref_three_canvas_el}
+      class="pointer-events-none absolute inset-0 h-full w-full"
+    ></canvas>
+  </div>
 
   {#if g_init_error}
     <div
