@@ -92,7 +92,15 @@ export function init_three_scene({ canvas, fov_deg = 63, num_face_sets = 1 }) {
   camera.position.set(0, 0, 0)
   camera.lookAt(0, 0, -1)
 
-  const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true })
+  // preserveDrawingBuffer:true — try_on_fallback 의 캡처 합성 (drawImage(canvas)) 이 다음 rAF
+  // 의 clear 전 backing buffer 를 그대로 읽어야 한다. default false 면 swap 직후 빈 픽셀이
+  // 반환되어 안경 레이어가 캡처되지 않음.
+  const renderer = new WebGLRenderer({
+    canvas,
+    alpha: true,
+    antialias: true,
+    preserveDrawingBuffer: true,
+  })
   renderer.setPixelRatio(window.devicePixelRatio || 1)
   renderer.setClearColor(0x000000, 0)
   // face_occluder 의 좌우 절반을 yaw 따라 잘라낼 수 있게 local clipping 활성화. mesh.material.
