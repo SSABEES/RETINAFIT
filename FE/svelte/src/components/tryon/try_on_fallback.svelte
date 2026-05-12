@@ -38,16 +38,11 @@
   let {
     /** @type {SelectedGlasses} */
     selected_glasses_obj = null,
+    /** @type {SlotKey | null} */
+    next_slot_key = null,
     /** @type {(slot_key: SlotKey, blob: Blob) => void} */
     oncaptured = () => {},
   } = $props()
-
-  // 1번/2번/3번 버튼 메타 — Flutter FaceFittingScreen 의 CAPTURE_SLOT_ARR 와 정합.
-  const SLOT_KEY_ARR = [
-    { key: 'front', label: '1번' },
-    { key: 'left', label: '2번' },
-    { key: 'right', label: '3번' },
-  ]
 
   // test 페이지 슬라이더 default 그대로 const 화. 향후 사용자 노출 필요해지면 $state 로 풀면 됨.
   // override_group transform 단위는 align_group 의 cm 좌표계 — 자산 단위 무관 1 칸 = 1cm.
@@ -550,18 +545,25 @@
       </div>
     {/if}
 
-    <div class="absolute inset-x-0 bottom-6 flex justify-center gap-3">
-      {#each SLOT_KEY_ARR as item (item.key)}
-        <button
-          type="button"
-          disabled={!g_face_detected || g_capturing}
-          onclick={() => on_click_capture(item.key)}
-          aria-label={`${item.label} 촬영`}
-          class="cursor-pointer rounded-full bg-[var(--retinal-primary-600)] px-6 py-3 text-sm font-extrabold text-white shadow-lg transition disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {item.label}
-        </button>
-      {/each}
+    <!--
+      가운데 셔터 버튼 — 누를 때마다 부모가 계산한 next_slot_key 슬롯을 한 칸씩 채운다.
+      안경 미선택 / 슬롯 만석 / 얼굴 미검출 / 캡처 진행 중에는 비활성화.
+    -->
+    <div class="absolute inset-x-0 bottom-8 flex justify-center">
+      <button
+        type="button"
+        disabled={!selected_glasses_obj ||
+          !g_face_detected ||
+          g_capturing ||
+          next_slot_key === null}
+        onclick={() => next_slot_key && on_click_capture(next_slot_key)}
+        aria-label="촬영"
+        class="group relative grid h-[92px] w-[92px] cursor-pointer place-items-center rounded-full border-[4px] border-white bg-transparent shadow-[0_8px_24px_rgba(0,0,0,0.4)] transition-transform duration-150 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <span
+          class="block h-[72px] w-[72px] rounded-full bg-[var(--retina-primary-300)] transition-transform duration-150 group-active:scale-90"
+        ></span>
+      </button>
     </div>
   </div>
 </div>
