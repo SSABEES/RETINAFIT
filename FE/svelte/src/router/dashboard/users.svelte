@@ -529,7 +529,7 @@
             </button>
           </div>
 
-          <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+          <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1 pt-1">
             {#each ref_customer_arr as customer_obj (customer_obj.id)}
               {@const is_face_done = Boolean(customer_obj.has_face_analysis)}
               {@const is_lifestyle_done = Boolean(customer_obj.has_lifestyle)}
