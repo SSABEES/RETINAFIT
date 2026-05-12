@@ -26,6 +26,9 @@
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
   import AiInsightPanel from '@/components/analysis/ai_insight_panel.svelte'
+  // 이전 화면(real_fitting/arfitting) 의 CameraView 가 재생을 시작한 음성이
+  // voice_guide 싱글톤을 통해 result 까지 끌려올 수 있다. 진입 즉시 강제 정지로 차단.
+  import { silence as silence_voice } from '@/lib/audio/voice_guide.js'
   const FACE_SHAPE_LABEL_OBJ = {
     oval: '계란형',
     round: '둥근형',
@@ -562,6 +565,8 @@
   }
 
   onMount(() => {
+    // 이전 화면에서 시작된 음성이 모듈 싱글톤 audio 채널에 남아있을 수 있으니 진입 즉시 차단.
+    silence_voice()
     void load_visit_data()
   })
 </script>
