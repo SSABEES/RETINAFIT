@@ -13,9 +13,6 @@ from app.modules.visit.schemas import (
     VisitUpdateRequest, AdminVisitListResponse,
 )
 from app.modules.visit import service
-from starlette.background import BackgroundTask
-from fastapi.responses import JSONResponse
-from app.modules.visit.tasks import generate_and_save_face_script
 
 
 router = APIRouter(tags=["visit"])
@@ -109,25 +106,8 @@ async def update_visit(
     auth: dict = Depends(get_token),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    방문 데이터 업데이트 - 변경된 필드만 전달
-    test_json 이 처음 들어오거나 값이 바뀌면 BG 로 AI face-script 호출 → visit.report_json 채움.
-    """
-    result = await service.update_visit(db, visit_no, request)
-
-    task = None
-    if request.test_json is not None:
-        task = BackgroundTask(
-            generate_and_save_face_script,
-            visit_no,
-            request.test_json,
-        )
-
-    return JSONResponse(
-        content=result.model_dump(mode="json"),
-        background=task,
-    )
-
+    """방문 데이터 업데이트 - 변경된 필드만 전달"""
+    return await service.update_visit(db, visit_no, request)
 # ─── 관리자용 ─────────────────────────────────────────────────
 
 @router.get("/admin/visits", response_model=AdminVisitListResponse, summary="(관리자) 전체 방문 데이터 조회")
