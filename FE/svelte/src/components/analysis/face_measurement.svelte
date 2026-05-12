@@ -168,9 +168,7 @@
   }
 </script>
 
-<main
-  class="app-frame-page flex min-h-screen flex-col bg-white text-[var(--retina-text)]"
->
+<main class="app-frame-page flex min-h-screen flex-col bg-white text-[var(--retina-text)]">
   <Header onback={on_click_back} onlogout={on_click_logout} />
 
   <section class="flex min-h-0 flex-1 flex-col overflow-hidden">

@@ -3,7 +3,6 @@
   import { get } from 'svelte/store'
   import { navigate } from '@maks11060/svelte5-router'
   import CameraView from '@/components/camera/camera_view.svelte'
-  import StepIndicator from '@/components/capture/step_indicator.svelte'
   import StepStatusBar from '@/components/capture/step_status_bar.svelte'
   import CaptureThumbnails from '@/components/capture/capture_thumbnails.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
@@ -46,6 +45,9 @@
   const CAPTURE_BUTTON_RESET_DELAY_MS = 100
   // 얼굴 미검출 토스트 노출 시간.
   const TOAST_VISIBLE_MS = 2000
+  // 측면 촬영 안내 모달 본문 — 줄바꿈 포함 문자열을 attribute 로 직접 쓰면 eslint 의 svelte/no-useless-mustaches 가 걸리므로 const 로 분리.
+  const SIDE_CAPTURE_MODAL_MESSAGE =
+    '측면 촬영시 추후 더 자세한 얼굴 데이터를 확보할 수 있어요.\n좌측 / 우측 측면 촬영을 이어서 진행할 수 있습니다.'
 
   const g_session = $derived(get_session())
   const g_current_step = $derived(get_current_step())
@@ -262,9 +264,15 @@
         <aside
           class="flex min-h-0 flex-col border-t md:border-t-0 md:border-l border-[var(--retina-text-200)] bg-white"
         >
-          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
+          <section
+            class="shrink-0 border-b border-[var(--retina-text-200)] px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]"
+          >
             <div class="flex items-center justify-between gap-2">
-              <p class="font-extrabold text-[var(--retina-text-800)] text-[clamp(10px,1.6svh,14px)]">가이드 표시</p>
+              <p
+                class="font-extrabold text-[var(--retina-text-800)] text-[clamp(10px,1.6svh,14px)]"
+              >
+                가이드 표시
+              </p>
               <button
                 type="button"
                 class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
@@ -301,7 +309,9 @@
             </section>
           -->
 
-          <section class="shrink-0 border-b border-[var(--retina-text-200)] px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
+          <section
+            class="shrink-0 border-b border-[var(--retina-text-200)] px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]"
+          >
             <StepStatusBar
               step={g_current_step}
               is_capturing={g_is_capturing}
@@ -309,7 +319,9 @@
             />
           </section>
 
-          <section class="flex min-h-0 flex-1 flex-col overflow-hidden px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
+          <section
+            class="flex min-h-0 flex-1 flex-col overflow-hidden px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]"
+          >
             <CaptureThumbnails />
           </section>
         </aside>
@@ -330,7 +342,7 @@
   <ConfirmModal
     open={g_side_capture_modal_open}
     title="측면 촬영도 진행하시겠습니까?"
-    message={'측면 촬영시 추후 더 자세한 얼굴 데이터를 확보할 수 있어요.\n좌측 / 우측 측면 촬영을 이어서 진행할 수 있습니다.'}
+    message={SIDE_CAPTURE_MODAL_MESSAGE}
     cancelLabel="다음단계 넘어가기"
     confirmLabel="측면 촬영하기"
     onclose={on_close_side_capture_modal}

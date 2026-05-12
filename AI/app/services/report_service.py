@@ -172,6 +172,34 @@ def _parse_face_script(raw_answer: str, *, include_debug: bool) -> FaceScriptRes
         )
 
 
+def _extract_summary_pair(data: dict[str, Any]) -> tuple[str, str]:
+    """LLM 응답에서 summary1 / summary2 한 쌍을 추출.
+
+    우선순위:
+      1) summary1 + summary2 가 둘 다 있으면 그대로 사용 (정상 경로).
+      2) summary 만 있으면 줄바꿈 또는 첫 마침표 기준으로 잘라 summary1 / summary2 로 분배 (구 스키마 호환).
+      3) 셋 다 없으면 빈 문자열 반환 → Pydantic 이 422 로 거부하므로 폴백 응답이 위에서 처리.
+    """
+    summary1 = _str_or_none(data.get("summary1")) or ""
+    summary2 = _str_or_none(data.get("summary2")) or ""
+    if summary1 and summary2:
+        return summary1, summary2
+
+    legacy = _str_or_none(data.get("summary"))
+    if legacy:
+        # 줄바꿈이 있으면 그걸로, 없으면 첫 마침표 뒤에서 자름. 자르기 실패하면 전부 summary1.
+        parts = [p.strip() for p in legacy.split("\n") if p.strip()]
+        if len(parts) >= 2:
+            return parts[0], " ".join(parts[1:])
+        sentence_split = legacy.split(". ", 1)
+        if len(sentence_split) == 2:
+            first = sentence_split[0].rstrip(".") + "."
+            return first.strip(), sentence_split[1].strip()
+        return legacy, ""
+
+    return summary1, summary2
+
+
 def _str_or_none(value: Any) -> str | None:
     if value is None:
         return None

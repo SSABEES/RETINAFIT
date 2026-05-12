@@ -310,9 +310,13 @@
   <section
     class="flex min-h-0 flex-1 flex-col justify-center overflow-clip [overflow-clip-margin:9999px]"
   >
-    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-[clamp(12px,3svh,32px)] mt-[clamp(3px,0.9svh,10px)]">
+    <div
+      class="flex min-h-0 flex-1 flex-col overflow-y-auto px-[clamp(12px,3svh,32px)] mt-[clamp(3px,0.9svh,10px)]"
+    >
       <div class="text-center">
-        <h1 class="m-0 font-extrabold tracking-[-0.02em] text-zinc-950 text-[clamp(14px,2.9svh,24px)]">
+        <h1
+          class="m-0 font-extrabold tracking-[-0.02em] text-zinc-950 text-[clamp(14px,2.9svh,24px)]"
+        >
           {g_customer_name}의 생활패턴
         </h1>
         <p class="m-0 font-semibold text-slate-500 text-[clamp(10px,1.8svh,14px)]">
@@ -353,7 +357,9 @@
                   {@const local_progress_pct =
                     local_max_index === 0 ? 100 : (local_value_index / local_max_index) * 100}
                   <div class="mt-[clamp(3px,0.9svh,9px)] px-1">
-                    <div class="relative h-[clamp(9px,1.8svh,15px)] rounded-full bg-[var(--retina-primary-100)]">
+                    <div
+                      class="relative h-[clamp(9px,1.8svh,15px)] rounded-full bg-[var(--retina-primary-100)]"
+                    >
                       <div
                         class="absolute top-0 left-0 h-full rounded-full bg-[var(--retina-primary-300)] transition-[width] duration-150"
                         style={`width: ${local_progress_pct}%`}
@@ -374,7 +380,9 @@
                         aria-hidden="true"
                       ></span>
                     </div>
-                    <div class="mt-[clamp(2px,0.7svh,7px)] flex justify-between font-bold text-slate-500 text-[clamp(9px,1.55svh,12px)]">
+                    <div
+                      class="mt-[clamp(2px,0.7svh,7px)] flex justify-between font-bold text-slate-500 text-[clamp(9px,1.55svh,12px)]"
+                    >
                       {#each question_obj.answer_arr as answer_obj, answer_index (answer_obj.option_no)}
                         <span
                           class={answer_index === local_selected_index
@@ -387,7 +395,9 @@
                     </div>
                   </div>
                 {:else}
-                  <div class="mt-[clamp(3px,0.9svh,9px)] flex flex-wrap justify-start gap-[clamp(4px,0.9svh,9px)]">
+                  <div
+                    class="mt-[clamp(3px,0.9svh,9px)] flex flex-wrap justify-start gap-[clamp(4px,0.9svh,9px)]"
+                  >
                     {#each question_obj.answer_arr as answer_obj (answer_obj.option_no)}
                       {@const local_active = is_selected(
                         question_obj.question_text,

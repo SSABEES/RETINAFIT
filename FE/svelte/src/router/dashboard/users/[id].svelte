@@ -13,10 +13,7 @@
   import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import { PATH } from '@/config/path'
   import { get_visit_list, create_visit } from '@/lib/api/visit'
-  import {
-    selected_customer_obj,
-    set_selected_visit,
-  } from '@/lib/stores/customer'
+  import { selected_customer_obj, set_selected_visit } from '@/lib/stores/customer'
   import { selected_admin_obj, selected_opt_store_obj } from '@/lib/stores/admin'
   import { push_error_toast } from '@/lib/stores/toast'
   import { visit_list_reload_signal } from '@/lib/stores/visit_list_reload'
@@ -32,9 +29,48 @@
       : get_customer_by_id(id),
   )
 
-  /** @type {Array<Record<string, any>>} */
-  let g_visit_arr = $state([])
-  let g_visit_loading = $state(true)
+  // 방문 이력 sessionStorage 캐시 — 같은 고객 재진입 시 fetch 끝나기 전에 직전 데이터로 즉시 그리기 위함.
+  // sessionStorage 라 탭/세션 닫히면 폐기. localStorage 가 아닌 이유: 다른 세션·기기·계정에서 본 옛 visit 을 노출하지 않기 위해.
+  const VISIT_CACHE_KEY_PREFIX = 'retinal_user_detail_visits_'
+
+  // 현 id 의 캐시를 읽어 visit 배열 반환. 없거나 형태가 깨졌으면 null.
+  function read_cached_visit_arr() {
+    try {
+      const local_raw = sessionStorage.getItem(VISIT_CACHE_KEY_PREFIX + id)
+      if (!local_raw) return null
+      const local_parsed = JSON.parse(local_raw)
+      return Array.isArray(local_parsed) ? local_parsed : null
+    } catch {
+      return null
+    }
+  }
+
+  // BE 응답 visit 은 VisitObj 의 필수 필드 + 그 외 자유 필드(opt_recommend_json, report_json 등) 를 함께 가진다.
+  // VisitObj & Record<string, any> 로 좁혀서 set_selected_visit(VisitObj) 인자 검사를 통과시키면서, 임의 필드 접근도 허용.
+  /** @typedef {import('@/lib/stores/customer').VisitObj & Record<string, any>} VisitListItem */
+
+  // visit 배열을 캐시에 기록. QuotaExceeded 등으로 실패해도 무시 (best-effort).
+  /** @param {VisitListItem[]} arr */
+  function write_cached_visit_arr(arr) {
+    try {
+      sessionStorage.setItem(VISIT_CACHE_KEY_PREFIX + id, JSON.stringify(arr))
+    } catch {
+      // sessionStorage 비활성/꽉찬 경우 — 캐시 미스는 동작에 영향 없으니 swallow.
+    }
+  }
+
+  // 초기 mount 시점에 캐시 hit 이면 스피너 없이 즉시 표시 (이후 effect 에서 백그라운드로 최신화).
+  // miss 면 빈 배열 + 스피너 ON 으로 시작 → effect 에서 foreground fetch.
+  const g_initial_cached_visit_arr = read_cached_visit_arr()
+
+  /** @type {VisitListItem[]} */
+  let g_visit_arr = $state(g_initial_cached_visit_arr ?? [])
+  let g_visit_loading = $state(!g_initial_cached_visit_arr)
+
+  // 캐시 hit 이면 store 의 selected visit 도 즉시 갱신 — 다른 화면이 참조해도 직전 상태와 일치.
+  if (g_initial_cached_visit_arr?.[0]) {
+    set_selected_visit(g_initial_cached_visit_arr[0])
+  }
   let g_is_creating_visit = $state(false)
   // 얼굴분석 미이수 상태에서 생활패턴/피팅을 시작하려 할 때 띄우는 안내 모달.
   // 확인 시 얼굴분석 단계부터 강제로 진행하도록 유도.
@@ -90,7 +126,6 @@
   // 단계별 완료 여부 (전체 이력 기준) — 생활패턴/피팅 진입 가능 여부 판단에 사용.
   const g_face_done = $derived(Boolean(g_face_recent_dt))
   const g_lifestyle_done = $derived(Boolean(g_lifestyle_recent_dt))
-  const g_fitting_done = $derived(Boolean(g_fitting_recent_dt))
 
   // 단계별 완료 여부 (데이터 있는 최근 방문 기준) — 버튼 상태 chip 표시에만 사용.
   // 빈 방문(얼굴분석 진입 후 완료 없이 뒤로간 경우)은 g_visible_visit_arr 에서 걸러지므로
@@ -104,6 +139,12 @@
    * 지금은 모두 /analysis 로 묶여 있어 새 visit 생성 후 첫 단계부터 진행한다.
    * @typedef {{ key: 'face' | 'lifestyle' | 'fitting', label: string, description: string, icon_active: string, icon_default: string, target_path: string }} StepInfo
    */
+  // ConfirmModal 본문 — 줄바꿈 포함 문자열을 attribute 로 직접 쓰면 eslint svelte/no-useless-mustaches 가 걸리므로 const 로 분리.
+  const FACE_REQUIRED_MODAL_MESSAGE =
+    '얼굴분석 진행 이력이 없습니다.\n생활패턴·피팅 단계는 얼굴분석 결과를 기반으로 진행됩니다.\n얼굴분석부터 진행해 주세요.'
+  const LIFESTYLE_REQUIRED_MODAL_MESSAGE =
+    '생활패턴 진행 이력이 없습니다.\n피팅 단계는 생활패턴 정보를 기반으로 진행됩니다.\n생활패턴부터 진행해 주세요.'
+
   /** @type {StepInfo[]} */
   const STEP_INFO_ARR = [
     {
@@ -131,7 +172,6 @@
       target_path: PATH.analysisArFitting,
     },
   ]
-
 
   /** @param {StepInfo['key']} step_key */
   function is_step_done(step_key) {
@@ -171,21 +211,24 @@
   }
 
   // 고객 상세 진입 시 방문 이력 전체 로드 (최신순). 첫 항목이 최근 방문.
-  async function load_visit_arr() {
-    g_visit_loading = true
+  // silent=true 면 스피너/실패 시 빈배열 초기화를 건너뛴다 — 캐시로 이미 그려놓은 화면 위에 백그라운드로만 최신화.
+  /** @param {{ silent?: boolean }} [options] */
+  async function load_visit_arr(options = {}) {
+    const local_silent = options.silent === true
+    if (!local_silent) g_visit_loading = true
     try {
       const local_result_obj = await get_visit_list({ cust_no: id })
-      const local_visit_arr = Array.isArray(local_result_obj?.visits)
-        ? local_result_obj.visits
-        : []
+      const local_visit_arr = Array.isArray(local_result_obj?.visits) ? local_result_obj.visits : []
       g_visit_arr = local_visit_arr
       if (local_visit_arr[0]) {
         set_selected_visit(local_visit_arr[0])
       }
+      write_cached_visit_arr(local_visit_arr)
     } catch {
-      g_visit_arr = []
+      // silent 모드에선 이전(=캐시) 데이터를 그대로 유지. 사용자 체감 깨짐 방지.
+      if (!local_silent) g_visit_arr = []
     } finally {
-      g_visit_loading = false
+      if (!local_silent) g_visit_loading = false
     }
   }
 
@@ -278,7 +321,7 @@
   }
 
   // 방문 이력 행 클릭 — 해당 visit 을 선택 상태로 만들고 result 페이지(최종 리포트) 로 이동.
-  /** @param {Record<string, any>} visit_obj */
+  /** @param {VisitListItem} visit_obj */
   function on_click_open_visit(visit_obj) {
     const local_visit_no = Number(visit_obj?.visit_no)
     if (!Number.isFinite(local_visit_no)) return
@@ -318,16 +361,37 @@
   }
 
   $effect(() => {
-    $visit_list_reload_signal
-    void load_visit_arr()
+    // id 가 바뀌면 ($props 추적) 새 고객의 캐시를 다시 시도.
+    // 캐시 hit → 스피너 없이 즉시 갱신 후 백그라운드 silent fetch.
+    // 캐시 miss → 일반 foreground fetch (스피너 노출).
+    // 초기 mount 직후에도 한 번 돌지만 그땐 캐시 hit 이면 state 가 이미 같은 내용이라 사실상 background sync 만 실행.
+    const local_cached = read_cached_visit_arr()
+    if (local_cached) {
+      g_visit_arr = local_cached
+      if (local_cached[0]) set_selected_visit(local_cached[0])
+      g_visit_loading = false
+      void load_visit_arr({ silent: true })
+    } else {
+      void load_visit_arr()
+    }
+  })
+
+  // 다른 화면(예: 분석/피팅 플로우 완료 후) 에서 trigger_visit_list_reload() 호출 시 백그라운드로 최신화.
+  // 초기 mount 의 첫 실행은 위 effect 가 이미 fetch 하므로 skip — 그 이후 신호 변화에만 반응.
+  let g_signal_initial_skip = true
+  $effect(() => {
+    $visit_list_reload_signal // 스토어 값 read — 의존성 추적용 (값 자체는 카운터라 사용 안 함).
+    if (g_signal_initial_skip) {
+      g_signal_initial_skip = false
+      return
+    }
+    void load_visit_arr({ silent: true })
   })
 </script>
 
 <Header onback={on_click_back} />
 
-<main
-  class="app-frame-page flex min-h-screen flex-col bg-[var(--retina-text-100)] text-zinc-950"
->
+<main class="app-frame-page flex min-h-screen flex-col bg-[var(--retina-text-100)] text-zinc-950">
   <section class="px-[clamp(12px,3svh,24px)] py-[clamp(8px,2svh,20px)]">
     <div class="mx-auto flex w-full max-w-[944px] flex-col gap-[clamp(8px,2svh,16px)]">
       <!-- 1) 프로필 카드 -->
@@ -343,7 +407,9 @@
           </div>
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
-              <h1 class="m-0 truncate font-extrabold leading-tight text-zinc-950 text-[clamp(16px,3svh,24px)]">
+              <h1
+                class="m-0 truncate font-extrabold leading-tight text-zinc-950 text-[clamp(16px,3svh,24px)]"
+              >
                 {g_customer_obj?.name ?? '고객'}
               </h1>
               <span
@@ -374,18 +440,28 @@
           </div>
         </div>
 
-        <div class="flex shrink-0 items-center gap-[clamp(10px,2svh,18px)] sm:border-l sm:border-slate-200 sm:pl-5">
+        <div
+          class="flex shrink-0 items-center gap-[clamp(10px,2svh,18px)] sm:border-l sm:border-slate-200 sm:pl-5"
+        >
           <div class="text-right">
-            <p class="m-0 font-bold tracking-wide text-slate-500 uppercase text-[clamp(9px,1.4svh,12px)]">
+            <p
+              class="m-0 font-bold tracking-wide text-slate-500 uppercase text-[clamp(9px,1.4svh,12px)]"
+            >
               총 방문
             </p>
-            <p class="m-0 font-extrabold text-[var(--retina-primary-600)] text-[clamp(18px,3.5svh,26px)]">
-              {g_visible_visit_arr.length}<span class="ml-0.5 font-extrabold text-[clamp(10px,1.7svh,15px)]">회</span>
+            <p
+              class="m-0 font-extrabold text-[var(--retina-primary-600)] text-[clamp(18px,3.5svh,26px)]"
+            >
+              {g_visible_visit_arr.length}<span
+                class="ml-0.5 font-extrabold text-[clamp(10px,1.7svh,15px)]">회</span
+              >
             </p>
           </div>
           <div class="h-10 w-px bg-slate-200" aria-hidden="true"></div>
           <div class="text-right">
-            <p class="m-0 font-bold tracking-wide text-slate-500 uppercase text-[clamp(9px,1.4svh,12px)]">
+            <p
+              class="m-0 font-bold tracking-wide text-slate-500 uppercase text-[clamp(9px,1.4svh,12px)]"
+            >
               최근 방문
             </p>
             <p class="m-0 font-extrabold text-zinc-950 text-[clamp(11px,2svh,16px)]">
@@ -422,16 +498,16 @@
                   {#if step_obj.key !== 'fitting'}
                     <span
                       class={`inline-flex items-center rounded-full px-2 py-0.5 font-extrabold text-[clamp(9px,1.4svh,12px)] ${
-                        local_done
-                          ? 'bg-[#DCFCE7] text-[#15803D]'
-                          : 'bg-slate-100 text-slate-500'
+                        local_done ? 'bg-[#DCFCE7] text-[#15803D]' : 'bg-slate-100 text-slate-500'
                       }`}
                     >
                       {local_done ? '완료' : '미진행'}
                     </span>
                   {/if}
                 </div>
-                <p class="m-0 mt-1 truncate font-semibold text-slate-500 text-[clamp(10px,1.6svh,13px)]">
+                <p
+                  class="m-0 mt-1 truncate font-semibold text-slate-500 text-[clamp(10px,1.6svh,13px)]"
+                >
                   {step_obj.description}
                 </p>
               </div>
@@ -462,12 +538,16 @@
       <section
         class="flex flex-col rounded-2xl border border-[var(--retina-text-200)] bg-white shadow-sm"
       >
-        <header class="border-b border-slate-100 px-[clamp(12px,2.5svh,22px)] py-[clamp(8px,1.8svh,14px)]">
+        <header
+          class="border-b border-slate-100 px-[clamp(12px,2.5svh,22px)] py-[clamp(8px,1.8svh,14px)]"
+        >
           <h2 class="m-0 font-extrabold text-zinc-950 text-[clamp(12px,2.2svh,18px)]">방문 이력</h2>
         </header>
 
         {#if g_visit_loading}
-          <div class="text-center font-semibold text-slate-400 px-[clamp(12px,2.5svh,22px)] py-[clamp(20px,5svh,48px)] text-[clamp(11px,1.9svh,14px)]">
+          <div
+            class="text-center font-semibold text-slate-400 px-[clamp(12px,2.5svh,22px)] py-[clamp(20px,5svh,48px)] text-[clamp(11px,1.9svh,14px)]"
+          >
             불러오는 중...
           </div>
         {:else if g_visible_visit_arr.length === 0}
@@ -475,7 +555,9 @@
             class="flex flex-col items-center justify-center gap-2 text-center text-slate-400 px-[clamp(12px,2.5svh,22px)] py-[clamp(24px,6svh,56px)]"
           >
             <ScanFace size={28} strokeWidth={1.8} aria-hidden="true" />
-            <p class="m-0 font-semibold text-[clamp(11px,1.9svh,14px)]">아직 방문 이력이 없습니다.</p>
+            <p class="m-0 font-semibold text-[clamp(11px,1.9svh,14px)]">
+              아직 방문 이력이 없습니다.
+            </p>
           </div>
         {:else}
           <ul class="m-0 grid list-none gap-0 p-0">
@@ -579,7 +661,7 @@
   <ConfirmModal
     open={g_face_required_modal_open}
     title="얼굴분석이 먼저 필요해요"
-    message={'얼굴분석 진행 이력이 없습니다.\n생활패턴·피팅 단계는 얼굴분석 결과를 기반으로 진행됩니다.\n얼굴분석부터 진행해 주세요.'}
+    message={FACE_REQUIRED_MODAL_MESSAGE}
     cancelLabel="닫기"
     confirmLabel="얼굴분석부터 진행하기"
     onclose={on_cancel_face_required}
@@ -590,7 +672,7 @@
   <ConfirmModal
     open={g_lifestyle_required_modal_open}
     title="생활패턴이 먼저 필요해요"
-    message={'생활패턴 진행 이력이 없습니다.\n피팅 단계는 생활패턴 정보를 기반으로 진행됩니다.\n생활패턴부터 진행해 주세요.'}
+    message={LIFESTYLE_REQUIRED_MODAL_MESSAGE}
     cancelLabel="닫기"
     confirmLabel="생활패턴부터 진행하기"
     onclose={on_cancel_lifestyle_required}

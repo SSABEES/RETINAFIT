@@ -57,8 +57,12 @@
 <div class="flex w-full flex-col items-center gap-[clamp(10px,2.5svh,20px)]">
   <!-- 표시 영역 -->
   <div class="w-full text-center">
-    <p class="mb-1 tracking-wide text-zinc-900 text-[clamp(14px,2.5svh,24px)]">휴대폰 번호를 입력해주세요.</p>
-    <div class="flex items-end justify-center border-b-2 border-zinc-800 pb-2 min-h-[clamp(44px,8svh,72px)]">
+    <p class="mb-1 tracking-wide text-zinc-900 text-[clamp(14px,2.5svh,24px)]">
+      휴대폰 번호를 입력해주세요.
+    </p>
+    <div
+      class="flex items-end justify-center border-b-2 border-zinc-800 pb-2 min-h-[clamp(44px,8svh,72px)]"
+    >
       {#if value.length === 0}
         <img
           src="/icons/Property 1=Default.png"
@@ -66,7 +70,9 @@
           class="w-auto h-[clamp(28px,5.5svh,48px)]"
         />
       {:else}
-        <span class="tracking-[0.02em] text-zinc-900 leading-none text-[clamp(28px,5.5svh,48px)]">{g_formatted_value}</span>
+        <span class="tracking-[0.02em] text-zinc-900 leading-none text-[clamp(28px,5.5svh,48px)]"
+          >{g_formatted_value}</span
+        >
       {/if}
     </div>
   </div>

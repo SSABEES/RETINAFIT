@@ -119,7 +119,9 @@
     aria-label="방문 유형 선택"
   >
     <div class="grid justify-items-center gap-2 text-center">
-      <h1 class="m-0 font-extrabold leading-tight text-[var(--retina-text)] text-[clamp(20px,4.5svh,34px)]">
+      <h1
+        class="m-0 font-extrabold leading-tight text-[var(--retina-text)] text-[clamp(20px,4.5svh,34px)]"
+      >
         {g_store_name} 안경점
       </h1>
       <p class="m-0 font-medium text-[var(--retina-text-500)] text-[clamp(12px,1.8svh,16px)]">
@@ -159,10 +161,14 @@
         />
 
         <span class="flex flex-col items-center gap-1 text-center">
-          <span class="block font-extrabold leading-tight text-[var(--retina-text)] text-[clamp(20px,4.2svh,30px)]">
+          <span
+            class="block font-extrabold leading-tight text-[var(--retina-text)] text-[clamp(20px,4.2svh,30px)]"
+          >
             {g_is_guest_visit_loading ? '방문 생성 중...' : '첫 방문이에요'}
           </span>
-          <span class="block font-medium text-[var(--retina-text-500)] text-[clamp(12px,2svh,16px)]">
+          <span
+            class="block font-medium text-[var(--retina-text-500)] text-[clamp(12px,2svh,16px)]"
+          >
             반가워요! 고객님 얼굴형에 맞춘 피팅을 시작해볼까요?
           </span>
         </span>
@@ -181,10 +187,14 @@
         />
 
         <span class="flex flex-col items-center gap-1 text-center">
-          <span class="block font-extrabold leading-tight text-[var(--retina-text)] text-[clamp(20px,4.2svh,30px)]">
+          <span
+            class="block font-extrabold leading-tight text-[var(--retina-text)] text-[clamp(20px,4.2svh,30px)]"
+          >
             방문한 적 있어요
           </span>
-          <span class="block font-medium text-[var(--retina-text-500)] text-[clamp(12px,2svh,16px)]">
+          <span
+            class="block font-medium text-[var(--retina-text-500)] text-[clamp(12px,2svh,16px)]"
+          >
             재방문 감사해요. 기존 내역을 불러올게요.
           </span>
         </span>

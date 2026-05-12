@@ -72,7 +72,9 @@
       class="w-full max-w-[460px] rounded-[20px] border border-[var(--retina-text-200)] bg-white p-6 shadow-[0_4px_10px_rgba(19,25,40,0.04)] sm:p-8"
     >
       <div class="mb-8 text-left">
-        <h1 class="mt-3 mb-0 text-[1.9rem] font-extrabold tracking-[-0.02em] text-[var(--retina-text-800)]">
+        <h1
+          class="mt-3 mb-0 text-[1.9rem] font-extrabold tracking-[-0.02em] text-[var(--retina-text-800)]"
+        >
           관리자 로그인
         </h1>
       </div>

@@ -51,5 +51,5 @@ export function set_aruco_overlay_enabled(on) {
 
 // 콘솔에서 바로 호출할 수 있도록 window 에 헬퍼 노출. 모듈 import 시 1회만.
 if (typeof window !== 'undefined') {
-  /** @type {any} */ (window).aruco_overlay = set_aruco_overlay_enabled
+  /** @type {any} */ ;(window).aruco_overlay = set_aruco_overlay_enabled
 }
