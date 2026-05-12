@@ -1,6 +1,6 @@
 <script>
   /** @type {{ label?: string, size?: number, show_label?: boolean }} */
-  let { label = 'Loading', size = 32, show_label = true } = $props()
+  let { label = 'Loading', size = 150, show_label = true } = $props()
 </script>
 
 <div
