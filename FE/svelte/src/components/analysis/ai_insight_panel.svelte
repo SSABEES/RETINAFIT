@@ -351,11 +351,11 @@
   <section class="rounded-[14px] border border-slate-200 bg-white px-7 py-6 shadow-sm">
     <p class="m-0 text-[14px] font-semibold text-slate-400">{empty_no_visit_text}</p>
   </section>
-{:else if !g_test_json && !g_report_json}
-  <section class="rounded-[14px] border border-slate-200 bg-white px-7 py-6 shadow-sm">
-    <p class="m-0 text-[14px] font-semibold text-slate-400">{empty_no_insight_text}</p>
-  </section>
 {:else}
+  <!--
+    이전엔 test_json/report_json 둘 다 없으면 empty 안내만 띄웠지만, 양식 자체는 null-safe 라
+    데이터 없어도 빈칸(`-` 등) 으로 그대로 노출 — 사용자가 양식 구성을 늘 확인할 수 있다.
+  -->
   <!--
     통합 시트 — 모든 섹션을 하나의 큰 카드로 묶고, 섹션 간 경계는 옅은 가로선(border-b)으로,
     같은 행 내 컬럼 분리는 세로선(divide-x)으로만 표시. 개별 섹션의 border/shadow 제거.

@@ -91,15 +91,15 @@
     <div class="flex items-center justify-between">
       <Link
         href={PATH.adminVisits}
-        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-[var(--retina-border)] bg-white px-4 text-sm font-extrabold text-[var(--retina-primary-700)] transition hover:border-[var(--retina-primary-700)] hover:bg-[var(--retina-soft-purple)]"
+        class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-[var(--retina-text-200)] bg-white px-4 text-sm font-extrabold text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-400)] hover:bg-[var(--retina-primary-50)]"
       >
         <ArrowLeft size={16} strokeWidth={2.4} aria-hidden="true" />
         <span>방문자 목록</span>
       </Link>
 
       {#if g_visit_obj}
-        <p class="m-0 text-sm font-bold text-[var(--retina-text-muted)]">
-          방문번호 <span class="text-[var(--retina-primary-700)]">#{g_visit_obj.visit_no}</span>
+        <p class="m-0 text-sm font-bold text-[var(--retina-text-500)]">
+          방문번호 <span class="text-[var(--retina-primary-600)]">#{g_visit_obj.visit_no}</span>
           · 방문일시 {format_dt(g_visit_obj.create_dt)}
         </p>
       {/if}
@@ -107,28 +107,28 @@
 
     <!-- 고객 정보 카드 -->
     {#if g_visit_obj}
-      <section class="rounded-2xl border border-[var(--retina-border)] bg-white px-7 py-5 shadow-sm">
-        <h2 class="m-0 text-xl font-extrabold text-zinc-950">{g_visit_obj.cust_name ?? '-'}</h2>
+      <section class="rounded-[14px] border border-[var(--retina-text-200)] bg-white px-7 py-5 shadow-[0_4px_10px_rgba(19,25,40,0.04)]">
+        <h2 class="m-0 text-xl font-extrabold text-[var(--retina-text-800)]">{g_visit_obj.cust_name ?? '-'}</h2>
         <div class="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div>
-            <p class="m-0 text-[12px] font-bold text-slate-400">성별</p>
-            <p class="mt-1 text-sm font-extrabold text-zinc-900">{format_sex(g_visit_obj.sex)}</p>
+            <p class="m-0 text-[12px] font-bold text-[var(--retina-text-400)]">성별</p>
+            <p class="mt-1 text-sm font-extrabold text-[var(--retina-text-800)]">{format_sex(g_visit_obj.sex)}</p>
           </div>
           <div>
-            <p class="m-0 text-[12px] font-bold text-slate-400">생년월일</p>
-            <p class="mt-1 text-sm font-extrabold text-zinc-900">
+            <p class="m-0 text-[12px] font-bold text-[var(--retina-text-400)]">생년월일</p>
+            <p class="mt-1 text-sm font-extrabold text-[var(--retina-text-800)]">
               {g_visit_obj.birthday || '-'}
             </p>
           </div>
           <div>
-            <p class="m-0 text-[12px] font-bold text-slate-400">연락처 1</p>
-            <p class="mt-1 text-sm font-extrabold text-zinc-900">
+            <p class="m-0 text-[12px] font-bold text-[var(--retina-text-400)]">연락처 1</p>
+            <p class="mt-1 text-sm font-extrabold text-[var(--retina-text-800)]">
               {g_visit_obj.phone_no1 || '-'}
             </p>
           </div>
           <div>
-            <p class="m-0 text-[12px] font-bold text-slate-400">연락처 2</p>
-            <p class="mt-1 text-sm font-extrabold text-zinc-900">
+            <p class="m-0 text-[12px] font-bold text-[var(--retina-text-400)]">연락처 2</p>
+            <p class="mt-1 text-sm font-extrabold text-[var(--retina-text-800)]">
               {g_visit_obj.phone_no2 || '-'}
             </p>
           </div>

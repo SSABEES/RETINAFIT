@@ -705,11 +705,11 @@
                   기본 4개 슬롯 (2×2). 데이터가 있을 때만 chip 노출, 없으면 grid 영역에 '-' 한 번만.
                 -->
                 {#if g_recommended_color_arr.length === 0}
-                  <div class="mt-2 grid place-items-center font-extrabold text-slate-400 text-[clamp(14px,2.4svh,20px)] grid-rows-[repeat(2,clamp(34px,6.5svh,56px))]">
+                  <div class="mt-2 grid place-items-center font-extrabold text-slate-400 text-[clamp(14px,2.4svh,20px)] grid-rows-[repeat(2,clamp(48px,9svh,84px))]">
                     -
                   </div>
                 {:else}
-                  <div class="mt-2 grid grid-cols-2 gap-[clamp(6px,1.5svh,12px)] grid-rows-[repeat(2,clamp(34px,6.5svh,56px))]">
+                  <div class="mt-2 grid grid-cols-2 gap-[clamp(6px,1.5svh,12px)] grid-rows-[repeat(2,clamp(48px,9svh,84px))]">
                     {#each Array.from({ length: 4 }) as _, color_index (color_index)}
                       {@const local_color_obj = g_recommended_color_arr[color_index]}
                       {#if local_color_obj}
@@ -735,11 +735,11 @@
                   추천 안경테 모양
                 </h3>
                 {#if g_priority_one_frame_arr.length === 0}
-                  <div class="mt-2 grid place-items-center font-extrabold text-slate-400 text-[clamp(14px,2.4svh,20px)] grid-rows-[repeat(2,clamp(34px,6.5svh,56px))]">
+                  <div class="mt-2 grid place-items-center font-extrabold text-slate-400 text-[clamp(14px,2.4svh,20px)] grid-rows-[repeat(2,clamp(48px,9svh,84px))]">
                     -
                   </div>
                 {:else}
-                  <div class="mt-2 grid grid-cols-2 gap-[clamp(6px,1.5svh,12px)] grid-rows-[repeat(2,clamp(34px,6.5svh,56px))]">
+                  <div class="mt-2 grid grid-cols-2 gap-[clamp(6px,1.5svh,12px)] grid-rows-[repeat(2,clamp(48px,9svh,84px))]">
                     {#each Array.from({ length: 4 }) as _, frame_index (frame_index)}
                       {@const local_frame_obj = g_priority_one_frame_arr[frame_index]}
                       {#if local_frame_obj}

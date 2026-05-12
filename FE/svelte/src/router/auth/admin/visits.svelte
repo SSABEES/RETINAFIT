@@ -176,16 +176,16 @@
       <h2 class="m-0 text-xl font-extrabold text-[var(--retina-text)]">방문자 정보</h2>
       <p class="m-0 text-sm font-bold text-[var(--retina-text-muted)]">
         {#if g_visit_arr.length > 0}
-          <span class="text-[var(--retina-primary-700)]">{g_page_start_index}-{g_page_end_index}</span>
-          / 총 <span class="text-[var(--retina-primary-700)]">{g_total}건</span>
+          <span class="text-[var(--retina-primary-600)]">{g_page_start_index}-{g_page_end_index}</span>
+          / 총 <span class="text-[var(--retina-primary-600)]">{g_total}건</span>
         {:else}
-          총 <span class="text-[var(--retina-primary-700)]">{g_total}건</span>
+          총 <span class="text-[var(--retina-primary-600)]">{g_total}건</span>
         {/if}
       </p>
     </div>
 
     <!-- 리스트 영역 -->
-    <div class="overflow-hidden rounded-2xl border border-[var(--retina-border)] bg-white shadow-sm">
+    <div class="overflow-hidden rounded-2xl border border-[var(--retina-text-200)] bg-white shadow-sm">
       {#if g_is_loading}
         <p class="m-0 px-6 py-10 text-center text-sm font-bold text-[var(--retina-text-muted)]">
           방문자 정보 불러오는 중...
@@ -197,7 +197,7 @@
       {:else}
         <!-- 헤더 -->
         <div
-          class="grid grid-cols-[80px_1fr_1fr_1fr_1.4fr_1fr_1fr_1fr] items-center gap-4 border-b border-[var(--retina-border)] bg-[#F8F9FB] px-6 py-3 text-[12px] font-extrabold text-[var(--retina-text-muted)]"
+          class="grid grid-cols-[80px_1fr_1fr_1fr_1.4fr_1fr_1fr_1fr] items-center gap-4 border-b border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-6 py-3 text-[12px] font-extrabold text-[var(--retina-text-muted)]"
         >
           <span>방문번호</span>
           <span>고객명</span>
@@ -210,27 +210,27 @@
         </div>
 
         <!-- 행 (button: 클릭 시 상세로 이동) -->
-        <ul class="m-0 divide-y divide-slate-100 p-0">
+        <ul class="m-0 divide-y divide-[var(--retina-text-100)] p-0">
           {#each g_paginated_arr as visit_obj (visit_obj.visit_no)}
             {@const local_status = get_status_label(visit_obj)}
             <li class="m-0 p-0">
               <button
                 type="button"
-                class="grid w-full cursor-pointer grid-cols-[80px_1fr_1fr_1fr_1.4fr_1fr_1fr_1fr] items-center gap-4 border-0 bg-transparent px-6 py-4 text-left text-sm font-semibold text-slate-700 transition hover:bg-[#F8F9FB] focus-visible:bg-[#F8F9FB] focus-visible:outline-3 focus-visible:outline-offset-[-3px] focus-visible:outline-[var(--retina-primary-700)]/30"
+                class="grid w-full cursor-pointer grid-cols-[80px_1fr_1fr_1fr_1.4fr_1fr_1fr_1fr] items-center gap-4 border-0 bg-transparent px-6 py-4 text-left text-sm font-semibold text-[var(--retina-text-700)] transition hover:bg-[var(--retina-bg-1)] focus-visible:bg-[var(--retina-bg-1)] focus-visible:outline-3 focus-visible:outline-offset-[-3px] focus-visible:outline-[var(--retina-primary-400)]/30"
                 onclick={() => on_click_row(visit_obj.visit_no)}
                 aria-label={`${visit_obj.cust_name ?? ''} 방문 상세 보기`}
               >
-                <span class="text-[12px] font-bold text-slate-400">#{visit_obj.visit_no}</span>
-                <span class="truncate text-base font-extrabold text-zinc-900">
+                <span class="text-[12px] font-bold text-[var(--retina-text-400)]">#{visit_obj.visit_no}</span>
+                <span class="truncate text-base font-extrabold text-[var(--retina-text-800)]">
                   {visit_obj.cust_name ?? '-'}
                 </span>
                 <span>{format_sex(visit_obj.sex)}</span>
                 <span class="truncate">{visit_obj.phone_no1 ?? '-'}</span>
-                <span class="truncate text-[13px] text-slate-500">
+                <span class="truncate text-[13px] text-[var(--retina-text-500)]">
                   {format_dt(visit_obj.create_dt)}
                 </span>
-                <span class="text-[13px] text-slate-500">#{visit_obj.opt_no ?? '-'}</span>
-                <span class="text-[13px] text-slate-500">#{visit_obj.member_no ?? '-'}</span>
+                <span class="text-[13px] text-[var(--retina-text-500)]">#{visit_obj.opt_no ?? '-'}</span>
+                <span class="text-[13px] text-[var(--retina-text-500)]">#{visit_obj.member_no ?? '-'}</span>
                 <span>
                   <span
                     class={`inline-flex rounded-full px-3 py-1 text-[11px] font-extrabold ${local_status.class}`}
@@ -250,7 +250,7 @@
       <nav class="flex items-center justify-center gap-1.5" aria-label="페이지 이동">
         <button
           type="button"
-          class="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-[var(--retina-border)] bg-white text-slate-600 transition hover:border-[var(--retina-primary-700)] hover:text-[var(--retina-primary-700)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[var(--retina-border)] disabled:hover:text-slate-600"
+          class="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-[var(--retina-text-200)] bg-white text-[var(--retina-text-500)] transition hover:border-[var(--retina-primary-400)] hover:text-[var(--retina-primary-600)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[var(--retina-text-200)] disabled:hover:text-[var(--retina-text-500)]"
           disabled={g_page === 1}
           onclick={() => go_to_page(g_page - 1)}
           aria-label="이전 페이지"
@@ -263,8 +263,8 @@
             type="button"
             class={`grid h-9 min-w-9 cursor-pointer place-items-center rounded-lg border px-3 text-sm font-extrabold transition ${
               page_num === g_page
-                ? 'border-[var(--retina-primary-700)] bg-[var(--retina-primary-700)] text-white'
-                : 'border-[var(--retina-border)] bg-white text-slate-600 hover:border-[var(--retina-primary-700)] hover:text-[var(--retina-primary-700)]'
+                ? 'border-[var(--retina-primary-400)] bg-[var(--retina-primary-400)] text-white'
+                : 'border-[var(--retina-text-200)] bg-white text-[var(--retina-text-500)] hover:border-[var(--retina-primary-400)] hover:text-[var(--retina-primary-600)]'
             }`}
             aria-current={page_num === g_page ? 'page' : undefined}
             onclick={() => go_to_page(page_num)}
@@ -275,7 +275,7 @@
 
         <button
           type="button"
-          class="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-[var(--retina-border)] bg-white text-slate-600 transition hover:border-[var(--retina-primary-700)] hover:text-[var(--retina-primary-700)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[var(--retina-border)] disabled:hover:text-slate-600"
+          class="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-[var(--retina-text-200)] bg-white text-[var(--retina-text-500)] transition hover:border-[var(--retina-primary-400)] hover:text-[var(--retina-primary-600)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[var(--retina-text-200)] disabled:hover:text-[var(--retina-text-500)]"
           disabled={g_page === g_total_pages}
           onclick={() => go_to_page(g_page + 1)}
           aria-label="다음 페이지"
