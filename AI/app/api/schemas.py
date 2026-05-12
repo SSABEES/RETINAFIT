@@ -51,8 +51,11 @@ class FaceScriptItems(BaseModel):
 
 
 class FaceScriptResponse(BaseModel):
-    # 필수 필드 (디폴트 값 없음). 비어 있으면 422.
-    summary: str
+    # summary 를 두 줄로 분리.
+    # - summary1: 소재·질감 메타포 한 줄 (12~30자). 헤드라인/타이틀처럼 표시.
+    # - summary2: 관찰 + 추천 본문 (50~130자, 1~2문장). 기존 summary 자리.
+    summary1: str
+    summary2: str
     # 다른 BaseModel 을 필드 타입으로 — Java 의 nested DTO 참조와 동일.
     # 직렬화 시 자동으로 nested JSON object 로 펼쳐짐.
     items: FaceScriptItems
