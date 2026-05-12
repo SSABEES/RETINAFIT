@@ -2,7 +2,8 @@
   import { onMount } from 'svelte'
   import { navigate } from '@maks11060/svelte5-router'
   import { fade, fly } from 'svelte/transition'
-  import { Glasses, CheckCheck, X, ChevronRight } from 'lucide-svelte'
+  import { Glasses, CheckCheck, X, ChevronRight, RefreshCw, Save, FileText } from 'lucide-svelte'
+  import Header from '@/components/layout/header.svelte'
   import { PATH } from '@/config/path'
   import {
     load_normalized_glasses,
@@ -23,6 +24,7 @@
   import { pick_recommended_glasses_arr } from '@/lib/recommendations/frame_recommendations'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
+  import TryOnFallback from '@/components/tryon/try_on_fallback.svelte'
 
   /**
    * @typedef {{
@@ -51,11 +53,7 @@
   let ref_camera_section_el = $state(null)
 
   const SLOT_LABEL_ARR = ['1번', '2번', '3번']
-  const SLOT_ICON_ARR = [
-    '/icons/face_center.png',
-    '/icons/face_center.png',
-    '/icons/face_center.png',
-  ]
+  const SLOT_ICON_ARR = ['/icons/face_center.png', '/icons/face_center.png', '/icons/face_center.png']
   // native 가 emit 하는 slot 키 -> 슬롯 인덱스 매핑
   const SLOT_KEY_TO_INDEX = { front: 0, left: 1, right: 2 }
   const MAX_FITTINGS = 5
@@ -76,8 +74,8 @@
     g_has_any_capture &&
       (g_saved_fittings_arr.length < MAX_FITTINGS || g_is_selected_already_saved),
   )
-  // AR 미지원 디바이스 (예: iOS) 는 피팅을 저장할 수 없으므로 저장 0건이어도 리포트로 진행 가능하게 한다.
-  let g_can_submit = $derived(g_saved_fittings_arr.length > 0 || g_ar_unavailable)
+  // fallback 환경에서도 정상 캡처/저장이 가능해졌으므로 ar_unavailable 우회 제거.
+  let g_can_submit = $derived(g_saved_fittings_arr.length > 0)
 
   // 안경 id별 저장 횟수 맵 (목록 카드 배지 표시용)
   let g_saved_count_map = $derived(
@@ -174,7 +172,7 @@
 
       // native AR 가 캡처한 이미지를 슬롯에 채운다.
       if (local_event_name === 'captured') {
-        on_native_captured(local_data_obj)
+        on_flutter_captured(local_data_obj)
       }
     })
 
@@ -218,11 +216,11 @@
       g_selected_id = id
     }
 
-    // 안경 선택과 동시에 native AR 화면을 띄운다. 카메라 + 캡처 모두 native 가 담당.
-    // 브리지 미연결/디바이스 미지원 시에는 토스트 대신 placeholder 영역의 안내 문구로 처리한다.
+    // 안경 선택과 동시에 native AR 화면을 띄운다 (Android only). fallback 환경에선 별도 launch
+    // 없이 <TryOnFallback> 의 $effect 가 selected_glasses_obj prop 변경으로 알아서 swap 한다.
     const local_glasses_obj =
       g_glasses_arr.find((local_item_obj) => local_item_obj.id === id) ?? null
-    if (local_glasses_obj && g_flutter_bridge_ready && g_flutter_availability === 'SUPPORTED') {
+    if (local_glasses_obj && !g_ar_unavailable) {
       void launch_flutter_fitting_for_glasses(local_glasses_obj).catch((local_err) => {
         const local_err_text =
           local_err instanceof Error ? local_err.message : 'AR 피팅 실행에 실패했습니다.'
@@ -232,41 +230,57 @@
   }
 
   /**
-   * Flutter native 에서 base64 JPEG 와 slot 키로 도착한 캡처 결과를 슬롯에 반영한다.
-   * data: { slot: 'front' | 'left' | 'right', image_base64: string }
+   * Flutter native AR 의 captured 이벤트 페이로드를 처리한다.
+   * 형식: { slot, image_base64 }. base64 → Blob 디코딩 후 공통 슬롯 채움 함수로 위임.
+   * @param {{ slot?: string, image_base64?: string }} data_obj
    */
-  function on_native_captured(data_obj) {
-    const local_slot_key = String(data_obj?.slot ?? '')
+  function on_flutter_captured(data_obj) {
     const local_base64_text = String(data_obj?.image_base64 ?? '')
-    const local_slot_idx = SLOT_KEY_TO_INDEX[local_slot_key]
-
-    if (!Number.isInteger(local_slot_idx) || !local_base64_text) {
-      return
-    }
-
-    let local_byte_arr
+    if (!local_base64_text) return
+    let local_blob
     try {
       const local_binary_text = atob(local_base64_text)
-      local_byte_arr = new Uint8Array(local_binary_text.length)
+      const local_byte_arr = new Uint8Array(local_binary_text.length)
       for (let i = 0; i < local_binary_text.length; i++) {
         local_byte_arr[i] = local_binary_text.charCodeAt(i)
       }
+      local_blob = new Blob([local_byte_arr], { type: 'image/jpeg' })
     } catch {
       show_toast('캡처 이미지 디코딩에 실패했습니다.')
       return
     }
+    apply_capture_slot(String(data_obj?.slot ?? ''), local_blob)
+  }
 
-    const local_blob = new Blob([local_byte_arr], { type: 'image/jpeg' })
+  /**
+   * Three.js fallback 컴포넌트(try_on_fallback.svelte) 의 oncaptured 콜백 시그니처에 맞춘 어댑터.
+   * 형식: (slot_key, blob). 공통 슬롯 채움 함수로 바로 위임.
+   * @param {'front' | 'left' | 'right'} slot_key
+   * @param {Blob} blob
+   */
+  function on_fallback_captured(slot_key, blob) {
+    apply_capture_slot(slot_key, blob)
+  }
+
+  /**
+   * 두 경로 공통의 슬롯 갱신 로직 — Blob 을 File 로 감싸고 object_url 발급, 이전 슬롯 url revoke.
+   * Flutter / Fallback 호출 분기에서 호출되며 두 경로 모두 동일하게 동작해야 한다.
+   * @param {string} slot_key
+   * @param {Blob} blob
+   */
+  function apply_capture_slot(slot_key, blob) {
+    const local_slot_idx = SLOT_KEY_TO_INDEX[slot_key]
+    if (!Number.isInteger(local_slot_idx)) return
+
     const local_captured_at = Date.now()
     const local_file_obj = new File(
-      [local_blob],
+      [blob],
       `arfitting_${String(local_slot_idx + 1)}_${String(local_captured_at)}.jpg`,
       { type: 'image/jpeg' },
     )
-    const local_object_url = URL.createObjectURL(local_blob)
+    const local_object_url = URL.createObjectURL(blob)
 
     const local_capture_slot_arr = [...g_capture_slot_arr]
-    // 같은 슬롯이 이미 채워져있으면 기존 object_url 을 revoke 해 메모리 누수를 막는다.
     const local_prev_slot_obj = local_capture_slot_arr[local_slot_idx]
     if (local_prev_slot_obj?.object_url) {
       URL.revokeObjectURL(local_prev_slot_obj.object_url)
@@ -381,10 +395,11 @@
         ),
       )
 
-      // capture_arr 에는 S3 object key 만 저장한다 (raw url 은 private 버킷이라 권한 부족).
-      // BE _convert_visit_urls 가 vp_file_arr 만 presigned 변환해주므로, result.svelte 는
-      // vp_file_arr (presigned 배열) 와 capture_arr[].key 를 매칭해 src 를 구성한다.
-      // 업로드하지 않은 슬롯은 빈 key 로 남겨 placeholder 처리.
+      // result.svelte 가 그대로 src 로 쓸 수 있도록 query string 떼어낸 public URL 만 저장.
+      // 업로드하지 않은 슬롯은 빈 문자열로 남겨 result 측에서 placeholder 처리한다.
+      const local_public_url_arr = local_presigned_url_arr.map((local_url, local_idx) =>
+        local_filled_idx_arr.includes(local_idx) ? String(local_url).split('?')[0] : '',
+      )
       const local_filled_key_arr = local_filled_idx_arr.map((local_idx) => local_key_arr[local_idx])
 
       // 로컬 누적 목록 갱신 (같은 안경이면 새 캡쳐로 덮어쓰기, 아니면 append)
@@ -395,7 +410,7 @@
         model: glasses_info?.model ?? '',
         capture_arr: SLOT_LABEL_ARR.map((local_label, local_idx) => ({
           label: local_label,
-          key: local_filled_idx_arr.includes(local_idx) ? local_key_arr[local_idx] : '',
+          url: local_public_url_arr[local_idx] ?? '',
         })),
         file_key_arr: local_filled_key_arr,
       }
@@ -449,16 +464,6 @@
       local_reader.onerror = () => reject(local_reader.error ?? new Error('파일 읽기 실패'))
       local_reader.readAsDataURL(file_obj)
     })
-  }
-
-  function on_click_back() {
-    const local_return_path = sessionStorage.getItem('retinal_detail_return_path')
-    if (local_return_path) {
-      sessionStorage.removeItem('retinal_detail_return_path')
-      navigate(local_return_path)
-      return
-    }
-    window.history.back()
   }
 
   /**
@@ -592,40 +597,31 @@
   let g_highlight_aside = $derived([1, 2, 4, 5, 6].includes(g_guide_step))
 </script>
 
-<AnalysisPageLayout current_step={3} bg_class="bg-white text-zinc-900" onback={on_click_back}>
+<AnalysisPageLayout current_step={3} bg_class="bg-white text-zinc-900">
   <div
-    class="grid flex-1 grid-cols-1 grid-rows-[55svh_auto] min-h-0 md:grid-cols-[1fr_220px] md:grid-rows-1 lg:grid-cols-[1fr_300px] bg-[var(--retina-text-100)]"
+    class="flex min-h-0 flex-1 overflow-clip [overflow-clip-margin:9999px] bg-[var(--retina-text-100)]"
   >
-    <!-- 좌측: 카메라 — 모바일에선 위쪽 row(1fr), md+ 에서 좌측 flex column -->
+    <!-- 좌측: 카메라 -->
     <section
       class="relative flex min-h-0 flex-1 flex-col transition-[z-index]"
       class:z-50={g_highlight_camera}
     >
       <div
         bind:this={ref_camera_section_el}
-        class="arfitting-camera-fill relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner transition-all"
+        class="app-bg-edge-extend-left arfitting-camera-fill relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner transition-all"
         class:ring-2={g_highlight_camera}
         class:ring-[var(--retina-primary-300)]={g_highlight_camera}
         class:ring-inset={g_highlight_camera}
       >
         <!-- native AR 이 화면을 takeover 하므로 이 영역은 안내 placeholder 만 표시한다. -->
-        <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-          <Glasses size={64} class="mb-4 text-white/40" />
-
-          {#if g_ar_unavailable}
-            <!-- AR 불가 기기: 가이드 버튼 숨기고 redirect 안내만 노출. -->
-            <p class="text-[20px] font-extrabold leading-relaxed text-white/90">
-              해당 기기는 AR 피팅 사용이 불가합니다<br />
-              <span class="text-[16px] font-bold text-white/70">(Android 기기로 접속해주세요)</span>
-            </p>
-            <p
-              class="mt-5 max-w-[560px] text-[17px] font-semibold leading-relaxed text-[var(--retina-primary-200)]"
-            >
-              대신 우측 하단의 <span class="font-extrabold text-white">실제 착용 분석하기</span>
-              버튼으로 매장에서 직접 착용한 안경 사진을 <br /> 촬영해 분석을 이어갈 수 있어요.
-            </p>
-          {:else}
-            <!-- AR 사용 가능(또는 확인 중): Glasses 아이콘 아래 가이드 버튼 표시. -->
+        {#if g_ar_unavailable}
+          <TryOnFallback
+            selected_glasses_obj={g_selected_glasses_obj}
+            oncaptured={on_fallback_captured}
+          />
+        {:else}
+          <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
+            <Glasses size={64} class="mb-4 text-white/40" />
             <button
               type="button"
               onclick={on_click_guide_open}
@@ -650,33 +646,31 @@
                 {/if}
               </p>
             {/if}
-          {/if}
-        </div>
+          </div>
+        {/if}
       </div>
     </section>
 
-    <!-- 우측: 캡쳐 상태 + 추천 안경 + 액션 버튼 — 모바일에선 하단 stack(콘텐츠 크기) -->
+    <!-- 우측: 캡쳐 상태 + 추천 안경 + 액션 버튼 -->
     <aside
-      class="relative flex flex-col border-t md:border-t-0 md:border-l border-slate-200 bg-white transition-[z-index]"
+      class="app-bg-edge-extend-right relative flex w-[300px] flex-col border-l border-slate-200 bg-white transition-[z-index]"
       class:z-50={g_highlight_aside}
     >
       <!-- 캡쳐 슬롯 -->
       <div
-        class="transition-all px-[clamp(8px,2svh,16px)] pt-[clamp(6px,1.5svh,12px)] pb-[clamp(4px,1svh,8px)]"
+        class="px-4 pt-3 pb-2 transition-all"
         class:ring-2={g_guide_step === 4}
         class:ring-[var(--retina-primary-300)]={g_guide_step === 4}
         class:ring-inset={g_guide_step === 4}
       >
-        <div class="mb-[clamp(4px,1svh,8px)] flex items-center justify-between">
-          <h2 class="font-extrabold tracking-wide text-[#374151] text-[clamp(9px,1.4svh,12px)]">
-            촬영 기록
-          </h2>
+        <div class="mb-2 flex items-center justify-between">
+          <h2 class="text-[11px] font-extrabold tracking-wide text-[#374151]">촬영 기록</h2>
         </div>
-        <div class="grid grid-cols-3 gap-[clamp(4px,1svh,8px)] pr-1">
+        <div class="grid grid-cols-3 gap-2 pr-1">
           {#each g_capture_slot_arr as slot, idx (idx)}
             <div class="group relative flex flex-col items-center gap-1">
               <div
-                class={`relative flex aspect-[3/4] w-full items-center justify-center rounded-none border transition-all ${
+                class={`relative flex h-[120px] w-full items-center justify-center rounded-none border transition-all ${
                   slot
                     ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)]'
                     : 'border-[#F1F3F5] bg-[#F1F3F5]'
@@ -686,7 +680,7 @@
                   <img
                     src={slot.object_url}
                     alt={SLOT_LABEL_ARR[idx]}
-                    class="h-full w-full object-cover"
+                    class="h-full w-full object-contain"
                   />
                   <button
                     type="button"
@@ -700,12 +694,12 @@
                   <img
                     src={SLOT_ICON_ARR[idx]}
                     alt={`${SLOT_LABEL_ARR[idx]} 안내`}
-                    class="object-contain opacity-70 h-[clamp(14px,2.5svh,22px)] w-[clamp(14px,2.5svh,22px)]"
+                    class="h-[18px] w-[18px] object-contain opacity-70"
                   />
                 {/if}
               </div>
               <span
-                class={`font-bold text-[clamp(9px,1.4svh,12px)] ${slot ? 'text-[var(--retina-primary-300)]' : 'text-slate-400'}`}
+                class={`text-[10px] font-bold ${slot ? 'text-[var(--retina-primary-300)]' : 'text-slate-400'}`}
                 >{SLOT_LABEL_ARR[idx]}</span
               >
             </div>
@@ -717,20 +711,20 @@
 
       <!-- 추천 안경 목록 -->
       <div
-        class="flex min-h-0 flex-1 flex-col transition-all px-[clamp(8px,2svh,16px)] py-[clamp(8px,2svh,16px)]"
+        class="flex min-h-0 flex-1 flex-col px-4 py-4 transition-all"
         class:ring-2={g_guide_step === 1 || g_guide_step === 2}
         class:ring-[var(--retina-primary-300)]={g_guide_step === 1 || g_guide_step === 2}
         class:ring-inset={g_guide_step === 1 || g_guide_step === 2}
       >
-        <div class="mb-[clamp(4px,1svh,8px)] flex items-center justify-between pr-1">
-          <h2 class="font-extrabold text-zinc-900 text-[clamp(11px,1.8svh,14px)]">추천 안경</h2>
+        <div class="mb-2 flex items-center justify-between pr-1">
+          <h2 class="text-[13px] font-extrabold text-zinc-900">추천 안경</h2>
           <button
             type="button"
             onclick={on_click_refresh_glasses}
             aria-label="프레임 변경"
             class="relative flex items-center cursor-pointer border-0 bg-transparent p-0 transition-opacity hover:opacity-80"
           >
-            <img src="/icons/Sum.png" alt="프레임 변경" class="w-auto h-[clamp(20px,4svh,32px)]" />
+            <img src="/icons/Sum.png" alt="프레임 변경" class="h-7 w-auto" />
             {#if g_active_filter_count > 0}
               <span
                 class="absolute -top-1 right-0 flex h-3 w-3 items-center justify-center rounded-full bg-[var(--retina-primary-300)] text-[8px] font-black text-white"
@@ -768,16 +762,15 @@
                 <button
                   type="button"
                   onclick={() => on_click_select_glasses(item.id)}
-                  disabled={g_ar_unavailable}
-                  aria-label={g_ar_unavailable ? `${item.model} (AR 피팅 사용 불가)` : item.model}
-                  class={`group relative flex items-center rounded-sm border text-left transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 gap-[clamp(6px,1.6svh,12px)] p-[clamp(4px,1svh,8px)] ${
+                  aria-label={item.model}
+                  class={`group relative flex items-center gap-2.5 rounded-sm border p-2 text-left transition-all ${
                     active
                       ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)] shadow-sm'
                       : 'border-slate-200 bg-white hover:border-[var(--retina-primary-100)]'
                   }`}
                 >
                   <div
-                    class="flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 p-1 h-[clamp(48px,11svh,80px)] w-[clamp(60px,13svh,96px)]"
+                    class="flex h-[72px] w-[88px] shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 p-1"
                   >
                     <img src={item.img_url} alt={item.model} class="h-full w-full object-contain" />
                   </div>
@@ -793,16 +786,12 @@
                         <img src="/icons/fitting.png" alt="피팅중" class="h-2 w-auto" />
                       </span>
                     {/if}
-                    <p class="truncate font-extrabold text-zinc-900 text-[clamp(11px,2svh,16px)]">
-                      {item.model}
-                    </p>
-                    <span
-                      class="truncate font-semibold text-slate-400 text-[clamp(9px,1.5svh,12px)]"
+                    <p class="truncate text-[14px] font-extrabold text-zinc-900">{item.model}</p>
+                    <span class="truncate text-[11.5px] font-semibold text-slate-400"
                       >{item.brand}</span
                     >
                     <div class="mt-0.5 flex items-center justify-between gap-1.5">
-                      <span
-                        class="font-extrabold text-[var(--retina-primary-300)] text-[clamp(10px,1.7svh,13px)]"
+                      <span class="text-[12.5px] font-extrabold text-[var(--retina-primary-300)]"
                         >{format_price_label(item.price)}</span
                       >
                       {#if !active && saved_count > 0}
@@ -823,7 +812,7 @@
 
       <!-- 저장된 피팅 목록 + 액션 버튼 -->
       <div
-        class="border-t border-slate-100 bg-white transition-all px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]"
+        class="border-t border-slate-100 bg-white px-4 py-3 transition-all"
         class:ring-2={g_guide_step === 5 || g_guide_step === 6}
         class:ring-[var(--retina-primary-300)]={g_guide_step === 5 || g_guide_step === 6}
         class:ring-inset={g_guide_step === 5 || g_guide_step === 6}
@@ -894,7 +883,7 @@
             disabled={!g_can_submit && g_guide_step !== 6}
             onclick={on_click_submit_report}
             aria-label="실제 착용 분석하기"
-            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale text-[clamp(11px,2svh,16px)]"
+            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 text-[12px] font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
           >
             실제 착용 분석하기
           </button>
@@ -946,7 +935,7 @@
         <div class="mt-4 overflow-hidden rounded-2xl bg-zinc-900 px-4 py-4">
           <p class="mb-3 text-center text-[12px] font-semibold text-white/50">AR 화면 하단 버튼</p>
           <div class="grid grid-cols-3 gap-2.5">
-            {#each ['1번', '2번', '3번'] as label (label)}
+            {#each ['1번', '2번', '3번'] as label}
               <div
                 class="flex items-center justify-center rounded-full bg-[var(--retina-primary-300)] py-3 text-[14px] font-bold text-white"
               >

@@ -47,6 +47,10 @@ FE/svelte/dist-ssr/
 FE/svelte/.vite/
 FE/svelte/*.local
 
+# claude-plugins-official 의 session-report 플러그인이 npm script 종료 시 자동 생성하는
+# HTML artifact. 로컬 디버깅용이라 repo 에 넣지 않는다.
+FE/svelte/session-report-*.html
+
 # MediaPipe WASM 은 npm scripts(predev/prebuild) 가 node_modules 에서 동기화하는 자동 생성물.
 # 모델 파일(.task / .tflite) 은 별도로 public/mediapipe/models/ 에 커밋된다.
 FE/svelte/public/mediapipe/wasm/
