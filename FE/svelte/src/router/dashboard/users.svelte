@@ -144,6 +144,9 @@
     }))
   }
 
+  // [id].svelte 의 VISIT_CACHE_KEY_PREFIX 와 동일해야 캐시 hit 됨. 두 파일이 같은 키를 공유.
+  const VISIT_CACHE_KEY_PREFIX = 'retinal_user_detail_visits_'
+
   /** @param {Array<Record<string, any>>} customer_arr */
   async function enrich_customer_arr_with_visit_status(customer_arr) {
     const local_customer_result_arr = await Promise.all(
@@ -155,6 +158,16 @@
           const local_visit_arr = Array.isArray(local_result_obj?.visits)
             ? local_result_obj.visits
             : []
+          // [id].svelte 가 mount 시 읽는 캐시키에 미리 적재 — 카드 클릭 직후 같은 cust_no 의
+          // get_visit_list 재호출을 캐시 hit 으로 대체해 스피너/지연 제거.
+          try {
+            sessionStorage.setItem(
+              VISIT_CACHE_KEY_PREFIX + customer_obj.id,
+              JSON.stringify(local_visit_arr),
+            )
+          } catch {
+            // sessionStorage 비활성/꽉찬 경우 — 캐시 미스로 fallback (정상 fetch 진행), 동작에 지장 없음.
+          }
           const local_recent_visit_obj = local_visit_arr[0] ?? null
           const local_status_obj = get_analysis_status_obj(local_recent_visit_obj?.test_dt ?? null)
           const local_latest_visit_dt = get_latest_visit_date(
