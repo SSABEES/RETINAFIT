@@ -2,6 +2,7 @@ from pydantic import BaseModel, field_validator
 from datetime import datetime
 from typing import Optional
 
+
 # ─── 고객 검색 ────────────────────────────────────────────────
 
 class CustomerSearchResponse(BaseModel):
@@ -14,6 +15,7 @@ class CustomerSearchResponse(BaseModel):
     sex: Optional[int] = None     # 0: 남자, 1: 여자
     has_face_analysis: bool = False  # 얼굴분석 완료 여부
     has_lifestyle: bool = False  # 생활패턴(추천옵션) 완료 여부
+    last_visit_dt: Optional[datetime] = None
 
 
 # ─── 고객 등록 ────────────────────────────────────────────────

@@ -18,7 +18,7 @@ export async function search_customer(search_obj) {
 
 /**
  * 신규 고객을 등록한다.
- * @param {{ opt_no: string | number, cust_name: string, phone1: string, phone2: string, birthday: string, sex: number }} customer_obj
+ * @param {{ opt_no: string | number, cust_name: string, phone1: string, phone2: string, birthday: string, sex: number | null }} customer_obj
  */
 export async function create_customer(customer_obj) {
   const local_search_params = new URLSearchParams({

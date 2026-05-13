@@ -13,6 +13,7 @@
   import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import { PATH } from '@/config/path'
   import { get_visit_list, create_visit, get_visit } from '@/lib/api/visit'
+  import { prefetch_visit } from '@/lib/stores/visit_prefetch'
   import { selected_customer_obj, set_selected_visit } from '@/lib/stores/customer'
   import { selected_admin_obj, selected_opt_store_obj } from '@/lib/stores/admin'
   import { push_error_toast } from '@/lib/stores/toast'
@@ -167,16 +168,16 @@
       key: 'fitting',
       label: '피팅시작',
       description: 'AR / 실제 안경 피팅',
-      icon_active: '/icons/Property 1=Fitting, Property 2=Default.png',
-      icon_default: '/icons/Property 1=Fitting, Property 2=Default.png',
+      icon_active: '/icons/Property 1=Fitting, Property 2=Active.png',
+      icon_default: '/icons/Property 1=Fitting, Property 2=Active.png',
       target_path: PATH.analysisArFitting,
     },
   ]
 
   /** @param {StepInfo['key']} step_key */
   function is_step_done(step_key) {
-    if (step_key === 'face') return g_face_recent_done
-    if (step_key === 'lifestyle') return g_lifestyle_recent_done
+    if (step_key === 'face') return g_face_done
+    if (step_key === 'lifestyle') return g_lifestyle_done
     if (step_key === 'fitting') return g_fitting_recent_done
     return false
   }
@@ -239,15 +240,9 @@
   async function on_click_start_step(step_obj) {
     if (g_is_creating_visit) return
 
-    // 얼굴분석 이력이 없는 고객은 생활패턴/피팅 단계로 바로 진입할 수 없다.
-    if ((step_obj.key === 'lifestyle' || step_obj.key === 'fitting') && !g_face_done) {
+    // 얼굴분석 이력이 없는 고객은 생활패턴 단계로 바로 진입할 수 없다.
+    if (step_obj.key === 'lifestyle' && !g_face_done) {
       g_face_required_modal_open = true
-      return
-    }
-
-    // 얼굴분석은 했지만 생활패턴이 없는 경우, 피팅으로 바로 진입할 수 없다.
-    if (step_obj.key === 'fitting' && !g_lifestyle_done) {
-      g_lifestyle_required_modal_open = true
       return
     }
 
@@ -261,23 +256,7 @@
       return
     }
 
-    // 생활패턴/피팅: 최근 방문을 그대로 사용 — 새 방문 생성 없이 바로 진입.
-    if (step_obj.key === 'lifestyle' || step_obj.key === 'fitting') {
-      const local_recent_visit = g_visit_arr[0]
-      if (!local_recent_visit?.visit_no) {
-        push_error_toast('최근 방문 정보를 찾을 수 없습니다.')
-        return
-      }
-      set_selected_visit(local_recent_visit)
-      sessionStorage.setItem('retinal_visit_no', String(local_recent_visit.visit_no))
-      sessionStorage.removeItem('retinal_lens_selections')
-      sessionStorage.removeItem('retinal_saved_fittings')
-      sessionStorage.setItem('retinal_detail_return_path', PATH.userDetail(id))
-      navigate(step_obj.target_path)
-      return
-    }
-
-    // 얼굴분석: 항상 새 방문 생성.
+    // 모든 단계: 항상 새 방문 생성.
     g_is_creating_visit = true
     try {
       const local_result_obj = await create_visit({
@@ -325,8 +304,49 @@
   function on_click_open_visit(visit_obj) {
     const local_visit_no = Number(visit_obj?.visit_no)
     if (!Number.isFinite(local_visit_no)) return
-    set_selected_visit(visit_obj)
     sessionStorage.setItem('retinal_visit_no', String(local_visit_no))
+
+    // 현재 방문 이전(더 오래된) 방문만 탐색 — g_visit_arr 는 최신순이므로 현재 방문 인덱스 이후가 과거
+    const local_visit_index = g_visit_arr.findIndex((v) => Number(v?.visit_no) === local_visit_no)
+    const local_older_visit_arr = local_visit_index >= 0 ? g_visit_arr.slice(local_visit_index + 1) : []
+
+    // 현재 방문에 얼굴분석 없으면 이전 방문 중 가장 최근 얼굴분석 fallback 탐색
+    const local_face_fallback = !visit_obj?.test_dt
+      ? local_older_visit_arr.find((v) => v?.test_dt)
+      : null
+
+    // 현재 방문에 생활패턴 없으면 이전 방문 중 가장 최근 생활패턴 fallback 탐색
+    const local_lifestyle_fallback = !visit_obj?.opt_recommend_json
+      ? local_older_visit_arr.find((v) => v?.opt_recommend_json)
+      : null
+
+    // fallback 데이터를 즉시 머지 — result.svelte 진입 시 바로 렌더링
+    set_selected_visit({
+      ...visit_obj,
+      ...(local_face_fallback?.test_json && {
+        test_json: local_face_fallback.test_json,
+        main_file: local_face_fallback.main_file ?? visit_obj.main_file,
+      }),
+      ...(local_lifestyle_fallback?.opt_recommend_json && {
+        opt_recommend_json: local_lifestyle_fallback.opt_recommend_json,
+      }),
+    })
+    if (local_face_fallback?.visit_no) {
+      sessionStorage.setItem('retinal_fallback_face_visit_no', String(local_face_fallback.visit_no))
+    } else {
+      sessionStorage.removeItem('retinal_fallback_face_visit_no')
+    }
+
+    // navigate와 동시에 fetch 시작 — result.svelte 가 mount될 때쯤 응답이 와 있거나 대기 중
+    prefetch_visit(local_visit_no, () =>
+      local_face_fallback?.visit_no
+        ? Promise.all([
+            get_visit({ visit_no: local_visit_no }),
+            get_visit({ visit_no: local_face_fallback.visit_no }).catch(() => null),
+          ])
+        : get_visit({ visit_no: local_visit_no }).then((v) => [v, null]),
+    )
+
     navigate(PATH.analysisResult)
   }
 
@@ -489,7 +509,7 @@
                 alt=""
                 aria-hidden="true"
                 class="shrink-0 transition h-[clamp(40px,8svh,72px)] w-[clamp(40px,8svh,72px)]"
-                class:opacity-40={!local_done}
+                class:opacity-40={!local_done && step_obj.key !== 'fitting'}
               />
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2">

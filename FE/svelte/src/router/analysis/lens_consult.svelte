@@ -7,6 +7,7 @@
   import { save_visit_recommend } from '@/lib/api/visit'
   import { selected_customer_obj } from '@/lib/stores/customer'
   import { push_error_toast } from '@/lib/stores/toast'
+  import { trigger_visit_list_reload } from '@/lib/stores/visit_list_reload'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
   import BottomActionBar from '@/components/analysis/bottom_action_bar.svelte'
@@ -262,6 +263,7 @@
       const local_return_path = sessionStorage.getItem('retinal_detail_return_path')
       if (local_return_path) {
         sessionStorage.removeItem('retinal_detail_return_path')
+        trigger_visit_list_reload()
         navigate(local_return_path)
       } else {
         navigate(PATH.analysisArFitting)

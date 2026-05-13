@@ -7,7 +7,6 @@
   import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import { PATH } from '@/config/path'
   import { create_customer, search_customer } from '@/lib/api/customers'
-  import { get_visit_list } from '@/lib/api/visit'
   import { customer_arr_store, set_selected_customer } from '@/lib/stores/customer'
   import { selected_opt_store_obj } from '@/lib/stores/admin'
   import { push_error_toast } from '@/lib/stores/toast'
@@ -72,30 +71,6 @@
     }
   }
 
-  /**
-   * @param {string | null | undefined} primary_date
-   * @param {string | null | undefined} secondary_date
-   * @param {string | null | undefined} fallback_date
-   */
-  function get_latest_visit_date(primary_date, secondary_date, fallback_date) {
-    const local_primary_time = primary_date ? new Date(primary_date).getTime() : Number.NaN
-    const local_secondary_time = secondary_date ? new Date(secondary_date).getTime() : Number.NaN
-
-    if (!Number.isNaN(local_primary_time) && !Number.isNaN(local_secondary_time)) {
-      return local_primary_time >= local_secondary_time ? primary_date : secondary_date
-    }
-
-    if (!Number.isNaN(local_primary_time)) {
-      return primary_date
-    }
-
-    if (!Number.isNaN(local_secondary_time)) {
-      return secondary_date
-    }
-
-    return fallback_date ?? ''
-  }
-
   // 개인정보 보호 — 이름 두 번째 글자를 'O' 로 마스킹.
   // 김철수 → 김O수, 김철 → 김O, 남궁민수 → 남O민수.
   /** @param {string | null | undefined} name */
@@ -129,9 +104,7 @@
       phone2: String(customer_obj.phone2 ?? customer_obj.PHONE2 ?? ''),
       birth_dt: String(customer_obj.birthday ?? customer_obj.BIRTHDAY ?? ''),
       gender: Number(customer_obj.sex ?? customer_obj.SEX ?? 0) === 0 ? '남' : '여',
-      // TODO: BE가 last_visit_dt 필드 추가하면 아래 주석 해제 후 enrich_customer_arr_with_visit_status 호출 제거
-      // last_visit_dt: format_visit_dt(customer_obj.last_visit_dt ?? customer_obj.LAST_VISIT_DT ?? null),
-      last_visit_dt: '-',
+      last_visit_dt: format_visit_dt(customer_obj.last_visit_dt ?? customer_obj.LAST_VISIT_DT ?? null),
       visit_count: 0,
       status_key: 'needs_analysis',
       status: '',
@@ -144,64 +117,8 @@
     }))
   }
 
-  // [id].svelte 의 VISIT_CACHE_KEY_PREFIX 와 동일해야 캐시 hit 됨. 두 파일이 같은 키를 공유.
-  const VISIT_CACHE_KEY_PREFIX = 'retinal_user_detail_visits_'
-
-  /** @param {Array<Record<string, any>>} customer_arr */
-  async function enrich_customer_arr_with_visit_status(customer_arr) {
-    const local_customer_result_arr = await Promise.all(
-      customer_arr.map(async (/** @type {Record<string, any>} */ customer_obj) => {
-        try {
-          const local_result_obj = await get_visit_list({
-            cust_no: customer_obj.id,
-          })
-          const local_visit_arr = Array.isArray(local_result_obj?.visits)
-            ? local_result_obj.visits
-            : []
-          // [id].svelte 가 mount 시 읽는 캐시키에 미리 적재 — 카드 클릭 직후 같은 cust_no 의
-          // get_visit_list 재호출을 캐시 hit 으로 대체해 스피너/지연 제거.
-          try {
-            sessionStorage.setItem(
-              VISIT_CACHE_KEY_PREFIX + customer_obj.id,
-              JSON.stringify(local_visit_arr),
-            )
-          } catch {
-            // sessionStorage 비활성/꽉찬 경우 — 캐시 미스로 fallback (정상 fetch 진행), 동작에 지장 없음.
-          }
-          const local_recent_visit_obj = local_visit_arr[0] ?? null
-          const local_status_obj = get_analysis_status_obj(local_recent_visit_obj?.test_dt ?? null)
-          const local_latest_visit_dt = get_latest_visit_date(
-            local_recent_visit_obj?.test_dt ?? '',
-            local_recent_visit_obj?.vp_dt ?? '',
-            local_recent_visit_obj?.create_dt ?? '',
-          )
-
-          return {
-            ...customer_obj,
-            last_visit_dt: format_visit_dt(local_latest_visit_dt),
-            visit_count: local_visit_arr.length,
-            status_key: local_status_obj.key,
-            status: local_status_obj.label,
-            status_box_class: local_status_obj.box_class,
-          }
-        } catch {
-          const local_status_obj = get_analysis_status_obj(null)
-
-          return {
-            ...customer_obj,
-            status_key: local_status_obj.key,
-            status: local_status_obj.label,
-            status_box_class: local_status_obj.box_class,
-          }
-        }
-      }),
-    )
-
-    return local_customer_result_arr
-  }
-
   // 고객 행 클릭 시 — 선택한 고객을 store 에 저장하고 고객 상세 페이지로 이동.
-  /** @param {Record<string, any>} customer_obj */
+  /** @param {import('@/lib/stores/customer').CustomerObj} customer_obj */
   function on_click_select_customer(customer_obj) {
     if (g_is_customer_select_loading) return
 
@@ -237,14 +154,6 @@
 
       ref_customer_arr = local_normalized_arr
       customer_arr_store.set(local_normalized_arr)
-
-      // TODO: BE가 last_visit_dt 추가하면 아래 enrichment 블록 4줄 제거 (normalize에서 바로 값이 옴)
-      const local_enriched_arr = await enrich_customer_arr_with_visit_status(local_normalized_arr)
-      if (local_request_id !== g_search_request_id) {
-        return
-      }
-      ref_customer_arr = local_enriched_arr
-      customer_arr_store.set(local_enriched_arr)
     } catch (local_error) {
       if (local_request_id !== g_search_request_id) {
         return
@@ -534,9 +443,9 @@
                     class:opacity-40={!is_lifestyle_done}
                   />
                   <img
-                    src="/icons/Property 1=Fitting, Property 2=Default.png"
+                    src="/icons/Property 1=Fitting, Property 2=Active.png"
                     alt="피팅시작"
-                    class="h-[76px] w-[76px] opacity-40"
+                    class="h-[76px] w-[76px]"
                   />
                 </div>
               </button>
