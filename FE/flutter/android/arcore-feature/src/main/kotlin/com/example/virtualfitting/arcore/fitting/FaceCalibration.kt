@@ -118,6 +118,18 @@ class FaceCalibration(
         }
     }
 
+    /**
+     * 사용자가 명시적으로 "정면 주시 중" confirm 했을 때, 분산 임계값 / timeout 과 무관하게
+     * 현재까지 누적된 샘플의 평균으로 즉시 lock.
+     * 호출 직전 0.5초 정도 짧은 buffer 를 두고 호출하면 터치 직후 자세 흐트림이 평균에 묻혀
+     * 더 정확한 기준점 잡힘. samples 가 비어있으면 no-op.
+     */
+    fun forceLock() {
+        if (locked != null) return
+        if (samples.isEmpty()) return
+        locked = samples.average()
+    }
+
     companion object {
         const val MIN_SAMPLES = 15
         const val WINDOW_SIZE = 30

@@ -159,7 +159,14 @@ private const val NOSE_BRIDGE_DEBUG_LOG: Boolean = true
  * lock 이 안정적으로 확정되고, fallback timeout (FaceCalibration.TIMEOUT_MS = 3초) 도
  * 이 시간 안에 발생하므로 어차피 lock 보장됨.
  */
-private const val CALIBRATION_PROGRESS_DURATION_MS: Long = 4000L
+private const val CALIBRATION_PROGRESS_DURATION_MS: Long = 3000L
+
+/**
+ * 사용자가 "정면 주시 중" 버튼을 눌렀을 때, 즉시 lock 하지 않고 짧은 buffer 동안 측정 더 받음.
+ * 이유: 화면 터치 동작 자체가 ~0.5초 자세를 흐트림. buffer 동안 자세 다시 잡힌 샘플들이
+ * 평균에 묻혀 더 정확한 기준점이 잡힘.
+ */
+private const val USER_CONFIRM_BUFFER_MS: Long = 500L
 
 /**
  * 전면 카메라 + Augmented Faces + GLB 안경 렌더링의 핵심 Composable.
@@ -291,6 +298,8 @@ fun FaceFittingScreen(
     var calibrationStartMs by remember { mutableStateOf(0L) }
     var calibrationProgress by remember { mutableStateOf(0f) }
     var isCalibrated by remember { mutableStateOf(false) }
+    // 사용자가 "정면 주시 중" 버튼을 누른 시각. 0L 이면 미클릭 (자동 타이머 흐름).
+    var userConfirmedAtMs by remember { mutableStateOf(0L) }
     // 디버그: 현재 yaw 와 temple 가시성을 status overlay 에 표시.
     var debugYawDeg by remember { mutableStateOf(0f) }
     var debugLeftVisible by remember { mutableStateOf(true) }
@@ -372,20 +381,29 @@ fun FaceFittingScreen(
                     val m = measure(face)
                     calibration.submit(m, nowMs = nowMs)
 
-                    // Calibration 진행률은 시간 기반으로 부드럽게 0→100%. lock 이 일찍
-                    // 발생해도 진행률이 점프하지 않고, UI 표시 시간이 일정함 (사용자에게
-                    // 정면 응시할 여유 부여).
+                    // Calibration 진행률은 시간 기반으로 부드럽게 0→100%. 자동 흐름엔 3초
+                    // 타이머가 progress 1.0 도달 시점에 lock 보장. 사용자가 "정면 주시 중"
+                    // 버튼을 누르면 buffer 진행률이 자동 progress 를 추월해 빠르게 100% 로.
                     val elapsedMs = nowMs - calibrationStartMs
                     val timeProgress = (elapsedMs.toFloat() / CALIBRATION_PROGRESS_DURATION_MS)
                         .coerceIn(0f, 1f)
-                    calibrationProgress = timeProgress
+                    val confirmProgress = if (userConfirmedAtMs != 0L) {
+                        ((nowMs - userConfirmedAtMs).toFloat() / USER_CONFIRM_BUFFER_MS)
+                            .coerceIn(0f, 1f)
+                    } else {
+                        0f
+                    }
+                    calibrationProgress = maxOf(timeProgress, confirmProgress)
 
                     // lock 시점에 한 번 calibrated preset 적용. 이후엔 ModelNode 의
                     // scale/position 이 그 값을 유지하므로 매 프레임 재적용 불필요.
                     val locked = calibration.locked
-                    // 시간이 다 차면 calibration 종료 (lock 은 이 시점 이전에 거의 항상 됨,
-                    // FaceCalibration.TIMEOUT_MS=3000 < CALIBRATION_PROGRESS_DURATION_MS=4000).
-                    if (!isCalibrated && elapsedMs >= CALIBRATION_PROGRESS_DURATION_MS) {
+                    val confirmedExpired = userConfirmedAtMs != 0L &&
+                        (nowMs - userConfirmedAtMs) >= USER_CONFIRM_BUFFER_MS
+                    val autoExpired = elapsedMs >= CALIBRATION_PROGRESS_DURATION_MS
+                    if (!isCalibrated && (confirmedExpired || autoExpired)) {
+                        // 분산 기반 / fallback timeout 으로 아직 lock 안 됐으면 누적 평균으로 강제.
+                        if (calibration.locked == null) calibration.forceLock()
                         isCalibrated = true
                     }
                     val activeOffset = if (locked != null) {
@@ -568,7 +586,11 @@ fun FaceFittingScreen(
             enter = fadeIn(animationSpec = tween(durationMillis = 200)),
             exit = fadeOut(animationSpec = tween(durationMillis = 500)),
         ) {
-            CalibrationOverlay(progress = calibrationProgress)
+            CalibrationOverlay(
+                progress = calibrationProgress,
+                confirmed = userConfirmedAtMs != 0L,
+                onConfirm = { userConfirmedAtMs = System.currentTimeMillis() },
+            )
         }
     }
 }
@@ -576,9 +598,17 @@ fun FaceFittingScreen(
 /**
  * 풀스크린 calibration 안내 오버레이. AR 진입 직후 사용자가 정면을 응시하는 동안 표시.
  * `FaceCalibration` 이 locked 되면 isCalibrated=true 가 되어 부모 측에서 unmount 됨.
+ *
+ * 하이브리드 흐름:
+ *  - 자동 3초 타이머 → 자동 lock
+ *  - 또는 "정면 주시 중" 버튼 → 짧은 buffer 후 즉시 lock (자동 흐름 추월)
  */
 @Composable
-private fun CalibrationOverlay(progress: Float) {
+private fun CalibrationOverlay(
+    progress: Float,
+    confirmed: Boolean,
+    onConfirm: () -> Unit,
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -615,6 +645,20 @@ private fun CalibrationOverlay(progress: Float) {
                             Color(0xFFF97316),
                             RoundedCornerShape(4.dp),
                         ),
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = { if (!confirmed) onConfirm() },
+                enabled = !confirmed,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFF97316),
+                    disabledContainerColor = Color(0xFF6B7280),
+                ),
+            ) {
+                Text(
+                    text = if (confirmed) "측정 중..." else "정면 주시 중",
+                    color = Color.White,
                 )
             }
         }

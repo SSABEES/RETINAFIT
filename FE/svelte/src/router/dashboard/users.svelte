@@ -7,7 +7,6 @@
   import ConfirmModal from '@/components/modal/confirm_modal.svelte'
   import { PATH } from '@/config/path'
   import { create_customer, search_customer } from '@/lib/api/customers'
-  import { get_visit_list } from '@/lib/api/visit'
   import { customer_arr_store, set_selected_customer } from '@/lib/stores/customer'
   import { selected_opt_store_obj } from '@/lib/stores/admin'
   import { push_error_toast } from '@/lib/stores/toast'
@@ -129,7 +128,7 @@
       phone2: String(customer_obj.phone2 ?? customer_obj.PHONE2 ?? ''),
       birth_dt: String(customer_obj.birthday ?? customer_obj.BIRTHDAY ?? ''),
       gender: Number(customer_obj.sex ?? customer_obj.SEX ?? 0) === 0 ? '남' : '여',
-      last_visit_dt: '-',
+      last_visit_dt: format_visit_dt(customer_obj.last_visit_dt ?? customer_obj.LAST_VISIT_DT ?? null),
       visit_count: 0,
       status_key: 'needs_analysis',
       status: '',
@@ -142,51 +141,7 @@
     }))
   }
 
-  /** @param {Array<Record<string, any>>} customer_arr */
-  async function enrich_customer_arr_with_visit_status(customer_arr) {
-    const local_customer_result_arr = await Promise.all(
-      customer_arr.map(async (/** @type {Record<string, any>} */ customer_obj) => {
-        try {
-          const local_result_obj = await get_visit_list({
-            cust_no: customer_obj.id,
-          })
-          const local_visit_arr = Array.isArray(local_result_obj?.visits)
-            ? local_result_obj.visits
-            : []
-          const local_recent_visit_obj = local_visit_arr[0] ?? null
-          const local_status_obj = get_analysis_status_obj(local_recent_visit_obj?.test_dt ?? null)
-          const local_latest_visit_dt = get_latest_visit_date(
-            local_recent_visit_obj?.test_dt ?? '',
-            local_recent_visit_obj?.vp_dt ?? '',
-            local_recent_visit_obj?.create_dt ?? '',
-          )
-
-          return {
-            ...customer_obj,
-            last_visit_dt: format_visit_dt(local_latest_visit_dt),
-            visit_count: local_visit_arr.length,
-            status_key: local_status_obj.key,
-            status: local_status_obj.label,
-            status_box_class: local_status_obj.box_class,
-          }
-        } catch {
-          const local_status_obj = get_analysis_status_obj(null)
-
-          return {
-            ...customer_obj,
-            status_key: local_status_obj.key,
-            status: local_status_obj.label,
-            status_box_class: local_status_obj.box_class,
-          }
-        }
-      }),
-    )
-
-    return local_customer_result_arr
-  }
-
   // 고객 행 클릭 시 — 선택한 고객을 store 에 저장하고 고객 상세 페이지로 이동.
-  // 분석 시작은 상세 페이지의 액션 카드에서 진행.
   /** @param {Record<string, any>} customer_obj */
   function on_click_select_customer(customer_obj) {
     if (g_is_customer_select_loading) return
@@ -205,11 +160,12 @@
     g_search_request_id += 1
     const local_request_id = g_search_request_id
     g_is_search_loading = true
+    const local_opt_no = $selected_opt_store_obj.opt_no
 
     try {
       const local_customer_arr = await search_customer({
         phone_no: local_phone,
-        opt_no: $selected_opt_store_obj.opt_no,
+        opt_no: local_opt_no,
       })
 
       if (local_request_id !== g_search_request_id) {
@@ -222,15 +178,6 @@
 
       ref_customer_arr = local_normalized_arr
       customer_arr_store.set(local_normalized_arr)
-
-      const local_enriched_arr = await enrich_customer_arr_with_visit_status(local_normalized_arr)
-
-      if (local_request_id !== g_search_request_id) {
-        return
-      }
-
-      ref_customer_arr = local_enriched_arr
-      customer_arr_store.set(local_enriched_arr)
     } catch (local_error) {
       if (local_request_id !== g_search_request_id) {
         return
@@ -508,17 +455,19 @@
                       ? '/icons/Property 1=Face, Property 2=Active.png'
                       : '/icons/Property 1=Face, Property 2=Default.png'}
                     alt={is_face_done ? '얼굴분석 완료' : '얼굴분석 진행 필요'}
-                    class="h-[76px] w-[76px]"
+                    class="h-[76px] w-[76px] transition"
+                    class:opacity-40={!is_face_done}
                   />
                   <img
                     src={is_lifestyle_done
                       ? '/icons/Property 1=Life, Property 2=Active.png'
                       : '/icons/Property 1=Life, Property 2=Default.png'}
                     alt={is_lifestyle_done ? '생활패턴 완료' : '생활패턴 진행 필요'}
-                    class="h-[76px] w-[76px]"
+                    class="h-[76px] w-[76px] transition"
+                    class:opacity-40={!is_lifestyle_done}
                   />
                   <img
-                    src="/icons/Property 1=Fitting, Property 2=Default.png"
+                    src="/icons/Property 1=Fitting, Property 2=Active.png"
                     alt="피팅시작"
                     class="h-[76px] w-[76px]"
                   />
