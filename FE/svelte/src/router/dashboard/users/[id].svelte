@@ -393,7 +393,7 @@
 
 <main class="app-frame-page flex min-h-screen flex-col bg-[var(--retina-text-100)] text-zinc-950">
   <section class="px-[clamp(12px,3svh,24px)] py-[clamp(8px,2svh,20px)]">
-    <div class="mx-auto flex w-full max-w-[944px] flex-col gap-[clamp(8px,2svh,16px)]">
+    <div class="mx-auto flex w-full max-w-[944px] xl:max-w-[1280px] 2xl:max-w-[1600px] flex-col gap-[clamp(8px,2svh,16px)]">
       <!-- 1) 프로필 카드 -->
       <article
         class="flex flex-col rounded-2xl border border-[var(--retina-text-200)] bg-white shadow-sm sm:flex-row sm:items-center sm:justify-between gap-[clamp(10px,2svh,18px)] p-[clamp(12px,2.5svh,22px)]"

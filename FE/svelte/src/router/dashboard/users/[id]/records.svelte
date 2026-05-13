@@ -142,9 +142,9 @@
   {/snippet}
 
   <section
-    class="flex flex-1 items-start bg-[#F7F8FA] px-4 py-6 sm:px-6 md:items-center md:px-8 md:py-8"
+    class="flex flex-1 items-start bg-[#F7F8FA] px-4 py-6 sm:px-6 md:items-center md:px-8 md:py-8 xl:px-12 2xl:px-16"
   >
-    <div class="mx-auto w-full max-w-[944px]">
+    <div class="mx-auto w-full max-w-[944px] xl:max-w-[1280px] 2xl:max-w-[1600px]">
       <section class="grid gap-8">
         <div
           class="flex min-h-36 items-center justify-between rounded-2xl bg-[#4B0055] px-8 py-7 text-left text-white"

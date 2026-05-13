@@ -107,6 +107,9 @@ export function clear_visit_session_data() {
   sessionStorage.removeItem('retinal_visit_no')
   sessionStorage.removeItem('retinal_lens_selections')
   sessionStorage.removeItem('retinal_saved_fittings')
+  // users/[id] 에서 분석 시작 시 set 되는 복귀 경로. 청소 안 하면 로고 클릭/로그아웃 후
+  // 새 분석 흐름이 이전 고객 상세로 잘못 튕긴다.
+  sessionStorage.removeItem('retinal_detail_return_path')
 }
 
 /**

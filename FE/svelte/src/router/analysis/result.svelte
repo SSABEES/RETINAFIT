@@ -630,7 +630,7 @@
       다른 탭은 min-h-full 로 카드들이 section 을 꽉 채우도록 유지 (얼굴 분석 결과 카드의 flex-1 등이 의존).
     -->
     <div
-      class={`mx-auto flex w-full max-w-[940px] flex-col gap-[clamp(8px,2svh,16px)] ${
+      class={`mx-auto flex w-full max-w-[940px] xl:max-w-[1240px] 2xl:max-w-[1560px] flex-col gap-[clamp(8px,2svh,16px)] ${
         g_active_tab === 'insight' ? '' : 'min-h-full'
       }`}
     >
@@ -1018,7 +1018,7 @@
     class="app-bg-edge-extend shrink-0 border-t border-slate-200 bg-white px-[clamp(12px,3svh,24px)] py-[clamp(6px,1.5svh,14px)]"
   >
     <div
-      class={`mx-auto grid w-full max-w-[940px] gap-[clamp(8px,2svh,16px)] ${
+      class={`mx-auto grid w-full max-w-[940px] xl:max-w-[1240px] 2xl:max-w-[1560px] gap-[clamp(8px,2svh,16px)] ${
         g_is_guest_visit ? 'grid-cols-2' : 'grid-cols-1'
       }`}
     >

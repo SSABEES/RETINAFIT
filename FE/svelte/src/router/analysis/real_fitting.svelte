@@ -311,7 +311,7 @@
 
 <AnalysisPageLayout current_step={3} bg_class="bg-white text-zinc-900" onback={on_click_back}>
   <div
-    class="grid flex-1 grid-cols-1 grid-rows-[55svh_auto] min-h-0 md:grid-cols-[1fr_300px] md:grid-rows-1 bg-[var(--retina-text-100)]"
+    class="grid flex-1 grid-cols-1 grid-rows-[55svh_auto] min-h-0 md:grid-cols-[1fr_300px] md:grid-rows-1 xl:grid-cols-[1fr_360px] 2xl:grid-cols-[1fr_420px] bg-[var(--retina-text-100)]"
   >
     <!--
       좌측: 카메라 — analysis/index.svelte 와 동일한 자동 캡처 흐름(정면→좌→우 자동 진행).

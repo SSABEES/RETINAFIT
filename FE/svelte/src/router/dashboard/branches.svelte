@@ -23,8 +23,8 @@
 </script>
 
 <DashboardShell active_key="branches" title="지점 관리">
-  <section class="px-8 py-11">
-    <div class="mx-auto grid max-w-[894px] grid-cols-2 gap-6">
+  <section class="px-8 py-11 xl:px-12 2xl:px-16">
+    <div class="mx-auto grid max-w-[894px] grid-cols-1 sm:grid-cols-2 xl:max-w-[1280px] xl:grid-cols-3 2xl:max-w-[1600px] 2xl:grid-cols-4 gap-6">
       {#each branch_arr as branch_obj (branch_obj.id)}
         <article
           class="min-h-[192px] rounded-xl border border-slate-200 bg-white px-6 py-6 text-left shadow-sm shadow-slate-200/40"
