@@ -13,7 +13,7 @@
 
   const g_six_month_millisecond = 1000 * 60 * 60 * 24 * 30 * 6
 
-  let ref_customer_arr = $state([])
+  let ref_customer_arr = $state(/** @type {import('@/lib/stores/customer').CustomerObj[]} */ ([]))
   let ref_customer_create_modal_open = $state(false)
   let ref_consent_modal_open = $state(false)
 

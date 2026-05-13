@@ -22,6 +22,8 @@ const SELECTED_VISIT_STORAGE_KEY = 'retinal_selected_visit_obj'
  *   status?: string,
  *   status_key?: string,
  *   status_box_class?: string,
+ *   has_face_analysis?: boolean,
+ *   has_lifestyle?: boolean,
  *   raw_obj?: Record<string, unknown>,
  * }} CustomerObj
  */
