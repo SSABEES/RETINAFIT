@@ -6,6 +6,7 @@
   import { PATH } from '@/config/path'
   import { create_customer, search_customer } from '@/lib/api/customers'
   import { get_visit, update_visit } from '@/lib/api/visit'
+  import { consume_prefetch_visit } from '@/lib/stores/visit_prefetch'
   import { selected_opt_store_obj } from '@/lib/stores/admin'
   import { push_error_toast } from '@/lib/stores/toast'
   import {
@@ -44,8 +45,12 @@
   }
 
   // visit GET 응답을 통째로 보관해 각 섹션 derived 가 여기서 꺼내쓴다.
-  let g_visit_obj = $state(/** @type {Record<string, any> | null} */ (null))
-  let g_visit_loading = $state(true)
+  // 방문 이력에서 진입 시 selected_visit_obj 에 test_json 이 있으면 즉시 분석 요약 렌더링.
+  // 이후 load_visit_data 가 완료되면 AI 인사이트 등 나머지 데이터로 교체된다.
+  let g_visit_obj = $state(
+    $selected_visit_obj?.test_json ? /** @type {Record<string, any>} */ ({ ...$selected_visit_obj }) : null,
+  )
+  let g_visit_loading = $state(!$selected_visit_obj?.test_json)
 
   let ref_customer_create_modal_open = $state(false)
   // 비회원 → 고객 등록 (create_customer + create_visit + update_visit) 진행 중 플래그.
@@ -553,8 +558,25 @@
       return
     }
 
+    const local_fallback_no = Number(sessionStorage.getItem('retinal_fallback_face_visit_no'))
+    sessionStorage.removeItem('retinal_fallback_face_visit_no')
+
     try {
-      g_visit_obj = await get_visit({ visit_no: local_visit_no })
+      // [id].svelte 클릭 시점에 시작된 prefetch Promise 가 있으면 그걸 await (이미 완료됐으면 즉시 반환)
+      const local_prefetch_promise = consume_prefetch_visit(local_visit_no)
+      const [local_visit, local_fallback_visit] = local_prefetch_promise
+        ? await local_prefetch_promise
+        : await Promise.all([
+            get_visit({ visit_no: local_visit_no }),
+            Number.isFinite(local_fallback_no) && local_fallback_no > 0
+              ? get_visit({ visit_no: local_fallback_no }).catch(() => null)
+              : Promise.resolve(null),
+          ])
+
+      g_visit_obj = local_visit
+      if (!g_visit_obj?.test_json && local_fallback_visit?.test_json) {
+        g_visit_obj = { ...g_visit_obj, test_json: local_fallback_visit.test_json }
+      }
     } catch (local_err) {
       push_error_toast(
         local_err instanceof Error ? local_err.message : '방문 정보를 불러오지 못했습니다.',
