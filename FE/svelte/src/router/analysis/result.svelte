@@ -924,9 +924,9 @@
           </article>
         </section>
       {:else if g_active_tab === 'measurement'}
-        <!-- 얼굴 측정 상세 (사진 + 클릭으로 라인 표시) -->
+        <!-- 얼굴 측정 상세 (사진 + 클릭으로 라인 표시) — 사진 아래 여백을 위해 pb 만 확장. -->
         <section
-          class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white shadow-sm px-[clamp(14px,3svh,28px)] py-[clamp(6px,1.4svh,12px)]"
+          class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white shadow-sm px-[clamp(14px,3svh,28px)] pt-[clamp(6px,1.4svh,12px)] pb-[clamp(6px,3svh,40px)]"
         >
           <div class="flex flex-wrap items-center justify-between gap-[clamp(8px,2svh,16px)]">
             <h2 class="m-0 font-extrabold text-zinc-900 text-[clamp(14px,3svh,28px)]">
@@ -980,7 +980,7 @@
             >
               <div class="flex items-start justify-center">
                 <div
-                  class="flex aspect-[3/4] h-full max-h-[clamp(260px,50svh,380px)] w-full max-w-[clamp(195px,37.5svh,285px)] overflow-hidden rounded-[10px] bg-slate-100 shadow-[0_6px_16px_rgba(15,23,42,0.06)]"
+                  class="flex aspect-[3/4] h-full max-h-[clamp(220px,52svh,440px)] w-full max-w-[clamp(165px,39svh,330px)] overflow-hidden rounded-[10px] bg-slate-100 shadow-[0_6px_16px_rgba(15,23,42,0.06)]"
                 >
                   <MeasureCanvas
                     capture={g_synthesized_capture}

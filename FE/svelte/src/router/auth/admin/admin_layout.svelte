@@ -10,6 +10,7 @@
 
   // 얼굴형 기준 설정(face)은 일단 메뉴에서 제외. 페이지/라우트는 보존되어 있음.
   const g_admin_page_arr = [
+    { key: 'health', label: '헬스 체크', href: PATH.adminHealth },
     { key: 'lens', label: '렌즈조건 설정', href: PATH.adminLens },
     { key: 'glass', label: '안경 정보', href: PATH.adminGlass },
     { key: 'visits', label: '방문자 정보', href: PATH.adminVisits },
