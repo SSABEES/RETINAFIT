@@ -76,8 +76,8 @@
 </script>
 
 <DashboardShell active_key="sales" title="판매 통계">
-  <section class="px-8 py-10">
-    <div class="mx-auto max-w-[894px]">
+  <section class="px-8 py-10 xl:px-12 2xl:px-16">
+    <div class="mx-auto max-w-[894px] xl:max-w-[1280px] 2xl:max-w-[1600px]">
       <section
         class="rounded-2xl border border-[#EFE7F2] bg-[#F8F1F8] px-8 py-8 text-left shadow-sm"
       >

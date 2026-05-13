@@ -24,6 +24,7 @@
 
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
+  import BottomActionBar from '@/components/analysis/bottom_action_bar.svelte'
 
   const g_session = $derived(get_session())
   const g_face_shape_result = $derived(get_face_shape_result())
@@ -306,13 +307,13 @@
       class="flex min-h-0 flex-1 flex-col justify-center px-[clamp(12px,3svh,28px)] pt-[clamp(8px,2svh,32px)] pb-[clamp(6px,1.5svh,24px)]"
     >
       <h1
-        class="m-0 text-center font-extrabold tracking-[-0.02em] text-zinc-950 text-[clamp(14px,2.6svh,20px)]"
+        class="m-0 text-center font-extrabold tracking-[-0.02em] text-zinc-950 text-[clamp(14px,3.2svh,42px)]"
       >
         {g_customer_name}의 얼굴 분석 결과
       </h1>
 
       <div
-        class="mx-auto grid w-fit mt-[clamp(4px,1svh,12px)] px-1 grid-cols-[clamp(220px,38svh,360px)_clamp(200px,32svh,300px)] gap-[clamp(12px,3svh,40px)]"
+        class="mx-auto grid w-fit mt-[clamp(4px,1.2svh,28px)] px-1 grid-cols-[clamp(220px,46svh,720px)_clamp(200px,40svh,600px)] gap-[clamp(12px,3.6svh,72px)]"
       >
         <!-- 왼쪽: 촬영 사진 — 카메라와 동일한 3:4 비율, svh 기반 자동 축소 -->
         <div class="aspect-[3/4] w-full overflow-hidden rounded-[14px] bg-slate-100 shadow-sm">
@@ -331,23 +332,23 @@
 
         <!-- 오른쪽: 분석 결과 카드 — flex-col 균등 배분 -->
         <article
-          class="flex min-h-0 flex-col overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.07)] px-[clamp(10px,2svh,20px)] py-[clamp(8px,1.8svh,16px)]"
+          class="flex min-h-0 flex-col overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.07)] px-[clamp(10px,2.6svh,36px)] py-[clamp(8px,2.3svh,30px)]"
         >
-          <div class="grid shrink-0 grid-cols-2 gap-[clamp(6px,1.5svh,12px)]">
+          <div class="grid shrink-0 grid-cols-2 gap-[clamp(6px,1.8svh,22px)]">
             <div
-              class="flex flex-col justify-center rounded-[8px] border border-[#FFEDD5] bg-[#FFF7ED] text-center px-[clamp(6px,1.5svh,12px)] py-[clamp(8px,2svh,20px)]"
+              class="flex flex-col justify-center rounded-[8px] border border-[#FFEDD5] bg-[#FFF7ED] text-center px-[clamp(6px,1.8svh,22px)] py-[clamp(8px,2.4svh,34px)]"
             >
-              <p class="m-0 font-bold text-slate-700 text-[clamp(10px,1.6svh,13px)]">얼굴형</p>
-              <p class="m-0 mt-1 font-bold text-[#F97316] text-[clamp(11px,1.8svh,14px)]">
+              <p class="m-0 font-bold text-slate-700 text-[clamp(10px,1.9svh,24px)]">얼굴형</p>
+              <p class="m-0 mt-1 font-bold text-[#F97316] text-[clamp(11px,2.2svh,30px)]">
                 {g_face_shape_label}
               </p>
             </div>
             <div
-              class={`flex flex-col justify-center rounded-[8px] border text-center px-[clamp(6px,1.5svh,12px)] py-[clamp(8px,2svh,20px)] ${g_skin_tone_box_style.box_class}`}
+              class={`flex flex-col justify-center rounded-[8px] border text-center px-[clamp(6px,1.8svh,22px)] py-[clamp(8px,2.4svh,34px)] ${g_skin_tone_box_style.box_class}`}
             >
-              <p class="m-0 font-bold text-slate-700 text-[clamp(10px,1.6svh,13px)]">피부톤</p>
+              <p class="m-0 font-bold text-slate-700 text-[clamp(10px,1.9svh,24px)]">피부톤</p>
               <p
-                class={`m-0 mt-1 font-bold leading-tight text-[clamp(11px,1.8svh,14px)] ${g_skin_tone_box_style.text_class}`}
+                class={`m-0 mt-1 font-bold leading-tight text-[clamp(11px,2.2svh,30px)] ${g_skin_tone_box_style.text_class}`}
               >
                 {g_skin_tone_recommendation_obj.label}
                 <br />
@@ -356,11 +357,11 @@
             </div>
           </div>
 
-          <div class="my-[clamp(6px,1.5svh,14px)] h-px shrink-0 bg-slate-200"></div>
+          <div class="my-[clamp(6px,1.8svh,26px)] h-px shrink-0 bg-slate-200"></div>
 
           <section class="flex min-h-0 flex-1 flex-col">
             <h2
-              class="m-0 shrink-0 text-center font-extrabold text-slate-800 text-[clamp(11px,1.8svh,14px)]"
+              class="m-0 shrink-0 text-center font-extrabold text-slate-800 text-[clamp(11px,2.1svh,26px)]"
             >
               추천 컬러
             </h2>
@@ -371,16 +372,16 @@
               고정 row 높이가 부모를 넘어 아래 divider 까지 침범하던 문제 해결.
             -->
             <div
-              class="mt-[clamp(4px,1svh,10px)] grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-[clamp(6px,1.5svh,12px)]"
+              class="mt-[clamp(4px,1.3svh,20px)] grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-[clamp(6px,1.8svh,22px)]"
             >
               {#each Array.from({ length: 4 }) as _, color_index (color_index)}
                 {@const local_color_obj = g_recommended_color_arr[color_index]}
                 {#if local_color_obj}
                   <div
-                    class={`flex min-h-0 items-center justify-center rounded-[10px] border border-black/5 text-center shadow-sm px-[clamp(6px,1.5svh,12px)] py-[clamp(2px,0.6svh,6px)] ${local_color_obj.tone_class}`}
+                    class={`flex min-h-0 items-center justify-center rounded-[10px] border border-black/5 text-center shadow-sm px-[clamp(6px,1.8svh,22px)] py-[clamp(2px,0.9svh,14px)] ${local_color_obj.tone_class}`}
                   >
                     <p
-                      class={`m-0 font-normal text-[clamp(10px,1.7svh,15px)] ${get_chip_text_class(local_color_obj)}`}
+                      class={`m-0 font-normal text-[clamp(10px,2svh,26px)] ${get_chip_text_class(local_color_obj)}`}
                     >
                       {local_color_obj.label}
                     </p>
@@ -392,18 +393,18 @@
             </div>
           </section>
 
-          <div class="my-[clamp(8px,2.2svh,20px)] h-px shrink-0 bg-slate-200"></div>
+          <div class="my-[clamp(8px,2.8svh,34px)] h-px shrink-0 bg-slate-200"></div>
 
           <section class="flex min-h-0 flex-1 flex-col">
             <h2
-              class="m-0 shrink-0 text-center font-extrabold text-slate-800 text-[clamp(11px,1.8svh,14px)]"
+              class="m-0 shrink-0 text-center font-extrabold text-slate-800 text-[clamp(11px,2.1svh,26px)]"
             >
               추천 안경테 모양
             </h2>
-            <div class="mt-[clamp(4px,1svh,10px)] grid grid-cols-3 gap-1.5 px-2">
+            <div class="mt-[clamp(4px,1.3svh,20px)] grid grid-cols-3 gap-[clamp(6px,1.6svh,18px)] px-2">
               {#each g_recommended_frame_arr as frame_obj (`${frame_obj.name}-${frame_obj.priority}`)}
                 <div
-                  class="flex items-center justify-center rounded-[6px] border border-[#F97316] bg-white text-center font-bold text-[#F97316] px-[clamp(6px,1.5svh,12px)] py-[clamp(2px,0.6svh,6px)] text-[clamp(11px,1.9svh,16px)]"
+                  class="flex items-center justify-center rounded-[6px] border border-[#F97316] bg-white text-center font-bold text-[#F97316] px-[clamp(6px,1.8svh,22px)] py-[clamp(2px,0.9svh,14px)] text-[clamp(11px,2.3svh,28px)]"
                 >
                   {frame_obj.name}
                 </div>
@@ -414,32 +415,29 @@
       </div>
     </div>
 
-    <div class="shrink-0">
-      <div class="h-px w-full bg-slate-200"></div>
-      <div class="px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
-        <div class="grid w-full grid-cols-[2fr_3fr] gap-[clamp(8px,2svh,16px)]">
-          <button
-            type="button"
-            class="cursor-pointer rounded-lg border border-slate-300 bg-white text-[var(--retina-text-500)] transition hover:border-slate-400 hover:text-[var(--retina-text-700)] h-[clamp(40px,8svh,64px)] text-[clamp(14px,2.8svh,22px)]"
-            onclick={on_click_retry}
-          >
-            재분석
-          </button>
-          <button
-            type="button"
-            class="cursor-pointer rounded-lg border-0 bg-[#F97316] tracking-tight text-[var(--retina-surface)] transition hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-60 h-[clamp(40px,8svh,64px)] text-[clamp(15px,3.2svh,26px)]"
-            disabled={g_is_submitting}
-            onclick={on_click_continue}
-          >
-            {g_is_submitting
-              ? '분석 결과 저장 중...'
-              : g_is_from_detail
-                ? '얼굴분석 완료'
-                : '생활 패턴 분석하고 피팅 추천받기'}
-          </button>
-        </div>
+    <BottomActionBar>
+      <div class="mx-auto grid w-full max-w-[560px] xl:max-w-[760px] 2xl:max-w-[960px] grid-cols-[2fr_3fr] gap-[clamp(8px,2svh,16px)]">
+        <button
+          type="button"
+          class="cursor-pointer rounded-lg border border-slate-300 bg-white text-[var(--retina-text-500)] transition hover:border-slate-400 hover:text-[var(--retina-text-700)] h-[clamp(40px,7.5svh,80px)] text-[clamp(14px,2.8svh,26px)]"
+          onclick={on_click_retry}
+        >
+          재분석
+        </button>
+        <button
+          type="button"
+          class="cursor-pointer rounded-lg border-0 bg-[#F97316] tracking-tight text-[var(--retina-surface)] transition hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-60 h-[clamp(40px,7.5svh,80px)] text-[clamp(14px,3.2svh,30px)]"
+          disabled={g_is_submitting}
+          onclick={on_click_continue}
+        >
+          {g_is_submitting
+            ? '분석 결과 저장 중...'
+            : g_is_from_detail
+              ? '얼굴분석 완료'
+              : '생활 패턴 분석하고 피팅 추천받기'}
+        </button>
       </div>
-    </div>
+    </BottomActionBar>
   </section>
 
   <LoadingOverlay open={g_is_submitting} label="분석 결과 저장 중..." />

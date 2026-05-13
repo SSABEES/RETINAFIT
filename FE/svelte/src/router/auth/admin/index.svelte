@@ -16,7 +16,7 @@
 </script>
 
 <AdminLayout active_key="index">
-  <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+  <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
     {#each g_admin_card_arr as admin_card_obj (admin_card_obj.href)}
       <button
         class="min-h-[220px] cursor-pointer rounded-[14px] border border-[var(--retina-text-200)] bg-white p-8 text-left shadow-[0_4px_10px_rgba(19,25,40,0.04)] transition hover:border-[var(--retina-primary-400)] hover:bg-[var(--retina-primary-50)] hover:shadow-[0_6px_18px_rgba(234,106,15,0.14)]"

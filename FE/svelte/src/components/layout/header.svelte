@@ -101,7 +101,7 @@
   높이는 --app-header-h CSS 변수 (모바일 52px / md 이상 56px) 와 연동.
 -->
 <header
-  class="fixed left-0 right-0 top-0 z-30 grid h-[var(--app-header-h)] grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-[var(--retina-surface)] px-3 sm:px-6"
+  class="fixed left-0 right-0 top-0 z-30 grid h-[var(--app-header-h)] grid-cols-[1fr_auto_1fr] items-center border-b border-slate-200 bg-[var(--retina-surface)] px-3 sm:px-6 xl:px-10 2xl:px-14"
 >
   <div class="flex justify-start">
     {#if show_back}

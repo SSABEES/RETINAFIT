@@ -25,7 +25,7 @@
   aria-label="얼굴 분석 진행 단계"
 >
   <div
-    class="mx-auto flex w-full max-w-[560px] items-center justify-between gap-2 sm:gap-3"
+    class="mx-auto flex w-full max-w-[560px] xl:max-w-[760px] 2xl:max-w-[960px] items-center justify-between gap-2 sm:gap-3"
     role="list"
   >
     {#each STEP_ARR as step_obj, step_index (step_obj.num)}
