@@ -100,6 +100,7 @@ async def search_customer(
             sex=int(c["SEX"]) if c.get("SEX", "").isdigit() else None,
             has_face_analysis=any(v.test_json is not None for v in visits),
             has_lifestyle=any(v.opt_recommend_json is not None for v in visits),
+            last_visit_dt=visits[0].create_dt if visits else None,
         ))
     return result
 
