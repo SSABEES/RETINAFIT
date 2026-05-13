@@ -24,6 +24,7 @@
 
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
+  import BottomActionBar from '@/components/analysis/bottom_action_bar.svelte'
 
   const g_session = $derived(get_session())
   const g_face_shape_result = $derived(get_face_shape_result())
@@ -414,32 +415,29 @@
       </div>
     </div>
 
-    <div class="shrink-0">
-      <div class="h-px w-full bg-slate-200"></div>
-      <div class="px-[clamp(8px,2svh,16px)] py-[clamp(6px,1.5svh,14px)]">
-        <div class="grid w-full grid-cols-[2fr_3fr] gap-[clamp(8px,2svh,16px)]">
-          <button
-            type="button"
-            class="cursor-pointer rounded-lg border border-slate-300 bg-white text-[var(--retina-text-500)] transition hover:border-slate-400 hover:text-[var(--retina-text-700)] h-[clamp(40px,9svh,100px)] text-[clamp(14px,3.2svh,36px)]"
-            onclick={on_click_retry}
-          >
-            재분석
-          </button>
-          <button
-            type="button"
-            class="cursor-pointer rounded-lg border-0 bg-[#F97316] tracking-tight text-[var(--retina-surface)] transition hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-60 h-[clamp(40px,9svh,100px)] text-[clamp(15px,3.6svh,40px)]"
-            disabled={g_is_submitting}
-            onclick={on_click_continue}
-          >
-            {g_is_submitting
-              ? '분석 결과 저장 중...'
-              : g_is_from_detail
-                ? '얼굴분석 완료'
-                : '생활 패턴 분석하고 피팅 추천받기'}
-          </button>
-        </div>
+    <BottomActionBar>
+      <div class="mx-auto grid w-full max-w-[560px] xl:max-w-[760px] 2xl:max-w-[960px] grid-cols-[2fr_3fr] gap-[clamp(8px,2svh,16px)]">
+        <button
+          type="button"
+          class="cursor-pointer rounded-lg border border-slate-300 bg-white text-[var(--retina-text-500)] transition hover:border-slate-400 hover:text-[var(--retina-text-700)] h-[clamp(40px,7.5svh,80px)] text-[clamp(14px,2.8svh,26px)]"
+          onclick={on_click_retry}
+        >
+          재분석
+        </button>
+        <button
+          type="button"
+          class="cursor-pointer rounded-lg border-0 bg-[#F97316] tracking-tight text-[var(--retina-surface)] transition hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-60 h-[clamp(40px,7.5svh,80px)] text-[clamp(14px,3.2svh,30px)]"
+          disabled={g_is_submitting}
+          onclick={on_click_continue}
+        >
+          {g_is_submitting
+            ? '분석 결과 저장 중...'
+            : g_is_from_detail
+              ? '얼굴분석 완료'
+              : '생활 패턴 분석하고 피팅 추천받기'}
+        </button>
       </div>
-    </div>
+    </BottomActionBar>
   </section>
 
   <LoadingOverlay open={g_is_submitting} label="분석 결과 저장 중..." />

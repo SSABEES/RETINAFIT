@@ -502,7 +502,7 @@
             disabled={!g_can_save || g_is_submitting}
             onclick={on_click_save_set}
             aria-label="세트 저장"
-            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-2 border-[var(--retina-primary-300)] bg-white px-2 font-extrabold text-[var(--retina-primary-300)] transition-all hover:bg-[var(--retina-bg-1)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale text-[clamp(10px,1.7svh,14px)]"
+            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-2 border-[var(--retina-primary-300)] bg-white px-2 font-extrabold text-[var(--retina-primary-300)] transition-all hover:bg-[var(--retina-bg-1)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale text-[clamp(13px,2.4svh,22px)]"
           >
             <CameraIcon size={12} strokeWidth={2.5} aria-hidden="true" />
             세트 저장
@@ -513,7 +513,7 @@
             disabled={g_is_submitting}
             onclick={on_click_continue}
             aria-label="최종 리포트 보기"
-            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale text-[clamp(10px,1.7svh,14px)]"
+            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale text-[clamp(13px,2.4svh,22px)]"
           >
             {#if g_is_submitting}
               <Loader2 size={12} strokeWidth={2.4} class="animate-spin" aria-hidden="true" />

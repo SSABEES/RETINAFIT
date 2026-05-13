@@ -9,6 +9,7 @@
   import { push_error_toast } from '@/lib/stores/toast'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
+  import BottomActionBar from '@/components/analysis/bottom_action_bar.svelte'
 
   /**
    * @typedef {{
@@ -426,29 +427,26 @@
       </div>
     </div>
 
-    <div class="app-bg-edge-extend shrink-0 bg-white">
-      <div class="h-px w-full bg-slate-200"></div>
-      <div class="px-[clamp(8px,2svh,16px)] py-[clamp(3px,0.95svh,11px)]">
-        <div class="mx-auto w-full max-w-[400px] xl:max-w-[600px] 2xl:max-w-[760px]">
-          <button
-            class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[var(--retina-primary-300)] tracking-tight text-[var(--retina-surface)] transition hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-60 h-[clamp(36px,7.3svh,74px)] px-[clamp(12px,3svh,36px)] text-[clamp(13px,3.1svh,30px)]"
-            type="button"
-            disabled={g_loading}
-            onclick={on_click_submit}
-          >
-            {#if g_loading}
-              <span
-                class="h-5 w-5 animate-spin rounded-full border-[2.5px] border-white border-t-transparent"
-                aria-hidden="true"
-              ></span>
-              <span>저장 중...</span>
-            {:else}
-              <span>{g_is_from_detail ? '생활패턴 저장' : 'AR 피팅하기'}</span>
-            {/if}
-          </button>
-        </div>
+    <BottomActionBar padding_class="px-[clamp(8px,2svh,16px)] py-[clamp(3px,0.95svh,11px)]">
+      <div class="mx-auto w-full max-w-[400px] xl:max-w-[600px] 2xl:max-w-[760px]">
+        <button
+          class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[var(--retina-primary-300)] tracking-tight text-[var(--retina-surface)] transition hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-60 h-[clamp(40px,7.5svh,80px)] px-[clamp(12px,3svh,36px)] text-[clamp(14px,3.2svh,30px)]"
+          type="button"
+          disabled={g_loading}
+          onclick={on_click_submit}
+        >
+          {#if g_loading}
+            <span
+              class="h-5 w-5 animate-spin rounded-full border-[2.5px] border-white border-t-transparent"
+              aria-hidden="true"
+            ></span>
+            <span>저장 중...</span>
+          {:else}
+            <span>{g_is_from_detail ? '생활패턴 저장' : 'AR 피팅하기'}</span>
+          {/if}
+        </button>
       </div>
-    </div>
+    </BottomActionBar>
   </section>
 
   <LoadingOverlay open={g_loading} label="추천 옵션 저장 중..." />
