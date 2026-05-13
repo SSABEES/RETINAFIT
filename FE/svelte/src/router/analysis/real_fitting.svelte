@@ -504,7 +504,11 @@
             aria-label="세트 저장"
             class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-2 border-[var(--retina-primary-300)] bg-white px-2 font-extrabold text-[var(--retina-primary-300)] transition-all hover:bg-[var(--retina-bg-1)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale text-[clamp(13px,2.4svh,22px)]"
           >
-            <CameraIcon size={12} strokeWidth={2.5} aria-hidden="true" />
+            <CameraIcon
+              strokeWidth={2.5}
+              aria-hidden="true"
+              class="h-[clamp(16px,2.8svh,26px)] w-[clamp(16px,2.8svh,26px)]"
+            />
             세트 저장
           </button>
 

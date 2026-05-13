@@ -8,7 +8,7 @@
   import { get_visit, update_visit } from '@/lib/api/visit'
   import { consume_prefetch_visit } from '@/lib/stores/visit_prefetch'
   import { selected_opt_store_obj } from '@/lib/stores/admin'
-  import { push_error_toast } from '@/lib/stores/toast'
+  import { push_error_toast, push_success_toast } from '@/lib/stores/toast'
   import {
     selected_customer_obj,
     selected_visit_obj,
@@ -23,7 +23,7 @@
   import MeasureCanvas from '@/components/analysis/measure_canvas.svelte'
   import MeasurementList from '@/components/analysis/measurement_list.svelte'
   import { MEASUREMENT_TEMPLATE } from '@/lib/measurements/template.js'
-  import { pixel_distance } from '@/lib/measurements/measurement_utils.js'
+  import { pixel_distance, vertical_signed_angle_deg } from '@/lib/measurements/measurement_utils.js'
   import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
   import AiInsightPanel from '@/components/analysis/ai_insight_panel.svelte'
@@ -292,6 +292,52 @@
   const g_image_dims_obj = $derived(g_test_json?.image_dims_obj ?? null)
   const g_scale_obj = $derived(g_test_json?.scale ?? null)
 
+  // 측정 상세 탭 내부에서 정면/좌측/우측 사진을 선택해 볼 수 있도록 sub-tab 상태.
+  // test_file_arr 는 report.svelte 업로드 시 [front, left, right] 순서로 저장되며,
+  // 빈 키는 filter(Boolean) 으로 제외돼서 길이가 1~3 이 될 수 있다.
+  /** @typedef {'front_no_glasses' | 'left_no_glasses' | 'right_no_glasses'} MeasurementView */
+  let g_measurement_view = $state(/** @type {MeasurementView} */ ('front_no_glasses'))
+
+  const g_test_file_arr = $derived(
+    Array.isArray(g_visit_obj?.test_file_arr) ? g_visit_obj.test_file_arr : [],
+  )
+  // 좌/우 측면 존재 판정 — test_file_arr[1]/[2] 가 비어있지 않으면 있음.
+  // (정면만 있는 케이스에선 length=1 이고 [1]/[2] undefined.)
+  const g_has_left_photo = $derived(Boolean(g_test_file_arr[1]))
+  const g_has_right_photo = $derived(Boolean(g_test_file_arr[2]))
+
+  // 현재 선택 뷰의 사진 URL.
+  const g_active_measurement_src = $derived.by(() => {
+    if (g_measurement_view === 'front_no_glasses') return g_visit_obj?.main_file ?? ''
+    if (g_measurement_view === 'left_no_glasses') return g_test_file_arr[1] ?? ''
+    if (g_measurement_view === 'right_no_glasses') return g_test_file_arr[2] ?? ''
+    return ''
+  })
+
+  // 측정 상세 sub-navbar 에 노출할 탭 — 정면은 항상, 측면은 사진이 있을 때만.
+  const g_measurement_view_tab_arr = $derived.by(() => {
+    /** @type {{ id: MeasurementView, label: string }[]} */
+    const local_arr = [{ id: 'front_no_glasses', label: '정면' }]
+    if (g_has_left_photo) local_arr.push({ id: 'left_no_glasses', label: '좌측' })
+    if (g_has_right_photo) local_arr.push({ id: 'right_no_glasses', label: '우측' })
+    return local_arr
+  })
+
+  // 현재 뷰가 더 이상 노출 가능한 탭이 아니면 정면으로 fallback (BE 응답이 늦게 도착하는 등 race).
+  $effect(() => {
+    const local_available_id_arr = g_measurement_view_tab_arr.map((local_tab) => local_tab.id)
+    if (!local_available_id_arr.includes(g_measurement_view)) {
+      g_measurement_view = 'front_no_glasses'
+    }
+  })
+
+  // 현재 뷰 라벨 — MeasurementList view_label 에 그대로 사용.
+  const g_measurement_view_label = $derived.by(() => {
+    if (g_measurement_view === 'left_no_glasses') return '좌측 (미착용)'
+    if (g_measurement_view === 'right_no_glasses') return '우측 (미착용)'
+    return '정면 (미착용)'
+  })
+
   // 사용자가 클릭으로 갱신할 수 있는 항목별 점 좌표. BE 저장본을 시드로 사용하고
   // 이후 변경은 로컬에만 유지 (지금 화면에서는 BE 재저장은 하지 않음).
   let g_local_points_obj = $state(
@@ -309,13 +355,13 @@
     }
   })
 
-  // 정면 미착용 항목들만 추려 MeasureCanvas/MeasurementList 가 기대하는 형태로 빌드.
+  // 현재 선택된 뷰에 해당하는 측정 항목들만 추려 MeasureCanvas/MeasurementList 가 기대하는 형태로 빌드.
   // template.js 의 view 는 배열 — 다중 뷰 항목(예: left_glasses+right_glasses) 지원을 위해
   // 문자열 비교가 아니라 includes 로 매칭한다. (이전 버그: view==='front_no_glasses' 는 항상 false 라
   // items_arr 가 항상 비어 "이 뷰에 정의된 측정 항목이 없습니다." 가 노출되었다.)
   const g_items_arr = $derived.by(() => {
     return MEASUREMENT_TEMPLATE.filter((local_entry) =>
-      local_entry.view?.includes?.('front_no_glasses'),
+      local_entry.view?.includes?.(g_measurement_view),
     ).map((local_entry) => {
       const local_points = g_local_points_obj?.[local_entry.item_id] ?? null
       const local_value_px = local_points ? pixel_distance(local_points[0], local_points[1]) : null
@@ -339,12 +385,15 @@
 
   // MeasureCanvas 가 요구하는 capture-shape 객체를 BE 데이터로 합성.
   // BE 사진은 업로드 시점에 좌우 반전된 상태이므로 MeasureCanvas 의 mirror_x 로직과 정합.
+  // 측면 뷰도 image_dims_obj 는 정면 기준 dims 그대로 사용 — 측면 별도 dims 가 BE 응답에 없고,
+  // 사진 비율이 3:4 로 거의 동일해서 시각화상 어색하지 않음. (정확한 픽셀↔mm 환산이 필요한 측정은
+  // 정면에 한정돼 있어 측면 dims 차이가 측정값 자체엔 영향 없음.)
   const g_synthesized_capture = $derived.by(() => {
-    if (!g_visit_obj?.main_file || !g_image_dims_obj?.width || !g_image_dims_obj?.height) {
+    if (!g_active_measurement_src || !g_image_dims_obj?.width || !g_image_dims_obj?.height) {
       return null
     }
     return /** @type {any} */ ({
-      object_url: g_visit_obj.main_file,
+      object_url: g_active_measurement_src,
       width: g_image_dims_obj.width,
       height: g_image_dims_obj.height,
     })
@@ -368,11 +417,83 @@
    */
   function on_points_set_measurement(item_id, points) {
     g_local_points_obj = { ...g_local_points_obj, [item_id]: points }
-    g_local_active_item_id = null
+    // active 를 유지 — 점 2개 잇자마자 그린 선이 그대로 보이도록 (특히 전경각처럼 수동으로 두 점 찍는 항목).
+    // 사용자가 해제하고 싶으면 MeasurementList 의 같은 항목을 다시 눌러 토글.
   }
 
   function on_cancel_measurement() {
     g_local_active_item_id = null
+  }
+
+  // 측정 내용 저장 — 사용자가 다시 그린 점 좌표를 BE 에 PATCH 한다.
+  // 거리 항목은 (value_px, value_mm), 각도 항목은 (value_deg_raw, value_deg_corrected) 까지 재계산해 측정값 필드를 갱신.
+  // 사후 측정이라 image_tilt 정보가 없어 각도 보정값(corrected)은 raw 와 동일, head_image_tilt_deg_used 는 null.
+  let g_is_saving_measurements = $state(false)
+
+  async function on_click_save_measurements() {
+    if (g_is_saving_measurements) return
+    const local_visit_no = Number($selected_visit_obj?.visit_no)
+    if (!Number.isFinite(local_visit_no) || local_visit_no <= 0) {
+      push_error_toast('방문 정보가 없어 저장할 수 없습니다.')
+      return
+    }
+
+    g_is_saving_measurements = true
+    try {
+      const local_mm_per_px = g_scale_obj?.mm_per_px ?? null
+      /** @type {Record<string, any>} */
+      const local_next_measurements = { ...(g_measurements_obj ?? {}) }
+
+      for (const local_entry of MEASUREMENT_TEMPLATE) {
+        const local_points = g_local_points_obj?.[local_entry.item_id]
+        if (!local_points) continue
+        if (local_entry.kind === 'distance') {
+          const local_px = pixel_distance(local_points[0], local_points[1])
+          local_next_measurements[local_entry.item_id] = {
+            value_px: local_px,
+            value_mm: local_mm_per_px !== null ? local_px * local_mm_per_px : null,
+            source: local_entry.source,
+          }
+        } else if (local_entry.kind === 'angle') {
+          const local_view_id = local_entry.view[0]
+          const local_raw = vertical_signed_angle_deg(
+            local_points[0],
+            local_points[1],
+            local_view_id,
+          )
+          local_next_measurements[local_entry.item_id] = {
+            value_deg_raw: local_raw,
+            value_deg_corrected: local_raw,
+            head_image_tilt_deg_used: null,
+            source: local_entry.source,
+          }
+        }
+      }
+
+      const local_patched_test_json = {
+        ...(g_test_json ?? {}),
+        measurement_points_obj: { ...g_local_points_obj },
+        measurements: local_next_measurements,
+      }
+
+      const local_updated = await update_visit({
+        visit_no: local_visit_no,
+        body: { test_json: local_patched_test_json },
+      })
+
+      // BE 응답 우선 반영 — 응답이 없거나 test_json 누락 시 로컬 합성본으로 fallback.
+      g_visit_obj =
+        local_updated && local_updated.test_json
+          ? local_updated
+          : { ...(g_visit_obj ?? {}), test_json: local_patched_test_json }
+      push_success_toast('측정 내용을 저장했어요.')
+    } catch (local_err) {
+      push_error_toast(
+        local_err instanceof Error ? local_err.message : '측정 내용 저장에 실패했습니다.',
+      )
+    } finally {
+      g_is_saving_measurements = false
+    }
   }
 
   // 고객 정보 표시용 (없는 값은 '-' 처리)
@@ -807,9 +928,43 @@
         <section
           class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white shadow-sm px-[clamp(14px,3svh,28px)] py-[clamp(6px,1.4svh,12px)]"
         >
-          <h2 class="m-0 font-extrabold text-zinc-900 text-[clamp(14px,3svh,28px)]">
-            얼굴 측정 상세
-          </h2>
+          <div class="flex flex-wrap items-center justify-between gap-[clamp(8px,2svh,16px)]">
+            <h2 class="m-0 font-extrabold text-zinc-900 text-[clamp(14px,3svh,28px)]">
+              얼굴 측정 상세
+            </h2>
+            <div class="flex items-center gap-[clamp(6px,1.5svh,14px)]">
+              {#if g_measurement_view_tab_arr.length > 1}
+                <nav
+                  class="flex items-end gap-1 overflow-x-auto"
+                  aria-label="측정 사진 뷰 선택"
+                >
+                  {#each g_measurement_view_tab_arr as view_tab_obj (view_tab_obj.id)}
+                    {@const local_is_active_view = g_measurement_view === view_tab_obj.id}
+                    <button
+                      type="button"
+                      class={`shrink-0 cursor-pointer border-b-[3px] font-extrabold transition px-[clamp(8px,2svh,16px)] py-[clamp(4px,1svh,10px)] text-[clamp(11px,2svh,18px)] ${
+                        local_is_active_view
+                          ? 'border-[var(--retina-primary-500)] text-[var(--retina-primary-600)]'
+                          : 'border-transparent text-slate-400 hover:text-slate-700'
+                      }`}
+                      aria-pressed={local_is_active_view}
+                      onclick={() => (g_measurement_view = view_tab_obj.id)}
+                    >
+                      {view_tab_obj.label}
+                    </button>
+                  {/each}
+                </nav>
+              {/if}
+              <button
+                type="button"
+                onclick={on_click_save_measurements}
+                disabled={g_is_saving_measurements || g_visit_loading || !g_synthesized_capture}
+                class="shrink-0 cursor-pointer rounded-lg border-0 bg-[var(--retina-primary-500)] font-extrabold text-white transition hover:bg-[var(--retina-primary-600)] disabled:cursor-not-allowed disabled:opacity-50 px-[clamp(10px,2.4svh,20px)] py-[clamp(5px,1.2svh,12px)] text-[clamp(11px,2svh,18px)]"
+              >
+                {g_is_saving_measurements ? '저장 중...' : '측정 내용 저장'}
+              </button>
+            </div>
+          </div>
 
           {#if g_visit_loading}
             <p class="mt-2 font-semibold text-slate-400 text-[clamp(12px,2.1svh,19px)]">
@@ -840,7 +995,7 @@
                 <MeasurementList
                   items_arr={g_items_arr}
                   active_item_id={g_local_active_item_id}
-                  view_label="정면 (미착용)"
+                  view_label={g_measurement_view_label}
                   onselect={on_select_measurement}
                   onclear={on_clear_measurement}
                   show_clear={false}
@@ -907,7 +1062,7 @@
             </div>
           {:else}
             <div
-              class="mt-2 grid justify-start gap-[clamp(7px,1.7svh,14px)] grid-cols-[repeat(3,minmax(0,clamp(216px,33svh,372px)))]"
+              class="mt-2 grid justify-center gap-[clamp(7px,1.7svh,14px)] grid-cols-[repeat(3,minmax(0,clamp(216px,33svh,372px)))]"
             >
               {#each g_saved_fitting_arr as fitting_obj, fitting_index (fitting_index)}
                 {@const local_front_capture_obj =
