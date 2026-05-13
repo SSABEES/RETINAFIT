@@ -134,7 +134,7 @@ class FaceCalibration(
         const val MIN_SAMPLES = 15
         const val WINDOW_SIZE = 30
         const val VARIANCE_THRESHOLD = 1e-5f
-        const val TIMEOUT_MS = 3_000L
+        const val TIMEOUT_MS = 2_500L
     }
 }
 

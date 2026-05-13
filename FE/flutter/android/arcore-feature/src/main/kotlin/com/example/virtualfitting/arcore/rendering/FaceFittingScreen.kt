@@ -156,10 +156,10 @@ private const val NOSE_BRIDGE_DEBUG_LOG: Boolean = true
  *
  * 동기: lock 이 0.5~1.5초만에 발생하면 진행률 바가 짧게 보여 사용자가 정면 응시할 시간이
  * 부족하다고 느낌. UI 표시 시간을 충분히 확보해 사용자가 자세 잡을 여유를 줌. 그 동안
- * lock 이 안정적으로 확정되고, fallback timeout (FaceCalibration.TIMEOUT_MS = 3초) 도
+ * lock 이 안정적으로 확정되고, fallback timeout (FaceCalibration.TIMEOUT_MS = 2.5초) 도
  * 이 시간 안에 발생하므로 어차피 lock 보장됨.
  */
-private const val CALIBRATION_PROGRESS_DURATION_MS: Long = 3000L
+private const val CALIBRATION_PROGRESS_DURATION_MS: Long = 2500L
 
 /**
  * 사용자가 "정면 주시 중" 버튼을 눌렀을 때, 즉시 lock 하지 않고 짧은 buffer 동안 측정 더 받음.
