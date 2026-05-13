@@ -3,16 +3,31 @@
  * 같은 URL 재선택 시 즉시 resolve. 실패 시 entry 제거해 재시도 허용.
  */
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
 import { compute_auto_calibration } from './face_alignment.js'
 
 /** @type {Map<string, Promise<{scene: import('three').Object3D, calibration: ReturnType<typeof compute_auto_calibration>}>>} */
 const g_cache = new Map()
 
 let g_default_loader = null
+let g_draco_loader = null
 
-// 기본 GLTFLoader 인스턴스를 lazy 하게 생성한다.
+// Draco 압축 GLB 디코더 — lazy 하게 한 번만 생성. /draco/ 에서 wasm + wrapper 가져옴
+// (public/draco/draco_decoder.wasm, draco_wasm_wrapper.js, draco_decoder.js — three.js GLTF 전용 사본).
+function get_draco_loader() {
+  if (!g_draco_loader) {
+    g_draco_loader = new DRACOLoader()
+    g_draco_loader.setDecoderPath('/draco/')
+  }
+  return g_draco_loader
+}
+
+// 기본 GLTFLoader 인스턴스를 lazy 하게 생성한다. Draco 압축 GLB 도 같이 풀 수 있도록 DRACOLoader 부착.
 function get_default_loader() {
-  if (!g_default_loader) g_default_loader = new GLTFLoader()
+  if (!g_default_loader) {
+    g_default_loader = new GLTFLoader()
+    g_default_loader.setDRACOLoader(get_draco_loader())
+  }
   return g_default_loader
 }
 
@@ -93,4 +108,8 @@ function flip_geometry_z(root) {
 export function __reset_cache_for_test() {
   g_cache.clear()
   g_default_loader = null
+  if (g_draco_loader) {
+    g_draco_loader.dispose()
+    g_draco_loader = null
+  }
 }
