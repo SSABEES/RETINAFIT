@@ -13,7 +13,7 @@
 
   const g_six_month_millisecond = 1000 * 60 * 60 * 24 * 30 * 6
 
-  let ref_customer_arr = $state([])
+  let ref_customer_arr = $state(/** @type {import('@/lib/stores/customer').CustomerObj[]} */ ([]))
   let ref_customer_create_modal_open = $state(false)
   let ref_consent_modal_open = $state(false)
 
@@ -71,30 +71,6 @@
     }
   }
 
-  /**
-   * @param {string | null | undefined} primary_date
-   * @param {string | null | undefined} secondary_date
-   * @param {string | null | undefined} fallback_date
-   */
-  function get_latest_visit_date(primary_date, secondary_date, fallback_date) {
-    const local_primary_time = primary_date ? new Date(primary_date).getTime() : Number.NaN
-    const local_secondary_time = secondary_date ? new Date(secondary_date).getTime() : Number.NaN
-
-    if (!Number.isNaN(local_primary_time) && !Number.isNaN(local_secondary_time)) {
-      return local_primary_time >= local_secondary_time ? primary_date : secondary_date
-    }
-
-    if (!Number.isNaN(local_primary_time)) {
-      return primary_date
-    }
-
-    if (!Number.isNaN(local_secondary_time)) {
-      return secondary_date
-    }
-
-    return fallback_date ?? ''
-  }
-
   // 개인정보 보호 — 이름 두 번째 글자를 'O' 로 마스킹.
   // 김철수 → 김O수, 김철 → 김O, 남궁민수 → 남O민수.
   /** @param {string | null | undefined} name */
@@ -142,7 +118,7 @@
   }
 
   // 고객 행 클릭 시 — 선택한 고객을 store 에 저장하고 고객 상세 페이지로 이동.
-  /** @param {Record<string, any>} customer_obj */
+  /** @param {import('@/lib/stores/customer').CustomerObj} customer_obj */
   function on_click_select_customer(customer_obj) {
     if (g_is_customer_select_loading) return
 
@@ -309,7 +285,7 @@
       class="app-bg-edge-extend-left app-bg-edge-extend-bottom flex h-full min-h-0 flex-col items-center justify-center border-r border-[var(--retina-text-200)] px-8 py-[clamp(12px,2.5svh,24px)]"
       aria-label="고객 조회 키패드 영역"
     >
-      <div class="flex w-fit max-w-[30rem] flex-col items-center gap-[clamp(10px,2svh,16px)]">
+      <div class="flex w-fit max-w-[30rem] xl:max-w-[36rem] 2xl:max-w-[44rem] flex-col items-center gap-[clamp(10px,2svh,16px)]">
         <Keypad value={ref_search_phone} onchange={on_change_keypad} />
 
         <div class="grid w-full gap-[clamp(8px,1.5svh,12px)]">
@@ -335,13 +311,13 @@
                 aria-hidden="true"
               />
             {/if}
-            <span class="font-bold text-[clamp(13px,2svh,18px)]"
+            <span class="font-bold text-[clamp(13px,2svh,22px)]"
               >개인정보 수집 및 이용에 동의합니다.</span
             >
           </button>
 
           <button
-            class={`w-full cursor-pointer rounded-xl border-0 leading-none font-bold tracking-[0.3em] text-white transition disabled:cursor-not-allowed min-h-[clamp(44px,8svh,72px)] text-[clamp(16px,3svh,24px)] ${
+            class={`w-full cursor-pointer rounded-xl border-0 leading-none font-bold tracking-[0.3em] text-white transition disabled:cursor-not-allowed min-h-[clamp(44px,8svh,96px)] text-[clamp(16px,3svh,30px)] ${
               is_search_active
                 ? 'bg-[var(--retina-primary-500)] hover:bg-[var(--retina-primary-600)]'
                 : 'bg-[#E3B68E]'
@@ -399,7 +375,7 @@
           </p>
         </div>
       {:else}
-        <div class="mx-auto mt-15 flex min-h-0 w-full max-w-[640px] flex-1 flex-col gap-4 py-2">
+        <div class="mx-auto mt-15 flex min-h-0 w-full max-w-[640px] xl:max-w-[900px] 2xl:max-w-[1200px] flex-1 flex-col gap-4 py-2">
           <div class="flex shrink-0 items-center justify-between">
             <p class="m-0 text-sm font-bold text-[var(--retina-text-500)]">
               총 <span class="text-[var(--retina-primary-400)]">{ref_customer_arr.length}명</span>

@@ -49,7 +49,7 @@
   class="app-frame-page grid min-h-screen grid-rows-[1fr_auto] bg-[var(--retina-bg-1)] px-4 pt-[clamp(8px,2svh,24px)] pb-[clamp(6px,1.5svh,16px)] sm:px-6 text-[var(--retina-text)]"
 >
   <section
-    class="grid w-full max-w-[760px] justify-items-center justify-self-center self-center gap-[clamp(8px,2svh,16px)]"
+    class="grid w-full max-w-[760px] xl:max-w-[960px] 2xl:max-w-[1180px] justify-items-center justify-self-center self-center gap-[clamp(8px,2svh,16px)]"
     aria-label="안경사 선택"
   >
     <img

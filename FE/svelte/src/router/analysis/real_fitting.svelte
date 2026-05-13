@@ -311,7 +311,7 @@
 
 <AnalysisPageLayout current_step={3} bg_class="bg-white text-zinc-900" onback={on_click_back}>
   <div
-    class="grid flex-1 grid-cols-1 grid-rows-[55svh_auto] min-h-0 md:grid-cols-[1fr_300px] md:grid-rows-1 bg-[var(--retina-text-100)]"
+    class="grid flex-1 grid-cols-1 grid-rows-[55svh_auto] min-h-0 md:grid-cols-[1fr_300px] md:grid-rows-1 xl:grid-cols-[1fr_360px] 2xl:grid-cols-[1fr_420px] bg-[var(--retina-text-100)]"
   >
     <!--
       좌측: 카메라 — analysis/index.svelte 와 동일한 자동 캡처 흐름(정면→좌→우 자동 진행).
@@ -502,9 +502,13 @@
             disabled={!g_can_save || g_is_submitting}
             onclick={on_click_save_set}
             aria-label="세트 저장"
-            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-2 border-[var(--retina-primary-300)] bg-white px-2 font-extrabold text-[var(--retina-primary-300)] transition-all hover:bg-[var(--retina-bg-1)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale text-[clamp(10px,1.7svh,14px)]"
+            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-2 border-[var(--retina-primary-300)] bg-white px-2 font-extrabold text-[var(--retina-primary-300)] transition-all hover:bg-[var(--retina-bg-1)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale text-[clamp(13px,2.4svh,22px)]"
           >
-            <CameraIcon size={12} strokeWidth={2.5} aria-hidden="true" />
+            <CameraIcon
+              strokeWidth={2.5}
+              aria-hidden="true"
+              class="h-[clamp(16px,2.8svh,26px)] w-[clamp(16px,2.8svh,26px)]"
+            />
             세트 저장
           </button>
 
@@ -513,7 +517,7 @@
             disabled={g_is_submitting}
             onclick={on_click_continue}
             aria-label="최종 리포트 보기"
-            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale text-[clamp(10px,1.7svh,14px)]"
+            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center gap-1 rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale text-[clamp(13px,2.4svh,22px)]"
           >
             {#if g_is_submitting}
               <Loader2 size={12} strokeWidth={2.4} class="animate-spin" aria-hidden="true" />

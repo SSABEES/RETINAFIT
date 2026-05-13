@@ -155,7 +155,8 @@
         {@const p2 = g_active_item.points[1]}
         {@const x1 = mirror_x(p1.x)}
         {@const x2 = mirror_x(p2.x)}
-        {@const dash = g_active_item.source === 'auto' ? '8 6' : undefined}
+        <!-- 자동/수동 구분 없이 모든 측정 선을 점선으로 통일 — 사용자가 두 점을 찍어 잇는다는 의도가 즉시 드러나도록. -->
+        {@const dash = '8 6'}
         <!-- 가독성을 위한 흰색 외곽선 (paint-order 로 stroke 먼저, fill 나중) -->
         <line
           {x1}

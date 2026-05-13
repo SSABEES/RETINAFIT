@@ -43,7 +43,7 @@
 
   <section class="flex min-h-0 min-w-0 flex-col overflow-hidden">
     <header
-      class="grid h-[64px] grid-cols-[auto_1fr_auto] items-center gap-3 border-b border-[var(--retinal-border)] bg-white px-4 sm:h-[80px] sm:px-6 md:h-[92px] md:grid-cols-[1fr_auto_1fr] md:px-8"
+      class="grid h-[64px] grid-cols-[auto_1fr_auto] items-center gap-3 border-b border-[var(--retinal-border)] bg-white px-4 sm:h-[80px] sm:px-6 md:h-[92px] md:grid-cols-[1fr_auto_1fr] md:px-8 xl:px-12 2xl:px-16"
     >
       <div class="flex items-center justify-start gap-3">
         <!-- 모바일 햄버거 — md 이상에선 숨김 -->

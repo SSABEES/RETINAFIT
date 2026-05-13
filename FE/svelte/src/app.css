@@ -1,17 +1,6 @@
 @import 'tailwindcss';
 
 /*
-  Breakpoint 튜닝 — 안경원 태블릿 디바이스 (SM-T733 등) 의 CSS viewport 는 dpr 1.75 영향으로
-  layout 가로가 약 940~948 로 잡혀 Tailwind 기본 lg(1024) 가 발동 안 됨. lg 를 900 으로 낮춰
-  이 클래스 태블릿들에서도 데스크탑 레이아웃(사이드바 + 분석 페이지 우측 300px 패널 등) 이
-  활성화되게 한다. xl 도 같이 낮춰 hierarchy 유지.
-*/
-@theme {
-  --breakpoint-lg: 900px;
-  --breakpoint-xl: 1200px;
-}
-
-/*
   Pretendard Variable — public/font/Pretendard-1.3.9/web/variable/ 에 번들된 가변 폰트.
   하나의 woff2 로 weight 45~920 전부 커버 (font-weight 무엇이든 같은 파일 재사용).
   font-display: swap → 폰트 다운로드 동안 시스템 폰트로 즉시 렌더, 도착 후 교체.

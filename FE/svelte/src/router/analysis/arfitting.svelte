@@ -677,7 +677,7 @@
 
     <!-- 우측: 캡쳐 상태 + 추천 안경 + 액션 버튼 -->
     <aside
-      class="app-bg-edge-extend-right relative flex w-[300px] flex-col border-l border-slate-200 bg-white transition-[z-index]"
+      class="app-bg-edge-extend-right relative flex w-[300px] xl:w-[360px] 2xl:w-[420px] flex-col border-l border-slate-200 bg-white transition-[z-index]"
       class:z-50={g_highlight_aside}
     >
       <!-- 캡쳐 슬롯 -->
@@ -694,7 +694,7 @@
           {#each g_capture_slot_arr as slot, idx (idx)}
             <div class="group relative flex flex-col items-center gap-1">
               <div
-                class={`relative flex h-[120px] w-full items-center justify-center rounded-none border transition-all ${
+                class={`relative flex aspect-[3/4] w-full items-center justify-center rounded-none border transition-all ${
                   slot
                     ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)]'
                     : 'border-[#F1F3F5] bg-[#F1F3F5]'
@@ -787,20 +787,20 @@
                   type="button"
                   onclick={() => on_click_select_glasses(item.id)}
                   aria-label={item.model}
-                  class={`group relative flex items-center gap-2.5 rounded-sm border p-2 text-left transition-all ${
+                  class={`group relative flex items-center gap-2 rounded-sm border p-1.5 text-left transition-all ${
                     active
                       ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)] shadow-sm'
                       : 'border-slate-200 bg-white hover:border-[var(--retina-primary-100)]'
                   }`}
                 >
                   <div
-                    class="flex h-[72px] w-[88px] shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 p-1"
+                    class="flex h-[44px] w-[58px] shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 p-0.5"
                   >
                     <img src={item.img_url} alt={item.model} class="h-full w-full object-contain" />
                   </div>
                   <div class="flex flex-1 flex-col overflow-hidden">
                     {#if active}
-                      <span class="mb-1 inline-flex items-center gap-1 self-start">
+                      <span class="mb-0.5 inline-flex items-center gap-1 self-start">
                         <img
                           src="/icons/CheckActive.png"
                           alt=""
@@ -810,12 +810,12 @@
                         <img src="/icons/fitting.png" alt="피팅중" class="h-2 w-auto" />
                       </span>
                     {/if}
-                    <p class="truncate text-[14px] font-extrabold text-zinc-900">{item.model}</p>
-                    <span class="truncate text-[11.5px] font-semibold text-slate-400"
+                    <p class="truncate text-[14px] xl:text-[16px] 2xl:text-[18px] font-extrabold text-zinc-900">{item.model}</p>
+                    <span class="truncate text-[10px] font-semibold text-slate-400"
                       >{item.brand}</span
                     >
                     <div class="mt-0.5 flex items-center justify-between gap-1.5">
-                      <span class="text-[12.5px] font-extrabold text-[var(--retina-primary-300)]"
+                      <span class="text-[11px] font-extrabold text-[var(--retina-primary-300)]"
                         >{format_price_label(item.price)}</span
                       >
                       {#if !active && saved_count > 0}
@@ -907,7 +907,7 @@
             disabled={!g_can_submit && g_guide_step !== 6}
             onclick={on_click_submit_report}
             aria-label="실제 착용 분석하기"
-            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 text-[12px] font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
+            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 xl:px-3 2xl:px-4 text-[13px] xl:text-[17px] 2xl:text-[21px] font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
           >
             실제 착용 분석하기
           </button>
