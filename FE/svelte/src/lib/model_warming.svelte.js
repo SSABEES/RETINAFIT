@@ -62,12 +62,6 @@ export function start_warming() {
 
       // cache 확인 — 다운로드가 필요한 경우만 splash UI 노출. cache hit 면 전 단계 백그라운드.
       const local_is_cached = await is_model_cached(local_variant)
-      // 디버그 — 콘솔에 캐시 상태 / variant 노출. 캐시 hit 이라면 splash 가 떠선 안 됨.
-      console.log('[model_warming]', {
-        variant: local_variant,
-        is_cached: local_is_cached,
-        caches_supported: typeof caches !== 'undefined',
-      })
       if (!local_is_cached) {
         warming_state.is_downloading = true
         warming_state.stage_label = 'AI 모델 다운로드 중...'
