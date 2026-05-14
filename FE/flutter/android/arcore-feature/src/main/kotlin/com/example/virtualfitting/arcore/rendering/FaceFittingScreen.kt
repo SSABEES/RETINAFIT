@@ -444,13 +444,14 @@ fun FaceFittingScreen(
                             // calibration 후 이 줄의 Y/Z 를 FittingPose.REFERENCE_NOSE_BRIDGE_* 로 옮김.
                             Log.d(
                                 TAG,
-                                "[fit-ref] locked bridgeFaceLocal X=%.5f Y=%.5f Z=%.5f | noseTipY=%.5f faceWidth=%.5f"
+                                "[fit-ref] locked bridgeFaceLocal X=%.5f Y=%.5f Z=%.5f | noseTipY=%.5f faceWidth=%.5f ipd=%.5f"
                                     .format(
                                         locked.noseBridgeFaceLocalX,
                                         locked.noseBridgeFaceLocalY,
                                         locked.noseBridgeFaceLocalZ,
                                         locked.noseTipY,
                                         locked.faceWidth,
+                                        locked.ipd,
                                     ),
                             )
                             // [TEMPLE_DEBUG] GLB 의 temple_left/right entity 매칭 여부 확인용.
