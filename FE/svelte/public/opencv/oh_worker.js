@@ -26,7 +26,10 @@ const CANNY_LOW = 50
 const CANNY_HIGH = 150
 const BLUR_KSIZE = 3
 const ROI_WIDTH_FACTOR = 0.55
-const ROI_HEIGHT_FACTOR = 0.85
+// 0.85 × 1.3 = 1.105. 큰 안경테 / 낮게 걸침 케이스에서 림 하단이 ROI 세로 밖으로
+// 빠지는 것을 막는다. ROI 천장(잡을 수 있는 OH/PD 비율) = HEIGHT_FACTOR × (1 - PUPIL_TOP_FACTOR)
+// = 1.105 × 0.65 ≈ 0.72. 단 OH_PD_RATIO_MAX = 0.55 sanity 가 별도로 천장 역할.
+const ROI_HEIGHT_FACTOR = 1.105
 const ROI_PUPIL_TOP_FACTOR = 0.35
 // search anchor (lid + iris contour 중 max y) 아래로 추가로 비워둘 여유 (PD 비례).
 // 속눈썹·근접 림 그림자 잔여물을 한 번 더 skip. 0.10*PD ≈ 6~8mm.
