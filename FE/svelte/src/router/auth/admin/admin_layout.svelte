@@ -55,7 +55,7 @@
     class="app-frame-page flex min-h-screen flex-col bg-[var(--retina-page)] pt-0 text-[var(--retina-text)]"
     style="padding-top: 0"
   >
-    <section class="min-h-0 flex-1 px-4 pb-6 pt-2 sm:px-6 md:px-8 md:pb-8 md:pt-3 xl:px-12 2xl:px-16">
+    <section class="min-h-0 flex-1 px-4 pb-3 pt-2 sm:px-6 md:px-8 md:pb-4 md:pt-2 xl:px-12 2xl:px-16">
       <div class="grid min-h-full w-full content-start gap-4">
         <div class="flex items-start justify-between gap-6">
           <button

@@ -143,7 +143,7 @@ export const FACE_SHAPE_DESCRIPTIONS_KO = {
  *
  * @typedef {object} SkinToneResult
  * @property {SkinTone} tone
- * @property {number} hue_deg                평균 hue (0-360)
+ * @property {number} hue_deg                평균 HSV hue (0-360, AI 서버 호환용)
  * @property {number} sample_count           실제 샘플 성공한 패치 수 (1-3)
  * @property {'MOCK'} threshold_source
  */
