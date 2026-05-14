@@ -11,6 +11,7 @@ export const PATH = {
   analysisLensConsultLegacy: '/analysis/lens_consult',
   analysisArFitting: '/analysis/arfitting',
   analysisRealFitting: '/analysis/real-fitting',
+  analysisMemberSelect: '/analysis/member-select',
   test: '/test',
   users: '/dashboard/users',
   sales: '/dashboard/sales',
