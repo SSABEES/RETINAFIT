@@ -49,6 +49,15 @@
    * @property {import('@/lib/stores/capture_session.svelte.js').HeadPoseSnapshot | null} head_pose
    */
 
+  /**
+   * @typedef {object} LandmarkDetectionResult
+   * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[]} landmarks
+   *   detect loop 가 잡은 정면 landmarks (crop 좌표계로 remap 됨)
+   * @property {HTMLVideoElement} source_el
+   * @property {number} source_width
+   * @property {number} source_height
+   */
+
   /** @type {{
    *   active?: boolean,
    *   pose_target?: 'front' | 'left_profile' | 'right_profile',
@@ -57,6 +66,7 @@
    *   is_landmark_visible?: boolean,
    *   oncapture?: ((c: CaptureResult) => void) | undefined,
    *   oncapture_error?: ((err: unknown) => void) | undefined,
+   *   onlandmarks?: ((d: LandmarkDetectionResult) => void) | undefined,
    * }}
    */
   let {
@@ -67,6 +77,7 @@
     is_landmark_visible = true,
     oncapture = undefined,
     oncapture_error = undefined,
+    onlandmarks = undefined,
   } = $props()
 
   // FRAME_SKIP: 60fps / 5 = 12Hz 추론 (성능과 반응성의 타협점)
@@ -586,6 +597,16 @@
           g_frontal_obj = check_frontal(result)
           const m = compute_measurements(local_remapped_arr, ANALYSIS_W, ANALYSIS_H)
           if (m) g_measurements_obj = m
+          // 외부 컨슈머 (real_fitting 의 OH 게이트 등) 에 정면 landmarks + video source 노출.
+          // 측면 detection 분기 (landmarks 없음) 에서는 호출 안 함.
+          if (onlandmarks && ref_this_video_el) {
+            onlandmarks({
+              landmarks: local_remapped_arr,
+              source_el: ref_this_video_el,
+              source_width: ref_this_video_el.videoWidth,
+              source_height: ref_this_video_el.videoHeight,
+            })
+          }
           if (
             g_should_check_frontal &&
             m &&
