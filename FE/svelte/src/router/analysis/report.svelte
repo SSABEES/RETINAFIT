@@ -313,7 +313,7 @@
       </h1>
 
       <div
-        class="mx-auto grid w-fit mt-[clamp(4px,1.2svh,28px)] px-1 grid-cols-[clamp(220px,46svh,720px)_clamp(200px,40svh,600px)] gap-[clamp(12px,3.6svh,72px)]"
+        class="mx-auto grid w-fit mt-[clamp(4px,1.2svh,28px)] px-1 grid-cols-[clamp(220px,46svh,720px)_clamp(200px,40svh,600px)] gap-[clamp(18px,4.6svh,92px)]"
       >
         <!-- 왼쪽: 촬영 사진 — 카메라와 동일한 3:4 비율, svh 기반 자동 축소 -->
         <div class="aspect-[3/4] w-full overflow-hidden rounded-[14px] bg-slate-100 shadow-sm">

@@ -327,7 +327,7 @@
         </p>
       </div>
 
-      <div class="mx-auto mt-[clamp(3px,1svh,16px)] w-full max-w-[820px] xl:max-w-[1120px] 2xl:max-w-[1440px]">
+      <div class="mx-auto mt-[clamp(3px,1svh,16px)] w-full max-w-[440px] xl:max-w-[600px] 2xl:max-w-[760px]">
         {#if g_options_loading}
           <div class="grid place-items-center py-[clamp(16px,5svh,48px)]">
             <span
@@ -399,7 +399,7 @@
                   </div>
                 {:else}
                   <div
-                    class="mt-[clamp(3px,1.05svh,13px)] flex flex-wrap justify-start gap-[clamp(4px,1.2svh,16px)]"
+                    class="mt-[clamp(3px,1.05svh,13px)] flex flex-wrap justify-start gap-[clamp(2px,0.6svh,8px)]"
                   >
                     {#each question_obj.answer_arr as answer_obj (answer_obj.option_no)}
                       {@const local_active = is_selected(
@@ -407,7 +407,7 @@
                         answer_obj.option_no,
                       )}
                       <button
-                        class={`inline-flex cursor-pointer items-center rounded-md border font-bold transition min-h-[clamp(24px,5svh,56px)] px-[clamp(8px,2.6svh,32px)] py-[clamp(2px,0.6svh,8px)] text-[clamp(11px,2.6svh,28px)] ${
+                        class={`inline-flex cursor-pointer items-center rounded-md border font-bold transition min-h-[clamp(24px,5svh,56px)] px-[clamp(2px,0.7svh,8px)] py-[clamp(2px,0.6svh,8px)] text-[clamp(11px,2.6svh,28px)] ${
                           local_active
                             ? 'border-[var(--retina-primary-300)] bg-white text-[var(--retina-primary-300)] shadow-[0_3px_8px_rgba(249,115,22,0.18)]'
                             : 'border-slate-200 bg-white text-slate-500 hover:border-[var(--retina-primary-300)]/60 hover:text-[var(--retina-primary-300)]'
