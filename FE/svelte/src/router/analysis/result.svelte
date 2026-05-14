@@ -1350,7 +1350,7 @@
         <section
           class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white shadow-sm px-[clamp(14px,3svh,28px)] pt-[clamp(6px,1.4svh,12px)] pb-[clamp(6px,3svh,40px)]"
         >
-          <div class="flex flex-wrap items-center justify-between gap-[clamp(8px,2svh,16px)]">
+          <div class="flex flex-wrap items-start justify-between gap-[clamp(8px,2svh,16px)]">
             <h2 class="m-0 font-extrabold text-zinc-900 text-[clamp(14px,3svh,28px)]">
               얼굴 측정 상세
             </h2>
@@ -1434,27 +1434,27 @@
           <h2 class="m-0 font-extrabold text-zinc-900 text-[clamp(14px,3svh,28px)]">생활 패턴</h2>
 
           {#if g_lens_selection_arr.length === 0}
-            <p class="mt-3 font-semibold text-slate-400 text-[clamp(13px,2.4svh,22px)]">
+            <p class="mt-[clamp(4px,1.4svh,12px)] font-semibold text-slate-400 text-[clamp(11px,2.1svh,19px)]">
               선택한 항목이 없습니다.
             </p>
           {:else}
-            <div class="mt-3 grid grid-cols-2 gap-[clamp(10px,2.2svh,18px)]">
+            <div class="mt-[clamp(4px,1.4svh,12px)] grid min-h-0 flex-1 grid-cols-2 content-start gap-[clamp(6px,1.8svh,18px)]">
               {#each g_lens_selection_arr as selection_obj, selection_index (selection_index)}
                 <div
-                  class="rounded-[10px] border border-slate-100 bg-slate-50 px-[clamp(12px,2.4svh,24px)] py-[clamp(10px,2.4svh,20px)]"
+                  class="rounded-[10px] border border-slate-100 bg-slate-50 px-[clamp(8px,2svh,24px)] py-[clamp(6px,1.8svh,20px)]"
                 >
-                  <p class="m-0 font-bold text-slate-500 text-[clamp(13px,2.5svh,24px)]">
+                  <p class="m-0 font-bold text-slate-500 text-[clamp(11px,2.1svh,22px)]">
                     Q{selection_index + 1}. {selection_obj.question_text}
                   </p>
-                  <div class="mt-3 flex flex-wrap gap-2">
+                  <div class="mt-[clamp(4px,1.4svh,12px)] flex flex-wrap gap-[clamp(3px,0.8svh,8px)]">
                     {#if selection_obj.label_arr.length === 0}
-                      <span class="font-semibold text-slate-400 text-[clamp(13px,2.4svh,22px)]"
+                      <span class="font-semibold text-slate-400 text-[clamp(11px,2svh,22px)]"
                         >-</span
                       >
                     {:else}
                       {#each selection_obj.label_arr as label_text, label_index (`${selection_index}-${label_index}`)}
                         <span
-                          class="inline-flex items-center rounded-md border border-[var(--retina-primary-300)] bg-white font-bold text-[var(--retina-primary-400)] px-[clamp(10px,2.2svh,20px)] py-[clamp(4px,1svh,10px)] text-[clamp(13px,2.4svh,22px)]"
+                          class="inline-flex items-center rounded-md border border-[var(--retina-primary-300)] bg-white font-bold text-[var(--retina-primary-400)] px-[clamp(6px,1.8svh,20px)] py-[clamp(2px,0.8svh,10px)] text-[clamp(11px,2svh,22px)]"
                         >
                           {label_text}
                         </span>
