@@ -85,7 +85,7 @@
 </script>
 
 <AdminLayout active_key="health">
-  <section class="grid gap-4">
+  <section class="grid gap-3">
     <!-- 페이지 헤더 — 좌측에 제목, 우측에 마지막 갱신 시각 + 새로고침 -->
     <header class="flex items-center justify-between gap-4">
       <div>
@@ -139,7 +139,7 @@
     {:else if g_health_obj}
       <!-- 1행: 전체 상태 카드 (환경 / 업타임 통합) — 좌측엔 상태 아이콘+텍스트, 우측엔 환경/업타임 인라인. -->
       <article
-        class="flex flex-col gap-5 rounded-[14px] border border-[var(--retina-text-200)] bg-white px-6 py-5 shadow-[0_4px_10px_rgba(19,25,40,0.04)] md:flex-row md:items-center md:justify-between"
+        class="flex flex-col gap-5 rounded-[14px] border border-[var(--retina-text-200)] bg-white px-6 py-3 shadow-[0_4px_10px_rgba(19,25,40,0.04)] md:flex-row md:items-center md:justify-between"
       >
         <div class="flex items-center gap-5">
           <div
@@ -164,10 +164,12 @@
               class:text-emerald-700={g_is_overall_healthy}
               class:text-red-700={!g_is_overall_healthy}
             >
-              {g_health_obj.status ?? '-'}
+              {g_is_overall_healthy ? (g_health_obj.status ?? '-') : 'error'}
             </p>
             <p class="m-0 mt-1 text-xs font-semibold text-[var(--retina-text-500)]">
-              모든 시스템이 정상적으로 작동 중입니다
+              {g_is_overall_healthy
+                ? '모든 시스템이 정상적으로 작동 중입니다'
+                : '일부 시스템에 문제가 감지되었습니다'}
             </p>
           </div>
         </div>
@@ -218,7 +220,7 @@
         <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
           <!-- Database -->
           <article
-            class="flex flex-col gap-3 rounded-[14px] border border-[var(--retina-text-200)] bg-white px-5 py-4 shadow-[0_4px_10px_rgba(19,25,40,0.04)]"
+            class="flex flex-col gap-2 rounded-[14px] border border-[var(--retina-text-200)] bg-white px-5 py-3 shadow-[0_4px_10px_rgba(19,25,40,0.04)]"
           >
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-center gap-3">
@@ -257,7 +259,7 @@
 
           <!-- S3 -->
           <article
-            class="flex flex-col gap-3 rounded-[14px] border border-[var(--retina-text-200)] bg-white px-5 py-4 shadow-[0_4px_10px_rgba(19,25,40,0.04)]"
+            class="flex flex-col gap-2 rounded-[14px] border border-[var(--retina-text-200)] bg-white px-5 py-3 shadow-[0_4px_10px_rgba(19,25,40,0.04)]"
           >
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-center gap-3">
@@ -296,7 +298,7 @@
 
           <!-- CloudFront -->
           <article
-            class="flex flex-col gap-3 rounded-[14px] border border-[var(--retina-text-200)] bg-white px-5 py-4 shadow-[0_4px_10px_rgba(19,25,40,0.04)]"
+            class="flex flex-col gap-2 rounded-[14px] border border-[var(--retina-text-200)] bg-white px-5 py-3 shadow-[0_4px_10px_rgba(19,25,40,0.04)]"
           >
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-center gap-3">
@@ -352,7 +354,7 @@
       <div class="grid gap-2">
         <h2 class="m-0 text-base font-extrabold text-[var(--retina-text-800)]">JSON 응답</h2>
         <pre
-          class="m-0 overflow-x-auto rounded-[14px] border border-[var(--retina-text-200)] bg-[var(--retina-text-800)] p-5 text-xs font-medium leading-relaxed text-emerald-200 shadow-[0_4px_10px_rgba(19,25,40,0.04)]"><code
+          class="m-0 max-h-[440px] overflow-auto rounded-[14px] border border-[var(--retina-text-200)] bg-[var(--retina-text-800)] px-5 py-3 text-xs font-medium leading-relaxed text-emerald-200 shadow-[0_4px_10px_rgba(19,25,40,0.04)]"><code
             >{g_json_text}</code
           ></pre>
       </div>
