@@ -268,13 +268,18 @@
     g_real_vp_measurement_seeded = true
   })
 
+  // 미러 OH 가 한 visit 당 1번만 시도되도록 가드 (set_selected_visit 재발동 시 idempotent 보장).
+  let g_oh_prefill_done = $state(false)
+
   // BE 시딩이 완료된 직후 sessionStorage 의 OH 미러를 읽어 빈 항목만 pre-fill.
-  // g_real_vp_measurement_seeded 가 true 로 전환되면 1회 실행 — 이후 visit_no 변경은 없음.
+  // g_oh_prefill_done 으로 1회 가드.
   $effect(() => {
     if (!g_real_vp_measurement_seeded) return
+    if (g_oh_prefill_done) return
     const local_visit_no = Number($selected_visit_obj?.visit_no)
     if (!Number.isFinite(local_visit_no) || local_visit_no <= 0) return
     pre_fill_oh_from_real_wearing(local_visit_no)
+    g_oh_prefill_done = true
   })
 
   /**
@@ -307,19 +312,20 @@
     const local_chron_arr = [...mirror.sets].reverse()
     for (let local_idx = 0; local_idx < local_chron_arr.length; local_idx++) {
       const local_entry = local_chron_arr[local_idx]
+      // malformed storage entry 방어 (read_real_wearing_oh 가 per-entry 검증 안 함)
       if (!local_entry) continue
       apply_oh_prefill_to_set(local_idx, local_entry.oh_left_mm, local_entry.oh_right_mm)
     }
   }
 
-  // (set_index, front view) 의 oh_left/oh_right 항목에 pre-fill.
-  // 이미 값이 있는 항목은 skip (사용자 수동 측정 우선).
+  // 한 실착용 세트의 정면 view 의 oh_left/oh_right 항목을 mirror 값으로 채움. 이미 값 있으면 skip.
   /**
    * @param {number} set_index
    * @param {number} oh_left_mm
    * @param {number} oh_right_mm
    */
   function apply_oh_prefill_to_set(set_index, oh_left_mm, oh_right_mm) {
+    if (!Number.isFinite(oh_left_mm) || !Number.isFinite(oh_right_mm)) return
     const local_set_val = g_real_vp_value_obj[set_index] ?? { front: {}, left: {}, right: {} }
     const local_front_val = local_set_val.front ?? {}
     // oh_left
