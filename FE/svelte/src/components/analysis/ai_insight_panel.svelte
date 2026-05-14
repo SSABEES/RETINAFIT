@@ -176,9 +176,11 @@
       : []
     return local_be_arr.length > 0 ? local_be_arr.slice(0, 6) : []
   })
+  // priority 1~2 모두 추출 — 일부 얼굴형(예: oblong)은 priority 1 항목이 없어 1 만 보면 빈 화면이 되므로 2까지 포함.
   const g_priority_one_frame_arr = $derived(
     g_recommended_frame_arr.filter(
-      (/** @type {{ priority?: number, name?: string }} */ local_obj) => local_obj.priority === 1,
+      (/** @type {{ priority?: number, name?: string }} */ local_obj) =>
+        (local_obj.priority ?? 99) <= 2,
     ),
   )
 
@@ -470,13 +472,13 @@
         </header>
         <div class="mt-2 flex flex-col gap-1">
           {#if g_report_summary1_text}
-            <p class="pl-3 m-0 text-[18px] font-extrabold leading-relaxed text-zinc-900">
-              {g_report_summary1_text}
+            <p class="pl-3 m-0 text-[18px] font-extrabold leading-relaxed text-zinc-900 whitespace-pre-line">
+              {g_report_summary1_text.replace('. ', '.\n')}
             </p>
           {/if}
           {#if g_report_summary2_text}
-            <p class="pl-3 m-0 text-[14px] font-semibold leading-relaxed text-zinc-800">
-              {g_report_summary2_text}
+            <p class="pl-3 m-0 text-[14px] font-semibold leading-relaxed text-zinc-800 whitespace-pre-line">
+              {g_report_summary2_text.replace('. ', '.\n')}
             </p>
           {/if}
         </div>

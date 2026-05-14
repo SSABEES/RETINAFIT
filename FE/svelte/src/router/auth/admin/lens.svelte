@@ -1,13 +1,12 @@
 <script>
   import { onMount } from 'svelte'
-  import { ChevronLeft, ChevronRight, Plus, Save, Trash2 } from 'lucide-svelte'
+  import { ChevronLeft, ChevronRight, Plus, Save, Trash2, X } from 'lucide-svelte'
   import AdminLayout from '@/router/auth/admin/admin_layout.svelte'
   import {
     create_recommend_option,
     delete_recommend_option,
     get_recommend_option_arr,
     update_recommend_option,
-    update_recommend_option_order,
   } from '@/lib/api/admin_recommend_options'
 
   // 질문 = option_category, 답변 = option_name 으로 매핑해 기존 추천 옵션 API 를 재사용한다.
@@ -21,6 +20,8 @@
   let ref_active_question_text = $state('')
   // 새 질문 입력값
   let ref_new_question_text = $state('')
+  // 질문 추가 모달 열림 여부
+  let g_is_create_question_open = $state(false)
   // 질문별 새 답변 입력값 (key = 질문 텍스트)
   let ref_new_answer_text_obj = $state({})
 
@@ -153,7 +154,20 @@
     g_question_arr = [...g_question_arr, { question_text: local_question_text, answer_arr: [] }]
     ref_active_question_text = local_question_text
     ref_new_question_text = ''
+    g_is_create_question_open = false
     show_toast('질문을 추가했습니다. 답변을 등록해 주세요.')
+  }
+
+  // 질문 추가 모달을 연다.
+  function on_click_open_create_question() {
+    ref_new_question_text = ''
+    g_is_create_question_open = true
+  }
+
+  // 질문 추가 모달을 닫고 입력값을 초기화한다.
+  function on_click_close_create_question() {
+    g_is_create_question_open = false
+    ref_new_question_text = ''
   }
 
   // 좌우 스와이프 / 마우스 드래그로 활성 질문을 옆으로 넘긴다. 네브바와 상세 카드가 함께 동기화.
@@ -217,61 +231,6 @@
     if (Math.abs(local_dy) > Math.abs(local_dx)) return
     if (Math.abs(local_dx) < SWIPE_THRESHOLD_PX) return
     shift_active_question(local_dx < 0 ? 1 : -1)
-  }
-
-  // 질문 순서를 한 칸 이동시키고, 전체 답변의 display_order 를 다시 부여해 서버에 반영한다.
-  async function on_click_move_question(question_obj, direction) {
-    const local_current_index = g_question_arr.findIndex(
-      (local_question_obj) => local_question_obj.question_text === question_obj.question_text,
-    )
-
-    if (local_current_index < 0) return
-
-    const local_target_index = local_current_index + direction
-
-    if (local_target_index < 0 || local_target_index >= g_question_arr.length) return
-
-    const local_reordered_arr = [...g_question_arr]
-    const [local_moved_question_obj] = local_reordered_arr.splice(local_current_index, 1)
-    local_reordered_arr.splice(local_target_index, 0, local_moved_question_obj)
-
-    // 화면 즉시 반영 (서버 동기화 전)
-    g_question_arr = local_reordered_arr
-
-    // 전체 답변에 글로벌 display_order 를 재부여한다 (질문 0 → 답변들 0..n-1, 질문 1 → n..n+m-1, ...).
-    const local_update_request_arr = []
-    let local_global_order = 0
-
-    for (const local_question_obj of local_reordered_arr) {
-      for (const local_answer_obj of local_question_obj.answer_arr) {
-        if (local_answer_obj.display_order !== local_global_order) {
-          local_update_request_arr.push(
-            update_recommend_option_order({
-              option_no: local_answer_obj.option_no,
-              display_order: local_global_order,
-            }),
-          )
-        }
-        local_global_order += 1
-      }
-    }
-
-    if (local_update_request_arr.length === 0) {
-      return
-    }
-
-    try {
-      await Promise.all(local_update_request_arr)
-      show_toast('질문 순서를 변경했습니다.')
-      await load_question_arr()
-    } catch (local_error) {
-      const local_message =
-        local_error instanceof Error
-          ? local_error.message
-          : '질문 순서 변경 중 오류가 발생했습니다.'
-      show_toast(local_message, 'error')
-      await load_question_arr()
-    }
   }
 
   function on_input_new_answer_text(question_obj, local_event) {
@@ -380,7 +339,7 @@
 </script>
 
 <AdminLayout active_key="lens">
-  <section class="grid gap-6">
+  <section class="grid gap-3">
     {#if g_toast_message}
       <div class="pointer-events-none fixed bottom-8 left-1/2 z-50 -translate-x-1/2">
         <div
@@ -398,35 +357,20 @@
         <h2 class="m-0 text-2xl font-extrabold text-[var(--retina-text-800)]">
           렌즈 추천 질문 설정
         </h2>
-        <p class="mt-2 mb-0 text-sm font-semibold text-[var(--retina-text-500)]">
+        <p class="mt-1 mb-0 text-sm font-semibold text-[var(--retina-text-500)]">
           질문을 등록하고, 각 질문에 대해 선택 가능한 답변을 추가하세요.
         </p>
       </div>
-    </div>
-
-    <form
-      class="grid gap-4 rounded-2xl border border-[var(--retina-text-200)] bg-white px-8 py-7 shadow-sm shadow-slate-200/50 md:grid-cols-[1fr_auto]"
-      onsubmit={on_submit_create_question}
-    >
-      <label class="grid gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
-        질문 내용
-        <input
-          class="min-h-12 rounded-xl border border-[var(--retina-text-200)] px-4 text-base font-bold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-400)] focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
-          type="text"
-          value={ref_new_question_text}
-          placeholder="예: 평소 어떤 활동을 자주 하시나요?"
-          oninput={on_input_new_question_text}
-        />
-      </label>
 
       <button
-        class="mt-[1.7rem] inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-0 bg-[var(--retina-primary-300)] px-5 text-sm font-extrabold text-white transition hover:bg-[var(--retina-primary-400)]"
-        type="submit"
+        class="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-[var(--retina-primary-600)] bg-white px-5 text-sm font-extrabold text-[var(--retina-primary-600)] transition hover:bg-[var(--retina-primary-50)]"
+        type="button"
+        onclick={on_click_open_create_question}
       >
         <Plus size={16} strokeWidth={2.5} aria-hidden="true" />
         <span>질문 추가</span>
       </button>
-    </form>
+    </div>
 
     {#if g_is_loading}
       <div
@@ -451,49 +395,49 @@
         — 스와이프(전체 컨테이너)와는 별개로 reorder 용도.
       -->
       <div
-        class="grid gap-6 touch-pan-y"
+        class="grid gap-3 touch-pan-y"
         ontouchstart={on_touchstart_swipe}
         ontouchend={on_touchend_swipe}
         onpointerdown={on_pointerdown_swipe}
         onpointerup={on_pointerup_swipe}
       >
-        <nav class="flex items-center justify-center" aria-label="질문 네브바">
+        <nav class="flex items-center" aria-label="질문 네브바">
           {#if g_active_question_obj && local_active_idx >= 0}
             <div
-              class="inline-flex min-h-14 items-center gap-2 rounded-[14px] border border-[var(--retina-primary-400)] bg-[var(--retina-primary-400)] pl-2 pr-4 text-base font-extrabold text-white shadow-[0_10px_24px_rgba(234,106,15,0.28)]"
+              class="flex h-14 w-full items-stretch justify-between gap-2 rounded-[14px] border border-[var(--retina-primary-400)] bg-[var(--retina-primary-400)] py-1.5 pl-2 pr-2 text-base font-extrabold text-white shadow-[0_10px_24px_rgba(234,106,15,0.28)]"
             >
               <button
-                class="grid h-10 w-10 cursor-pointer place-items-center rounded-[10px] text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-30"
+                class="grid h-full w-11 shrink-0 cursor-pointer place-items-center rounded-[10px] text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-30"
                 type="button"
-                aria-label="질문 앞으로 이동"
+                aria-label="이전 질문 보기"
                 disabled={local_active_idx === 0}
-                onclick={() => on_click_move_question(g_active_question_obj, -1)}
+                onclick={() => shift_active_question(-1)}
               >
-                <ChevronLeft size={22} strokeWidth={2.4} aria-hidden="true" />
+                <ChevronLeft size={30} strokeWidth={2.6} aria-hidden="true" />
               </button>
 
               <span
                 aria-pressed="true"
-                class="inline-flex items-center gap-3 px-2 text-base font-extrabold text-white"
+                class="flex min-w-0 flex-1 items-center justify-center gap-3 px-2 text-base font-extrabold text-white"
               >
                 <span
-                  class="grid h-8 min-w-16 place-items-center rounded-full bg-white/20 px-3 text-sm font-extrabold text-white"
+                  class="grid h-full min-w-16 shrink-0 place-items-center rounded-full bg-white/20 px-3 text-base font-extrabold text-white"
                 >
                   {local_active_idx + 1} / {g_question_arr.length}
                 </span>
-                <span class="max-w-[360px] truncate text-lg"
+                <span class="min-w-0 truncate text-xl"
                   >{g_active_question_obj.question_text}</span
                 >
               </span>
 
               <button
-                class="grid h-10 w-10 cursor-pointer place-items-center rounded-[10px] text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-30"
+                class="grid h-full w-11 shrink-0 cursor-pointer place-items-center rounded-[10px] text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-30"
                 type="button"
-                aria-label="질문 뒤로 이동"
+                aria-label="다음 질문 보기"
                 disabled={local_active_idx === g_question_arr.length - 1}
-                onclick={() => on_click_move_question(g_active_question_obj, 1)}
+                onclick={() => shift_active_question(1)}
               >
-                <ChevronRight size={22} strokeWidth={2.4} aria-hidden="true" />
+                <ChevronRight size={30} strokeWidth={2.6} aria-hidden="true" />
               </button>
             </div>
           {/if}
@@ -501,14 +445,14 @@
 
         {#if g_active_question_obj}
           <section
-            class="rounded-2xl border border-[var(--retina-text-200)] bg-white px-8 py-7 shadow-sm shadow-slate-200/50"
+            class="rounded-2xl border border-[var(--retina-text-200)] bg-white px-8 py-3 shadow-sm shadow-slate-200/50"
           >
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h3 class="m-0 text-xl font-extrabold text-[var(--retina-text-800)]">
                   {g_active_question_obj.question_text}
                 </h3>
-                <p class="mb-0 mt-2 text-sm font-semibold text-[var(--retina-text-500)]">
+                <p class="mb-0 mt-1 text-sm font-semibold text-[var(--retina-text-500)]">
                   총 {g_active_question_obj.answer_arr.length}개 답변
                 </p>
               </div>
@@ -524,7 +468,7 @@
             </div>
 
             <form
-              class="mt-6 grid gap-3 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-primary-50)] px-5 py-5 md:grid-cols-[1fr_auto]"
+              class="mt-3 grid gap-2 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-primary-50)] px-5 py-3 md:grid-cols-[1fr_auto]"
               onsubmit={(local_event) =>
                 on_submit_create_answer(g_active_question_obj, local_event)}
             >
@@ -541,7 +485,7 @@
               </label>
 
               <button
-                class="mt-[1.7rem] inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-0 bg-[var(--retina-primary-300)] px-5 text-sm font-extrabold text-white transition hover:bg-[var(--retina-primary-400)]"
+                class="mt-[1.4rem] inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border-0 bg-[var(--retina-primary-300)] px-5 text-sm font-extrabold text-white transition hover:bg-[var(--retina-primary-400)]"
                 type="submit"
               >
                 <Plus size={16} strokeWidth={2.5} aria-hidden="true" />
@@ -550,10 +494,10 @@
             </form>
 
             {#if g_active_question_obj.answer_arr.length > 0}
-              <div class="mt-5 grid gap-3">
+              <div class="mt-3 grid gap-2">
                 {#each g_active_question_obj.answer_arr as answer_obj (answer_obj.option_no)}
                   <article
-                    class="grid gap-3 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-5 py-4 lg:grid-cols-[1fr_140px_auto] lg:items-center"
+                    class="grid gap-2 rounded-2xl border border-[var(--retina-text-200)] bg-[var(--retina-bg-1)] px-5 py-2 lg:grid-cols-[1fr_140px_auto] lg:items-center"
                   >
                     <input
                       class="min-h-12 rounded-xl border border-[var(--retina-text-200)] bg-white px-4 text-base font-bold text-[var(--retina-text-800)] outline-none transition focus:border-[var(--retina-primary-400)] focus:ring-3 focus:ring-[var(--retina-primary-400)]/15"
@@ -609,4 +553,77 @@
       </div>
     {/if}
   </section>
+
+  <!-- 질문 추가 모달 — 헤더의 [질문 추가] 버튼으로 열고 등록 또는 취소 시 닫힘. -->
+  {#if g_is_create_question_open}
+    <div
+      class="fixed inset-0 z-50 grid place-items-center bg-black/40 px-5"
+      role="presentation"
+      onclick={on_click_close_create_question}
+    >
+      <div
+        class="w-full max-w-[420px] rounded-[18px] border border-[var(--retina-text-200)] bg-[var(--retina-surface)] text-left shadow-[0_12px_30px_rgba(19,25,40,0.18)]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-question-title"
+        tabindex="-1"
+        onclick={(local_event) => local_event.stopPropagation()}
+        onkeydown={(local_event) => local_event.stopPropagation()}
+      >
+        <header
+          class="flex min-h-10 items-center justify-between rounded-t-[18px] border-b border-[var(--retina-text-200)] bg-[var(--retina-surface)] px-4 py-2"
+        >
+          <h2
+            id="create-question-title"
+            class="m-0 text-base font-extrabold text-[var(--retina-text-800)]"
+          >
+            질문 추가
+          </h2>
+          <button
+            class="grid h-8 w-8 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-[var(--retina-text-700)] transition hover:bg-[var(--retina-bg-1)] hover:text-[var(--retina-primary-600)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/60"
+            type="button"
+            aria-label="질문 추가 닫기"
+            onclick={on_click_close_create_question}
+          >
+            <X size={18} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+        </header>
+
+        <form class="grid gap-3 px-4 py-4" onsubmit={on_submit_create_question}>
+          <label
+            class="grid gap-1 text-xs font-bold text-[var(--retina-text-700)]"
+            for="new-question-text"
+          >
+            <span>질문 내용 <span class="text-[#dc2626]">*</span></span>
+            <input
+              id="new-question-text"
+              class="min-h-10 rounded-md border border-[var(--retina-text-300)] bg-[var(--retina-surface)] px-3 text-sm font-semibold text-[var(--retina-text-800)] outline-none transition placeholder:text-[var(--retina-text-500)] focus:border-[var(--retina-text-800)] focus:bg-[var(--retina-bg-1)]/40"
+              type="text"
+              value={ref_new_question_text}
+              placeholder="예: 평소 어떤 활동을 자주 하시나요?"
+              oninput={on_input_new_question_text}
+              autofocus
+              required
+            />
+          </label>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              class="min-h-10 cursor-pointer rounded-md border border-[var(--retina-text-300)] bg-[var(--retina-surface)] text-sm font-extrabold text-[var(--retina-text-700)] transition hover:bg-[var(--retina-bg-1)]"
+              type="button"
+              onclick={on_click_close_create_question}
+            >
+              취소
+            </button>
+            <button
+              class="min-h-10 cursor-pointer rounded-md border-0 bg-[var(--retina-primary-600)] text-sm font-extrabold text-[var(--retina-text-100)] transition hover:bg-[var(--retina-primary-700)]"
+              type="submit"
+            >
+              등록하기
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  {/if}
 </AdminLayout>

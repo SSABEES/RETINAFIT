@@ -11,6 +11,7 @@ export const PATH = {
   analysisLensConsultLegacy: '/analysis/lens_consult',
   analysisArFitting: '/analysis/arfitting',
   analysisRealFitting: '/analysis/real-fitting',
+  analysisMemberSelect: '/analysis/member-select',
   test: '/test',
   users: '/dashboard/users',
   sales: '/dashboard/sales',
@@ -21,6 +22,7 @@ export const PATH = {
   adminLens: '/admin/lens',
   adminGlass: '/admin/glass',
   adminVisits: '/admin/visits',
+  adminHealth: '/admin/health',
   /** @param {string | number} visit_no */
   adminVisitDetail: (visit_no) => `/admin/visits/${String(visit_no)}`,
   /** @param {string | number} id */

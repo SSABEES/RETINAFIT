@@ -1,8 +1,12 @@
+import time
+import boto3
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.core.config import settings
+from app.core.database import AsyncSessionLocal
 from app.common.handlers import register_exception_handlers
 from app.api.router import api_router
 
@@ -11,6 +15,9 @@ logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.WARNING,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
+
+# ─── 앱 시작 시간 ─────────────────────────────────────────────
+_start_time = time.time()
 
 # ─── 앱 생성 ──────────────────────────────────────────────────
 app = FastAPI(
@@ -39,8 +46,47 @@ register_exception_handlers(app)
 app.include_router(api_router, prefix="/api/v1")
 
 # ─── 헬스체크 ─────────────────────────────────────────────────
-# Docker, 배포 서버에서 서버 정상 여부 확인용
 @app.get("/health", tags=["health"])
 async def health_check():
-    return {"status": "ok", "env": settings.APP_ENV}
-    
+    # 1. 서버 상태
+    uptime_seconds = int(time.time() - _start_time)
+
+    # 2. DB 연결 체크
+    db_status = "ok"
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+
+    # 3. S3 연결 체크
+    s3_status = "ok"
+    try:
+        s3_client = boto3.client(
+            "s3",
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=settings.AWS_REGION,
+        )
+        s3_client.head_bucket(Bucket=settings.S3_BUCKET_NAME)
+    except ClientError as e:
+        s3_status = f"error: {str(e)}"
+    except Exception as e:
+        s3_status = f"error: {str(e)}"
+
+    # 4. CloudFront 설정 체크
+    cloudfront_status = {
+        "enabled": bool(settings.CLOUDFRONT_DOMAIN),
+        "domain": settings.CLOUDFRONT_DOMAIN or None,
+    }
+
+    return {
+        "status": "ok",
+        "env": settings.APP_ENV,
+        "uptime_seconds": uptime_seconds,
+        "checks": {
+            "database": db_status,
+            "s3": s3_status,
+            "cloudfront": cloudfront_status,
+        }
+    }

@@ -31,6 +31,7 @@
   // 이전 화면(real_fitting/arfitting) 의 CameraView 가 재생을 시작한 음성이
   // voice_guide 싱글톤을 통해 result 까지 끌려올 수 있다. 진입 즉시 강제 정지로 차단.
   import { silence as silence_voice } from '@/lib/audio/voice_guide.js'
+  import { read_real_wearing_oh } from '@/lib/utils/real_wearing_oh_storage.js'
   const FACE_SHAPE_LABEL_OBJ = {
     oval: '계란형',
     round: '둥근형',
@@ -152,6 +153,426 @@
     return Array.isArray(local_sets) ? local_sets : []
   })
 
+  // 실 착용 세트별 현재 사진 뷰 (정면 / 좌측 / 우측). 키는 set_index — set_no 가 없는 레거시 데이터도 안전하게 매핑.
+  let g_real_vp_view_obj = $state(
+    /** @type {Record<number, 'front' | 'left' | 'right'>} */ ({}),
+  )
+
+  /** @param {number} set_index */
+  function get_real_vp_view(set_index) {
+    return g_real_vp_view_obj[set_index] ?? 'front'
+  }
+
+  /**
+   * @param {number} set_index
+   * @param {'front' | 'left' | 'right'} view
+   */
+  function on_click_real_vp_view(set_index, view) {
+    g_real_vp_view_obj = { ...g_real_vp_view_obj, [set_index]: view }
+    // 이 set 의 active 가 다른 view 면 해제 — 새 view 캔버스에서 잘못된 측정 방지.
+    // 다른 set 의 active 는 건드리지 않음 (set 별 독립).
+    const local_active = g_real_vp_active_by_set_obj[set_index]
+    if (local_active && local_active.view !== view) {
+      g_real_vp_active_by_set_obj = {
+        ...g_real_vp_active_by_set_obj,
+        [set_index]: null,
+      }
+    }
+  }
+
+  // 실 착용 사진용 capture 좌표계 — test_json 캡처와 동일한 480×640 으로 통일해 mm_per_px 변환 호환.
+  const REAL_VP_CAPTURE_WIDTH = 480
+  const REAL_VP_CAPTURE_HEIGHT = 640
+
+  // 뷰별 측정 항목 정의 — 정면은 OH(좌/우) 거리, 좌/우 측면은 전경각(각도).
+  // save_key 는 BE 저장 schema(measurement_obj_by_view) 에서 사용하는 필드명.
+  const REAL_VP_VIEW_ARR = /** @type {('front' | 'left' | 'right')[]} */ ([
+    'front',
+    'left',
+    'right',
+  ])
+  const REAL_VP_ITEMS_BY_VIEW = {
+    front: [
+      {
+        item_id: 'oh_left',
+        label: 'OH (좌)',
+        kind: /** @type {'distance'} */ ('distance'),
+        save_key: 'oh_left_mm',
+      },
+      {
+        item_id: 'oh_right',
+        label: 'OH (우)',
+        kind: /** @type {'distance'} */ ('distance'),
+        save_key: 'oh_right_mm',
+      },
+    ],
+    left: [
+      {
+        item_id: 'pantoscopic_tilt',
+        label: '전경각',
+        kind: /** @type {'angle'} */ ('angle'),
+        save_key: 'pantoscopic_tilt_deg',
+      },
+    ],
+    right: [
+      {
+        item_id: 'pantoscopic_tilt',
+        label: '전경각',
+        kind: /** @type {'angle'} */ ('angle'),
+        save_key: 'pantoscopic_tilt_deg',
+      },
+    ],
+  }
+
+  // 세트별 활성 측정 항목 — 각 set 이 독립된 active 를 가져서, set 2 클릭이 set 1 의 측정 라인을 지우지 않음.
+  // set 1 OH(우) 라인과 set 2 OH(우) 라인을 동시에 시각 확인 가능하도록 분리.
+  let g_real_vp_active_by_set_obj = $state(
+    /** @type {Record<number, { view: 'front' | 'left' | 'right', item_id: string } | null>} */ (
+      {}
+    ),
+  )
+
+  // 사용자가 photo 위에서 2점을 찍은 좌표 (set_index → view → item_id → [p1, p2]).
+  let g_real_vp_points_obj = $state(
+    /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, any>>>} */ ({}),
+  )
+
+  // 표시용 측정값 문자열 — 점 클릭으로만 갱신. (set_index → view → item_id → string)
+  let g_real_vp_value_obj = $state(
+    /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, string>>>} */ ({}),
+  )
+  // 각 (set, view, item_id) 값의 출처 — 'auto' = real_fitting 게이트 자동 측정 / 'manual' = 사용자 zoom_modal 수동 측정(또는 이전 visit 의 BE 저장값).
+  let g_real_vp_source_obj = $state(
+    /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, 'auto' | 'manual'>>>} */ ({}),
+  )
+  // BE 응답에서 한 번만 시드.
+  let g_real_vp_measurement_seeded = $state(false)
+  // 현재 저장 중인 set_index — null 이면 idle. 동시에 한 set 만 저장 (다른 버튼은 모두 비활성).
+  let g_saving_real_vp_set_index = $state(/** @type {number | null} */ (null))
+
+  // visit 응답이 도착해 sets 가 생기는 즉시 1회만 초깃값 채우기. measurement_obj_by_view 가 있으면 그 값 사용.
+  $effect(() => {
+    if (g_real_vp_measurement_seeded) return
+    if (g_real_vp_set_arr.length === 0) return
+    /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, string>>>} */
+    const local_seed_obj = {}
+    /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, 'auto' | 'manual'>>>} */
+    const local_source_seed_obj = {}
+    for (let local_idx = 0; local_idx < g_real_vp_set_arr.length; local_idx++) {
+      const local_m_by_view_obj = g_real_vp_set_arr[local_idx]?.measurement_obj_by_view ?? {}
+      /** @type {Record<'front' | 'left' | 'right', Record<string, string>>} */
+      const local_view_obj = { front: {}, left: {}, right: {} }
+      /** @type {Record<'front' | 'left' | 'right', Record<string, 'auto' | 'manual'>>} */
+      const local_view_source_obj = { front: {}, left: {}, right: {} }
+      for (const local_view of REAL_VP_VIEW_ARR) {
+        for (const local_item_def of REAL_VP_ITEMS_BY_VIEW[local_view]) {
+          const local_v = local_m_by_view_obj?.[local_view]?.[local_item_def.save_key]
+          local_view_obj[local_view][local_item_def.item_id] = local_v != null ? String(local_v) : ''
+          // BE 에 저장된 값은 이전 세션에서 사용자가 수동 측정한 결과로 간주.
+          if (local_v != null) {
+            local_view_source_obj[local_view][local_item_def.item_id] = 'manual'
+          }
+        }
+      }
+      local_seed_obj[local_idx] = local_view_obj
+      local_source_seed_obj[local_idx] = local_view_source_obj
+    }
+    g_real_vp_value_obj = local_seed_obj
+    g_real_vp_source_obj = local_source_seed_obj
+    g_real_vp_measurement_seeded = true
+  })
+
+  // 미러 OH 가 한 visit 당 1번만 시도되도록 가드 (set_selected_visit 재발동 시 idempotent 보장).
+  let g_oh_prefill_done = $state(false)
+
+  // BE 시딩이 완료된 직후 sessionStorage 의 OH 미러를 읽어 빈 항목만 pre-fill.
+  // g_oh_prefill_done 으로 1회 가드.
+  $effect(() => {
+    if (!g_real_vp_measurement_seeded) return
+    if (g_oh_prefill_done) return
+    const local_visit_no = Number($selected_visit_obj?.visit_no)
+    if (!Number.isFinite(local_visit_no) || local_visit_no <= 0) return
+    pre_fill_oh_from_real_wearing(local_visit_no)
+    g_oh_prefill_done = true
+  })
+
+  /**
+   * (set, view, item_id) 의 표시값 갱신.
+   * @param {number} set_index
+   * @param {'front' | 'left' | 'right'} view
+   * @param {string} item_id
+   * @param {string} value
+   */
+  function set_real_vp_value(set_index, view, item_id, value) {
+    const local_prev_set = g_real_vp_value_obj[set_index] ?? { front: {}, left: {}, right: {} }
+    const local_prev_view = local_prev_set[view] ?? {}
+    g_real_vp_value_obj = {
+      ...g_real_vp_value_obj,
+      [set_index]: {
+        ...local_prev_set,
+        [view]: { ...local_prev_view, [item_id]: value },
+      },
+    }
+    // 사용자 zoom_modal 측정 — 'manual' 로 마킹 (기존 'auto' 도 덮어쓴다 = 사용자 수동 보정 우선).
+    mark_real_vp_source(set_index, view, item_id, 'manual')
+  }
+
+  // real_fitting 에서 미러링한 정면 슬롯 OH 값을 실착용 세트에 자동 pre-fill.
+  // 이미 사용자가 수동으로 set 한 값이 있으면 덮어쓰지 않는다 (수동 보정 우선).
+  // storage sets 는 newest-first (real_fitting 의 g_saved_set_arr 순서) 이고
+  // BE real_vp_set_arr 는 oldest-first (set_no 1, 2, 3) 이므로 역순으로 매칭한다.
+  function pre_fill_oh_from_real_wearing(visit_no) {
+    const mirror = read_real_wearing_oh(visit_no)
+    if (!mirror || !Array.isArray(mirror.sets) || mirror.sets.length === 0) return
+    // storage 는 newest-first → chronological 순으로 뒤집어 BE 인덱스와 대응시킴.
+    const local_chron_arr = [...mirror.sets].reverse()
+    for (let local_idx = 0; local_idx < local_chron_arr.length; local_idx++) {
+      const local_entry = local_chron_arr[local_idx]
+      // malformed storage entry 방어 (read_real_wearing_oh 가 per-entry 검증 안 함)
+      if (!local_entry) continue
+      apply_oh_prefill_to_set(local_idx, local_entry.oh_left_mm, local_entry.oh_right_mm)
+    }
+  }
+
+  // 한 실착용 세트의 정면 view 의 oh_left/oh_right 항목을 mirror 값으로 채움. 이미 값 있으면 skip.
+  /**
+   * @param {number} set_index
+   * @param {number} oh_left_mm
+   * @param {number} oh_right_mm
+   */
+  function apply_oh_prefill_to_set(set_index, oh_left_mm, oh_right_mm) {
+    if (!Number.isFinite(oh_left_mm) || !Number.isFinite(oh_right_mm)) return
+    const local_set_val = g_real_vp_value_obj[set_index] ?? { front: {}, left: {}, right: {} }
+    const local_front_val = local_set_val.front ?? {}
+    // oh_left
+    if (!local_front_val.oh_left) {
+      g_real_vp_value_obj = {
+        ...g_real_vp_value_obj,
+        [set_index]: {
+          ...local_set_val,
+          front: { ...local_front_val, oh_left: oh_left_mm.toFixed(1) },
+        },
+      }
+      mark_real_vp_source(set_index, 'front', 'oh_left', 'auto')
+    }
+    // g_real_vp_value_obj 가 방금 갱신됐을 수 있으므로 최신 참조로 다시 읽기.
+    const local_set_val2 = g_real_vp_value_obj[set_index] ?? { front: {}, left: {}, right: {} }
+    const local_front_val2 = local_set_val2.front ?? {}
+    if (!local_front_val2.oh_right) {
+      g_real_vp_value_obj = {
+        ...g_real_vp_value_obj,
+        [set_index]: {
+          ...local_set_val2,
+          front: { ...local_front_val2, oh_right: oh_right_mm.toFixed(1) },
+        },
+      }
+      mark_real_vp_source(set_index, 'front', 'oh_right', 'auto')
+    }
+  }
+
+  // (set, view, item_id) 의 측정값 출처를 갱신. apply_oh_prefill_to_set 와 set_real_vp_value 가 사용.
+  /**
+   * @param {number} set_index
+   * @param {'front' | 'left' | 'right'} view
+   * @param {string} item_id
+   * @param {'auto' | 'manual'} source
+   */
+  function mark_real_vp_source(set_index, view, item_id, source) {
+    const local_prev_set = g_real_vp_source_obj[set_index] ?? { front: {}, left: {}, right: {} }
+    const local_prev_view = local_prev_set[view] ?? {}
+    g_real_vp_source_obj = {
+      ...g_real_vp_source_obj,
+      [set_index]: {
+        ...local_prev_set,
+        [view]: { ...local_prev_view, [item_id]: source },
+      },
+    }
+  }
+
+  /** 측정 행 클릭 — 해당 set 의 active 토글. 다른 set 의 active 는 그대로 유지. */
+  function on_select_real_vp_item(set_index, view, item_id) {
+    const local_prev = g_real_vp_active_by_set_obj[set_index] ?? null
+    const local_is_active = local_prev?.view === view && local_prev?.item_id === item_id
+    g_real_vp_active_by_set_obj = {
+      ...g_real_vp_active_by_set_obj,
+      [set_index]: local_is_active ? null : { view, item_id },
+    }
+  }
+
+  /** 특정 set 의 active 해제 (MeasureCanvas oncancel 콜백). */
+  function on_cancel_real_vp_for_set(set_index) {
+    g_real_vp_active_by_set_obj = {
+      ...g_real_vp_active_by_set_obj,
+      [set_index]: null,
+    }
+  }
+
+  /** 현재 (set, view) 의 active item_id 매핑 — 다른 view 면 null. */
+  function get_active_real_vp_item_id(set_index, view) {
+    const local_active = g_real_vp_active_by_set_obj[set_index]
+    if (!local_active) return null
+    if (local_active.view !== view) return null
+    return local_active.item_id
+  }
+
+  /** 각도 항목용 ViewAngle — vertical_signed_angle_deg 가 좌측면일 때 부호 보정. */
+  function get_real_vp_angle_view_id(view) {
+    if (view === 'left') return 'left_no_glasses'
+    if (view === 'right') return 'right_no_glasses'
+    return 'front_no_glasses'
+  }
+
+  /**
+   * MeasureCanvas items_arr 합성 — 거리/각도 둘 다 처리. 측정 상세 탭의 schema 와 동일.
+   * @param {number} set_index
+   * @param {'front' | 'left' | 'right'} view
+   */
+  function build_real_vp_items_arr(set_index, view) {
+    const local_pts_view_obj = g_real_vp_points_obj[set_index]?.[view] ?? {}
+    const local_mm_per_px = g_scale_obj?.mm_per_px ?? null
+    return REAL_VP_ITEMS_BY_VIEW[view].map((local_item_def) => {
+      const local_pts = local_pts_view_obj?.[local_item_def.item_id] ?? null
+      if (local_item_def.kind === 'angle') {
+        const local_view_id = get_real_vp_angle_view_id(view)
+        const local_deg = local_pts
+          ? vertical_signed_angle_deg(local_pts[0], local_pts[1], local_view_id)
+          : null
+        return {
+          item_id: local_item_def.item_id,
+          label: local_item_def.label,
+          view: [local_view_id],
+          source: 'manual',
+          kind: 'angle',
+          points: local_pts,
+          value_deg_raw: local_deg,
+          value_deg_corrected: local_deg,
+          head_image_tilt_deg_used: null,
+        }
+      }
+      const local_px = local_pts ? pixel_distance(local_pts[0], local_pts[1]) : null
+      const local_mm =
+        local_px !== null && local_mm_per_px !== null ? local_px * local_mm_per_px : null
+      return {
+        item_id: local_item_def.item_id,
+        label: local_item_def.label,
+        view: [`${view}_no_glasses`],
+        source: 'manual',
+        kind: 'distance',
+        points: local_pts,
+        value_px: local_px,
+        value_mm: local_mm,
+      }
+    })
+  }
+
+  // MeasureCanvas 가 2점을 모두 찍으면 호출 — 클로저로 set_index 받아 해당 set 의 active 항목에 값 기록.
+  function on_points_set_real_vp_for_set(set_index, _item_id, points) {
+    const local_active = g_real_vp_active_by_set_obj[set_index]
+    if (!local_active) return
+    const local_view = local_active.view
+    const local_item_id = local_active.item_id
+
+    const local_item_def = REAL_VP_ITEMS_BY_VIEW[local_view].find(
+      (local_item) => local_item.item_id === local_item_id,
+    )
+    if (!local_item_def) return
+
+    // 점 좌표 보관
+    const local_prev_set = g_real_vp_points_obj[set_index] ?? {
+      front: {},
+      left: {},
+      right: {},
+    }
+    const local_prev_view = local_prev_set[local_view] ?? {}
+    g_real_vp_points_obj = {
+      ...g_real_vp_points_obj,
+      [set_index]: {
+        ...local_prev_set,
+        [local_view]: { ...local_prev_view, [local_item_id]: points },
+      },
+    }
+
+    // 값 계산 → 표시 문자열
+    let local_value_str = ''
+    if (local_item_def.kind === 'angle') {
+      const local_deg = vertical_signed_angle_deg(
+        points[0],
+        points[1],
+        get_real_vp_angle_view_id(local_view),
+      )
+      // 측정 상세와 동일하게 절댓값으로 표시 (좌/우 측면이 같은 안경에서 같은 값을 보이도록).
+      local_value_str = Math.abs(local_deg).toFixed(1)
+    } else {
+      const local_px = pixel_distance(points[0], points[1])
+      const local_mm_per_px = g_scale_obj?.mm_per_px ?? null
+      local_value_str =
+        local_mm_per_px !== null ? (local_px * local_mm_per_px).toFixed(1) : local_px.toFixed(0)
+    }
+    set_real_vp_value(set_index, local_view, local_item_id, local_value_str)
+  }
+
+  // 특정 set 의 측정값만 PATCH. 다른 set 의 measurement_obj_by_view 는 그대로 보존
+  // (set 별 명시적 저장 — 한 set 의 점 클릭이 의도치 않게 다른 set 의 변경분을 덮어쓰지 않게).
+  /** @param {number} set_index */
+  async function on_click_save_real_vp_set(set_index) {
+    if (g_saving_real_vp_set_index !== null) return
+    const local_visit_no = Number($selected_visit_obj?.visit_no)
+    if (!Number.isFinite(local_visit_no) || local_visit_no <= 0) {
+      push_error_toast('방문 정보가 없어 저장할 수 없습니다.')
+      return
+    }
+
+    g_saving_real_vp_set_index = set_index
+    try {
+      const local_next_set_arr = g_real_vp_set_arr.map((local_set_obj, local_idx) => {
+        if (local_idx !== set_index) return local_set_obj
+
+        const local_value_view_obj = g_real_vp_value_obj[local_idx] ?? {
+          front: {},
+          left: {},
+          right: {},
+        }
+        /** @type {Record<'front' | 'left' | 'right', Record<string, number | null>>} */
+        const local_next_m_by_view_obj = { front: {}, left: {}, right: {} }
+        for (const local_view of REAL_VP_VIEW_ARR) {
+          for (const local_item_def of REAL_VP_ITEMS_BY_VIEW[local_view]) {
+            const local_str = String(
+              local_value_view_obj?.[local_view]?.[local_item_def.item_id] ?? '',
+            ).trim()
+            local_next_m_by_view_obj[local_view][local_item_def.save_key] =
+              local_str === '' ? null : Number(local_str)
+          }
+        }
+        return {
+          ...local_set_obj,
+          measurement_obj_by_view: local_next_m_by_view_obj,
+        }
+      })
+
+      const local_patched_real_vp_json = {
+        ...(g_visit_obj?.real_vp_json ?? {}),
+        sets: local_next_set_arr,
+      }
+
+      const local_updated = await update_visit({
+        visit_no: local_visit_no,
+        body: { real_vp_json: local_patched_real_vp_json },
+      })
+
+      g_visit_obj =
+        local_updated && local_updated.real_vp_json
+          ? local_updated
+          : { ...(g_visit_obj ?? {}), real_vp_json: local_patched_real_vp_json }
+      push_success_toast(`세트 ${set_index + 1} 측정 내용을 저장했어요.`)
+    } catch (local_err) {
+      push_error_toast(
+        local_err instanceof Error ? local_err.message : '측정 내용 저장에 실패했습니다.',
+      )
+    } finally {
+      g_saving_real_vp_set_index = null
+    }
+  }
+
   /** @param {unknown} face_shape_value */
   function normalize_face_shape_key(face_shape_value) {
     const local_value = String(face_shape_value ?? '')
@@ -239,9 +660,10 @@
     return local_be_arr.length > 0 ? local_be_arr.slice(0, 6) : []
   })
 
-  // 1순위만 추출 — 추천 모양 슬롯에 4개까지 채울 후보.
+  // priority 1~2 모두 추출 — 추천 모양 슬롯에 4개까지 채울 후보.
+  // 일부 얼굴형(예: oblong)은 priority 1 항목이 없어 priority 1 만 보면 빈 화면이 되므로 2까지 포함.
   const g_priority_one_frame_arr = $derived(
-    g_recommended_frame_arr.filter((local_obj) => local_obj.priority === 1),
+    g_recommended_frame_arr.filter((local_obj) => local_obj.priority <= 2),
   )
 
   // 렌즈 상담 답변 (BE 가 selection_arr 로 저장한다)
@@ -496,8 +918,26 @@
     }
   }
 
+  // 표시용 전화번호 포맷터 — 숫자만 추출 후 한국 전화번호 패턴에 맞춰 하이픈 삽입.
+  // 02 지역번호(서울)는 9~10자리, 그 외 휴대전화/지역번호는 10~11자리. 길이 비정상이면 원본 반환.
+  /** @param {string | null | undefined} raw_phone */
+  function format_phone_with_hyphens(raw_phone) {
+    if (!raw_phone) return ''
+    const local_digits = String(raw_phone).replace(/\D/g, '')
+    if (local_digits.length === 0) return ''
+    if (local_digits.startsWith('02')) {
+      if (local_digits.length === 9) return local_digits.replace(/(\d{2})(\d{3})(\d{4})/, '$1-$2-$3')
+      if (local_digits.length === 10) return local_digits.replace(/(\d{2})(\d{4})(\d{4})/, '$1-$2-$3')
+    }
+    if (local_digits.length === 10) return local_digits.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
+    if (local_digits.length === 11) return local_digits.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')
+    return raw_phone
+  }
+
   // 고객 정보 표시용 (없는 값은 '-' 처리)
-  const g_customer_phone = $derived($selected_customer_obj?.phone ?? '-')
+  const g_customer_phone = $derived(
+    format_phone_with_hyphens($selected_customer_obj?.phone) || '-',
+  )
   const g_customer_age_label = $derived.by(() => {
     if ($selected_customer_obj?.age) return String($selected_customer_obj.age)
     const local_birth_dt = String($selected_customer_obj?.birth_dt ?? '').trim()
@@ -924,11 +1364,11 @@
           </article>
         </section>
       {:else if g_active_tab === 'measurement'}
-        <!-- 얼굴 측정 상세 (사진 + 클릭으로 라인 표시) -->
+        <!-- 얼굴 측정 상세 (사진 + 클릭으로 라인 표시) — 사진 아래 여백을 위해 pb 만 확장. -->
         <section
-          class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white shadow-sm px-[clamp(14px,3svh,28px)] py-[clamp(6px,1.4svh,12px)]"
+          class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white shadow-sm px-[clamp(14px,3svh,28px)] pt-[clamp(6px,1.4svh,12px)] pb-[clamp(6px,3svh,40px)]"
         >
-          <div class="flex flex-wrap items-center justify-between gap-[clamp(8px,2svh,16px)]">
+          <div class="flex flex-wrap items-start justify-between gap-[clamp(8px,2svh,16px)]">
             <h2 class="m-0 font-extrabold text-zinc-900 text-[clamp(14px,3svh,28px)]">
               얼굴 측정 상세
             </h2>
@@ -980,7 +1420,7 @@
             >
               <div class="flex items-start justify-center">
                 <div
-                  class="flex aspect-[3/4] h-full max-h-[clamp(260px,50svh,380px)] w-full max-w-[clamp(195px,37.5svh,285px)] overflow-hidden rounded-[10px] bg-slate-100 shadow-[0_6px_16px_rgba(15,23,42,0.06)]"
+                  class="flex aspect-[3/4] h-full max-h-[clamp(220px,52svh,440px)] w-full max-w-[clamp(165px,39svh,330px)] overflow-hidden rounded-[10px] bg-slate-100 shadow-[0_6px_16px_rgba(15,23,42,0.06)]"
                 >
                   <MeasureCanvas
                     capture={g_synthesized_capture}
@@ -1012,27 +1452,27 @@
           <h2 class="m-0 font-extrabold text-zinc-900 text-[clamp(14px,3svh,28px)]">생활 패턴</h2>
 
           {#if g_lens_selection_arr.length === 0}
-            <p class="mt-3 font-semibold text-slate-400 text-[clamp(13px,2.4svh,22px)]">
+            <p class="mt-[clamp(4px,1.4svh,12px)] font-semibold text-slate-400 text-[clamp(11px,2.1svh,19px)]">
               선택한 항목이 없습니다.
             </p>
           {:else}
-            <div class="mt-3 grid grid-cols-2 gap-[clamp(10px,2.2svh,18px)]">
+            <div class="mt-[clamp(4px,1.4svh,12px)] grid min-h-0 flex-1 grid-cols-2 content-start gap-[clamp(6px,1.8svh,18px)]">
               {#each g_lens_selection_arr as selection_obj, selection_index (selection_index)}
                 <div
-                  class="rounded-[10px] border border-slate-100 bg-slate-50 px-[clamp(12px,2.4svh,24px)] py-[clamp(10px,2.4svh,20px)]"
+                  class="rounded-[10px] border border-slate-100 bg-slate-50 px-[clamp(8px,2svh,24px)] py-[clamp(6px,1.8svh,20px)]"
                 >
-                  <p class="m-0 font-bold text-slate-500 text-[clamp(13px,2.5svh,24px)]">
+                  <p class="m-0 font-bold text-slate-500 text-[clamp(11px,2.1svh,22px)]">
                     Q{selection_index + 1}. {selection_obj.question_text}
                   </p>
-                  <div class="mt-3 flex flex-wrap gap-2">
+                  <div class="mt-[clamp(4px,1.4svh,12px)] flex flex-wrap gap-[clamp(3px,0.8svh,8px)]">
                     {#if selection_obj.label_arr.length === 0}
-                      <span class="font-semibold text-slate-400 text-[clamp(13px,2.4svh,22px)]"
+                      <span class="font-semibold text-slate-400 text-[clamp(11px,2svh,22px)]"
                         >-</span
                       >
                     {:else}
                       {#each selection_obj.label_arr as label_text, label_index (`${selection_index}-${label_index}`)}
                         <span
-                          class="inline-flex items-center rounded-md border border-[var(--retina-primary-300)] bg-white font-bold text-[var(--retina-primary-400)] px-[clamp(10px,2.2svh,20px)] py-[clamp(4px,1svh,10px)] text-[clamp(13px,2.4svh,22px)]"
+                          class="inline-flex items-center rounded-md border border-[var(--retina-primary-300)] bg-white font-bold text-[var(--retina-primary-400)] px-[clamp(6px,1.8svh,20px)] py-[clamp(2px,0.8svh,10px)] text-[clamp(11px,2svh,22px)]"
                         >
                           {label_text}
                         </span>
@@ -1061,34 +1501,14 @@
               </p>
             </div>
           {:else}
-            <div
-              class="mt-2 grid justify-center gap-[clamp(7px,1.7svh,14px)] grid-cols-[repeat(3,minmax(0,clamp(216px,33svh,372px)))]"
-            >
+            <!-- 각 피팅: 브랜드/모델 헤더 + 정면/좌측/우측 사진 3장을 같은 행에 표시. 피팅 카드 자체는 세로로 stack. -->
+            <div class="mt-2 flex flex-col gap-[clamp(7px,1.7svh,14px)]">
               {#each g_saved_fitting_arr as fitting_obj, fitting_index (fitting_index)}
-                {@const local_front_capture_obj =
-                  fitting_obj.capture_arr?.find(
-                    (local_capture_obj) => local_capture_obj?.key || local_capture_obj?.url,
-                  ) ?? fitting_obj.capture_arr?.[0]}
-                {@const local_front_src = resolve_capture_src(local_front_capture_obj)}
+                {@const local_photo_arr = (fitting_obj.capture_arr ?? []).slice(0, 3)}
                 <article
                   class="rounded-[12px] border border-slate-100 bg-slate-50 p-[clamp(8px,1.8svh,16px)]"
                 >
-                  <div
-                    class="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-slate-200 bg-white"
-                  >
-                    {#if local_front_src}
-                      <img
-                        src={local_front_src}
-                        alt={`${fitting_obj.model} 정면`}
-                        class="h-full w-full object-cover"
-                      />
-                    {:else}
-                      <div class="grid h-full w-full place-items-center text-slate-300">
-                        <UserRound size={32} strokeWidth={1.7} />
-                      </div>
-                    {/if}
-                  </div>
-                  <div class="mt-3 flex flex-col">
+                  <header class="mb-[clamp(6px,1.4svh,12px)] flex flex-col">
                     <span
                       class="font-bold uppercase tracking-wider text-slate-400 text-[clamp(11px,1.9svh,18px)]"
                     >
@@ -1099,6 +1519,35 @@
                     >
                       {fitting_obj.model || '-'}
                     </p>
+                  </header>
+                  <div
+                    class="grid justify-center gap-[clamp(6px,1.5svh,12px)] grid-cols-[repeat(3,minmax(0,clamp(160px,28svh,300px)))]"
+                  >
+                    {#each local_photo_arr as capture_obj, capture_idx (capture_idx)}
+                      {@const local_src = resolve_capture_src(capture_obj)}
+                      <div
+                        class="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-slate-200 bg-white"
+                      >
+                        {#if local_src}
+                          <img
+                            src={local_src}
+                            alt={`${fitting_obj.model} ${capture_obj?.label ?? ''}`}
+                            class="h-full w-full object-cover"
+                          />
+                        {:else}
+                          <div class="grid h-full w-full place-items-center text-slate-300">
+                            <UserRound size={32} strokeWidth={1.7} />
+                          </div>
+                        {/if}
+                        {#if capture_obj?.label}
+                          <span
+                            class="absolute bottom-1 left-1 rounded-sm bg-black/55 px-1 py-0.5 font-extrabold text-white text-[clamp(11px,1.8svh,16px)]"
+                          >
+                            {capture_obj.label}
+                          </span>
+                        {/if}
+                      </div>
+                    {/each}
                   </div>
                 </article>
               {/each}
@@ -1122,56 +1571,214 @@
               </p>
             </div>
           {:else}
-            <div class="mt-2 flex flex-col gap-3">
-              {#each g_real_vp_set_arr as set_obj, set_index (set_obj.set_no ?? set_index)}
-                {@const local_photo_arr = [
+            <div class="mt-2 flex flex-col gap-2">
+              {#each g_real_vp_set_arr as set_obj, set_index (set_index)}
+                {@const local_view_tab_arr = [
                   {
-                    key: 'front',
-                    url: set_obj.front_url ?? set_obj.front_key ?? '',
+                    id: /** @type {'front'} */ ('front'),
                     label: '정면',
+                    url: set_obj.front_url ?? set_obj.front_key ?? '',
+                    view_label: '정면 (실 착용)',
                   },
                   {
-                    key: 'left',
-                    url: set_obj.left_url ?? set_obj.left_key ?? '',
+                    id: /** @type {'left'} */ ('left'),
                     label: '좌측',
+                    url: set_obj.left_url ?? set_obj.left_key ?? '',
+                    view_label: '좌측 (실 착용)',
                   },
                   {
-                    key: 'right',
-                    url: set_obj.right_url ?? set_obj.right_key ?? '',
+                    id: /** @type {'right'} */ ('right'),
                     label: '우측',
+                    url: set_obj.right_url ?? set_obj.right_key ?? '',
+                    view_label: '우측 (실 착용)',
                   },
                 ]}
-                <article class="mx-auto w-fit rounded-[12px] border border-slate-100 bg-slate-50 p-3">
-                  <header class="mb-2 flex items-center justify-between px-0.5">
-                    <span class="font-extrabold text-slate-700 text-[clamp(13px,2.2svh,20px)]">
-                      세트 {set_obj.set_no ?? set_index + 1}
-                    </span>
-                  </header>
+                {@const local_current_view = get_real_vp_view(set_index)}
+                {@const local_current_tab_obj =
+                  local_view_tab_arr.find((t) => t.id === local_current_view) ?? local_view_tab_arr[0]}
+                <article
+                  class="flex flex-col rounded-[14px] border border-slate-200 bg-white shadow-sm px-[clamp(14px,3svh,28px)] py-[clamp(4px,1svh,10px)]"
+                >
+                  <!-- 헤더 — 세트 라벨 + 사진 뷰 sub-tab + 세트별 저장 버튼. -->
                   <div
-                    class="grid justify-center gap-[clamp(7px,1.7svh,14px)] grid-cols-[repeat(3,minmax(0,clamp(216px,33svh,372px)))]"
+                    class="flex flex-wrap items-center justify-between gap-[clamp(8px,2svh,16px)]"
                   >
-                    {#each local_photo_arr as photo_obj (photo_obj.key)}
-                      <div
-                        class="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-slate-200 bg-white"
+                    <h3
+                      class="m-0 font-extrabold text-zinc-900 text-[clamp(13px,2.4svh,22px)]"
+                    >
+                      세트 {set_obj.set_no ?? set_index + 1}
+                    </h3>
+                    <div class="flex items-center gap-[clamp(6px,1.5svh,14px)]">
+                      <nav
+                        class="flex items-end gap-1 overflow-x-auto"
+                        aria-label="실 착용 사진 뷰 선택"
                       >
-                        {#if photo_obj.url}
-                          <img
-                            src={photo_obj.url}
-                            alt={`세트 ${set_obj.set_no ?? set_index + 1} ${photo_obj.label}`}
-                            class="h-full w-full object-cover"
+                        {#each local_view_tab_arr as view_tab_obj (view_tab_obj.id)}
+                          {@const local_is_active_view = local_current_view === view_tab_obj.id}
+                          <button
+                            type="button"
+                            class={`shrink-0 cursor-pointer border-b-[3px] font-extrabold transition px-[clamp(8px,2svh,16px)] py-[clamp(4px,1svh,10px)] text-[clamp(11px,2svh,18px)] ${
+                              local_is_active_view
+                                ? 'border-[var(--retina-primary-500)] text-[var(--retina-primary-600)]'
+                                : 'border-transparent text-slate-400 hover:text-slate-700'
+                            }`}
+                            aria-pressed={local_is_active_view}
+                            onclick={() => on_click_real_vp_view(set_index, view_tab_obj.id)}
+                          >
+                            {view_tab_obj.label}
+                          </button>
+                        {/each}
+                      </nav>
+                      <button
+                        type="button"
+                        onclick={() => on_click_save_real_vp_set(set_index)}
+                        disabled={g_saving_real_vp_set_index !== null || g_visit_loading}
+                        class="shrink-0 cursor-pointer rounded-lg border-0 bg-[var(--retina-primary-500)] font-extrabold text-white transition hover:bg-[var(--retina-primary-600)] disabled:cursor-not-allowed disabled:opacity-50 px-[clamp(10px,2.4svh,20px)] py-[clamp(5px,1.2svh,12px)] text-[clamp(11px,2svh,18px)]"
+                      >
+                        {g_saving_real_vp_set_index === set_index ? '저장 중...' : '측정 내용 저장'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- 본문 — 측정 상세와 동일한 2컬럼 (사진 1fr / 측정 리스트 1.2fr). -->
+                  <div
+                    class="mt-2 grid flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-[clamp(8px,2svh,16px)]"
+                  >
+                    <div class="flex items-start justify-center">
+                      <div
+                        class="relative flex aspect-[3/4] h-full max-h-[clamp(160px,38svh,320px)] w-full max-w-[clamp(120px,28svh,240px)] overflow-hidden rounded-[10px] bg-slate-100 shadow-[0_6px_16px_rgba(15,23,42,0.06)]"
+                      >
+                        {#if local_current_tab_obj.url}
+                          {@const local_capture_obj = {
+                            object_url: local_current_tab_obj.url,
+                            width: REAL_VP_CAPTURE_WIDTH,
+                            height: REAL_VP_CAPTURE_HEIGHT,
+                          }}
+                          {@const local_canvas_active_id = get_active_real_vp_item_id(
+                            set_index,
+                            local_current_view,
+                          )}
+                          {@const local_canvas_items_arr = build_real_vp_items_arr(
+                            set_index,
+                            local_current_view,
+                          )}
+                          <MeasureCanvas
+                            capture={local_capture_obj}
+                            items_arr={local_canvas_items_arr}
+                            active_item_id={local_canvas_active_id}
+                            keyboard_enabled={false}
+                            onpoints_set={(local_item_id, local_points) =>
+                              on_points_set_real_vp_for_set(
+                                set_index,
+                                local_item_id,
+                                local_points,
+                              )}
+                            oncancel={() => on_cancel_real_vp_for_set(set_index)}
                           />
                         {:else}
                           <div class="grid h-full w-full place-items-center text-slate-300">
-                            <UserRound size={32} strokeWidth={1.7} />
+                            <UserRound size={40} strokeWidth={1.7} />
                           </div>
                         {/if}
                         <span
-                          class="absolute bottom-1 left-1 rounded-sm bg-black/55 px-1 py-0.5 font-extrabold text-white text-[clamp(11px,1.8svh,16px)]"
+                          class="absolute bottom-1 left-1 z-20 rounded-sm bg-black/55 px-1 py-0.5 font-extrabold text-white text-[clamp(11px,1.8svh,16px)]"
                         >
-                          {photo_obj.label}
+                          {local_current_tab_obj.label}
                         </span>
                       </div>
-                    {/each}
+                    </div>
+
+                    <!--
+                      측정 패널 — 측정 상세 탭 MeasurementList 와 동일한 구조/스타일.
+                      뷰별 항목 정의(REAL_VP_ITEMS_BY_VIEW)에 따라 다른 항목 렌더링.
+                      정면: OH(좌), OH(우) · 좌측/우측: 전경각.
+                    -->
+                    <section
+                      class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden"
+                      aria-label="실 착용 측정 항목"
+                    >
+                      <div class="flex items-baseline justify-between">
+                        <h4 class="m-0 text-[13px] font-extrabold text-slate-800">측정 항목</h4>
+                        <span class="text-xs font-semibold text-slate-500">
+                          {local_current_tab_obj.view_label}
+                        </span>
+                      </div>
+                      <ul class="m-0 flex min-h-0 flex-1 list-none flex-col gap-1 overflow-y-auto p-0">
+                        {#each REAL_VP_ITEMS_BY_VIEW[local_current_view] as item_def_obj (item_def_obj.item_id)}
+                          {@const local_value_str =
+                            g_real_vp_value_obj[set_index]?.[local_current_view]?.[
+                              item_def_obj.item_id
+                            ] ?? ''}
+                          {@const local_has_value = local_value_str !== ''}
+                          {@const local_source =
+                            g_real_vp_source_obj[set_index]?.[local_current_view]?.[
+                              item_def_obj.item_id
+                            ] ?? null}
+                          {@const local_is_auto = local_source === 'auto'}
+                          {@const local_unit_label =
+                            item_def_obj.kind === 'angle' ? '°' : ' mm'}
+                          {@const local_is_active_row =
+                            g_real_vp_active_by_set_obj[set_index]?.view === local_current_view &&
+                            g_real_vp_active_by_set_obj[set_index]?.item_id === item_def_obj.item_id}
+                          <li>
+                            <div
+                              class="flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-left transition hover:bg-[#FFF6EB]"
+                              class:bg-[#FFF6EB]={local_is_active_row}
+                              role="button"
+                              tabindex="0"
+                              aria-pressed={local_is_active_row}
+                              onclick={() =>
+                                on_select_real_vp_item(
+                                  set_index,
+                                  local_current_view,
+                                  item_def_obj.item_id,
+                                )}
+                              onkeydown={(local_event) => {
+                                if (local_event.key === 'Enter' || local_event.key === ' ') {
+                                  local_event.preventDefault()
+                                  on_select_real_vp_item(
+                                    set_index,
+                                    local_current_view,
+                                    item_def_obj.item_id,
+                                  )
+                                }
+                              }}
+                            >
+                              <span
+                                class="grid h-4 w-4 flex-none place-items-center rounded-full border border-slate-400"
+                                class:border-[#F97316]={local_is_active_row}
+                                aria-hidden="true"
+                              >
+                                {#if local_is_active_row}
+                                  <span class="h-2 w-2 rounded-full bg-[#F97316]"></span>
+                                {/if}
+                              </span>
+                              <span class="flex-1 truncate text-sm font-semibold text-slate-700">
+                                {item_def_obj.label}
+                              </span>
+                              <span
+                                class="flex-none text-sm font-bold tabular-nums"
+                                class:text-[var(--retina-text)]={local_has_value}
+                                class:text-slate-400={!local_has_value}
+                              >
+                                {local_has_value ? `${local_value_str}${local_unit_label}` : '—'}
+                              </span>
+                              {#if local_has_value}
+                                <span
+                                  class="flex-none rounded-md px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider"
+                                  class:bg-emerald-100={local_is_auto}
+                                  class:text-emerald-800={local_is_auto}
+                                  class:bg-amber-100={!local_is_auto}
+                                  class:text-amber-800={!local_is_auto}
+                                >
+                                  {local_is_auto ? '자동' : '수동'}
+                                </span>
+                              {/if}
+                            </div>
+                          </li>
+                        {/each}
+                      </ul>
+                    </section>
                   </div>
                 </article>
               {/each}

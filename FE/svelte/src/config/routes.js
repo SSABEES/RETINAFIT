@@ -9,6 +9,7 @@ import AnalysisFaceMeasurementPage from '@/components/analysis/face_measurement.
 import AnalysisLensConsultPage from '@/router/analysis/lens_consult.svelte'
 import AnalysisArFittingPage from '@/router/analysis/arfitting.svelte'
 import AnalysisRealFittingPage from '@/router/analysis/real_fitting.svelte'
+import AnalysisMemberSelectPage from '@/router/analysis/member_select.svelte'
 import TestPage from '@/router/test.svelte'
 import UsersPage from '@/router/dashboard/users.svelte'
 import UserDetailPage from '@/router/dashboard/users/[id].svelte'
@@ -22,6 +23,7 @@ import AdminLensPage from '@/router/auth/admin/lens.svelte'
 import AdminGlassPage from '@/router/auth/admin/glass.svelte'
 import AdminVisitsPage from '@/router/auth/admin/visits.svelte'
 import AdminVisitDetailPage from '@/router/auth/admin/visit_detail.svelte'
+import AdminHealthPage from '@/router/auth/admin/health.svelte'
 import NotFoundPage from '@/router/not_found.svelte'
 import { PATH, ROUTE_PATH } from '@/config/path'
 
@@ -38,16 +40,19 @@ export const routes = [
   { path: PATH.analysisLensConsultLegacy, component: AnalysisLensConsultPage },
   { path: PATH.analysisArFitting, component: AnalysisArFittingPage },
   { path: PATH.analysisRealFitting, component: AnalysisRealFittingPage },
+  { path: PATH.analysisMemberSelect, component: AnalysisMemberSelectPage },
   { path: PATH.test, component: TestPage },
   { path: PATH.users, component: UsersPage },
   { path: PATH.sales, component: SalesPage },
   { path: PATH.branches, component: BranchesPage },
   { path: PATH.adminLogin, component: AdminLoginPage },
   // 얼굴형 기준 설정(adminFace)은 일단 라우트에서 제외. PATH.adminFace 와 face.svelte 는 보존.
-  { path: PATH.admin, component: AdminLensPage },
+  // /admin 기본 진입은 헬스 체크 — 운영자가 가장 먼저 봐야 하는 시스템 상태 화면.
+  { path: PATH.admin, component: AdminHealthPage },
   { path: PATH.adminLens, component: AdminLensPage },
   { path: PATH.adminGlass, component: AdminGlassPage },
   { path: PATH.adminVisits, component: AdminVisitsPage },
+  { path: PATH.adminHealth, component: AdminHealthPage },
   { path: ROUTE_PATH.adminVisitDetail, component: AdminVisitDetailPage },
   { path: ROUTE_PATH.userMeasurement, component: UserMeasurementPage },
   { path: ROUTE_PATH.userRecords, component: UserRecordsPage },

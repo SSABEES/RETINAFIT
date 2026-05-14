@@ -1,0 +1,11 @@
+{
+  "device": "default-1280x720-placeholder",
+  "_note": "PLACEHOLDER intrinsics for live landscape 1280x720 webcam capture (test 페이지 / OH 측정 검증). fx=fy≈1100 from typical 60° HFOV (W/2 / tan(30°) = 640/0.577 ≈ 1109). cx=W/2, cy=H/2. distCoeffs=0. 실 디바이스 별 정밀 캘리브 시 동일 형식으로 교체.",
+  "imageSize": [1280, 720],
+  "cameraMatrix": [
+    [1100, 0, 640],
+    [0, 1100, 360],
+    [0, 0, 1]
+  ],
+  "distCoeffs": [0, 0, 0, 0, 0]
+}

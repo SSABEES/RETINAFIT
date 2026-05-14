@@ -59,6 +59,10 @@ FE/svelte/public/mediapipe/wasm/
 # wasmPaths 가 이 경로를 가리키며, 미존재 시 ort 워커 init 실패로 추론 backend 가 안 잡힘.
 FE/svelte/public/ort/
 
+# OpenCV.js 도 동일 패턴 — predev/prebuild 가 @techstark/opencv-js 의 dist/opencv.js 를
+# public/opencv/opencv.js 로 복사한다. oh_worker.js 는 직접 커밋된 워커 소스라 ignore 대상 아님.
+FE/svelte/public/opencv/opencv.js
+
 # 6DRepNet360 ONNX 자산은 AI/scripts/export_6drepnet360_onnx.py 로 .pth 에서 로컬 생성.
 # 정식 도입 결정 시 Git LFS 로 승격 예정. 절차: docs/sixdrepnet360.md
 FE/svelte/public/models/sixdrepnet360/
