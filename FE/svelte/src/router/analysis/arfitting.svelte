@@ -637,7 +637,7 @@
                 class="mt-6 inline-flex items-center gap-4 text-[26px] font-extrabold leading-relaxed text-white/90"
               >
                 <span
-                  class="h-6 w-6 animate-spin rounded-full border-[3px] border-white/60 border-t-transparent"
+                  class="h-10 w-10 animate-spin rounded-full border-[4px] border-white/60 border-t-transparent"
                   aria-hidden="true"
                 ></span>
                 카메라 로딩중입니다...
@@ -645,7 +645,7 @@
             {:else if g_selected_id !== null}
               <p class="mt-5 text-[18px] font-extrabold leading-relaxed text-white/90">
                 {#if g_flutter_launch_loading}
-                  AR 피팅 화면을 여는 중...
+                  안경 데이터를 불러오는 중...
                 {:else}
                   AR 화면에서 1번 → 2번 → 3번 순서로 촬영해주세요
                 {/if}
@@ -763,7 +763,7 @@
           {#if g_loading}
             <div class="flex justify-center py-10">
               <span
-                class="h-5 w-5 animate-spin rounded-full border-2 border-[var(--retina-primary-200)] border-t-transparent"
+                class="h-8 w-8 animate-spin rounded-full border-[3px] border-[var(--retina-primary-200)] border-t-transparent"
               ></span>
             </div>
           {:else if g_glasses_arr.length === 0}
@@ -916,6 +916,7 @@
     </aside>
   </div>
 
+  <LoadingOverlay open={g_flutter_launch_loading} label="안경 데이터를 불러오는 중..." />
   <LoadingOverlay open={g_submit_loading} label="피팅 결과 저장 중..." />
 </AnalysisPageLayout>
 
