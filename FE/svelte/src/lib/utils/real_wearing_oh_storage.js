@@ -17,15 +17,25 @@
 
 const STORAGE_KEY = 'retinal_real_wearing_oh_mirror'
 
+// SSR / 시크릿 모드 등에서 sessionStorage 접근 자체가 throw 할 수 있어 가드한다.
+function is_available() {
+  try {
+    return typeof sessionStorage !== 'undefined'
+  } catch {
+    return false
+  }
+}
+
 /**
- * 미러 데이터를 sessionStorage 에 직렬화 저장. 실패 시 콘솔 경고만 (sessionStorage quota / 비활성화 등 안전 처리).
+ * 미러 데이터를 sessionStorage 에 직렬화 저장. quota exceeded 등 실패는 사용자 흐름에 영향 없으므로 조용히 무시.
  * @param {RealWearingOhMirror} mirror
  */
 export function save_real_wearing_oh(mirror) {
+  if (!is_available()) return
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(mirror))
-  } catch (err) {
-    console.warn('[real_wearing_oh_storage] save failed:', err)
+  } catch {
+    // QuotaExceededError 등 — 미러링 실패는 사용자 흐름에 영향 없음, 조용히 무시.
   }
 }
 
@@ -35,6 +45,7 @@ export function save_real_wearing_oh(mirror) {
  * @returns {RealWearingOhMirror | null}
  */
 export function read_real_wearing_oh(visit_id) {
+  if (!is_available()) return null
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY)
     if (!raw) return null
@@ -52,9 +63,10 @@ export function read_real_wearing_oh(visit_id) {
  * 미러 데이터를 sessionStorage 에서 제거 (페이지/visit 전환 정리용).
  */
 export function clear_real_wearing_oh() {
+  if (!is_available()) return
   try {
     sessionStorage.removeItem(STORAGE_KEY)
   } catch {
-    // noop
+    // removeItem 실패는 클리어 의도로 충분 — 재시도 불필요.
   }
 }

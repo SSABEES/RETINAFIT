@@ -5,6 +5,8 @@ import {
   clear_real_wearing_oh,
 } from './real_wearing_oh_storage.js'
 
+// 모듈이 STORAGE_KEY 를 export 하지 않으므로(캡슐화 의도) 테스트에서 literal 로 직접 접근.
+// 모듈의 STORAGE_KEY 가 바뀌면 여기도 같이 갱신.
 const STORAGE_KEY = 'retinal_real_wearing_oh_mirror'
 
 beforeEach(() => {
