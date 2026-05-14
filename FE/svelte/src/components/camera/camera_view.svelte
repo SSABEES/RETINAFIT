@@ -51,7 +51,7 @@
 
   /**
    * @typedef {object} LandmarkDetectionResult
-   * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[]} landmarks  detect loop 가 잡은 정면 landmarks (crop 좌표계로 remap 됨)
+   * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[]} landmarks  MediaPipe FaceLandmarker 의 raw 출력 (native frame [0,1] 정규화). source_width/height 와 같은 좌표계.
    * @property {HTMLVideoElement} source_el  비디오 element ref (live frame 캡처용)
    * @property {number} source_width  source_el.videoWidth (캡처 시점의 native 픽셀)
    * @property {number} source_height  source_el.videoHeight
@@ -600,7 +600,7 @@
           // 측면 detection 분기 (landmarks 없음) 에서는 호출 안 함.
           if (onlandmarks) {
             onlandmarks({
-              landmarks: local_remapped_arr,
+              landmarks: result.faceLandmarks[0],
               source_el: ref_this_video_el,
               source_width: ref_this_video_el.videoWidth,
               source_height: ref_this_video_el.videoHeight,
