@@ -31,6 +31,7 @@
   // 이전 화면(real_fitting/arfitting) 의 CameraView 가 재생을 시작한 음성이
   // voice_guide 싱글톤을 통해 result 까지 끌려올 수 있다. 진입 즉시 강제 정지로 차단.
   import { silence as silence_voice } from '@/lib/audio/voice_guide.js'
+  import { read_real_wearing_oh } from '@/lib/utils/real_wearing_oh_storage.js'
   const FACE_SHAPE_LABEL_OBJ = {
     oval: '계란형',
     round: '둥근형',
@@ -267,6 +268,15 @@
     g_real_vp_measurement_seeded = true
   })
 
+  // BE 시딩이 완료된 직후 sessionStorage 의 OH 미러를 읽어 빈 항목만 pre-fill.
+  // g_real_vp_measurement_seeded 가 true 로 전환되면 1회 실행 — 이후 visit_no 변경은 없음.
+  $effect(() => {
+    if (!g_real_vp_measurement_seeded) return
+    const local_visit_no = Number($selected_visit_obj?.visit_no)
+    if (!Number.isFinite(local_visit_no) || local_visit_no <= 0) return
+    pre_fill_oh_from_real_wearing(local_visit_no)
+  })
+
   /**
    * (set, view, item_id) 의 표시값 갱신.
    * @param {number} set_index
@@ -283,6 +293,56 @@
         ...local_prev_set,
         [view]: { ...local_prev_view, [item_id]: value },
       },
+    }
+  }
+
+  // real_fitting 에서 미러링한 정면 슬롯 OH 값을 실착용 세트에 자동 pre-fill.
+  // 이미 사용자가 수동으로 set 한 값이 있으면 덮어쓰지 않는다 (수동 보정 우선).
+  // storage sets 는 newest-first (real_fitting 의 g_saved_set_arr 순서) 이고
+  // BE real_vp_set_arr 는 oldest-first (set_no 1, 2, 3) 이므로 역순으로 매칭한다.
+  function pre_fill_oh_from_real_wearing(visit_no) {
+    const mirror = read_real_wearing_oh(visit_no)
+    if (!mirror || !Array.isArray(mirror.sets) || mirror.sets.length === 0) return
+    // storage 는 newest-first → chronological 순으로 뒤집어 BE 인덱스와 대응시킴.
+    const local_chron_arr = [...mirror.sets].reverse()
+    for (let local_idx = 0; local_idx < local_chron_arr.length; local_idx++) {
+      const local_entry = local_chron_arr[local_idx]
+      if (!local_entry) continue
+      apply_oh_prefill_to_set(local_idx, local_entry.oh_left_mm, local_entry.oh_right_mm)
+    }
+  }
+
+  // (set_index, front view) 의 oh_left/oh_right 항목에 pre-fill.
+  // 이미 값이 있는 항목은 skip (사용자 수동 측정 우선).
+  /**
+   * @param {number} set_index
+   * @param {number} oh_left_mm
+   * @param {number} oh_right_mm
+   */
+  function apply_oh_prefill_to_set(set_index, oh_left_mm, oh_right_mm) {
+    const local_set_val = g_real_vp_value_obj[set_index] ?? { front: {}, left: {}, right: {} }
+    const local_front_val = local_set_val.front ?? {}
+    // oh_left
+    if (!local_front_val.oh_left) {
+      g_real_vp_value_obj = {
+        ...g_real_vp_value_obj,
+        [set_index]: {
+          ...local_set_val,
+          front: { ...local_front_val, oh_left: oh_left_mm.toFixed(1) },
+        },
+      }
+    }
+    // g_real_vp_value_obj 가 방금 갱신됐을 수 있으므로 최신 참조로 다시 읽기.
+    const local_set_val2 = g_real_vp_value_obj[set_index] ?? { front: {}, left: {}, right: {} }
+    const local_front_val2 = local_set_val2.front ?? {}
+    if (!local_front_val2.oh_right) {
+      g_real_vp_value_obj = {
+        ...g_real_vp_value_obj,
+        [set_index]: {
+          ...local_set_val2,
+          front: { ...local_front_val2, oh_right: oh_right_mm.toFixed(1) },
+        },
+      }
     }
   }
 
