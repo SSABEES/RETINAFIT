@@ -1,5 +1,5 @@
 <script>
-  import { onDestroy, onMount } from 'svelte'
+  import { onDestroy, onMount, untrack } from 'svelte'
   import { fly } from 'svelte/transition'
   import { navigate } from '@maks11060/svelte5-router'
   import { Camera as CameraIcon, X, Loader2, CheckCheck, Glasses } from 'lucide-svelte'
@@ -74,7 +74,7 @@
   let g_pending_oh = $state(null)
 
   // 게이트 진행 상태 메시지 — 화면 상단에 표시.
-  let g_oh_gate_hint = $state(/** @type {string} */ (''))
+  let g_oh_gate_hint = $state('')
 
   // 정면 슬롯은 OH 게이트 통과 후 수동 trigger. 좌/우는 기존 자세 안정성 게이트로 auto 캡처.
   const g_capture_mode = $derived(g_current_pose === 'front' ? 'manual' : 'auto')
@@ -112,7 +112,7 @@
   })
 
   /** @type {{ handle_landmarks: (d: any) => void, stop: () => void } | null} */
-  let g_oh_gate = null
+  let g_oh_gate = $state(null)
 
   // 정면 슬롯 진입 시 OH 게이트 활성, 빠질 때 정리. 슬롯 전환 시 마다 fresh gate.
   $effect(() => {
@@ -133,15 +133,21 @@
         },
       })
     } else if (g_oh_gate) {
-      g_oh_gate.stop()
-      g_oh_gate = null
+      // pose 가 front 가 아닐 때 게이트 정리. untrack 으로 cleanup 의 재진입 방지.
+      untrack(() => {
+        g_oh_gate.stop()
+        g_oh_gate = null
+      })
       g_oh_gate_hint = ''
     }
     return () => {
-      if (g_oh_gate) {
-        g_oh_gate.stop()
-        g_oh_gate = null
-      }
+      // cleanup 시 g_oh_gate 변경이 effect 재진입 일으키지 않도록 untrack
+      untrack(() => {
+        if (g_oh_gate) {
+          g_oh_gate.stop()
+          g_oh_gate = null
+        }
+      })
     }
   })
 
@@ -243,6 +249,7 @@
           }
         })
         .filter((s) => s !== null)
+      // save_real_wearing_oh 는 동기 (sessionStorage.setItem) — await 불필요.
       save_real_wearing_oh({ visit_id: local_visit_no, sets })
     } catch (err) {
       console.warn('[real_fitting] OH storage 미러링 실패:', err)
@@ -420,7 +427,7 @@
         />
 
         {#if g_current_pose === 'front' && g_oh_gate_hint && !g_pending_oh}
-          <div class="absolute top-4 left-1/2 -translate-x-1/2 z-10 rounded-full bg-black/70 text-white text-sm px-4 py-2">
+          <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20 rounded-full bg-black/70 text-white text-sm px-4 py-2">
             {g_oh_gate_hint}
           </div>
         {/if}
