@@ -1482,34 +1482,14 @@
               </p>
             </div>
           {:else}
-            <div
-              class="mt-2 grid justify-center gap-[clamp(7px,1.7svh,14px)] grid-cols-[repeat(3,minmax(0,clamp(216px,33svh,372px)))]"
-            >
+            <!-- 각 피팅: 브랜드/모델 헤더 + 정면/좌측/우측 사진 3장을 같은 행에 표시. 피팅 카드 자체는 세로로 stack. -->
+            <div class="mt-2 flex flex-col gap-[clamp(7px,1.7svh,14px)]">
               {#each g_saved_fitting_arr as fitting_obj, fitting_index (fitting_index)}
-                {@const local_front_capture_obj =
-                  fitting_obj.capture_arr?.find(
-                    (local_capture_obj) => local_capture_obj?.key || local_capture_obj?.url,
-                  ) ?? fitting_obj.capture_arr?.[0]}
-                {@const local_front_src = resolve_capture_src(local_front_capture_obj)}
+                {@const local_photo_arr = (fitting_obj.capture_arr ?? []).slice(0, 3)}
                 <article
                   class="rounded-[12px] border border-slate-100 bg-slate-50 p-[clamp(8px,1.8svh,16px)]"
                 >
-                  <div
-                    class="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-slate-200 bg-white"
-                  >
-                    {#if local_front_src}
-                      <img
-                        src={local_front_src}
-                        alt={`${fitting_obj.model} 정면`}
-                        class="h-full w-full object-cover"
-                      />
-                    {:else}
-                      <div class="grid h-full w-full place-items-center text-slate-300">
-                        <UserRound size={32} strokeWidth={1.7} />
-                      </div>
-                    {/if}
-                  </div>
-                  <div class="mt-3 flex flex-col">
+                  <header class="mb-[clamp(6px,1.4svh,12px)] flex flex-col">
                     <span
                       class="font-bold uppercase tracking-wider text-slate-400 text-[clamp(11px,1.9svh,18px)]"
                     >
@@ -1520,6 +1500,35 @@
                     >
                       {fitting_obj.model || '-'}
                     </p>
+                  </header>
+                  <div
+                    class="grid justify-center gap-[clamp(6px,1.5svh,12px)] grid-cols-[repeat(3,minmax(0,clamp(160px,28svh,300px)))]"
+                  >
+                    {#each local_photo_arr as capture_obj, capture_idx (capture_idx)}
+                      {@const local_src = resolve_capture_src(capture_obj)}
+                      <div
+                        class="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-slate-200 bg-white"
+                      >
+                        {#if local_src}
+                          <img
+                            src={local_src}
+                            alt={`${fitting_obj.model} ${capture_obj?.label ?? ''}`}
+                            class="h-full w-full object-cover"
+                          />
+                        {:else}
+                          <div class="grid h-full w-full place-items-center text-slate-300">
+                            <UserRound size={32} strokeWidth={1.7} />
+                          </div>
+                        {/if}
+                        {#if capture_obj?.label}
+                          <span
+                            class="absolute bottom-1 left-1 rounded-sm bg-black/55 px-1 py-0.5 font-extrabold text-white text-[clamp(11px,1.8svh,16px)]"
+                          >
+                            {capture_obj.label}
+                          </span>
+                        {/if}
+                      </div>
+                    {/each}
                   </div>
                 </article>
               {/each}
