@@ -6,8 +6,26 @@
  *
  * 상수는 본 페이지 starting value — 실측 후 조정 전제.
  *
+ * 진단 — 매 프레임마다 어느 검사에서 막혔는지 `reason` 코드가 on_status 콜백에 포함되어 노출된다.
+ * 가능한 reason 코드:
+ *   `no_landmarks`        — CameraView 가 landmarks 자체를 전달 안 함
+ *   `missing_landmarks`   — 동공/아랫눈꺼풀 4점 중 일부가 비어있음
+ *   `oh_compute_failed`   — worker 가 OH px 산출 실패 (림 edge 미검출 등)
+ *   `buffer_underfull`    — ring buffer 가 아직 RING_SIZE 미만 (정상 warmup)
+ *   `nan_value`           — 버퍼 어느 프레임의 oh/confidence 가 NaN
+ *   `out_of_range`        — OH 가 [OH_MIN_MM, OH_MAX_MM] 밖
+ *   `low_confidence`      — confidence < MIN_CONFIDENCE
+ *   `high_std`            — 3프레임 std 가 RING_STD_MAX_MM 초과 (사용자 움직임)
+ *   `exception`           — estimate_oh 예외 등 기타 예외
+ *   `pass`                — 모든 검사 통과, on_pass 발사
+ *
+ * DEV 빌드에서는 1Hz throttle 로 console 에 현재 OH/confidence/buffer/std/reason 한 줄 요약을 출력 —
+ * 어느 단계에서 막히는지 현장 디버깅용. PROD 빌드에서는 dead-code elimination.
+ *
  * @typedef {{ oh: number, confidence: number }} Frame
- * @typedef {{ mean: number, std: number }} BufferStats
+ * @typedef {'buffer_underfull' | 'nan_value' | 'out_of_range' | 'low_confidence' | 'high_std'} RingFailReason
+ * @typedef {RingFailReason | 'no_landmarks' | 'missing_landmarks' | 'oh_compute_failed' | 'exception' | 'pass'} GateReason
+ * @typedef {{ ok: boolean, mean: number | null, std: number | null, reason: RingFailReason | null, details: object }} RingBufferResult
  */
 
 import { detect_markers } from './aruco_detector.js'
@@ -36,26 +54,74 @@ const LEFT_LOWER_LID_IDX = 374
 // estimate_oh worker 가 ~150ms 걸리므로 5fps 목표 throttle
 const THROTTLE_MS = 200
 
+// DEV 콘솔 로그 throttle — 매 프레임 출력하면 콘솔이 마비되므로 1Hz 로 제한.
+const LOG_INTERVAL_MS = 1000
+
 /**
- * 최근 RING_SIZE 프레임의 안정성·범위·confidence 를 검증해 통과 시 mean/std 반환.
+ * 최근 RING_SIZE 프레임의 안정성·범위·confidence 를 검증해 통과 여부와 진단 정보를 반환.
+ * 실패 시 어느 검사에서 떨어졌는지 `reason` 코드 + `details` (해당 프레임 idx, 값) 노출.
  *
  * @param {Frame[]} buffer
- * @returns {BufferStats | null}
+ * @returns {RingBufferResult}
  */
 export function evaluate_ring_buffer(buffer) {
-  if (!Array.isArray(buffer) || buffer.length < RING_SIZE) return null
+  if (!Array.isArray(buffer) || buffer.length < RING_SIZE) {
+    return {
+      ok: false,
+      mean: null,
+      std: null,
+      reason: 'buffer_underfull',
+      details: {
+        size: Array.isArray(buffer) ? buffer.length : 0,
+        required: RING_SIZE,
+      },
+    }
+  }
   const last_arr = buffer.slice(-RING_SIZE)
-  for (const f of last_arr) {
-    if (!Number.isFinite(f.oh) || !Number.isFinite(f.confidence)) return null
-    if (f.oh < OH_MIN_MM || f.oh > OH_MAX_MM) return null
-    if (f.confidence < MIN_CONFIDENCE) return null
+  for (let idx = 0; idx < last_arr.length; idx++) {
+    const f = last_arr[idx]
+    if (!Number.isFinite(f.oh) || !Number.isFinite(f.confidence)) {
+      return {
+        ok: false,
+        mean: null,
+        std: null,
+        reason: 'nan_value',
+        details: { idx, oh: f.oh, confidence: f.confidence },
+      }
+    }
+    if (f.oh < OH_MIN_MM || f.oh > OH_MAX_MM) {
+      return {
+        ok: false,
+        mean: null,
+        std: null,
+        reason: 'out_of_range',
+        details: { idx, oh: f.oh, min: OH_MIN_MM, max: OH_MAX_MM },
+      }
+    }
+    if (f.confidence < MIN_CONFIDENCE) {
+      return {
+        ok: false,
+        mean: null,
+        std: null,
+        reason: 'low_confidence',
+        details: { idx, confidence: f.confidence, min: MIN_CONFIDENCE },
+      }
+    }
   }
   const mean = last_arr.reduce((sum, f) => sum + f.oh, 0) / RING_SIZE
   const variance =
     last_arr.reduce((sum, f) => sum + (f.oh - mean) ** 2, 0) / RING_SIZE
   const std = Math.sqrt(variance)
-  if (std > RING_STD_MAX_MM) return null
-  return { mean, std }
+  if (std > RING_STD_MAX_MM) {
+    return {
+      ok: false,
+      mean,
+      std,
+      reason: 'high_std',
+      details: { std, max: RING_STD_MAX_MM },
+    }
+  }
+  return { ok: true, mean, std, reason: null, details: {} }
 }
 
 /**
@@ -89,6 +155,8 @@ export function compute_mm_per_px_fallback(pupil_right, pupil_left) {
  * @typedef {object} GateStatus
  * @property {'measuring' | 'measured'} phase
  * @property {string} hint
+ * @property {GateReason} reason
+ * @property {object} [details]
  */
 
 /**
@@ -108,9 +176,49 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
   /** @type {Frame[]} */
   const buf_left_arr = []
 
+  // DEV 빌드 토글 — Vite 의 import.meta.env.DEV 가 PROD 빌드에서 false 로 트리쉐이킹 됨.
+  const dev_mode = Boolean(import.meta.env?.DEV)
+  let last_log_at = 0
+  // 매 프레임 cycle 마다 갱신되는 진단용 스냅샷. console 로그 + on_status details 보강에 사용.
+  const frame_diag = {
+    /** @type {number | null} */ oh_right_mm: null,
+    /** @type {number | null} */ oh_left_mm: null,
+    /** @type {number | null} */ conf_right: null,
+    /** @type {number | null} */ conf_left: null,
+    buf_right_size: 0,
+    buf_left_size: 0,
+    /** @type {number | null} */ std_right: null,
+    /** @type {number | null} */ std_left: null,
+  }
+
   void ensure_opencv_ready().catch((err) => {
     console.warn('[oh_gate] OpenCV init 실패 — OH 게이트 비활성:', err)
   })
+
+  // DEV 모드 1Hz throttled console 출력 — 현재 frame_diag + reason 한 줄 요약.
+  function maybe_log(status) {
+    if (!dev_mode) return
+    const now = performance.now()
+    if (now - last_log_at < LOG_INTERVAL_MS) return
+    last_log_at = now
+    const fmt = (n) =>
+      typeof n === 'number' && Number.isFinite(n) ? n.toFixed(2) : '-'
+    const side = status?.details?.side ? `@${status.details.side}` : ''
+    // eslint-disable-next-line no-console
+    console.log(
+      `[oh_gate] R=${fmt(frame_diag.oh_right_mm)}(c=${fmt(frame_diag.conf_right)})`,
+      `L=${fmt(frame_diag.oh_left_mm)}(c=${fmt(frame_diag.conf_left)})`,
+      `buf=R${frame_diag.buf_right_size}/L${frame_diag.buf_left_size}`,
+      `std=R${fmt(frame_diag.std_right)}/L${fmt(frame_diag.std_left)}`,
+      `→ ${status?.reason ?? '-'}${side}`,
+    )
+  }
+
+  // 상태 통보 + dev throttled 로그를 한 번에 처리. on_status 호출하는 자리는 모두 이 함수로 통일.
+  function emit_status(status) {
+    on_status(status)
+    maybe_log(status)
+  }
 
   /**
    * CameraView detection 마다 호출되는 게이트 진입점. throttle + in-flight 방어 + OH 산출 + ring buffer 판정 + on_pass/on_status 통보.
@@ -120,7 +228,12 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
   async function handle_landmarks(detection) {
     if (stopped || pass_fired) return
     if (!detection?.landmarks) {
-      on_status({ phase: 'measuring', hint: '정면을 응시해 주세요' })
+      emit_status({
+        phase: 'measuring',
+        hint: '정면을 응시해 주세요',
+        reason: 'no_landmarks',
+        details: {},
+      })
       return
     }
     const now = performance.now()
@@ -135,7 +248,17 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
       const lower_right_norm = landmarks[RIGHT_LOWER_LID_IDX]
       const lower_left_norm = landmarks[LEFT_LOWER_LID_IDX]
       if (!pupil_right_norm || !pupil_left_norm || !lower_right_norm || !lower_left_norm) {
-        on_status({ phase: 'measuring', hint: '정면을 응시해 주세요' })
+        emit_status({
+          phase: 'measuring',
+          hint: '정면을 응시해 주세요',
+          reason: 'missing_landmarks',
+          details: {
+            pupil_right: !!pupil_right_norm,
+            pupil_left: !!pupil_left_norm,
+            lower_right: !!lower_right_norm,
+            lower_left: !!lower_left_norm,
+          },
+        })
         return
       }
 
@@ -163,9 +286,9 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
             const markers_arr = detect_markers(image_data, intrinsics, MARKER_SIZE_MM)
             marker = markers_arr[0] ?? null
           }
-        } catch (err) {
+        } catch (_err) {
           // ArUco/intrinsics 실패 → PD fallback 으로 진행
-          // 개발 시 디버그 필요하면 console.debug('[oh_gate] aruco skip:', err)
+          // 개발 시 디버그 필요하면 (_err) 를 (err) 로 바꾸고 console.debug('[oh_gate] aruco skip:', err)
         }
 
         const oh_result = await estimate_oh({
@@ -177,6 +300,9 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
           source_width,
           source_height,
         })
+
+        frame_diag.conf_right = oh_result.confidence_right
+        frame_diag.conf_left = oh_result.confidence_left
 
         const oh_source = marker && intrinsics ? 'aruco' : 'pd_fallback'
         const oh_right_mm = compute_oh_mm({
@@ -198,8 +324,21 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
           pupil_left_px: pupil_left,
         })
 
+        frame_diag.oh_right_mm = oh_right_mm
+        frame_diag.oh_left_mm = oh_left_mm
+
         if (oh_right_mm === null || oh_left_mm === null) {
-          on_status({ phase: 'measuring', hint: '안경을 잘 착용해주세요' })
+          emit_status({
+            phase: 'measuring',
+            hint: '안경을 잘 착용해주세요',
+            reason: 'oh_compute_failed',
+            details: {
+              oh_right_mm,
+              oh_left_mm,
+              oh_source,
+              has_marker: !!marker,
+            },
+          })
           return
         }
 
@@ -208,11 +347,26 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
         if (buf_right_arr.length > RING_SIZE) buf_right_arr.shift()
         if (buf_left_arr.length > RING_SIZE) buf_left_arr.shift()
 
+        frame_diag.buf_right_size = buf_right_arr.length
+        frame_diag.buf_left_size = buf_left_arr.length
+
         const stats_right = evaluate_ring_buffer(buf_right_arr)
         const stats_left = evaluate_ring_buffer(buf_left_arr)
-        if (stats_right && stats_left) {
+        frame_diag.std_right = stats_right.std
+        frame_diag.std_left = stats_left.std
+
+        if (stats_right.ok && stats_left.ok) {
           pass_fired = true
-          on_status({ phase: 'measured', hint: '측정 완료' })
+          emit_status({
+            phase: 'measured',
+            hint: '측정 완료',
+            reason: 'pass',
+            details: {
+              mean_right: stats_right.mean,
+              mean_left: stats_left.mean,
+              oh_source,
+            },
+          })
           on_pass({
             oh_left_mm: stats_left.mean,
             oh_right_mm: stats_right.mean,
@@ -220,10 +374,25 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
           })
           return
         }
-        on_status({ phase: 'measuring', hint: '잠시 멈춰주세요' })
+
+        // 우측 우선 보고. 양쪽 모두 실패면 다음 frame 에 좌측 reason 노출 가능.
+        const failing = !stats_right.ok
+          ? { side: 'right', stats: stats_right }
+          : { side: 'left', stats: stats_left }
+        emit_status({
+          phase: 'measuring',
+          hint: '잠시 멈춰주세요',
+          reason: failing.stats.reason,
+          details: { side: failing.side, ...failing.stats.details },
+        })
       } catch (err) {
         console.warn('[oh_gate] frame skipped:', err)
-        on_status({ phase: 'measuring', hint: '정면을 응시해 주세요' })
+        emit_status({
+          phase: 'measuring',
+          hint: '정면을 응시해 주세요',
+          reason: 'exception',
+          details: { message: err?.message ?? String(err) },
+        })
       }
     } finally {
       in_flight = false
