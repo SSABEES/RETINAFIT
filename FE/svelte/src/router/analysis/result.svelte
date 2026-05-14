@@ -152,6 +152,324 @@
     return Array.isArray(local_sets) ? local_sets : []
   })
 
+  // 실 착용 세트별 현재 사진 뷰 (정면 / 좌측 / 우측). 키는 set_index — set_no 가 없는 레거시 데이터도 안전하게 매핑.
+  let g_real_vp_view_obj = $state(
+    /** @type {Record<number, 'front' | 'left' | 'right'>} */ ({}),
+  )
+
+  /** @param {number} set_index */
+  function get_real_vp_view(set_index) {
+    return g_real_vp_view_obj[set_index] ?? 'front'
+  }
+
+  /**
+   * @param {number} set_index
+   * @param {'front' | 'left' | 'right'} view
+   */
+  function on_click_real_vp_view(set_index, view) {
+    g_real_vp_view_obj = { ...g_real_vp_view_obj, [set_index]: view }
+    // 이 set 의 active 가 다른 view 면 해제 — 새 view 캔버스에서 잘못된 측정 방지.
+    // 다른 set 의 active 는 건드리지 않음 (set 별 독립).
+    const local_active = g_real_vp_active_by_set_obj[set_index]
+    if (local_active && local_active.view !== view) {
+      g_real_vp_active_by_set_obj = {
+        ...g_real_vp_active_by_set_obj,
+        [set_index]: null,
+      }
+    }
+  }
+
+  // 실 착용 사진용 capture 좌표계 — test_json 캡처와 동일한 480×640 으로 통일해 mm_per_px 변환 호환.
+  const REAL_VP_CAPTURE_WIDTH = 480
+  const REAL_VP_CAPTURE_HEIGHT = 640
+
+  // 뷰별 측정 항목 정의 — 정면은 OH(좌/우) 거리, 좌/우 측면은 전경각(각도).
+  // save_key 는 BE 저장 schema(measurement_obj_by_view) 에서 사용하는 필드명.
+  const REAL_VP_VIEW_ARR = /** @type {('front' | 'left' | 'right')[]} */ ([
+    'front',
+    'left',
+    'right',
+  ])
+  const REAL_VP_ITEMS_BY_VIEW = {
+    front: [
+      {
+        item_id: 'oh_left',
+        label: 'OH (좌)',
+        kind: /** @type {'distance'} */ ('distance'),
+        save_key: 'oh_left_mm',
+      },
+      {
+        item_id: 'oh_right',
+        label: 'OH (우)',
+        kind: /** @type {'distance'} */ ('distance'),
+        save_key: 'oh_right_mm',
+      },
+    ],
+    left: [
+      {
+        item_id: 'pantoscopic_tilt',
+        label: '전경각',
+        kind: /** @type {'angle'} */ ('angle'),
+        save_key: 'pantoscopic_tilt_deg',
+      },
+    ],
+    right: [
+      {
+        item_id: 'pantoscopic_tilt',
+        label: '전경각',
+        kind: /** @type {'angle'} */ ('angle'),
+        save_key: 'pantoscopic_tilt_deg',
+      },
+    ],
+  }
+
+  // 세트별 활성 측정 항목 — 각 set 이 독립된 active 를 가져서, set 2 클릭이 set 1 의 측정 라인을 지우지 않음.
+  // set 1 OH(우) 라인과 set 2 OH(우) 라인을 동시에 시각 확인 가능하도록 분리.
+  let g_real_vp_active_by_set_obj = $state(
+    /** @type {Record<number, { view: 'front' | 'left' | 'right', item_id: string } | null>} */ (
+      {}
+    ),
+  )
+
+  // 사용자가 photo 위에서 2점을 찍은 좌표 (set_index → view → item_id → [p1, p2]).
+  let g_real_vp_points_obj = $state(
+    /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, any>>>} */ ({}),
+  )
+
+  // 표시용 측정값 문자열 — 점 클릭으로만 갱신. (set_index → view → item_id → string)
+  let g_real_vp_value_obj = $state(
+    /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, string>>>} */ ({}),
+  )
+  // BE 응답에서 한 번만 시드.
+  let g_real_vp_measurement_seeded = $state(false)
+  // 현재 저장 중인 set_index — null 이면 idle. 동시에 한 set 만 저장 (다른 버튼은 모두 비활성).
+  let g_saving_real_vp_set_index = $state(/** @type {number | null} */ (null))
+
+  // visit 응답이 도착해 sets 가 생기는 즉시 1회만 초깃값 채우기. measurement_obj_by_view 가 있으면 그 값 사용.
+  $effect(() => {
+    if (g_real_vp_measurement_seeded) return
+    if (g_real_vp_set_arr.length === 0) return
+    /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, string>>>} */
+    const local_seed_obj = {}
+    for (let local_idx = 0; local_idx < g_real_vp_set_arr.length; local_idx++) {
+      const local_m_by_view_obj = g_real_vp_set_arr[local_idx]?.measurement_obj_by_view ?? {}
+      /** @type {Record<'front' | 'left' | 'right', Record<string, string>>} */
+      const local_view_obj = { front: {}, left: {}, right: {} }
+      for (const local_view of REAL_VP_VIEW_ARR) {
+        for (const local_item_def of REAL_VP_ITEMS_BY_VIEW[local_view]) {
+          const local_v = local_m_by_view_obj?.[local_view]?.[local_item_def.save_key]
+          local_view_obj[local_view][local_item_def.item_id] = local_v != null ? String(local_v) : ''
+        }
+      }
+      local_seed_obj[local_idx] = local_view_obj
+    }
+    g_real_vp_value_obj = local_seed_obj
+    g_real_vp_measurement_seeded = true
+  })
+
+  /**
+   * (set, view, item_id) 의 표시값 갱신.
+   * @param {number} set_index
+   * @param {'front' | 'left' | 'right'} view
+   * @param {string} item_id
+   * @param {string} value
+   */
+  function set_real_vp_value(set_index, view, item_id, value) {
+    const local_prev_set = g_real_vp_value_obj[set_index] ?? { front: {}, left: {}, right: {} }
+    const local_prev_view = local_prev_set[view] ?? {}
+    g_real_vp_value_obj = {
+      ...g_real_vp_value_obj,
+      [set_index]: {
+        ...local_prev_set,
+        [view]: { ...local_prev_view, [item_id]: value },
+      },
+    }
+  }
+
+  /** 측정 행 클릭 — 해당 set 의 active 토글. 다른 set 의 active 는 그대로 유지. */
+  function on_select_real_vp_item(set_index, view, item_id) {
+    const local_prev = g_real_vp_active_by_set_obj[set_index] ?? null
+    const local_is_active = local_prev?.view === view && local_prev?.item_id === item_id
+    g_real_vp_active_by_set_obj = {
+      ...g_real_vp_active_by_set_obj,
+      [set_index]: local_is_active ? null : { view, item_id },
+    }
+  }
+
+  /** 특정 set 의 active 해제 (MeasureCanvas oncancel 콜백). */
+  function on_cancel_real_vp_for_set(set_index) {
+    g_real_vp_active_by_set_obj = {
+      ...g_real_vp_active_by_set_obj,
+      [set_index]: null,
+    }
+  }
+
+  /** 현재 (set, view) 의 active item_id 매핑 — 다른 view 면 null. */
+  function get_active_real_vp_item_id(set_index, view) {
+    const local_active = g_real_vp_active_by_set_obj[set_index]
+    if (!local_active) return null
+    if (local_active.view !== view) return null
+    return local_active.item_id
+  }
+
+  /** 각도 항목용 ViewAngle — vertical_signed_angle_deg 가 좌측면일 때 부호 보정. */
+  function get_real_vp_angle_view_id(view) {
+    if (view === 'left') return 'left_no_glasses'
+    if (view === 'right') return 'right_no_glasses'
+    return 'front_no_glasses'
+  }
+
+  /**
+   * MeasureCanvas items_arr 합성 — 거리/각도 둘 다 처리. 측정 상세 탭의 schema 와 동일.
+   * @param {number} set_index
+   * @param {'front' | 'left' | 'right'} view
+   */
+  function build_real_vp_items_arr(set_index, view) {
+    const local_pts_view_obj = g_real_vp_points_obj[set_index]?.[view] ?? {}
+    const local_mm_per_px = g_scale_obj?.mm_per_px ?? null
+    return REAL_VP_ITEMS_BY_VIEW[view].map((local_item_def) => {
+      const local_pts = local_pts_view_obj?.[local_item_def.item_id] ?? null
+      if (local_item_def.kind === 'angle') {
+        const local_view_id = get_real_vp_angle_view_id(view)
+        const local_deg = local_pts
+          ? vertical_signed_angle_deg(local_pts[0], local_pts[1], local_view_id)
+          : null
+        return {
+          item_id: local_item_def.item_id,
+          label: local_item_def.label,
+          view: [local_view_id],
+          source: 'manual',
+          kind: 'angle',
+          points: local_pts,
+          value_deg_raw: local_deg,
+          value_deg_corrected: local_deg,
+          head_image_tilt_deg_used: null,
+        }
+      }
+      const local_px = local_pts ? pixel_distance(local_pts[0], local_pts[1]) : null
+      const local_mm =
+        local_px !== null && local_mm_per_px !== null ? local_px * local_mm_per_px : null
+      return {
+        item_id: local_item_def.item_id,
+        label: local_item_def.label,
+        view: [`${view}_no_glasses`],
+        source: 'manual',
+        kind: 'distance',
+        points: local_pts,
+        value_px: local_px,
+        value_mm: local_mm,
+      }
+    })
+  }
+
+  // MeasureCanvas 가 2점을 모두 찍으면 호출 — 클로저로 set_index 받아 해당 set 의 active 항목에 값 기록.
+  function on_points_set_real_vp_for_set(set_index, _item_id, points) {
+    const local_active = g_real_vp_active_by_set_obj[set_index]
+    if (!local_active) return
+    const local_view = local_active.view
+    const local_item_id = local_active.item_id
+
+    const local_item_def = REAL_VP_ITEMS_BY_VIEW[local_view].find(
+      (local_item) => local_item.item_id === local_item_id,
+    )
+    if (!local_item_def) return
+
+    // 점 좌표 보관
+    const local_prev_set = g_real_vp_points_obj[set_index] ?? {
+      front: {},
+      left: {},
+      right: {},
+    }
+    const local_prev_view = local_prev_set[local_view] ?? {}
+    g_real_vp_points_obj = {
+      ...g_real_vp_points_obj,
+      [set_index]: {
+        ...local_prev_set,
+        [local_view]: { ...local_prev_view, [local_item_id]: points },
+      },
+    }
+
+    // 값 계산 → 표시 문자열
+    let local_value_str = ''
+    if (local_item_def.kind === 'angle') {
+      const local_deg = vertical_signed_angle_deg(
+        points[0],
+        points[1],
+        get_real_vp_angle_view_id(local_view),
+      )
+      // 측정 상세와 동일하게 절댓값으로 표시 (좌/우 측면이 같은 안경에서 같은 값을 보이도록).
+      local_value_str = Math.abs(local_deg).toFixed(1)
+    } else {
+      const local_px = pixel_distance(points[0], points[1])
+      const local_mm_per_px = g_scale_obj?.mm_per_px ?? null
+      local_value_str =
+        local_mm_per_px !== null ? (local_px * local_mm_per_px).toFixed(1) : local_px.toFixed(0)
+    }
+    set_real_vp_value(set_index, local_view, local_item_id, local_value_str)
+  }
+
+  // 특정 set 의 측정값만 PATCH. 다른 set 의 measurement_obj_by_view 는 그대로 보존
+  // (set 별 명시적 저장 — 한 set 의 점 클릭이 의도치 않게 다른 set 의 변경분을 덮어쓰지 않게).
+  /** @param {number} set_index */
+  async function on_click_save_real_vp_set(set_index) {
+    if (g_saving_real_vp_set_index !== null) return
+    const local_visit_no = Number($selected_visit_obj?.visit_no)
+    if (!Number.isFinite(local_visit_no) || local_visit_no <= 0) {
+      push_error_toast('방문 정보가 없어 저장할 수 없습니다.')
+      return
+    }
+
+    g_saving_real_vp_set_index = set_index
+    try {
+      const local_next_set_arr = g_real_vp_set_arr.map((local_set_obj, local_idx) => {
+        if (local_idx !== set_index) return local_set_obj
+
+        const local_value_view_obj = g_real_vp_value_obj[local_idx] ?? {
+          front: {},
+          left: {},
+          right: {},
+        }
+        /** @type {Record<'front' | 'left' | 'right', Record<string, number | null>>} */
+        const local_next_m_by_view_obj = { front: {}, left: {}, right: {} }
+        for (const local_view of REAL_VP_VIEW_ARR) {
+          for (const local_item_def of REAL_VP_ITEMS_BY_VIEW[local_view]) {
+            const local_str = String(
+              local_value_view_obj?.[local_view]?.[local_item_def.item_id] ?? '',
+            ).trim()
+            local_next_m_by_view_obj[local_view][local_item_def.save_key] =
+              local_str === '' ? null : Number(local_str)
+          }
+        }
+        return {
+          ...local_set_obj,
+          measurement_obj_by_view: local_next_m_by_view_obj,
+        }
+      })
+
+      const local_patched_real_vp_json = {
+        ...(g_visit_obj?.real_vp_json ?? {}),
+        sets: local_next_set_arr,
+      }
+
+      const local_updated = await update_visit({
+        visit_no: local_visit_no,
+        body: { real_vp_json: local_patched_real_vp_json },
+      })
+
+      g_visit_obj =
+        local_updated && local_updated.real_vp_json
+          ? local_updated
+          : { ...(g_visit_obj ?? {}), real_vp_json: local_patched_real_vp_json }
+      push_success_toast(`세트 ${set_index + 1} 측정 내용을 저장했어요.`)
+    } catch (local_err) {
+      push_error_toast(
+        local_err instanceof Error ? local_err.message : '측정 내용 저장에 실패했습니다.',
+      )
+    } finally {
+      g_saving_real_vp_set_index = null
+    }
+  }
+
   /** @param {unknown} face_shape_value */
   function normalize_face_shape_key(face_shape_value) {
     const local_value = String(face_shape_value ?? '')
@@ -1122,96 +1440,204 @@
               </p>
             </div>
           {:else}
-            <div class="mt-2 flex flex-col gap-3">
-              {#each g_real_vp_set_arr as set_obj, set_index (set_obj.set_no ?? set_index)}
-                {@const local_photo_arr = [
+            <div class="mt-2 flex flex-col gap-2">
+              {#each g_real_vp_set_arr as set_obj, set_index (set_index)}
+                {@const local_view_tab_arr = [
                   {
-                    key: 'front',
-                    url: set_obj.front_url ?? set_obj.front_key ?? '',
+                    id: /** @type {'front'} */ ('front'),
                     label: '정면',
+                    url: set_obj.front_url ?? set_obj.front_key ?? '',
+                    view_label: '정면 (실 착용)',
                   },
                   {
-                    key: 'left',
-                    url: set_obj.left_url ?? set_obj.left_key ?? '',
+                    id: /** @type {'left'} */ ('left'),
                     label: '좌측',
+                    url: set_obj.left_url ?? set_obj.left_key ?? '',
+                    view_label: '좌측 (실 착용)',
                   },
                   {
-                    key: 'right',
-                    url: set_obj.right_url ?? set_obj.right_key ?? '',
+                    id: /** @type {'right'} */ ('right'),
                     label: '우측',
+                    url: set_obj.right_url ?? set_obj.right_key ?? '',
+                    view_label: '우측 (실 착용)',
                   },
                 ]}
-                <article class="mx-auto w-fit rounded-[12px] border border-slate-100 bg-slate-50 p-3">
-                  <header class="mb-2 flex items-center justify-between px-0.5">
-                    <span class="font-extrabold text-slate-700 text-[clamp(13px,2.2svh,20px)]">
-                      세트 {set_obj.set_no ?? set_index + 1}
-                    </span>
-                  </header>
+                {@const local_current_view = get_real_vp_view(set_index)}
+                {@const local_current_tab_obj =
+                  local_view_tab_arr.find((t) => t.id === local_current_view) ?? local_view_tab_arr[0]}
+                <article
+                  class="flex flex-col rounded-[14px] border border-slate-200 bg-white shadow-sm px-[clamp(14px,3svh,28px)] py-[clamp(4px,1svh,10px)]"
+                >
+                  <!-- 헤더 — 세트 라벨 + 사진 뷰 sub-tab + 세트별 저장 버튼. -->
                   <div
-                    class="grid justify-center gap-[clamp(7px,1.7svh,14px)] grid-cols-[repeat(3,minmax(0,clamp(216px,33svh,372px)))]"
+                    class="flex flex-wrap items-center justify-between gap-[clamp(8px,2svh,16px)]"
                   >
-                    {#each local_photo_arr as photo_obj (photo_obj.key)}
-                      <div
-                        class="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-slate-200 bg-white"
+                    <h3
+                      class="m-0 font-extrabold text-zinc-900 text-[clamp(13px,2.4svh,22px)]"
+                    >
+                      세트 {set_obj.set_no ?? set_index + 1}
+                    </h3>
+                    <div class="flex items-center gap-[clamp(6px,1.5svh,14px)]">
+                      <nav
+                        class="flex items-end gap-1 overflow-x-auto"
+                        aria-label="실 착용 사진 뷰 선택"
                       >
-                        {#if photo_obj.url}
-                          <img
-                            src={photo_obj.url}
-                            alt={`세트 ${set_obj.set_no ?? set_index + 1} ${photo_obj.label}`}
-                            class="h-full w-full object-cover"
+                        {#each local_view_tab_arr as view_tab_obj (view_tab_obj.id)}
+                          {@const local_is_active_view = local_current_view === view_tab_obj.id}
+                          <button
+                            type="button"
+                            class={`shrink-0 cursor-pointer border-b-[3px] font-extrabold transition px-[clamp(8px,2svh,16px)] py-[clamp(4px,1svh,10px)] text-[clamp(11px,2svh,18px)] ${
+                              local_is_active_view
+                                ? 'border-[var(--retina-primary-500)] text-[var(--retina-primary-600)]'
+                                : 'border-transparent text-slate-400 hover:text-slate-700'
+                            }`}
+                            aria-pressed={local_is_active_view}
+                            onclick={() => on_click_real_vp_view(set_index, view_tab_obj.id)}
+                          >
+                            {view_tab_obj.label}
+                          </button>
+                        {/each}
+                      </nav>
+                      <button
+                        type="button"
+                        onclick={() => on_click_save_real_vp_set(set_index)}
+                        disabled={g_saving_real_vp_set_index !== null || g_visit_loading}
+                        class="shrink-0 cursor-pointer rounded-lg border-0 bg-[var(--retina-primary-500)] font-extrabold text-white transition hover:bg-[var(--retina-primary-600)] disabled:cursor-not-allowed disabled:opacity-50 px-[clamp(10px,2.4svh,20px)] py-[clamp(5px,1.2svh,12px)] text-[clamp(11px,2svh,18px)]"
+                      >
+                        {g_saving_real_vp_set_index === set_index ? '저장 중...' : '측정 내용 저장'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- 본문 — 측정 상세와 동일한 2컬럼 (사진 1fr / 측정 리스트 1.2fr). -->
+                  <div
+                    class="mt-2 grid flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-[clamp(8px,2svh,16px)]"
+                  >
+                    <div class="flex items-start justify-center">
+                      <div
+                        class="relative flex aspect-[3/4] h-full max-h-[clamp(160px,38svh,320px)] w-full max-w-[clamp(120px,28svh,240px)] overflow-hidden rounded-[10px] bg-slate-100 shadow-[0_6px_16px_rgba(15,23,42,0.06)]"
+                      >
+                        {#if local_current_tab_obj.url}
+                          {@const local_capture_obj = {
+                            object_url: local_current_tab_obj.url,
+                            width: REAL_VP_CAPTURE_WIDTH,
+                            height: REAL_VP_CAPTURE_HEIGHT,
+                          }}
+                          {@const local_canvas_active_id = get_active_real_vp_item_id(
+                            set_index,
+                            local_current_view,
+                          )}
+                          {@const local_canvas_items_arr = build_real_vp_items_arr(
+                            set_index,
+                            local_current_view,
+                          )}
+                          <MeasureCanvas
+                            capture={local_capture_obj}
+                            items_arr={local_canvas_items_arr}
+                            active_item_id={local_canvas_active_id}
+                            keyboard_enabled={false}
+                            onpoints_set={(local_item_id, local_points) =>
+                              on_points_set_real_vp_for_set(
+                                set_index,
+                                local_item_id,
+                                local_points,
+                              )}
+                            oncancel={() => on_cancel_real_vp_for_set(set_index)}
                           />
                         {:else}
                           <div class="grid h-full w-full place-items-center text-slate-300">
-                            <UserRound size={32} strokeWidth={1.7} />
+                            <UserRound size={40} strokeWidth={1.7} />
                           </div>
                         {/if}
                         <span
-                          class="absolute bottom-1 left-1 rounded-sm bg-black/55 px-1 py-0.5 font-extrabold text-white text-[clamp(11px,1.8svh,16px)]"
+                          class="absolute bottom-1 left-1 z-20 rounded-sm bg-black/55 px-1 py-0.5 font-extrabold text-white text-[clamp(11px,1.8svh,16px)]"
                         >
-                          {photo_obj.label}
+                          {local_current_tab_obj.label}
                         </span>
                       </div>
-                    {/each}
-                  </div>
-
-                  <!--
-                    OH 측정 패널 — 측정 상세 탭의 MeasurementList 와 동일한 스타일.
-                    자동 측정 로직은 추후 연결 예정. 현재는 표시용 placeholder 만 노출.
-                  -->
-                  <section
-                    class="mt-3 rounded-[10px] border border-slate-200 bg-white px-4 py-3"
-                    aria-label="OH 측정"
-                  >
-                    <div class="flex items-baseline justify-between">
-                      <h3 class="m-0 text-[13px] font-extrabold text-slate-800">OH 측정</h3>
-                      <span class="text-xs font-semibold text-slate-500">
-                        세트 {set_obj.set_no ?? set_index + 1}
-                      </span>
                     </div>
-                    <ul class="m-0 mt-2 flex list-none flex-col gap-1 p-0">
-                      {#each [{ key: 'oh_left', label: 'OH (좌)' }, { key: 'oh_right', label: 'OH (우)' }] as oh_item_obj (oh_item_obj.key)}
-                        <li>
-                          <div class="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5">
-                            <span
-                              class="grid h-4 w-4 flex-none place-items-center rounded-full border border-slate-400"
-                              aria-hidden="true"
-                            ></span>
-                            <span class="flex-1 truncate text-sm font-semibold text-slate-700">
-                              {oh_item_obj.label}
-                            </span>
-                            <span class="flex-none text-sm font-bold tabular-nums text-slate-400">
-                              —
-                            </span>
-                            <span
-                              class="flex-none rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-500"
+
+                    <!--
+                      측정 패널 — 측정 상세 탭 MeasurementList 와 동일한 구조/스타일.
+                      뷰별 항목 정의(REAL_VP_ITEMS_BY_VIEW)에 따라 다른 항목 렌더링.
+                      정면: OH(좌), OH(우) · 좌측/우측: 전경각.
+                    -->
+                    <section
+                      class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden"
+                      aria-label="실 착용 측정 항목"
+                    >
+                      <div class="flex items-baseline justify-between">
+                        <h4 class="m-0 text-[13px] font-extrabold text-slate-800">측정 항목</h4>
+                        <span class="text-xs font-semibold text-slate-500">
+                          {local_current_tab_obj.view_label}
+                        </span>
+                      </div>
+                      <ul class="m-0 flex min-h-0 flex-1 list-none flex-col gap-1 overflow-y-auto p-0">
+                        {#each REAL_VP_ITEMS_BY_VIEW[local_current_view] as item_def_obj (item_def_obj.item_id)}
+                          {@const local_value_str =
+                            g_real_vp_value_obj[set_index]?.[local_current_view]?.[
+                              item_def_obj.item_id
+                            ] ?? ''}
+                          {@const local_has_value = local_value_str !== ''}
+                          {@const local_unit_label =
+                            item_def_obj.kind === 'angle' ? '°' : ' mm'}
+                          {@const local_is_active_row =
+                            g_real_vp_active_by_set_obj[set_index]?.view === local_current_view &&
+                            g_real_vp_active_by_set_obj[set_index]?.item_id === item_def_obj.item_id}
+                          <li>
+                            <div
+                              class="flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-left transition hover:bg-[#FFF6EB]"
+                              class:bg-[#FFF6EB]={local_is_active_row}
+                              role="button"
+                              tabindex="0"
+                              aria-pressed={local_is_active_row}
+                              onclick={() =>
+                                on_select_real_vp_item(
+                                  set_index,
+                                  local_current_view,
+                                  item_def_obj.item_id,
+                                )}
+                              onkeydown={(local_event) => {
+                                if (local_event.key === 'Enter' || local_event.key === ' ') {
+                                  local_event.preventDefault()
+                                  on_select_real_vp_item(
+                                    set_index,
+                                    local_current_view,
+                                    item_def_obj.item_id,
+                                  )
+                                }
+                              }}
                             >
-                              측정 예정
-                            </span>
-                          </div>
-                        </li>
-                      {/each}
-                    </ul>
-                  </section>
+                              <span
+                                class="grid h-4 w-4 flex-none place-items-center rounded-full border border-slate-400"
+                                class:border-[#F97316]={local_is_active_row}
+                                aria-hidden="true"
+                              >
+                                {#if local_is_active_row}
+                                  <span class="h-2 w-2 rounded-full bg-[#F97316]"></span>
+                                {/if}
+                              </span>
+                              <span class="flex-1 truncate text-sm font-semibold text-slate-700">
+                                {item_def_obj.label}
+                              </span>
+                              <span
+                                class="flex-none text-sm font-bold tabular-nums"
+                                class:text-[var(--retina-text)]={local_has_value}
+                                class:text-slate-400={!local_has_value}
+                              >
+                                {local_has_value ? `${local_value_str}${local_unit_label}` : '—'}
+                              </span>
+                              <span
+                                class="flex-none rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-800"
+                              >
+                                수동
+                              </span>
+                            </div>
+                          </li>
+                        {/each}
+                      </ul>
+                    </section>
+                  </div>
                 </article>
               {/each}
             </div>
