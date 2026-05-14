@@ -37,7 +37,8 @@
 
   const g_customer_name = $derived.by(() => {
     const local_name = $selected_customer_obj?.name?.trim()
-    if (!local_name) return '고객'
+    // 비회원/게스트 방문은 이름 자리를 비워 "고객님의 생활패턴" 으로 표시.
+    if (!local_name || local_name === '비회원') return '고객'
     return local_name.endsWith('님') ? local_name : `${local_name} 고객님`
   })
 

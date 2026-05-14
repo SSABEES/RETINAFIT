@@ -918,8 +918,26 @@
     }
   }
 
+  // 표시용 전화번호 포맷터 — 숫자만 추출 후 한국 전화번호 패턴에 맞춰 하이픈 삽입.
+  // 02 지역번호(서울)는 9~10자리, 그 외 휴대전화/지역번호는 10~11자리. 길이 비정상이면 원본 반환.
+  /** @param {string | null | undefined} raw_phone */
+  function format_phone_with_hyphens(raw_phone) {
+    if (!raw_phone) return ''
+    const local_digits = String(raw_phone).replace(/\D/g, '')
+    if (local_digits.length === 0) return ''
+    if (local_digits.startsWith('02')) {
+      if (local_digits.length === 9) return local_digits.replace(/(\d{2})(\d{3})(\d{4})/, '$1-$2-$3')
+      if (local_digits.length === 10) return local_digits.replace(/(\d{2})(\d{4})(\d{4})/, '$1-$2-$3')
+    }
+    if (local_digits.length === 10) return local_digits.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
+    if (local_digits.length === 11) return local_digits.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')
+    return raw_phone
+  }
+
   // 고객 정보 표시용 (없는 값은 '-' 처리)
-  const g_customer_phone = $derived($selected_customer_obj?.phone ?? '-')
+  const g_customer_phone = $derived(
+    format_phone_with_hyphens($selected_customer_obj?.phone) || '-',
+  )
   const g_customer_age_label = $derived.by(() => {
     if ($selected_customer_obj?.age) return String($selected_customer_obj.age)
     const local_birth_dt = String($selected_customer_obj?.birth_dt ?? '').trim()
