@@ -320,7 +320,7 @@
             console.warn('[real_fitting] visit prefetch failed', prefetch_err)
           }
         }
-        navigate(PATH.analysisResult)
+        navigate(PATH.analysisMemberSelect)
         return
       }
 
