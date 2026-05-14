@@ -18,11 +18,20 @@
   // result.svelte 가 첫 mount 에 즉시 화면을 채우도록 prefetch 한 visit_obj 를 잠시 보관할 sessionStorage 키.
   const PREFETCH_VISIT_KEY = 'retinal_prefetched_visit_obj'
   import { push_error_toast } from '@/lib/stores/toast'
+  import { start_oh_capture_gate } from '@/lib/measurements/oh_capture_gate.js'
+  import { save_real_wearing_oh } from '@/lib/utils/real_wearing_oh_storage.js'
 
   const ANALYSIS_TOAST_DURATION_MS = 5000
 
   /**
-   * @typedef {{ blob: Blob, object_url: string, captured_at: number }} CaptureSlot
+   * @typedef {{
+   *   blob: Blob,
+   *   object_url: string,
+   *   captured_at: number,
+   *   oh_left_mm?: number,
+   *   oh_right_mm?: number,
+   *   oh_source?: 'aruco' | 'pd_fallback',
+   * }} CaptureSlot
    * @typedef {{ id: number, slot_arr: (CaptureSlot | null)[], captured_at: number }} SavedSet
    */
 
@@ -60,6 +69,16 @@
   const g_current_pose = $derived(g_next_slot_idx < 3 ? POSE_BY_SLOT[g_next_slot_idx] : null)
   const g_is_set_complete = $derived(g_next_slot_idx >= 3)
 
+  // 정면 슬롯 OH 게이트 보관소 — on_pass 시점에 set, on_capture 가 슬롯에 첨부 후 reset.
+  /** @type {{ oh_left_mm: number, oh_right_mm: number, oh_source: 'aruco' | 'pd_fallback' } | null} */
+  let g_pending_oh = $state(null)
+
+  // 게이트 진행 상태 메시지 — 화면 상단에 표시.
+  let g_oh_gate_hint = $state(/** @type {string} */ (''))
+
+  // 정면 슬롯은 OH 게이트 통과 후 수동 trigger. 좌/우는 기존 자세 안정성 게이트로 auto 캡처.
+  const g_capture_mode = $derived(g_current_pose === 'front' ? 'manual' : 'auto')
+
   // 1장 이상 촬영했으면 세트 저장 가능 (arfitting 정책과 동일).
   let g_has_any_capture = $derived(g_capture_slot_arr.some((s) => s !== null))
   let g_is_set_limit_reached = $derived(g_saved_set_arr.length >= MAX_PHOTO_SET_COUNT)
@@ -92,6 +111,40 @@
     }
   })
 
+  /** @type {{ handle_landmarks: (d: any) => void, stop: () => void } | null} */
+  let g_oh_gate = null
+
+  // 정면 슬롯 진입 시 OH 게이트 활성, 빠질 때 정리. 슬롯 전환 시 마다 fresh gate.
+  $effect(() => {
+    const _pose = g_current_pose
+    if (_pose === 'front') {
+      g_pending_oh = null
+      g_oh_gate_hint = '정면을 바라봐 주세요'
+      g_oh_gate = start_oh_capture_gate({
+        on_pass: (result) => {
+          g_pending_oh = result
+          g_oh_gate_hint = '측정 완료'
+          if (ref_this_camera) {
+            void ref_this_camera.trigger_capture()
+          }
+        },
+        on_status: (status) => {
+          g_oh_gate_hint = status.hint
+        },
+      })
+    } else if (g_oh_gate) {
+      g_oh_gate.stop()
+      g_oh_gate = null
+      g_oh_gate_hint = ''
+    }
+    return () => {
+      if (g_oh_gate) {
+        g_oh_gate.stop()
+        g_oh_gate = null
+      }
+    }
+  })
+
   /**
    * CameraView 가 자동 캡처를 마치면 raw blob 을 좌우반전해서 슬롯에 저장.
    * unmirrored 분석은 CameraView 내부에서 끝났고, 슬롯/업로드용 사진은 사용자가 보던 미러 프리뷰
@@ -118,6 +171,12 @@
       blob: local_blob,
       object_url: local_url,
       captured_at: result.captured_at,
+    }
+    if (g_pending_oh) {
+      local_next_arr[local_idx].oh_left_mm = g_pending_oh.oh_left_mm
+      local_next_arr[local_idx].oh_right_mm = g_pending_oh.oh_right_mm
+      local_next_arr[local_idx].oh_source = g_pending_oh.oh_source
+      g_pending_oh = null
     }
     g_capture_slot_arr = local_next_arr
   }
@@ -162,6 +221,32 @@
     g_capture_slot_arr = [null, null, null]
     // CameraView 의 active prop 이 !g_is_set_complete 에 연결되어 있어 슬롯이 비워지면 자동 재시작.
     // (3장 완료 시점에 active=false 로 카메라가 정지된 상태였고, 슬롯 비움 → active=true → 새 세션)
+
+    // OH 미러 갱신 (visit_no 매치 시 result 페이지가 읽음)
+    void sync_oh_storage()
+  }
+
+  // 누적 SavedSet 의 정면 슬롯 OH 값을 storage 에 미러링.
+  async function sync_oh_storage() {
+    try {
+      const local_visit_no = get_visit_no()
+      if (!Number.isFinite(local_visit_no) || local_visit_no === null) return
+      const sets = g_saved_set_arr
+        .map((set) => {
+          const front_slot = set.slot_arr[0]
+          if (!front_slot || !Number.isFinite(front_slot.oh_left_mm)) return null
+          return {
+            set_id: set.id,
+            oh_left_mm: front_slot.oh_left_mm,
+            oh_right_mm: front_slot.oh_right_mm,
+            oh_source: front_slot.oh_source ?? 'pd_fallback',
+          }
+        })
+        .filter((s) => s !== null)
+      save_real_wearing_oh({ visit_id: local_visit_no, sets })
+    } catch (err) {
+      console.warn('[real_fitting] OH storage 미러링 실패:', err)
+    }
   }
 
   // 저장된 세트 개별 제거.
@@ -328,10 +413,17 @@
           bind:this={ref_this_camera}
           active={!g_is_submitting && !g_is_set_complete}
           pose_target={g_current_pose ?? 'front'}
-          capture_mode="auto"
+          capture_mode={g_capture_mode}
           oncapture={on_capture}
           oncapture_error={on_capture_error}
+          onlandmarks={g_oh_gate?.handle_landmarks ?? undefined}
         />
+
+        {#if g_current_pose === 'front' && g_oh_gate_hint && !g_pending_oh}
+          <div class="absolute top-4 left-1/2 -translate-x-1/2 z-10 rounded-full bg-black/70 text-white text-sm px-4 py-2">
+            {g_oh_gate_hint}
+          </div>
+        {/if}
 
         {#if g_is_set_complete}
           <!-- 3장 모두 채워지면 자동 모드 정지. 사용자가 [세트 저장] 또는 슬롯 X 로 분기. -->
