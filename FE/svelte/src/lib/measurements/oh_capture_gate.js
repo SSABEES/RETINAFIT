@@ -37,6 +37,8 @@ const LEFT_LOWER_LID_IDX = 374
 const THROTTLE_MS = 200
 
 /**
+ * 최근 RING_SIZE 프레임의 안정성·범위·confidence 를 검증해 통과 시 mean/std 반환.
+ *
  * @param {Frame[]} buffer
  * @returns {BufferStats | null}
  */
@@ -57,6 +59,8 @@ export function evaluate_ring_buffer(buffer) {
 }
 
 /**
+ * ArUco 없는 캡처에서 정면 동공거리(px) 와 ASSUMED_PD_MM 으로 mm/px 비율을 산출.
+ *
  * @param {{ x: number, y: number } | null} pupil_right
  * @param {{ x: number, y: number } | null} pupil_left
  * @returns {number | null}
@@ -98,6 +102,7 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
   let last_run_at = 0
   let stopped = false
   let pass_fired = false
+  let in_flight = false
   /** @type {Frame[]} */
   const buf_right_arr = []
   /** @type {Frame[]} */
@@ -108,6 +113,8 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
   })
 
   /**
+   * CameraView detection 마다 호출되는 게이트 진입점. throttle + in-flight 방어 + OH 산출 + ring buffer 판정 + on_pass/on_status 통보.
+   *
    * @param {LandmarkDetection} detection
    */
   async function handle_landmarks(detection) {
@@ -118,102 +125,108 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
     }
     const now = performance.now()
     if (now - last_run_at < THROTTLE_MS) return
+    if (in_flight) return
     last_run_at = now
-
-    const { landmarks, source_el, source_width, source_height } = detection
-    const pupil_right_norm = landmarks[RIGHT_PUPIL_IDX]
-    const pupil_left_norm = landmarks[LEFT_PUPIL_IDX]
-    const lower_right_norm = landmarks[RIGHT_LOWER_LID_IDX]
-    const lower_left_norm = landmarks[LEFT_LOWER_LID_IDX]
-    if (!pupil_right_norm || !pupil_left_norm || !lower_right_norm || !lower_left_norm) {
-      on_status({ phase: 'measuring', hint: '정면을 응시해 주세요' })
-      return
-    }
-
-    const pupil_right = {
-      x: pupil_right_norm.x * source_width,
-      y: pupil_right_norm.y * source_height,
-    }
-    const pupil_left = {
-      x: pupil_left_norm.x * source_width,
-      y: pupil_left_norm.y * source_height,
-    }
-    const lower_lid_y_right = lower_right_norm.y * source_height
-    const lower_lid_y_left = lower_left_norm.y * source_height
-
+    in_flight = true
     try {
-      /** @type {import('./aruco_detector.js').DetectedMarker | null} */
-      let marker = null
-      /** @type {import('./camera_intrinsics.js').CameraIntrinsics | null} */
-      let intrinsics = null
+      const { landmarks, source_el, source_width, source_height } = detection
+      const pupil_right_norm = landmarks[RIGHT_PUPIL_IDX]
+      const pupil_left_norm = landmarks[LEFT_PUPIL_IDX]
+      const lower_right_norm = landmarks[RIGHT_LOWER_LID_IDX]
+      const lower_left_norm = landmarks[LEFT_LOWER_LID_IDX]
+      if (!pupil_right_norm || !pupil_left_norm || !lower_right_norm || !lower_left_norm) {
+        on_status({ phase: 'measuring', hint: '정면을 응시해 주세요' })
+        return
+      }
+
+      const pupil_right = {
+        x: pupil_right_norm.x * source_width,
+        y: pupil_right_norm.y * source_height,
+      }
+      const pupil_left = {
+        x: pupil_left_norm.x * source_width,
+        y: pupil_left_norm.y * source_height,
+      }
+      const lower_lid_y_right = lower_right_norm.y * source_height
+      const lower_lid_y_left = lower_left_norm.y * source_height
+
       try {
-        const base = await load_intrinsics_for_size(source_width, source_height)
-        intrinsics = scale_intrinsics_to_image(base, source_width, source_height)
-        const image_data = await extract_image_data(source_el, source_width, source_height)
-        if (image_data) {
-          const markers_arr = detect_markers(image_data, intrinsics, MARKER_SIZE_MM)
-          marker = markers_arr[0] ?? null
+        /** @type {import('./aruco_detector.js').DetectedMarker | null} */
+        let marker = null
+        /** @type {import('./camera_intrinsics.js').CameraIntrinsics | null} */
+        let intrinsics = null
+        try {
+          const base = await load_intrinsics_for_size(source_width, source_height)
+          intrinsics = scale_intrinsics_to_image(base, source_width, source_height)
+          const image_data = await extract_image_data(source_el, source_width, source_height)
+          if (image_data) {
+            const markers_arr = detect_markers(image_data, intrinsics, MARKER_SIZE_MM)
+            marker = markers_arr[0] ?? null
+          }
+        } catch (err) {
+          // ArUco/intrinsics 실패 → PD fallback 으로 진행
+          // 개발 시 디버그 필요하면 console.debug('[oh_gate] aruco skip:', err)
         }
-      } catch {
-        // ArUco/intrinsics 실패 → PD fallback 으로 진행
-      }
 
-      const oh_result = await estimate_oh({
-        pupil_right,
-        pupil_left,
-        lower_lid_y_right,
-        lower_lid_y_left,
-        source_el,
-        source_width,
-        source_height,
-      })
-
-      const oh_source = marker && intrinsics ? 'aruco' : 'pd_fallback'
-      const oh_right_mm = compute_oh_mm({
-        oh_px: oh_result.oh_px_right,
-        pupil_px: pupil_right,
-        frame_bottom_y: oh_result.frame_bottom_y_right,
-        marker,
-        intrinsics,
-        pupil_right_px: pupil_right,
-        pupil_left_px: pupil_left,
-      })
-      const oh_left_mm = compute_oh_mm({
-        oh_px: oh_result.oh_px_left,
-        pupil_px: pupil_left,
-        frame_bottom_y: oh_result.frame_bottom_y_left,
-        marker,
-        intrinsics,
-        pupil_right_px: pupil_right,
-        pupil_left_px: pupil_left,
-      })
-
-      if (oh_right_mm === null || oh_left_mm === null) {
-        on_status({ phase: 'measuring', hint: '안경을 잘 착용해주세요' })
-        return
-      }
-
-      buf_right_arr.push({ oh: oh_right_mm, confidence: oh_result.confidence_right })
-      buf_left_arr.push({ oh: oh_left_mm, confidence: oh_result.confidence_left })
-      if (buf_right_arr.length > RING_SIZE) buf_right_arr.shift()
-      if (buf_left_arr.length > RING_SIZE) buf_left_arr.shift()
-
-      const stats_right = evaluate_ring_buffer(buf_right_arr)
-      const stats_left = evaluate_ring_buffer(buf_left_arr)
-      if (stats_right && stats_left) {
-        pass_fired = true
-        on_status({ phase: 'measured', hint: '측정 완료' })
-        on_pass({
-          oh_left_mm: stats_left.mean,
-          oh_right_mm: stats_right.mean,
-          oh_source,
+        const oh_result = await estimate_oh({
+          pupil_right,
+          pupil_left,
+          lower_lid_y_right,
+          lower_lid_y_left,
+          source_el,
+          source_width,
+          source_height,
         })
-        return
+
+        const oh_source = marker && intrinsics ? 'aruco' : 'pd_fallback'
+        const oh_right_mm = compute_oh_mm({
+          oh_px: oh_result.oh_px_right,
+          pupil_px: pupil_right,
+          frame_bottom_y: oh_result.frame_bottom_y_right,
+          marker,
+          intrinsics,
+          pupil_right_px: pupil_right,
+          pupil_left_px: pupil_left,
+        })
+        const oh_left_mm = compute_oh_mm({
+          oh_px: oh_result.oh_px_left,
+          pupil_px: pupil_left,
+          frame_bottom_y: oh_result.frame_bottom_y_left,
+          marker,
+          intrinsics,
+          pupil_right_px: pupil_right,
+          pupil_left_px: pupil_left,
+        })
+
+        if (oh_right_mm === null || oh_left_mm === null) {
+          on_status({ phase: 'measuring', hint: '안경을 잘 착용해주세요' })
+          return
+        }
+
+        buf_right_arr.push({ oh: oh_right_mm, confidence: oh_result.confidence_right })
+        buf_left_arr.push({ oh: oh_left_mm, confidence: oh_result.confidence_left })
+        if (buf_right_arr.length > RING_SIZE) buf_right_arr.shift()
+        if (buf_left_arr.length > RING_SIZE) buf_left_arr.shift()
+
+        const stats_right = evaluate_ring_buffer(buf_right_arr)
+        const stats_left = evaluate_ring_buffer(buf_left_arr)
+        if (stats_right && stats_left) {
+          pass_fired = true
+          on_status({ phase: 'measured', hint: '측정 완료' })
+          on_pass({
+            oh_left_mm: stats_left.mean,
+            oh_right_mm: stats_right.mean,
+            oh_source,
+          })
+          return
+        }
+        on_status({ phase: 'measuring', hint: '잠시 멈춰주세요' })
+      } catch (err) {
+        console.warn('[oh_gate] frame skipped:', err)
+        on_status({ phase: 'measuring', hint: '정면을 응시해 주세요' })
       }
-      on_status({ phase: 'measuring', hint: '잠시 멈춰주세요' })
-    } catch (err) {
-      console.warn('[oh_gate] frame skipped:', err)
-      on_status({ phase: 'measuring', hint: '정면을 응시해 주세요' })
+    } finally {
+      in_flight = false
     }
   }
 
@@ -226,6 +239,8 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
 }
 
 /**
+ * 한쪽 OH(mm) 산출. ArUco 있으면 plane-direct mm_distance, 없으면 oh_px × mm_per_px_fallback.
+ *
  * @param {object} args
  * @param {number | null} args.oh_px
  * @param {{ x: number, y: number }} args.pupil_px
@@ -262,6 +277,8 @@ function compute_oh_mm({
 }
 
 /**
+ * source_el 을 canvas 에 그려 ImageData 로 추출 (ArUco 검출 입력용).
+ *
  * @param {HTMLVideoElement | HTMLCanvasElement | ImageBitmap} source_el
  * @param {number} width
  * @param {number} height

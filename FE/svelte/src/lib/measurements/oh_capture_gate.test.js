@@ -3,7 +3,10 @@ import { evaluate_ring_buffer } from './oh_capture_gate.js'
 
 describe('evaluate_ring_buffer', () => {
   it('returns null when buffer has fewer than 3 frames', () => {
-    expect(evaluate_ring_buffer([{ oh: 18 }, { oh: 18.1 }])).toBe(null)
+    expect(evaluate_ring_buffer([
+      { oh: 18, confidence: 0.5 },
+      { oh: 18.1, confidence: 0.5 },
+    ])).toBe(null)
   })
   it('passes with stable 3 frames within range and confidence', () => {
     const result = evaluate_ring_buffer([
