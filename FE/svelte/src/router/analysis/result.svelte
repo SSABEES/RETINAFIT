@@ -31,6 +31,7 @@
   // 이전 화면(real_fitting/arfitting) 의 CameraView 가 재생을 시작한 음성이
   // voice_guide 싱글톤을 통해 result 까지 끌려올 수 있다. 진입 즉시 강제 정지로 차단.
   import { silence as silence_voice } from '@/lib/audio/voice_guide.js'
+  import { read_real_wearing_oh } from '@/lib/utils/real_wearing_oh_storage.js'
   const FACE_SHAPE_LABEL_OBJ = {
     oval: '계란형',
     round: '둥근형',
@@ -240,6 +241,10 @@
   let g_real_vp_value_obj = $state(
     /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, string>>>} */ ({}),
   )
+  // 각 (set, view, item_id) 값의 출처 — 'auto' = real_fitting 게이트 자동 측정 / 'manual' = 사용자 zoom_modal 수동 측정(또는 이전 visit 의 BE 저장값).
+  let g_real_vp_source_obj = $state(
+    /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, 'auto' | 'manual'>>>} */ ({}),
+  )
   // BE 응답에서 한 번만 시드.
   let g_real_vp_measurement_seeded = $state(false)
   // 현재 저장 중인 set_index — null 이면 idle. 동시에 한 set 만 저장 (다른 버튼은 모두 비활성).
@@ -251,20 +256,44 @@
     if (g_real_vp_set_arr.length === 0) return
     /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, string>>>} */
     const local_seed_obj = {}
+    /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, 'auto' | 'manual'>>>} */
+    const local_source_seed_obj = {}
     for (let local_idx = 0; local_idx < g_real_vp_set_arr.length; local_idx++) {
       const local_m_by_view_obj = g_real_vp_set_arr[local_idx]?.measurement_obj_by_view ?? {}
       /** @type {Record<'front' | 'left' | 'right', Record<string, string>>} */
       const local_view_obj = { front: {}, left: {}, right: {} }
+      /** @type {Record<'front' | 'left' | 'right', Record<string, 'auto' | 'manual'>>} */
+      const local_view_source_obj = { front: {}, left: {}, right: {} }
       for (const local_view of REAL_VP_VIEW_ARR) {
         for (const local_item_def of REAL_VP_ITEMS_BY_VIEW[local_view]) {
           const local_v = local_m_by_view_obj?.[local_view]?.[local_item_def.save_key]
           local_view_obj[local_view][local_item_def.item_id] = local_v != null ? String(local_v) : ''
+          // BE 에 저장된 값은 이전 세션에서 사용자가 수동 측정한 결과로 간주.
+          if (local_v != null) {
+            local_view_source_obj[local_view][local_item_def.item_id] = 'manual'
+          }
         }
       }
       local_seed_obj[local_idx] = local_view_obj
+      local_source_seed_obj[local_idx] = local_view_source_obj
     }
     g_real_vp_value_obj = local_seed_obj
+    g_real_vp_source_obj = local_source_seed_obj
     g_real_vp_measurement_seeded = true
+  })
+
+  // 미러 OH 가 한 visit 당 1번만 시도되도록 가드 (set_selected_visit 재발동 시 idempotent 보장).
+  let g_oh_prefill_done = $state(false)
+
+  // BE 시딩이 완료된 직후 sessionStorage 의 OH 미러를 읽어 빈 항목만 pre-fill.
+  // g_oh_prefill_done 으로 1회 가드.
+  $effect(() => {
+    if (!g_real_vp_measurement_seeded) return
+    if (g_oh_prefill_done) return
+    const local_visit_no = Number($selected_visit_obj?.visit_no)
+    if (!Number.isFinite(local_visit_no) || local_visit_no <= 0) return
+    pre_fill_oh_from_real_wearing(local_visit_no)
+    g_oh_prefill_done = true
   })
 
   /**
@@ -282,6 +311,80 @@
       [set_index]: {
         ...local_prev_set,
         [view]: { ...local_prev_view, [item_id]: value },
+      },
+    }
+    // 사용자 zoom_modal 측정 — 'manual' 로 마킹 (기존 'auto' 도 덮어쓴다 = 사용자 수동 보정 우선).
+    mark_real_vp_source(set_index, view, item_id, 'manual')
+  }
+
+  // real_fitting 에서 미러링한 정면 슬롯 OH 값을 실착용 세트에 자동 pre-fill.
+  // 이미 사용자가 수동으로 set 한 값이 있으면 덮어쓰지 않는다 (수동 보정 우선).
+  // storage sets 는 newest-first (real_fitting 의 g_saved_set_arr 순서) 이고
+  // BE real_vp_set_arr 는 oldest-first (set_no 1, 2, 3) 이므로 역순으로 매칭한다.
+  function pre_fill_oh_from_real_wearing(visit_no) {
+    const mirror = read_real_wearing_oh(visit_no)
+    if (!mirror || !Array.isArray(mirror.sets) || mirror.sets.length === 0) return
+    // storage 는 newest-first → chronological 순으로 뒤집어 BE 인덱스와 대응시킴.
+    const local_chron_arr = [...mirror.sets].reverse()
+    for (let local_idx = 0; local_idx < local_chron_arr.length; local_idx++) {
+      const local_entry = local_chron_arr[local_idx]
+      // malformed storage entry 방어 (read_real_wearing_oh 가 per-entry 검증 안 함)
+      if (!local_entry) continue
+      apply_oh_prefill_to_set(local_idx, local_entry.oh_left_mm, local_entry.oh_right_mm)
+    }
+  }
+
+  // 한 실착용 세트의 정면 view 의 oh_left/oh_right 항목을 mirror 값으로 채움. 이미 값 있으면 skip.
+  /**
+   * @param {number} set_index
+   * @param {number} oh_left_mm
+   * @param {number} oh_right_mm
+   */
+  function apply_oh_prefill_to_set(set_index, oh_left_mm, oh_right_mm) {
+    if (!Number.isFinite(oh_left_mm) || !Number.isFinite(oh_right_mm)) return
+    const local_set_val = g_real_vp_value_obj[set_index] ?? { front: {}, left: {}, right: {} }
+    const local_front_val = local_set_val.front ?? {}
+    // oh_left
+    if (!local_front_val.oh_left) {
+      g_real_vp_value_obj = {
+        ...g_real_vp_value_obj,
+        [set_index]: {
+          ...local_set_val,
+          front: { ...local_front_val, oh_left: oh_left_mm.toFixed(1) },
+        },
+      }
+      mark_real_vp_source(set_index, 'front', 'oh_left', 'auto')
+    }
+    // g_real_vp_value_obj 가 방금 갱신됐을 수 있으므로 최신 참조로 다시 읽기.
+    const local_set_val2 = g_real_vp_value_obj[set_index] ?? { front: {}, left: {}, right: {} }
+    const local_front_val2 = local_set_val2.front ?? {}
+    if (!local_front_val2.oh_right) {
+      g_real_vp_value_obj = {
+        ...g_real_vp_value_obj,
+        [set_index]: {
+          ...local_set_val2,
+          front: { ...local_front_val2, oh_right: oh_right_mm.toFixed(1) },
+        },
+      }
+      mark_real_vp_source(set_index, 'front', 'oh_right', 'auto')
+    }
+  }
+
+  // (set, view, item_id) 의 측정값 출처를 갱신. apply_oh_prefill_to_set 와 set_real_vp_value 가 사용.
+  /**
+   * @param {number} set_index
+   * @param {'front' | 'left' | 'right'} view
+   * @param {string} item_id
+   * @param {'auto' | 'manual'} source
+   */
+  function mark_real_vp_source(set_index, view, item_id, source) {
+    const local_prev_set = g_real_vp_source_obj[set_index] ?? { front: {}, left: {}, right: {} }
+    const local_prev_view = local_prev_set[view] ?? {}
+    g_real_vp_source_obj = {
+      ...g_real_vp_source_obj,
+      [set_index]: {
+        ...local_prev_set,
+        [view]: { ...local_prev_view, [item_id]: source },
       },
     }
   }
@@ -1579,6 +1682,11 @@
                               item_def_obj.item_id
                             ] ?? ''}
                           {@const local_has_value = local_value_str !== ''}
+                          {@const local_source =
+                            g_real_vp_source_obj[set_index]?.[local_current_view]?.[
+                              item_def_obj.item_id
+                            ] ?? null}
+                          {@const local_is_auto = local_source === 'auto'}
                           {@const local_unit_label =
                             item_def_obj.kind === 'angle' ? '°' : ' mm'}
                           {@const local_is_active_row =
@@ -1627,11 +1735,17 @@
                               >
                                 {local_has_value ? `${local_value_str}${local_unit_label}` : '—'}
                               </span>
-                              <span
-                                class="flex-none rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-800"
-                              >
-                                수동
-                              </span>
+                              {#if local_has_value}
+                                <span
+                                  class="flex-none rounded-md px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider"
+                                  class:bg-emerald-100={local_is_auto}
+                                  class:text-emerald-800={local_is_auto}
+                                  class:bg-amber-100={!local_is_auto}
+                                  class:text-amber-800={!local_is_auto}
+                                >
+                                  {local_is_auto ? '자동' : '수동'}
+                                </span>
+                              {/if}
                             </div>
                           </li>
                         {/each}
