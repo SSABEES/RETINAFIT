@@ -15,7 +15,7 @@
   onMount(() => {
     if (typeof sessionStorage === 'undefined') return
     if (sessionStorage.getItem('admin_token')) {
-      navigate(PATH.adminLens)
+      navigate(PATH.adminHealth)
     }
   })
 
@@ -53,7 +53,7 @@
 
     try {
       await admin_login({ id: local_id, password: local_password })
-      navigate(PATH.adminLens)
+      navigate(PATH.adminHealth)
     } catch (local_error) {
       push_error_toast(
         local_error instanceof Error
@@ -67,7 +67,7 @@
 </script>
 
 <main class="app-frame-page min-h-screen bg-[var(--retina-page)] text-[var(--retina-text)]">
-  <section class="grid min-h-screen place-items-center px-4 py-8 sm:px-8 sm:py-10">
+  <section class="grid min-h-full place-items-center px-4 py-8 sm:px-8 sm:py-10">
     <section
       class="w-full max-w-[460px] rounded-[20px] border border-[var(--retina-text-200)] bg-white p-6 shadow-[0_4px_10px_rgba(19,25,40,0.04)] sm:p-8"
     >

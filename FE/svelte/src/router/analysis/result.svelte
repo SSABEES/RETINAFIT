@@ -1173,6 +1173,45 @@
                       </div>
                     {/each}
                   </div>
+
+                  <!--
+                    OH 측정 패널 — 측정 상세 탭의 MeasurementList 와 동일한 스타일.
+                    자동 측정 로직은 추후 연결 예정. 현재는 표시용 placeholder 만 노출.
+                  -->
+                  <section
+                    class="mt-3 rounded-[10px] border border-slate-200 bg-white px-4 py-3"
+                    aria-label="OH 측정"
+                  >
+                    <div class="flex items-baseline justify-between">
+                      <h3 class="m-0 text-[13px] font-extrabold text-slate-800">OH 측정</h3>
+                      <span class="text-xs font-semibold text-slate-500">
+                        세트 {set_obj.set_no ?? set_index + 1}
+                      </span>
+                    </div>
+                    <ul class="m-0 mt-2 flex list-none flex-col gap-1 p-0">
+                      {#each [{ key: 'oh_left', label: 'OH (좌)' }, { key: 'oh_right', label: 'OH (우)' }] as oh_item_obj (oh_item_obj.key)}
+                        <li>
+                          <div class="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5">
+                            <span
+                              class="grid h-4 w-4 flex-none place-items-center rounded-full border border-slate-400"
+                              aria-hidden="true"
+                            ></span>
+                            <span class="flex-1 truncate text-sm font-semibold text-slate-700">
+                              {oh_item_obj.label}
+                            </span>
+                            <span class="flex-none text-sm font-bold tabular-nums text-slate-400">
+                              —
+                            </span>
+                            <span
+                              class="flex-none rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-500"
+                            >
+                              측정 예정
+                            </span>
+                          </div>
+                        </li>
+                      {/each}
+                    </ul>
+                  </section>
                 </article>
               {/each}
             </div>
