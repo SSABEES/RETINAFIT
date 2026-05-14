@@ -60,6 +60,7 @@ import com.example.virtualfitting.arcore.contract.VirtualFittingRequest
 import com.example.virtualfitting.arcore.fitting.FaceCalibration
 import com.example.virtualfitting.arcore.fitting.PositionSmoother
 import com.example.virtualfitting.arcore.fitting.RotationSmoother
+import com.example.virtualfitting.arcore.fitting.computeNoseBridgeFaceLocal
 import com.example.virtualfitting.arcore.fitting.computeNoseBridgeFaceLocalY
 import com.example.virtualfitting.arcore.fitting.computeNoseBridgeWorld
 import com.example.virtualfitting.arcore.fitting.computeNoseBridgeWorldY
@@ -167,6 +168,18 @@ private const val CALIBRATION_PROGRESS_DURATION_MS: Long = 2500L
  * 평균에 묻혀 더 정확한 기준점이 잡힘.
  */
 private const val USER_CONFIRM_BUFFER_MS: Long = 500L
+
+// [HEAD_OCCLUDER 시도 이력 — 2026-05-14 폐기]
+// Augmented Faces 의 canonical mesh 는 얼굴 앞면만 덮어서 귀/관자놀이/머리 옆 영역에
+// temple 끝부분이 그대로 보임. 이를 ellipsoid occluder 로 가리려고 시도했으나:
+//   1. SphereNode/MeshNode 를 scene root 에 두면 face_mesh_occluder material 의 depth 가
+//      camera stream 보다 close 이라 camera stream depth test fail → face 영역 black.
+//   2. AugmentedFaceNode 의 centerNode/content lambda 로 trackable subtree 에 attach 하려
+//      해도 manual setParent 는 Composable 관리 충돌로 렌더 안 됨, content lambda nesting 은
+//      NodeScope.attach 호출 안 됨 (parent=null 유지).
+//   3. AugmentedFaceNode 의 meshNode 만 특수 path 로 attach — 외부 API 로 접근 불가.
+// 결론: sceneview 4.0.8 외부 API 만으로는 occluder 추가 불가. 향후 sceneview fork 또는
+// 자체 filamat 컴파일 시 재시도 가능.
 
 /**
  * 전면 카메라 + Augmented Faces + GLB 안경 렌더링의 핵심 Composable.
@@ -308,6 +321,13 @@ fun FaceFittingScreen(
     // 안경보다 먼저 렌더되도록 하기 위해 필요하다.
     var faceNodeImpl by remember { mutableStateOf<AugmentedFaceNodeImpl?>(null) }
     var occluderPrioritized by remember { mutableStateOf(false) }
+    // 한 번 detect 된 face 를 latch. detectedFaces.firstOrNull() 을 Composable 의 key 로 쓰면
+    // tracking flicker (TRACKING ↔ empty) 발생 시 AugmentedFaceNode 가 매번 재생성되며
+    // Filament entity 가 6씩 leak 됨 (2026-05-14 logcat 에서 700ms 에 +18 entity 관찰).
+    // 한 번 잡힌 face 레퍼런스를 유지하면 wrapper 의 onUpdated 가 매 프레임 같은 객체에
+    // 새 데이터를 채워주므로 안전. ARCore Augmented Face trackable 은 동일 face 에 대해
+    // 같은 객체를 재사용한다.
+    var latchedFace by remember { mutableStateOf<AugmentedFace?>(null) }
     var detectedFaces by remember { mutableStateOf<List<AugmentedFace>>(emptyList()) }
     var statusMessage by remember { mutableStateOf("Initializing ARCore...") }
     var trackingReported by remember { mutableStateOf(false) }
@@ -332,6 +352,8 @@ fun FaceFittingScreen(
                 config.lightEstimationMode = Config.LightEstimationMode.DISABLED
             },
             onSessionCreated = {
+                // [depth-probe] (2026-05-14 확인 완료) front camera + Augmented Faces 세션에선
+                // AUTOMATIC=false, RAW_DEPTH_ONLY=false. ARCore Depth API 사용 불가.
                 if (!startedReported) {
                     startedReported = true
                     emit(VirtualFittingEvent.Started(requestId))
@@ -357,6 +379,12 @@ fun FaceFittingScreen(
                 val tracking = session.getAllTrackables(AugmentedFace::class.java)
                     .filter { it.trackingState == TrackingState.TRACKING }
                 if (tracking != detectedFaces) detectedFaces = tracking
+
+                // 처음 잡힌 face 를 latch — 이후 tracking flicker 가 발생해도 같은 face 객체로
+                // Composable 이 유지돼 AugmentedFaceNode 재생성/entity leak 방지.
+                if (latchedFace == null) {
+                    tracking.firstOrNull()?.let { latchedFace = it }
+                }
 
                 // Face mesh 는 첫 TRACKING 프레임에만 생성된다. 생성된 시점에 priority(0) 으로
                 // 세팅해서 다른 opaque (안경 default=4) 보다 먼저 렌더되도록 강제한다. 이게
@@ -412,6 +440,25 @@ fun FaceFittingScreen(
                             baseScale?.let { base ->
                                 node.scale = base * (calibrated.scaleToUnits / preset.scaleToUnits)
                             }
+                            // [NOSE_BRIDGE_FIT] REFERENCE 측정용. lock 시점 한 번. 본인 얼굴
+                            // calibration 후 이 줄의 Y/Z 를 FittingPose.REFERENCE_NOSE_BRIDGE_* 로 옮김.
+                            Log.d(
+                                TAG,
+                                "[fit-ref] locked bridgeFaceLocal X=%.5f Y=%.5f Z=%.5f | noseTipY=%.5f faceWidth=%.5f"
+                                    .format(
+                                        locked.noseBridgeFaceLocalX,
+                                        locked.noseBridgeFaceLocalY,
+                                        locked.noseBridgeFaceLocalZ,
+                                        locked.noseTipY,
+                                        locked.faceWidth,
+                                    ),
+                            )
+                            // [TEMPLE_DEBUG] GLB 의 temple_left/right entity 매칭 여부 확인용.
+                            // hasTemples=false 면 entity 이름 매칭 실패 (GLB 의 노드 이름이 다름).
+                            Log.d(
+                                TAG,
+                                "[temple-debug] hasTemples=${templeEntities.hasTemples} left=${templeEntities.left} right=${templeEntities.right}",
+                            )
                             appliedPostLock = true
                         }
                         translation(preset.withCalibration(locked).localPosition) *
@@ -423,15 +470,15 @@ fun FaceFittingScreen(
                     val composed = face.centerPose.transform * activeOffset
                     val rawPos = composed.position
 
-                    // [NOSE_BRIDGE_ANCHOR] 검증용 logcat 출력. 콧대 face-local Y 가 매 프레임
+                    // [NOSE_BRIDGE_ANCHOR] 검증용 logcat 출력. 콧대 face-local Y/Z 가 매 프레임
                     // 거의 일정해야 표정 무관 가정이 성립.
                     if (NOSE_BRIDGE_DEBUG_LOG && isCalibrated) {
-                        val bridgeLocalY = computeNoseBridgeFaceLocalY(face)
+                        val bridgeLocal = computeNoseBridgeFaceLocal(face)
                         val bridgeWorldY = computeNoseBridgeWorldY(face)
                         Log.d(
                             TAG,
-                            "noseBridge localY=%.5f worldY=%.5f | centerPose worldY=%.5f"
-                                .format(bridgeLocalY, bridgeWorldY, face.centerPose.ty()),
+                            "noseBridge localY=%.5f localZ=%.5f worldY=%.5f | centerPose worldY=%.5f"
+                                .format(bridgeLocal[1], bridgeLocal[2], bridgeWorldY, face.centerPose.ty()),
                         )
                     }
 
@@ -565,6 +612,28 @@ fun FaceFittingScreen(
                     }
                 )
             }
+
+            // [FACE_OCCLUDER] SceneView 4.0.8 재시도.
+            // ARSceneScope.AugmentedFaceNode Composable wrapper 사용 (raw 생성자는 scene
+            // attach 안 되고 update 도 안 돼서 meshNode 가 생성되지 않음). wrapper 가 내부적으로
+            // sceneNodeManager.addNode + per-frame update(session, frame) 호출하므로 meshNode
+            // 가 lazy 생성된다. priority(0) 은 onSessionUpdated 에서 meshNode != null 일 때 적용.
+            // dispose race 는 4.0.2 의 fix 로 SIGABRT 까진 안 가야 함 (4.0.1 한계 해제).
+            //
+            // detectedFaces.firstOrNull() 직접 쓰지 않고 latchedFace 사용 — flicker 시 wrapper
+            // 가 재생성되며 Filament entity 가 6씩 leak 되는 문제 회피.
+            latchedFace?.let { face ->
+                AugmentedFaceNode(
+                    augmentedFace = face,
+                    meshMaterialInstance = faceOccluderInstance,
+                    apply = {
+                        // `this` 는 생성된 AugmentedFaceNode 인스턴스 (extension lambda receiver).
+                        faceNodeImpl = this
+                        occluderPrioritized = false
+                        Log.d(TAG, "[face-occluder] AugmentedFaceNode created")
+                    },
+                )
+            }
         }
 
         CaptureControls(
@@ -592,6 +661,7 @@ fun FaceFittingScreen(
                 onConfirm = { userConfirmedAtMs = System.currentTimeMillis() },
             )
         }
+
     }
 }
 
