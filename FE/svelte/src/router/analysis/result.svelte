@@ -241,6 +241,10 @@
   let g_real_vp_value_obj = $state(
     /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, string>>>} */ ({}),
   )
+  // 각 (set, view, item_id) 값의 출처 — 'auto' = real_fitting 게이트 자동 측정 / 'manual' = 사용자 zoom_modal 수동 측정(또는 이전 visit 의 BE 저장값).
+  let g_real_vp_source_obj = $state(
+    /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, 'auto' | 'manual'>>>} */ ({}),
+  )
   // BE 응답에서 한 번만 시드.
   let g_real_vp_measurement_seeded = $state(false)
   // 현재 저장 중인 set_index — null 이면 idle. 동시에 한 set 만 저장 (다른 버튼은 모두 비활성).
@@ -252,19 +256,29 @@
     if (g_real_vp_set_arr.length === 0) return
     /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, string>>>} */
     const local_seed_obj = {}
+    /** @type {Record<number, Record<'front' | 'left' | 'right', Record<string, 'auto' | 'manual'>>>} */
+    const local_source_seed_obj = {}
     for (let local_idx = 0; local_idx < g_real_vp_set_arr.length; local_idx++) {
       const local_m_by_view_obj = g_real_vp_set_arr[local_idx]?.measurement_obj_by_view ?? {}
       /** @type {Record<'front' | 'left' | 'right', Record<string, string>>} */
       const local_view_obj = { front: {}, left: {}, right: {} }
+      /** @type {Record<'front' | 'left' | 'right', Record<string, 'auto' | 'manual'>>} */
+      const local_view_source_obj = { front: {}, left: {}, right: {} }
       for (const local_view of REAL_VP_VIEW_ARR) {
         for (const local_item_def of REAL_VP_ITEMS_BY_VIEW[local_view]) {
           const local_v = local_m_by_view_obj?.[local_view]?.[local_item_def.save_key]
           local_view_obj[local_view][local_item_def.item_id] = local_v != null ? String(local_v) : ''
+          // BE 에 저장된 값은 이전 세션에서 사용자가 수동 측정한 결과로 간주.
+          if (local_v != null) {
+            local_view_source_obj[local_view][local_item_def.item_id] = 'manual'
+          }
         }
       }
       local_seed_obj[local_idx] = local_view_obj
+      local_source_seed_obj[local_idx] = local_view_source_obj
     }
     g_real_vp_value_obj = local_seed_obj
+    g_real_vp_source_obj = local_source_seed_obj
     g_real_vp_measurement_seeded = true
   })
 
@@ -299,6 +313,8 @@
         [view]: { ...local_prev_view, [item_id]: value },
       },
     }
+    // 사용자 zoom_modal 측정 — 'manual' 로 마킹 (기존 'auto' 도 덮어쓴다 = 사용자 수동 보정 우선).
+    mark_real_vp_source(set_index, view, item_id, 'manual')
   }
 
   // real_fitting 에서 미러링한 정면 슬롯 OH 값을 실착용 세트에 자동 pre-fill.
@@ -337,6 +353,7 @@
           front: { ...local_front_val, oh_left: oh_left_mm.toFixed(1) },
         },
       }
+      mark_real_vp_source(set_index, 'front', 'oh_left', 'auto')
     }
     // g_real_vp_value_obj 가 방금 갱신됐을 수 있으므로 최신 참조로 다시 읽기.
     const local_set_val2 = g_real_vp_value_obj[set_index] ?? { front: {}, left: {}, right: {} }
@@ -349,6 +366,26 @@
           front: { ...local_front_val2, oh_right: oh_right_mm.toFixed(1) },
         },
       }
+      mark_real_vp_source(set_index, 'front', 'oh_right', 'auto')
+    }
+  }
+
+  // (set, view, item_id) 의 측정값 출처를 갱신. apply_oh_prefill_to_set 와 set_real_vp_value 가 사용.
+  /**
+   * @param {number} set_index
+   * @param {'front' | 'left' | 'right'} view
+   * @param {string} item_id
+   * @param {'auto' | 'manual'} source
+   */
+  function mark_real_vp_source(set_index, view, item_id, source) {
+    const local_prev_set = g_real_vp_source_obj[set_index] ?? { front: {}, left: {}, right: {} }
+    const local_prev_view = local_prev_set[view] ?? {}
+    g_real_vp_source_obj = {
+      ...g_real_vp_source_obj,
+      [set_index]: {
+        ...local_prev_set,
+        [view]: { ...local_prev_view, [item_id]: source },
+      },
     }
   }
 
@@ -1645,6 +1682,11 @@
                               item_def_obj.item_id
                             ] ?? ''}
                           {@const local_has_value = local_value_str !== ''}
+                          {@const local_source =
+                            g_real_vp_source_obj[set_index]?.[local_current_view]?.[
+                              item_def_obj.item_id
+                            ] ?? null}
+                          {@const local_is_auto = local_source === 'auto'}
                           {@const local_unit_label =
                             item_def_obj.kind === 'angle' ? '°' : ' mm'}
                           {@const local_is_active_row =
@@ -1693,11 +1735,17 @@
                               >
                                 {local_has_value ? `${local_value_str}${local_unit_label}` : '—'}
                               </span>
-                              <span
-                                class="flex-none rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-800"
-                              >
-                                수동
-                              </span>
+                              {#if local_has_value}
+                                <span
+                                  class="flex-none rounded-md px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider"
+                                  class:bg-emerald-100={local_is_auto}
+                                  class:text-emerald-800={local_is_auto}
+                                  class:bg-amber-100={!local_is_auto}
+                                  class:text-amber-800={!local_is_auto}
+                                >
+                                  {local_is_auto ? '자동' : '수동'}
+                                </span>
+                              {/if}
                             </div>
                           </li>
                         {/each}
