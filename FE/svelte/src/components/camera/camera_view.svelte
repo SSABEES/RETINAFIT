@@ -51,11 +51,10 @@
 
   /**
    * @typedef {object} LandmarkDetectionResult
-   * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[]} landmarks
-   *   detect loop 가 잡은 정면 landmarks (crop 좌표계로 remap 됨)
-   * @property {HTMLVideoElement} source_el
-   * @property {number} source_width
-   * @property {number} source_height
+   * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[]} landmarks  detect loop 가 잡은 정면 landmarks (crop 좌표계로 remap 됨)
+   * @property {HTMLVideoElement} source_el  비디오 element ref (live frame 캡처용)
+   * @property {number} source_width  source_el.videoWidth (캡처 시점의 native 픽셀)
+   * @property {number} source_height  source_el.videoHeight
    */
 
   /** @type {{
@@ -599,7 +598,7 @@
           if (m) g_measurements_obj = m
           // 외부 컨슈머 (real_fitting 의 OH 게이트 등) 에 정면 landmarks + video source 노출.
           // 측면 detection 분기 (landmarks 없음) 에서는 호출 안 함.
-          if (onlandmarks && ref_this_video_el) {
+          if (onlandmarks) {
             onlandmarks({
               landmarks: local_remapped_arr,
               source_el: ref_this_video_el,
