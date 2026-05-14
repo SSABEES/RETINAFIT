@@ -176,9 +176,11 @@
       : []
     return local_be_arr.length > 0 ? local_be_arr.slice(0, 6) : []
   })
+  // priority 1~2 모두 추출 — 일부 얼굴형(예: oblong)은 priority 1 항목이 없어 1 만 보면 빈 화면이 되므로 2까지 포함.
   const g_priority_one_frame_arr = $derived(
     g_recommended_frame_arr.filter(
-      (/** @type {{ priority?: number, name?: string }} */ local_obj) => local_obj.priority === 1,
+      (/** @type {{ priority?: number, name?: string }} */ local_obj) =>
+        (local_obj.priority ?? 99) <= 2,
     ),
   )
 
