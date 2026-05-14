@@ -8,27 +8,45 @@
  * @property {number[]} distCoeffs             [k1, k2, p1, p2, k3, ...]
  */
 
-/** @type {CameraIntrinsics | null} */
-let g_cached = null
+/** @type {Map<string, CameraIntrinsics>} */
+const g_intrinsics_cache_obj = new Map()
 
 // 기본 캘리브레이션 자산 경로. capture_utils.video_to_blob 가 모든 캡처를 480x640 으로 정규화하므로
 // placeholder 도 동일 해상도로 두면 scale_intrinsics_to_image 가 no-op 이 되어 fx/fy 비대칭 경고가
 // 발생하지 않는다. 실 디바이스 별 정밀 캘리브레이션이 필요하면 동일 형식으로 새 JSON 추가 후 교체.
 const DEFAULT_INTRINSICS_URL = '/camera/default-480x640-placeholder.json'
 
+// 가로 모드 webcam (1280x720) 용 placeholder. /test 라이브 캡처 등 landscape orientation 에서 사용.
+export const LANDSCAPE_INTRINSICS_URL = '/camera/default-1280x720-placeholder.json'
+
 /**
- * 기본 카메라 캘리브레이션을 로드한다 (프로세스 캐시).
+ * 캘리브레이션 JSON 을 fetch 해서 로드한다 (URL 별 프로세스 캐시).
  * 첫 호출 시 fetch, 이후 재호출은 캐시된 값을 반환.
+ * @param {string} [url]
  * @returns {Promise<CameraIntrinsics>}
  */
-export async function load_default_intrinsics() {
-  if (g_cached) return g_cached
-  const res = await fetch(DEFAULT_INTRINSICS_URL)
+export async function load_default_intrinsics(url = DEFAULT_INTRINSICS_URL) {
+  const cached = g_intrinsics_cache_obj.get(url)
+  if (cached) return cached
+  const res = await fetch(url)
   if (!res.ok) {
     throw new Error(`Failed to load camera intrinsics: ${res.status}`)
   }
-  g_cached = /** @type {CameraIntrinsics} */ (await res.json())
-  return g_cached
+  const data = /** @type {CameraIntrinsics} */ (await res.json())
+  g_intrinsics_cache_obj.set(url, data)
+  return data
+}
+
+/**
+ * 캡처 해상도에 가장 가까운 placeholder 를 자동 선택해 로드한다.
+ * portrait↔landscape 비율 차이로 인한 scale_intrinsics_to_image throw 를 피한다.
+ * @param {number} width
+ * @param {number} height
+ * @returns {Promise<CameraIntrinsics>}
+ */
+export async function load_intrinsics_for_size(width, height) {
+  const is_landscape = width >= height
+  return load_default_intrinsics(is_landscape ? LANDSCAPE_INTRINSICS_URL : DEFAULT_INTRINSICS_URL)
 }
 
 /**
@@ -79,5 +97,5 @@ export function scale_intrinsics_to_image(base, width, height) {
 
 // 테스트 전용 — 모듈 캐시를 초기화한다.
 export function _reset_intrinsics_cache_for_tests() {
-  g_cached = null
+  g_intrinsics_cache_obj.clear()
 }
