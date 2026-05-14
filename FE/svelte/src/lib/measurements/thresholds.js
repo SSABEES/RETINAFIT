@@ -45,6 +45,19 @@ export const SKIN_PATCH_SIZE = 30
 export const SKIN_FOREHEAD_Y_OFFSET_PX = -40
 export const SKIN_TRIM_FRACTION = 0.25
 
+// 패치 신뢰도 게이트 — 평균 RGB 의 HSV 환산값으로 너무 어둡거나 채도가 낮은 패치는 분류에서 제외.
+// 그늘/머리카락 그림자/안경 그림자 등이 섞이면 hue 가 노이즈가 돼 결과가 한쪽으로 쏠리는 문제 완화.
+export const SKIN_MIN_SAT_FOR_CLASSIFY = 0.12
+export const SKIN_MIN_VAL_FOR_CLASSIFY = 0.15
+
+// CIELAB h*ab(= atan2(b*, a*)) 기준 분류 임계값 (도, 0-360 환산).
+// 피부는 a*>0 / b*>0 영역이라 실제 분포는 0-90° 사이. 화장품 업계의 웜/쿨 정의에 직접 대응:
+//   - h*ab >= WARM_MIN : WARM (노란기 우세)
+//   - h*ab <= COOL_MAX : COOL (분홍/빨간기 우세)
+//   - 그 외           : NEUTRAL
+export const SKIN_LAB_HAB_COOL_MAX = 42
+export const SKIN_LAB_HAB_WARM_MIN = 52
+
 // === enum ===
 
 /** @typedef {'GUIDEBOOK' | 'MOCK'} ThresholdSource */
