@@ -13,9 +13,11 @@
 
 import { FaceDetector as MpFaceDetector, FilesetResolver } from '@mediapipe/tasks-vision'
 import { BBOX_PADDING } from '@/lib/sixdrepnet360/inference.js'
+import { fetch_blaze_face_model_bytes } from './blaze_face_cache.js'
 
 // face_landmarker.js 와 동일하게 same-origin 자체 호스팅. 자세한 배경은 그쪽 주석 참조.
-const MODEL_URL = `${import.meta.env.BASE_URL}mediapipe/models/blaze_face_short_range.tflite`
+export const BLAZE_FACE_MODEL_URL = `${import.meta.env.BASE_URL}mediapipe/models/blaze_face_short_range.tflite`
+const MODEL_URL = BLAZE_FACE_MODEL_URL
 const WASM_BASE = `${import.meta.env.BASE_URL}mediapipe/wasm`
 
 // VIDEO 모드 detect 결과 캐싱 (16ms 윈도우) — 같은 frame 안에서 중복 호출 시 재계산 방지.
@@ -31,19 +33,27 @@ let g_video_detector_promise = null
 
 // MediaPipe Vision Fileset 로더 — face_landmarker.js 와 별개로 메모이즈.
 // (FilesetResolver.forVisionTasks 는 내부 캐싱이 있어 같은 base URL 두 번 호출해도 부담 없음)
+// modelAssetPath(URL) 대신 modelAssetBuffer(미리 fetch 한 tflite 바이트) 를 넘겨
+// 두 번째 reload 부터는 Cache Storage 영속 캐시 hit → 네트워크 0 으로 검출기 init.
 async function load_image_detector() {
-  const fileset = await FilesetResolver.forVisionTasks(WASM_BASE)
+  const [fileset, model_bytes] = await Promise.all([
+    FilesetResolver.forVisionTasks(WASM_BASE),
+    fetch_blaze_face_model_bytes(MODEL_URL),
+  ])
   return MpFaceDetector.createFromOptions(fileset, {
-    baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
+    baseOptions: { modelAssetBuffer: model_bytes, delegate: 'GPU' },
     runningMode: 'IMAGE',
     minDetectionConfidence: 0.5,
   })
 }
 
 async function load_video_detector() {
-  const fileset = await FilesetResolver.forVisionTasks(WASM_BASE)
+  const [fileset, model_bytes] = await Promise.all([
+    FilesetResolver.forVisionTasks(WASM_BASE),
+    fetch_blaze_face_model_bytes(MODEL_URL),
+  ])
   return MpFaceDetector.createFromOptions(fileset, {
-    baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
+    baseOptions: { modelAssetBuffer: model_bytes, delegate: 'GPU' },
     runningMode: 'VIDEO',
     minDetectionConfidence: 0.5,
   })
