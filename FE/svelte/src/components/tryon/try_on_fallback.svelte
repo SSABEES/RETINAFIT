@@ -42,6 +42,8 @@
     next_slot_key = null,
     /** @type {(slot_key: SlotKey, blob: Blob) => void} */
     oncaptured = () => {},
+    /** @type {(is_loading: boolean) => void} */
+    onload_change = () => {},
   } = $props()
 
   // test 페이지 슬라이더 default 그대로 const 화. 향후 사용자 노출 필요해지면 $state 로 풀면 됨.
@@ -191,6 +193,11 @@
     const url = selected_glasses_obj ? get_virtual_fitting_model_url(selected_glasses_obj) : ''
     if (!url) return
     void load_and_swap_glasses(url)
+  })
+
+  // GLB 로딩 상태를 부모에 통지 — fallback 환경에서 전체 화면 LoadingOverlay 트리거 용도.
+  $effect(() => {
+    onload_change(g_glb_loading)
   })
 
   // 카메라 권한 + MediaPipe 비디오 랜드마커 로드 + rAF 시작.
