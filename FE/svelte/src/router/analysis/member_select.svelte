@@ -4,6 +4,7 @@
   import { PATH } from '@/config/path'
   import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
   import BottomActionBar from '@/components/analysis/bottom_action_bar.svelte'
+  import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
   import { admin_arr } from '@/lib/stores/admin'
   import { update_visit } from '@/lib/api/visit.js'
 
@@ -163,7 +164,7 @@
 
     <BottomActionBar padding_class="px-[clamp(12px,3svh,24px)] py-[clamp(6px,1.5svh,14px)]">
       <div
-        class="mx-auto grid w-full max-w-[760px] xl:max-w-[1000px] 2xl:max-w-[1240px] grid-cols-1 gap-[clamp(8px,2svh,16px)]"
+        class="mx-auto grid w-full max-w-[400px] xl:max-w-[600px] 2xl:max-w-[760px] grid-cols-1 gap-[clamp(8px,2svh,16px)]"
       >
         <button
           type="button"
@@ -176,4 +177,6 @@
       </div>
     </BottomActionBar>
   </section>
+
+  <LoadingOverlay open={g_is_submitting} label="최종 리포트 준비 중..." />
 </AnalysisPageLayout>
