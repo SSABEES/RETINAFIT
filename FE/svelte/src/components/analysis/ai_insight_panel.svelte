@@ -473,12 +473,12 @@
         <div class="mt-2 flex flex-col gap-1">
           {#if g_report_summary1_text}
             <p class="pl-3 m-0 text-[18px] font-extrabold leading-relaxed text-zinc-900 whitespace-pre-line">
-              {g_report_summary1_text.replace('. ', '.\n')}
+              {g_report_summary1_text.replaceAll('. ', '.\n')}
             </p>
           {/if}
           {#if g_report_summary2_text}
             <p class="pl-3 m-0 text-[14px] font-semibold leading-relaxed text-zinc-800 whitespace-pre-line">
-              {g_report_summary2_text.replace('. ', '.\n')}
+              {g_report_summary2_text.replaceAll('. ', '.\n')}
             </p>
           {/if}
         </div>
