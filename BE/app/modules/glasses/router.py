@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Literal
+from app.core.config import settings
 
 from app.core.database import get_db
 from app.modules.auth.dependencies import get_token, get_admin_token
@@ -89,10 +90,10 @@ async def get_glasses_upload_url(
     - type=3d  → 3D 파일 (.glb)
     """
     if type == "img":
-        key = generate_object_key(folder="glasses/img")
+        key = generate_object_key(folder=settings.S3_GLASSES_IMG_PATH)
         url = generate_presigned_url(key)
         return {"url": url, "key": key}
     else:
-        key = generate_object_key(folder="glasses/3d", extension="glb")
+        key = generate_object_key(folder=settings.S3_GLASSES_3D_PATH, extension="glb")
         url = generate_presigned_url(key, content_type="application/octet-stream")
         return {"url": url, "key": key}
