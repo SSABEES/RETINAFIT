@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     AWS_REGION: str = "ap-northeast-2"
     S3_BUCKET_NAME: str
 
+    # S3 경로 설정
+    S3_GLASSES_IMG_PATH: str = "glasses/img"
+    S3_GLASSES_3D_PATH: str = "glasses/3d"
+    S3_VISITS_PATH: str = "visits"
+
     # ─── AWS CloudFront ───────────────────────────────────────
     CLOUDFRONT_DOMAIN: str | None = None
     CLOUDFRONT_KEY_ID: str | None = None

@@ -62,9 +62,8 @@ def generate_object_key(visit_no: int = None, folder: str = None, filename: str 
     if not filename:
         filename = f"{uuid.uuid4()}.{extension}"
     if visit_no is not None:
-        return f"visits/{visit_no}/{folder}/{filename}"
+        return f"{settings.S3_VISITS_PATH}/{visit_no}/{folder}/{filename}"
     return f"{folder}/{filename}"
-
 
 def get_file_url(object_key: str) -> str:
     """
