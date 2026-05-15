@@ -10,6 +10,8 @@
  * 가능한 reason 코드:
  *   `no_landmarks`        — CameraView 가 landmarks 자체를 전달 안 함
  *   `missing_landmarks`   — 동공/아랫눈꺼풀 4점 중 일부가 비어있음
+ *   `pose_not_ready`     — CameraView 의 정면/안정화 게이트 미통과 — frame_state.frontal_ok && stable_ok 아님.
+ *                          이 상태에서는 OH worker 호출 자체를 스킵 (자세 어긋난 프레임의 측정은 의미 없음).
  *   `oh_compute_failed`   — worker 가 OH px 산출 실패 (림 edge 미검출 등)
  *   `buffer_underfull`    — ring buffer 가 아직 RING_SIZE 미만 (정상 warmup)
  *   `nan_value`           — 버퍼 어느 프레임의 oh/confidence 가 NaN
@@ -23,8 +25,9 @@
  * 어느 단계에서 막히는지 현장 디버깅용. PROD 빌드에서는 dead-code elimination.
  *
  * @typedef {{ oh: number, confidence: number }} Frame
+ * @typedef {{ frontal_ok: boolean, stable_ok: boolean }} FrameState
  * @typedef {'buffer_underfull' | 'nan_value' | 'out_of_range' | 'low_confidence' | 'high_std'} RingFailReason
- * @typedef {RingFailReason | 'no_landmarks' | 'missing_landmarks' | 'oh_compute_failed' | 'exception' | 'pass'} GateReason
+ * @typedef {RingFailReason | 'no_landmarks' | 'missing_landmarks' | 'pose_not_ready' | 'oh_compute_failed' | 'exception' | 'pass'} GateReason
  * @typedef {{ ok: boolean, mean: number | null, std: number | null, reason: RingFailReason | null, details: object }} RingBufferResult
  */
 
@@ -146,6 +149,8 @@ export function compute_mm_per_px_fallback(pupil_right, pupil_left) {
  * @property {HTMLVideoElement | HTMLCanvasElement | ImageBitmap} source_el
  * @property {number} source_width
  * @property {number} source_height
+ * @property {FrameState} [frame_state]  CameraView 의 정면(완전성+frontal) + 안정화(face dim std) 게이트 상태.
+ *                                       미전달 (legacy 컨슈머) 이면 게이트가 통과로 간주 — 책임을 콜러에 위임.
  *
  * @typedef {object} GateResult
  * @property {number} oh_left_mm
@@ -189,6 +194,7 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
     buf_left_size: 0,
     /** @type {number | null} */ std_right: null,
     /** @type {number | null} */ std_left: null,
+    /** @type {FrameState | null} */ frame_state: null,
   }
 
   void ensure_opencv_ready().catch((err) => {
@@ -204,9 +210,13 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
     const fmt = (n) =>
       typeof n === 'number' && Number.isFinite(n) ? n.toFixed(2) : '-'
     const side = status?.details?.side ? `@${status.details.side}` : ''
+    // pose=F1S1 = frontal_ok & stable_ok / F0S1 = frontal 미달 / F-S- = frame_state 미전달
+    const fs = frame_diag.frame_state
+    const pose = fs ? `F${fs.frontal_ok ? 1 : 0}S${fs.stable_ok ? 1 : 0}` : 'F-S-'
     // eslint-disable-next-line no-console
     console.log(
-      `[oh_gate] R=${fmt(frame_diag.oh_right_mm)}(c=${fmt(frame_diag.conf_right)})`,
+      `[oh_gate] pose=${pose}`,
+      `R=${fmt(frame_diag.oh_right_mm)}(c=${fmt(frame_diag.conf_right)})`,
       `L=${fmt(frame_diag.oh_left_mm)}(c=${fmt(frame_diag.conf_left)})`,
       `buf=R${frame_diag.buf_right_size}/L${frame_diag.buf_left_size}`,
       `std=R${fmt(frame_diag.std_right)}/L${fmt(frame_diag.std_left)}`,
@@ -233,6 +243,22 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
         hint: '정면을 응시해 주세요',
         reason: 'no_landmarks',
         details: {},
+      })
+      return
+    }
+    // CameraView 가 정면(완전성 + frontal) + 안정화 모두 OK 라고 알린 프레임에서만 실제 측정 수행.
+    // 자세 흔들리는 동안의 OH 측정은 ring buffer 의 의미를 흐리고 worker CPU 만 낭비하므로 일찍 차단.
+    // frame_state 미전달이면 (legacy 컨슈머) 가드 통과 — 기존 동작 유지.
+    frame_diag.frame_state = detection.frame_state ?? null
+    if (detection.frame_state && !(detection.frame_state.frontal_ok && detection.frame_state.stable_ok)) {
+      emit_status({
+        phase: 'measuring',
+        hint: '정면을 바라보고 잠시 멈춰주세요',
+        reason: 'pose_not_ready',
+        details: {
+          frontal_ok: detection.frame_state.frontal_ok,
+          stable_ok: detection.frame_state.stable_ok,
+        },
       })
       return
     }

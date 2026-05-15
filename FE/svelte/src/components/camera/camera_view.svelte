@@ -50,11 +50,16 @@
    */
 
   /**
+   * @typedef {object} FrameGateState
+   * @property {boolean} frontal_ok  얼굴 완전성(g_complete_obj.is_complete) + 정면 자세(g_frontal_obj.is_frontal) 모두 OK
+   * @property {boolean} stable_ok   face dimension 안정화 도달 (g_is_stable — STABILITY_FRAMES 누적)
+   *
    * @typedef {object} LandmarkDetectionResult
    * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[]} landmarks  MediaPipe FaceLandmarker 의 raw 출력 (native frame [0,1] 정규화). source_width/height 와 같은 좌표계.
    * @property {HTMLVideoElement} source_el  비디오 element ref (live frame 캡처용)
    * @property {number} source_width  source_el.videoWidth (캡처 시점의 native 픽셀)
    * @property {number} source_height  source_el.videoHeight
+   * @property {FrameGateState} frame_state  같은 프레임의 정면/안정화 게이트 상태 — 외부 게이트(예: OH 게이트) 가 자세 어긋난 프레임을 측정에서 제외할 수 있도록 노출.
    */
 
   /** @type {{
@@ -596,7 +601,8 @@
           g_frontal_obj = check_frontal(result)
           const m = compute_measurements(local_remapped_arr, ANALYSIS_W, ANALYSIS_H)
           if (m) g_measurements_obj = m
-          // 외부 컨슈머 (real_fitting 의 OH 게이트 등) 에 정면 landmarks + video source 노출.
+          // 외부 컨슈머 (real_fitting 의 OH 게이트 등) 에 정면 landmarks + video source + 같은 프레임의 게이트 상태 노출.
+          // frame_state 는 외부 게이트가 자세 어긋난 프레임을 측정에서 제외할 수 있게 노출 — auto 캡처의 g_can_auto_fire 와 동일 기준(완전성 + frontal + 안정화).
           // 측면 detection 분기 (landmarks 없음) 에서는 호출 안 함.
           if (onlandmarks) {
             onlandmarks({
@@ -604,6 +610,10 @@
               source_el: ref_this_video_el,
               source_width: ref_this_video_el.videoWidth,
               source_height: ref_this_video_el.videoHeight,
+              frame_state: {
+                frontal_ok: g_complete_obj.is_complete && !!g_frontal_obj?.is_frontal,
+                stable_ok: g_is_stable,
+              },
             })
           }
           if (
