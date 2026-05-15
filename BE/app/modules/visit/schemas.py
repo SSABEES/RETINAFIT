@@ -95,6 +95,7 @@ class VisitUpdateRequest(BaseModel):
     phone_no2: Optional[str] = None
     birthday: Optional[str] = None
     sex: Optional[int] = None
+    member_no: Optional[int] = None
 
     main_file: Optional[str] = None
     test_file_arr: Optional[list] = None
