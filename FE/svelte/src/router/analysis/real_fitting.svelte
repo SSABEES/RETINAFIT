@@ -24,6 +24,8 @@
   const ANALYSIS_TOAST_DURATION_MS = 5000
 
   /**
+   * @typedef {{ x: number, y: number }} Point2D
+   * @typedef {{ pupil: Point2D, rim_bottom: Point2D }} OhMeasurePoints
    * @typedef {{
    *   blob: Blob,
    *   object_url: string,
@@ -31,6 +33,8 @@
    *   oh_left_mm?: number,
    *   oh_right_mm?: number,
    *   oh_source?: 'aruco' | 'pd_fallback',
+   *   oh_points_left?: OhMeasurePoints,
+   *   oh_points_right?: OhMeasurePoints,
    * }} CaptureSlot
    * @typedef {{ id: number, slot_arr: (CaptureSlot | null)[], captured_at: number }} SavedSet
    */
@@ -70,11 +74,15 @@
   const g_is_set_complete = $derived(g_next_slot_idx >= 3)
 
   // 정면 슬롯 OH 게이트 보관소 — on_pass 시점에 set, on_capture 가 슬롯에 첨부 후 reset.
-  /** @type {{ oh_left_mm: number, oh_right_mm: number, oh_source: 'aruco' | 'pd_fallback' } | null} */
+  /** @type {{ oh_left_mm: number, oh_right_mm: number, oh_source: 'aruco' | 'pd_fallback', oh_points_left: OhMeasurePoints, oh_points_right: OhMeasurePoints } | null} */
   let g_pending_oh = $state(null)
 
   // 게이트 진행 상태 메시지 — 화면 상단에 표시.
   let g_oh_gate_hint = $state('')
+
+  // OH 게이트가 매 측정 사이클마다 발사하는 ROI + 림 위치 — CameraView 가 캔버스에 수평선으로 그림.
+  /** @type {import('@/lib/measurements/oh_capture_gate.js').OhOverlayState | null} */
+  let g_oh_overlay = $state(null)
 
   // 정면 슬롯은 OH 게이트 통과 후 수동 trigger. 좌/우는 기존 자세 안정성 게이트로 auto 캡처.
   const g_capture_mode = $derived(g_current_pose === 'front' ? 'manual' : 'auto')
@@ -119,6 +127,7 @@
     const _pose = g_current_pose
     if (_pose === 'front') {
       g_pending_oh = null
+      g_oh_overlay = null
       g_oh_gate_hint = '정면을 바라봐 주세요'
       g_oh_gate = start_oh_capture_gate({
         on_pass: (result) => {
@@ -130,6 +139,9 @@
         },
         on_status: (status) => {
           g_oh_gate_hint = status.hint
+        },
+        on_overlay_update: (overlay) => {
+          g_oh_overlay = overlay
         },
       })
     } else if (g_oh_gate) {
@@ -182,6 +194,8 @@
       local_next_arr[local_idx].oh_left_mm = g_pending_oh.oh_left_mm
       local_next_arr[local_idx].oh_right_mm = g_pending_oh.oh_right_mm
       local_next_arr[local_idx].oh_source = g_pending_oh.oh_source
+      local_next_arr[local_idx].oh_points_left = g_pending_oh.oh_points_left
+      local_next_arr[local_idx].oh_points_right = g_pending_oh.oh_points_right
       g_pending_oh = null
     }
     g_capture_slot_arr = local_next_arr
@@ -246,6 +260,8 @@
             oh_left_mm: front_slot.oh_left_mm,
             oh_right_mm: front_slot.oh_right_mm,
             oh_source: front_slot.oh_source ?? 'pd_fallback',
+            oh_points_left: front_slot.oh_points_left,
+            oh_points_right: front_slot.oh_points_right,
           }
         })
         .filter((s) => s !== null)
@@ -424,6 +440,7 @@
           oncapture={on_capture}
           oncapture_error={on_capture_error}
           onlandmarks={g_oh_gate?.handle_landmarks ?? undefined}
+          oh_overlay={g_oh_overlay}
         />
 
         {#if g_current_pose === 'front' && g_oh_gate_hint && !g_pending_oh}

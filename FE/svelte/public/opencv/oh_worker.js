@@ -52,6 +52,10 @@ const HOUGH_THRESHOLD_FACTOR = 0.25
 const HOUGH_MIN_LINE_FACTOR = 0.5
 const HOUGH_MAX_LINE_GAP = 8
 const HOUGH_MAX_ANGLE_DEG = 15
+// 림 두께 jitter 완화 — 가장 긴 line 의 이 비율 이상인 후보들만 mid_y 평균에 포함.
+// 림은 위/아래 edge 가 둘 다 ROI 폭의 80~95% 길이로 검출 → 둘 다 채택돼 평균 = 림 중심 = 매 프레임 동일.
+// 짧은 반사·속눈썹 line 은 자동 배제. 0.7 이상 권장 — 너무 낮추면 짧은 false positive 가 평균을 시프트.
+const HOUGH_TOP_LINE_RATIO = 0.8
 
 // 안경 림 위치 사전 (PD 비례). 일반 성인 OH 약 15~25mm, PD 약 63mm 기준 OH/PD 비율 0.24~0.40.
 // 보수적으로 0.10~0.55 (≈ 6mm ~ 35mm) 범위로 두고 이 밖 후보 line 은 모두 제외 → 광대뼈/이마뼈
@@ -236,8 +240,11 @@ function analyze_single_eye(cv, work_canvas, pupil, pd_px, lower_lid_y) {
       HOUGH_MAX_LINE_GAP,
     )
 
-    let best_length = 0
-    let best_mid_y_in_roi = -1
+    // 1차 — 모든 valid line 수집 (각도 / search floor / OH 비율 필터 통과).
+    // 가장 긴 line 만 채택하던 기존 정책은 림 위/아래 edge 가 비슷한 길이일 때 매 프레임 토글 → frame_bottom_y jitter.
+    // → 가장 긴 length 의 HOUGH_TOP_LINE_RATIO 이상인 후보들의 mid_y 를 길이 가중 평균 (림 위/아래 edge 가 모두 채택되면 자동으로 림 중심).
+    /** @type {Array<{ mid_y_in_roi: number, length: number }>} */
+    const valid_lines = []
     for (let i = 0; i < lines_mat.rows; i++) {
       const off = i * 4
       const x1 = lines_mat.data32S[off]
@@ -266,18 +273,28 @@ function analyze_single_eye(cv, work_canvas, pupil, pd_px, lower_lid_y) {
         x2: roi.x + x2,
         y2: roi.y + y2,
       })
-
-      if (length > best_length) {
-        best_length = length
-        best_mid_y_in_roi = mid_y_in_roi
-      }
+      valid_lines.push({ mid_y_in_roi, length })
     }
 
-    if (best_mid_y_in_roi >= 0) {
-      frame_bottom_y = roi.y + best_mid_y_in_roi
+    let max_length = 0
+    for (const v of valid_lines) {
+      if (v.length > max_length) max_length = v.length
+    }
+    if (max_length > 0) {
+      // top-ratio 필터 — 짧은 false positive 자동 배제. 림 두 edge 모두 통과.
+      const length_floor = max_length * HOUGH_TOP_LINE_RATIO
+      let weighted_sum = 0
+      let weight_total = 0
+      for (const v of valid_lines) {
+        if (v.length < length_floor) continue
+        weighted_sum += v.mid_y_in_roi * v.length
+        weight_total += v.length
+      }
+      const avg_mid_y = weighted_sum / weight_total
+      frame_bottom_y = roi.y + avg_mid_y
       oh_px = frame_bottom_y - pupil.y
-      // 신뢰도 — 선택된 line 의 길이를 ROI 폭에 정규화. ROI 폭의 50% 이상이면 1.0.
-      confidence = Math.min(1, best_length / (roi.w * 0.5))
+      // 신뢰도 — 채택된 라인 중 최장 길이 기준 (기존 식 유지). ROI 폭의 50% 이상이면 1.0.
+      confidence = Math.min(1, max_length / (roi.w * 0.5))
       selection_method = 'hough'
     } else {
       // Fallback — Hough 가 아무것도 못 찾으면 reduce 방식으로 한 번 더 시도.

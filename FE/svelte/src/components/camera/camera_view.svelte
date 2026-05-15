@@ -50,11 +50,23 @@
    */
 
   /**
+   * @typedef {{ x: number, y: number, w: number, h: number }} OhRoiBox
+   * @typedef {object} OhOverlay
+   * @property {OhRoiBox | null} roi_right
+   * @property {OhRoiBox | null} roi_left
+   * @property {number | null} frame_bottom_y_right
+   * @property {number | null} frame_bottom_y_left
+   *
+   * @typedef {object} FrameGateState
+   * @property {boolean} frontal_ok  얼굴 완전성(g_complete_obj.is_complete) + 정면 자세(g_frontal_obj.is_frontal) 모두 OK
+   * @property {boolean} stable_ok   face dimension 안정화 도달 (g_is_stable — STABILITY_FRAMES 누적)
+   *
    * @typedef {object} LandmarkDetectionResult
    * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[]} landmarks  MediaPipe FaceLandmarker 의 raw 출력 (native frame [0,1] 정규화). source_width/height 와 같은 좌표계.
    * @property {HTMLVideoElement} source_el  비디오 element ref (live frame 캡처용)
    * @property {number} source_width  source_el.videoWidth (캡처 시점의 native 픽셀)
    * @property {number} source_height  source_el.videoHeight
+   * @property {FrameGateState} frame_state  같은 프레임의 정면/안정화 게이트 상태 — 외부 게이트(예: OH 게이트) 가 자세 어긋난 프레임을 측정에서 제외할 수 있도록 노출.
    */
 
   /** @type {{
@@ -66,6 +78,7 @@
    *   oncapture?: ((c: CaptureResult) => void) | undefined,
    *   oncapture_error?: ((err: unknown) => void) | undefined,
    *   onlandmarks?: ((d: LandmarkDetectionResult) => void) | undefined,
+   *   oh_overlay?: OhOverlay | null,
    * }}
    */
   let {
@@ -77,6 +90,7 @@
     oncapture = undefined,
     oncapture_error = undefined,
     onlandmarks = undefined,
+    oh_overlay = null,
   } = $props()
 
   // FRAME_SKIP: 60fps / 5 = 12Hz 추론 (성능과 반응성의 타협점)
@@ -596,7 +610,8 @@
           g_frontal_obj = check_frontal(result)
           const m = compute_measurements(local_remapped_arr, ANALYSIS_W, ANALYSIS_H)
           if (m) g_measurements_obj = m
-          // 외부 컨슈머 (real_fitting 의 OH 게이트 등) 에 정면 landmarks + video source 노출.
+          // 외부 컨슈머 (real_fitting 의 OH 게이트 등) 에 정면 landmarks + video source + 같은 프레임의 게이트 상태 노출.
+          // frame_state 는 외부 게이트가 자세 어긋난 프레임을 측정에서 제외할 수 있게 노출 — auto 캡처의 g_can_auto_fire 와 동일 기준(완전성 + frontal + 안정화).
           // 측면 detection 분기 (landmarks 없음) 에서는 호출 안 함.
           if (onlandmarks) {
             onlandmarks({
@@ -604,6 +619,10 @@
               source_el: ref_this_video_el,
               source_width: ref_this_video_el.videoWidth,
               source_height: ref_this_video_el.videoHeight,
+              frame_state: {
+                frontal_ok: g_complete_obj.is_complete && !!g_frontal_obj?.is_frontal,
+                stable_ok: g_is_stable,
+              },
             })
           }
           if (
@@ -653,6 +672,10 @@
       }
       if (is_landmark_visible) {
         draw_face_mesh(ref_this_canvas_el, g_last_detection)
+      }
+      // 정면 슬롯 + OH 게이트가 림을 찾은 경우 ROI 가로폭 수평선으로 위치 표시. 측면/캡처 모드에선 noop.
+      if (pose_target === 'front' && oh_overlay) {
+        draw_oh_rim_line(ref_this_canvas_el, oh_overlay)
       }
       draw_guide_ellipse()
     }
@@ -752,6 +775,36 @@
     void play_voice('camera_shutter_sound', { priority: 'high' })
     await trigger_capture_internal(g_measurements_obj)
     return true
+  }
+
+  // OH 게이트가 검출한 안경 림 하단 위치를 ROI 가로폭 수평선으로 표시.
+  // 좌표는 worker 가 source_width/height (= videoWidth/height) 좌표계로 반환하므로
+  // canvas 가 같은 해상도 (sync_canvas_size) 면 그대로 사용하면 video 와 정합. mirror 는 CSS scaleX(-1) 가 처리.
+  /**
+   * @param {HTMLCanvasElement} canvas_el
+   * @param {OhOverlay} overlay
+   */
+  function draw_oh_rim_line(canvas_el, overlay) {
+    if (canvas_el.width === 0) return
+    const ctx = canvas_el.getContext('2d')
+    if (!ctx) return
+    ctx.save()
+    ctx.strokeStyle = 'rgba(150, 255, 80, 0.9)'
+    ctx.lineWidth = 2
+    ctx.setLineDash([])
+    if (overlay.frame_bottom_y_right !== null && overlay.roi_right) {
+      ctx.beginPath()
+      ctx.moveTo(overlay.roi_right.x, overlay.frame_bottom_y_right)
+      ctx.lineTo(overlay.roi_right.x + overlay.roi_right.w, overlay.frame_bottom_y_right)
+      ctx.stroke()
+    }
+    if (overlay.frame_bottom_y_left !== null && overlay.roi_left) {
+      ctx.beginPath()
+      ctx.moveTo(overlay.roi_left.x, overlay.frame_bottom_y_left)
+      ctx.lineTo(overlay.roi_left.x + overlay.roi_left.w, overlay.frame_bottom_y_left)
+      ctx.stroke()
+    }
+    ctx.restore()
   }
 
   // canvas 내부 해상도를 비디오 해상도에 맞춘다.

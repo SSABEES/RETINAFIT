@@ -330,17 +330,32 @@
       const local_entry = local_chron_arr[local_idx]
       // malformed storage entry 방어 (read_real_wearing_oh 가 per-entry 검증 안 함)
       if (!local_entry) continue
-      apply_oh_prefill_to_set(local_idx, local_entry.oh_left_mm, local_entry.oh_right_mm)
+      apply_oh_prefill_to_set(
+        local_idx,
+        local_entry.oh_left_mm,
+        local_entry.oh_right_mm,
+        local_entry.oh_points_left ?? null,
+        local_entry.oh_points_right ?? null,
+      )
     }
   }
 
   // 한 실착용 세트의 정면 view 의 oh_left/oh_right 항목을 mirror 값으로 채움. 이미 값 있으면 skip.
+  // points 가 주어지면 MeasureCanvas 가 사용할 좌표도 함께 prefill — 측정선이 사진 위에 자동 표시됨.
   /**
    * @param {number} set_index
    * @param {number} oh_left_mm
    * @param {number} oh_right_mm
+   * @param {{ pupil: { x: number, y: number }, rim_bottom: { x: number, y: number } } | null} oh_points_left
+   * @param {{ pupil: { x: number, y: number }, rim_bottom: { x: number, y: number } } | null} oh_points_right
    */
-  function apply_oh_prefill_to_set(set_index, oh_left_mm, oh_right_mm) {
+  function apply_oh_prefill_to_set(
+    set_index,
+    oh_left_mm,
+    oh_right_mm,
+    oh_points_left,
+    oh_points_right,
+  ) {
     if (!Number.isFinite(oh_left_mm) || !Number.isFinite(oh_right_mm)) return
     const local_set_val = g_real_vp_value_obj[set_index] ?? { front: {}, left: {}, right: {} }
     const local_front_val = local_set_val.front ?? {}
@@ -367,6 +382,24 @@
         },
       }
       mark_real_vp_source(set_index, 'front', 'oh_right', 'auto')
+    }
+
+    // 측정점 좌표 prefill — MeasureCanvas 가 [pupil, rim_bottom] 두 점을 잇는 측정선을 그림.
+    // 사용자가 동일 항목에서 수동으로 두 점을 다시 찍으면 on_points_set_real_vp_for_set 가 덮어씀 (수동 우선).
+    if (oh_points_left || oh_points_right) {
+      const local_prev_set_pts = g_real_vp_points_obj[set_index] ?? { front: {}, left: {}, right: {} }
+      const local_prev_front_pts = local_prev_set_pts.front ?? {}
+      const local_next_front_pts = { ...local_prev_front_pts }
+      if (oh_points_left && !local_next_front_pts.oh_left) {
+        local_next_front_pts.oh_left = [oh_points_left.pupil, oh_points_left.rim_bottom]
+      }
+      if (oh_points_right && !local_next_front_pts.oh_right) {
+        local_next_front_pts.oh_right = [oh_points_right.pupil, oh_points_right.rim_bottom]
+      }
+      g_real_vp_points_obj = {
+        ...g_real_vp_points_obj,
+        [set_index]: { ...local_prev_set_pts, front: local_next_front_pts },
+      }
     }
   }
 
