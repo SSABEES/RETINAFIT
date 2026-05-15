@@ -162,6 +162,13 @@ export function compute_mm_per_px_fallback(pupil_right, pupil_left) {
  * @property {string} hint
  * @property {GateReason} reason
  * @property {object} [details]
+ *
+ * @typedef {{ x: number, y: number, w: number, h: number }} RoiBox
+ * @typedef {object} OhOverlayState
+ * @property {RoiBox | null} roi_right                  worker 가 우측 눈 림 검색에 사용한 ROI (캔버스 좌표)
+ * @property {RoiBox | null} roi_left
+ * @property {number | null} frame_bottom_y_right       채택된 우측 림 하단 y (캔버스 좌표). null = 검출 실패
+ * @property {number | null} frame_bottom_y_left
  */
 
 /**
@@ -169,9 +176,10 @@ export function compute_mm_per_px_fallback(pupil_right, pupil_left) {
  * @param {object} args
  * @param {(result: GateResult) => void} args.on_pass
  * @param {(status: GateStatus) => void} args.on_status
+ * @param {((overlay: OhOverlayState | null) => void) | undefined} [args.on_overlay_update]  worker 결과 ROI/림 위치를 외부 그리기용으로 노출. null = 그리지 말 것 (자세 미준비/언마운트 등).
  * @returns {{ handle_landmarks: (d: LandmarkDetection) => void, stop: () => void }}
  */
-export function start_oh_capture_gate({ on_pass, on_status }) {
+export function start_oh_capture_gate({ on_pass, on_status, on_overlay_update }) {
   let last_run_at = 0
   let stopped = false
   let pass_fired = false
@@ -230,6 +238,11 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
     maybe_log(status)
   }
 
+  // 림 시각화용 ROI/선택 위치를 외부에 노출. 콜백 없으면 no-op — 책임 분리.
+  function emit_overlay(overlay) {
+    if (on_overlay_update) on_overlay_update(overlay)
+  }
+
   /**
    * CameraView detection 마다 호출되는 게이트 진입점. throttle + in-flight 방어 + OH 산출 + ring buffer 판정 + on_pass/on_status 통보.
    *
@@ -238,6 +251,7 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
   async function handle_landmarks(detection) {
     if (stopped || pass_fired) return
     if (!detection?.landmarks) {
+      emit_overlay(null)
       emit_status({
         phase: 'measuring',
         hint: '정면을 응시해 주세요',
@@ -251,6 +265,7 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
     // frame_state 미전달이면 (legacy 컨슈머) 가드 통과 — 기존 동작 유지.
     frame_diag.frame_state = detection.frame_state ?? null
     if (detection.frame_state && !(detection.frame_state.frontal_ok && detection.frame_state.stable_ok)) {
+      emit_overlay(null)
       emit_status({
         phase: 'measuring',
         hint: '정면을 바라보고 잠시 멈춰주세요',
@@ -274,6 +289,7 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
       const lower_right_norm = landmarks[RIGHT_LOWER_LID_IDX]
       const lower_left_norm = landmarks[LEFT_LOWER_LID_IDX]
       if (!pupil_right_norm || !pupil_left_norm || !lower_right_norm || !lower_left_norm) {
+        emit_overlay(null)
         emit_status({
           phase: 'measuring',
           hint: '정면을 응시해 주세요',
@@ -325,6 +341,14 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
           source_el,
           source_width,
           source_height,
+        })
+
+        // 림 시각화 — worker 의 ROI + 선택된 frame_bottom_y 만 외부에 노출. detected_lines 무더기는 라이브에서 어수선해 제외.
+        emit_overlay({
+          roi_right: oh_result.roi_right,
+          roi_left: oh_result.roi_left,
+          frame_bottom_y_right: oh_result.frame_bottom_y_right,
+          frame_bottom_y_left: oh_result.frame_bottom_y_left,
         })
 
         frame_diag.conf_right = oh_result.confidence_right
@@ -429,6 +453,8 @@ export function start_oh_capture_gate({ on_pass, on_status }) {
     handle_landmarks,
     stop() {
       stopped = true
+      // 슬롯 전환/언마운트 시 overlay 가 화면에 남지 않도록 명시 정리.
+      emit_overlay(null)
     },
   }
 }

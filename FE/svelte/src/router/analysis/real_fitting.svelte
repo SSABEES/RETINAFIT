@@ -76,6 +76,10 @@
   // 게이트 진행 상태 메시지 — 화면 상단에 표시.
   let g_oh_gate_hint = $state('')
 
+  // OH 게이트가 매 측정 사이클마다 발사하는 ROI + 림 위치 — CameraView 가 캔버스에 수평선으로 그림.
+  /** @type {import('@/lib/measurements/oh_capture_gate.js').OhOverlayState | null} */
+  let g_oh_overlay = $state(null)
+
   // 정면 슬롯은 OH 게이트 통과 후 수동 trigger. 좌/우는 기존 자세 안정성 게이트로 auto 캡처.
   const g_capture_mode = $derived(g_current_pose === 'front' ? 'manual' : 'auto')
 
@@ -119,6 +123,7 @@
     const _pose = g_current_pose
     if (_pose === 'front') {
       g_pending_oh = null
+      g_oh_overlay = null
       g_oh_gate_hint = '정면을 바라봐 주세요'
       g_oh_gate = start_oh_capture_gate({
         on_pass: (result) => {
@@ -130,6 +135,9 @@
         },
         on_status: (status) => {
           g_oh_gate_hint = status.hint
+        },
+        on_overlay_update: (overlay) => {
+          g_oh_overlay = overlay
         },
       })
     } else if (g_oh_gate) {
@@ -424,6 +432,7 @@
           oncapture={on_capture}
           oncapture_error={on_capture_error}
           onlandmarks={g_oh_gate?.handle_landmarks ?? undefined}
+          oh_overlay={g_oh_overlay}
         />
 
         {#if g_current_pose === 'front' && g_oh_gate_hint && !g_pending_oh}
