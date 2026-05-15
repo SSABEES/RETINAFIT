@@ -58,15 +58,6 @@
     <section class="min-h-0 flex-1 px-4 pb-3 pt-2 sm:px-6 md:px-8 md:pb-4 md:pt-2 xl:px-12 2xl:px-16">
       <div class="grid min-h-full w-full content-start gap-4">
         <div class="flex items-start justify-between gap-6">
-          <button
-            class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[var(--retina-text-200)] bg-white px-4 text-sm font-extrabold text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-400)] hover:bg-[var(--retina-primary-50)]"
-            type="button"
-            onclick={on_click_logout_admin}
-          >
-            <LogOut size={18} strokeWidth={2.4} aria-hidden="true" />
-            <span>로그아웃</span>
-          </button>
-
           <div
             class="relative w-[240px] rounded-[14px] border border-[var(--retina-text-200)] bg-white px-4 py-3 shadow-[0_4px_10px_rgba(19,25,40,0.04)]"
           >
@@ -119,6 +110,15 @@
               </div>
             {/if}
           </div>
+
+          <button
+            class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-[var(--retina-text-200)] bg-white px-4 text-sm font-extrabold text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-400)] hover:bg-[var(--retina-primary-50)]"
+            type="button"
+            onclick={on_click_logout_admin}
+          >
+            <LogOut size={18} strokeWidth={2.4} aria-hidden="true" />
+            <span>로그아웃</span>
+          </button>
         </div>
 
         {@render children?.()}

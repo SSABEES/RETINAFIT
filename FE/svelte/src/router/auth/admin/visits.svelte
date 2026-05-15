@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import { navigate } from '@maks11060/svelte5-router'
-  import { ChevronLeft, ChevronRight } from 'lucide-svelte'
+  import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-svelte'
   import AdminLayout from '@/router/auth/admin/admin_layout.svelte'
   import { PATH } from '@/config/path'
   import { get_admin_all_visits } from '@/lib/api/visit'
@@ -112,9 +112,16 @@
     }
   }
 
-  async function load_all_visits() {
+  // force_refresh=true 면 sessionStorage 캐시를 무시하고 강제로 BE 재조회 (새로고침 버튼).
+  /** @param {{ force_refresh?: boolean }} [opts] */
+  async function load_all_visits(opts = {}) {
+    const local_force = Boolean(opts.force_refresh)
+
     // 1) 세션 캐시가 있으면 그걸로 즉시 채우고 API 호출은 생략 (뒤로가기 시 재로딩 방지).
-    if (try_restore_from_cache()) {
+    //    단 강제 새로고침이면 캐시를 비우고 무조건 API 재호출.
+    if (local_force) {
+      sessionStorage.removeItem(VISITS_CACHE_KEY)
+    } else if (try_restore_from_cache()) {
       g_is_loading = false
       return
     }
@@ -155,6 +162,12 @@
     navigate(PATH.adminVisitDetail(visit_no))
   }
 
+  // 새로고침 버튼 — 세션 캐시를 비우고 BE 재조회. 이미 로딩 중이면 무시.
+  function on_click_refresh() {
+    if (g_is_loading) return
+    void load_all_visits({ force_refresh: true })
+  }
+
   /** @param {number} page */
   function go_to_page(page) {
     g_page = Math.max(1, Math.min(g_total_pages, page))
@@ -183,16 +196,33 @@
     <!-- 상단 카운트 -->
     <div class="flex items-center justify-between">
       <h2 class="m-0 text-xl font-extrabold text-[var(--retina-text)]">방문자 정보</h2>
-      <p class="m-0 text-sm font-bold text-[var(--retina-text-muted)]">
-        {#if g_visit_arr.length > 0}
-          <span class="text-[var(--retina-primary-600)]"
-            >{g_page_start_index}-{g_page_end_index}</span
-          >
-          / 총 <span class="text-[var(--retina-primary-600)]">{g_total}건</span>
-        {:else}
-          총 <span class="text-[var(--retina-primary-600)]">{g_total}건</span>
-        {/if}
-      </p>
+      <div class="flex items-center gap-3">
+        <p class="m-0 text-sm font-bold text-[var(--retina-text-muted)]">
+          {#if g_visit_arr.length > 0}
+            <span class="text-[var(--retina-primary-600)]"
+              >{g_page_start_index}-{g_page_end_index}</span
+            >
+            / 총 <span class="text-[var(--retina-primary-600)]">{g_total}건</span>
+          {:else}
+            총 <span class="text-[var(--retina-primary-600)]">{g_total}건</span>
+          {/if}
+        </p>
+        <button
+          type="button"
+          onclick={on_click_refresh}
+          disabled={g_is_loading}
+          aria-label="방문자 목록 새로고침"
+          class="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--retina-text-200)] bg-white px-3 text-sm font-extrabold text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-400)] hover:bg-[var(--retina-bg-1)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[var(--retina-text-200)] disabled:hover:bg-white"
+        >
+          <RefreshCw
+            size={14}
+            strokeWidth={2.4}
+            aria-hidden="true"
+            class={g_is_loading ? 'animate-spin' : ''}
+          />
+          새로고침
+        </button>
+      </div>
     </div>
 
     <!-- 리스트 영역 -->
