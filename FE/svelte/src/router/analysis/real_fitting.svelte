@@ -24,6 +24,8 @@
   const ANALYSIS_TOAST_DURATION_MS = 5000
 
   /**
+   * @typedef {{ x: number, y: number }} Point2D
+   * @typedef {{ pupil: Point2D, rim_bottom: Point2D }} OhMeasurePoints
    * @typedef {{
    *   blob: Blob,
    *   object_url: string,
@@ -31,6 +33,8 @@
    *   oh_left_mm?: number,
    *   oh_right_mm?: number,
    *   oh_source?: 'aruco' | 'pd_fallback',
+   *   oh_points_left?: OhMeasurePoints,
+   *   oh_points_right?: OhMeasurePoints,
    * }} CaptureSlot
    * @typedef {{ id: number, slot_arr: (CaptureSlot | null)[], captured_at: number }} SavedSet
    */
@@ -70,7 +74,7 @@
   const g_is_set_complete = $derived(g_next_slot_idx >= 3)
 
   // 정면 슬롯 OH 게이트 보관소 — on_pass 시점에 set, on_capture 가 슬롯에 첨부 후 reset.
-  /** @type {{ oh_left_mm: number, oh_right_mm: number, oh_source: 'aruco' | 'pd_fallback' } | null} */
+  /** @type {{ oh_left_mm: number, oh_right_mm: number, oh_source: 'aruco' | 'pd_fallback', oh_points_left: OhMeasurePoints, oh_points_right: OhMeasurePoints } | null} */
   let g_pending_oh = $state(null)
 
   // 게이트 진행 상태 메시지 — 화면 상단에 표시.
@@ -190,6 +194,8 @@
       local_next_arr[local_idx].oh_left_mm = g_pending_oh.oh_left_mm
       local_next_arr[local_idx].oh_right_mm = g_pending_oh.oh_right_mm
       local_next_arr[local_idx].oh_source = g_pending_oh.oh_source
+      local_next_arr[local_idx].oh_points_left = g_pending_oh.oh_points_left
+      local_next_arr[local_idx].oh_points_right = g_pending_oh.oh_points_right
       g_pending_oh = null
     }
     g_capture_slot_arr = local_next_arr
@@ -254,6 +260,8 @@
             oh_left_mm: front_slot.oh_left_mm,
             oh_right_mm: front_slot.oh_right_mm,
             oh_source: front_slot.oh_source ?? 'pd_fallback',
+            oh_points_left: front_slot.oh_points_left,
+            oh_points_right: front_slot.oh_points_right,
           }
         })
         .filter((s) => s !== null)

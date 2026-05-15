@@ -5,11 +5,16 @@
  *
  * 기존 PREFETCH_VISIT_KEY ('retinal_prefetched_visit_obj') 와 별도 key 로 운영.
  *
+ * @typedef {{ x: number, y: number }} Point2D
+ * @typedef {{ pupil: Point2D, rim_bottom: Point2D }} OhMeasurePoints
+ *
  * @typedef {{
  *   set_id: number,
  *   oh_left_mm: number,
  *   oh_right_mm: number,
  *   oh_source: 'aruco' | 'pd_fallback',
+ *   oh_points_left?: OhMeasurePoints,
+ *   oh_points_right?: OhMeasurePoints,
  * }} RealWearingOhSet
  *
  * @typedef {{ visit_id: number, sets: RealWearingOhSet[] }} RealWearingOhMirror

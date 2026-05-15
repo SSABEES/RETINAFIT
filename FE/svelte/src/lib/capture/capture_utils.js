@@ -33,6 +33,24 @@ export function get_center_crop_box(video_w, video_h) {
 }
 
 /**
+ * 비디오 전체 프레임 픽셀 좌표를 480×640 캡처 좌표계로 변환한다.
+ * OH 게이트처럼 raw video 좌표계로 측정한 점을 result.svelte 의 MeasureCanvas 가 사용할 수 있게 정합.
+ * remap_landmarks_to_crop 의 픽셀 버전 — 0~1 정규화 대신 source_width/height 기준 픽셀 입출력.
+ *
+ * @param {{ x: number, y: number }} px        video 전체 프레임 픽셀 좌표
+ * @param {number} source_width                 videoWidth
+ * @param {number} source_height                videoHeight
+ * @returns {{ x: number, y: number }}
+ */
+export function remap_px_to_capture_coords(px, source_width, source_height) {
+  const { crop_x, crop_y, crop_w, crop_h } = get_center_crop_box(source_width, source_height)
+  return {
+    x: ((px.x - crop_x) * NORMALIZED_W) / crop_w,
+    y: ((px.y - crop_y) * NORMALIZED_H) / crop_h,
+  }
+}
+
+/**
  * MediaPipe NormalizedLandmark 배열을 비디오 전체 프레임 좌표계 → 가운데 3:4 crop 좌표계로 변환.
  * remap 후 좌표 [0,1] 범위는 crop 영역 기준 — NORMALIZED_W/H 와 곱하면 캡처 픽셀과 일치.
  * @param {ReadonlyArray<{ x: number, y: number, z?: number, visibility?: number }>} landmarks

@@ -39,6 +39,7 @@ import {
   scale_intrinsics_to_image,
 } from './camera_intrinsics.js'
 import { estimate_oh, ensure_opencv_ready } from './oh_estimator.js'
+import { remap_px_to_capture_coords } from '@/lib/capture/capture_utils.js'
 
 export const OH_MIN_MM = 10
 export const OH_MAX_MM = 30
@@ -156,6 +157,8 @@ export function compute_mm_per_px_fallback(pupil_right, pupil_left) {
  * @property {number} oh_left_mm
  * @property {number} oh_right_mm
  * @property {'aruco' | 'pd_fallback'} oh_source
+ * @property {OhMeasurePoints} oh_points_left   캡처(480×640) 좌표계의 좌측 동공·림 하단. result.svelte 의 MeasureCanvas 가 그대로 사용 가능.
+ * @property {OhMeasurePoints} oh_points_right
  *
  * @typedef {object} GateStatus
  * @property {'measuring' | 'measured'} phase
@@ -169,6 +172,9 @@ export function compute_mm_per_px_fallback(pupil_right, pupil_left) {
  * @property {RoiBox | null} roi_left
  * @property {number | null} frame_bottom_y_right       채택된 우측 림 하단 y (캔버스 좌표). null = 검출 실패
  * @property {number | null} frame_bottom_y_left
+ *
+ * @typedef {{ x: number, y: number }} Point2D
+ * @typedef {{ pupil: Point2D, rim_bottom: Point2D }} OhMeasurePoints
  */
 
 /**
@@ -392,8 +398,20 @@ export function start_oh_capture_gate({ on_pass, on_status, on_overlay_update })
           return
         }
 
-        buf_right_arr.push({ oh: oh_right_mm, confidence: oh_result.confidence_right })
-        buf_left_arr.push({ oh: oh_left_mm, confidence: oh_result.confidence_left })
+        // ring buffer 에 좌표도 함께 — pass 시점에 마지막 프레임의 점을 result.svelte 의 MeasureCanvas 좌표로 변환해 전달.
+        // (좌표는 평균 안 함 — 안정화된 마지막 프레임이 사용자가 본 측정 위치와 가장 일치)
+        buf_right_arr.push({
+          oh: oh_right_mm,
+          confidence: oh_result.confidence_right,
+          pupil_px: pupil_right,
+          rim_bottom_px: { x: pupil_right.x, y: oh_result.frame_bottom_y_right },
+        })
+        buf_left_arr.push({
+          oh: oh_left_mm,
+          confidence: oh_result.confidence_left,
+          pupil_px: pupil_left,
+          rim_bottom_px: { x: pupil_left.x, y: oh_result.frame_bottom_y_left },
+        })
         if (buf_right_arr.length > RING_SIZE) buf_right_arr.shift()
         if (buf_left_arr.length > RING_SIZE) buf_left_arr.shift()
 
@@ -407,6 +425,18 @@ export function start_oh_capture_gate({ on_pass, on_status, on_overlay_update })
 
         if (stats_right.ok && stats_left.ok) {
           pass_fired = true
+          // 마지막 프레임의 점을 video full frame 좌표계 → 480×640 캡처 좌표계로 변환.
+          // result.svelte 의 MeasureCanvas 는 capture(480×640) 좌표계 기준이므로 여기서 정합.
+          const last_right_frame = buf_right_arr[buf_right_arr.length - 1]
+          const last_left_frame = buf_left_arr[buf_left_arr.length - 1]
+          const oh_points_right = {
+            pupil: remap_px_to_capture_coords(last_right_frame.pupil_px, source_width, source_height),
+            rim_bottom: remap_px_to_capture_coords(last_right_frame.rim_bottom_px, source_width, source_height),
+          }
+          const oh_points_left = {
+            pupil: remap_px_to_capture_coords(last_left_frame.pupil_px, source_width, source_height),
+            rim_bottom: remap_px_to_capture_coords(last_left_frame.rim_bottom_px, source_width, source_height),
+          }
           emit_status({
             phase: 'measured',
             hint: '측정 완료',
@@ -421,6 +451,8 @@ export function start_oh_capture_gate({ on_pass, on_status, on_overlay_update })
             oh_left_mm: stats_left.mean,
             oh_right_mm: stats_right.mean,
             oh_source,
+            oh_points_left,
+            oh_points_right,
           })
           return
         }
