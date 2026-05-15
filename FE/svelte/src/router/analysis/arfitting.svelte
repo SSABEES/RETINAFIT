@@ -230,11 +230,16 @@
     const local_glasses_obj =
       g_glasses_arr.find((local_item_obj) => local_item_obj.id === id) ?? null
     if (local_glasses_obj && !g_ar_unavailable) {
-      void launch_flutter_fitting_for_glasses(local_glasses_obj).catch((local_err) => {
-        const local_err_text =
-          local_err instanceof Error ? local_err.message : 'AR 피팅 실행에 실패했습니다.'
-        show_toast(local_err_text)
-      })
+      g_flutter_launch_loading = true
+      void launch_flutter_fitting_for_glasses(local_glasses_obj)
+        .catch((local_err) => {
+          const local_err_text =
+            local_err instanceof Error ? local_err.message : 'AR 피팅 실행에 실패했습니다.'
+          show_toast(local_err_text)
+        })
+        .finally(() => {
+          g_flutter_launch_loading = false
+        })
     }
   }
 
@@ -626,6 +631,9 @@
             selected_glasses_obj={g_selected_glasses_obj}
             next_slot_key={g_next_empty_slot_key}
             oncaptured={on_fallback_captured}
+            onload_change={(local_is_loading) => {
+              g_flutter_launch_loading = local_is_loading
+            }}
           />
         {:else}
           <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
