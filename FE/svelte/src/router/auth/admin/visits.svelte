@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import { navigate } from '@maks11060/svelte5-router'
-  import { ChevronLeft, ChevronRight } from 'lucide-svelte'
+  import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-svelte'
   import AdminLayout from '@/router/auth/admin/admin_layout.svelte'
   import { PATH } from '@/config/path'
   import { get_admin_all_visits } from '@/lib/api/visit'
@@ -73,6 +73,17 @@
     return Number(sex) === 1 ? '여' : '남'
   }
 
+  // 담당 안경사 표시 — BE visit 응답이 member_no 만 내려주고 member_name 은 포함하지 않으므로
+  // 0 은 "셀프 진행" 으로, 그 외는 번호로 표시한다 (어드민 토큰으로 멤버 이름 조회 가능한 엔드포인트 없음).
+  /** @param {number | string | null | undefined} member_no */
+  function format_member(member_no) {
+    if (member_no === null || member_no === undefined || member_no === '') return '-'
+    const local_num = Number(member_no)
+    if (!Number.isFinite(local_num)) return '-'
+    if (local_num === 0) return '셀프 진행'
+    return `안경사 #${local_num}`
+  }
+
   /** @param {VisitObj} visit_obj */
   function get_status_label(visit_obj) {
     if (visit_obj.real_vp_dt) return { text: '실착 완료', class: 'bg-[#DCFCE7] text-[#15803D]' }
@@ -101,9 +112,16 @@
     }
   }
 
-  async function load_all_visits() {
+  // force_refresh=true 면 sessionStorage 캐시를 무시하고 강제로 BE 재조회 (새로고침 버튼).
+  /** @param {{ force_refresh?: boolean }} [opts] */
+  async function load_all_visits(opts = {}) {
+    const local_force = Boolean(opts.force_refresh)
+
     // 1) 세션 캐시가 있으면 그걸로 즉시 채우고 API 호출은 생략 (뒤로가기 시 재로딩 방지).
-    if (try_restore_from_cache()) {
+    //    단 강제 새로고침이면 캐시를 비우고 무조건 API 재호출.
+    if (local_force) {
+      sessionStorage.removeItem(VISITS_CACHE_KEY)
+    } else if (try_restore_from_cache()) {
       g_is_loading = false
       return
     }
@@ -144,6 +162,12 @@
     navigate(PATH.adminVisitDetail(visit_no))
   }
 
+  // 새로고침 버튼 — 세션 캐시를 비우고 BE 재조회. 이미 로딩 중이면 무시.
+  function on_click_refresh() {
+    if (g_is_loading) return
+    void load_all_visits({ force_refresh: true })
+  }
+
   /** @param {number} page */
   function go_to_page(page) {
     g_page = Math.max(1, Math.min(g_total_pages, page))
@@ -172,16 +196,33 @@
     <!-- 상단 카운트 -->
     <div class="flex items-center justify-between">
       <h2 class="m-0 text-xl font-extrabold text-[var(--retina-text)]">방문자 정보</h2>
-      <p class="m-0 text-sm font-bold text-[var(--retina-text-muted)]">
-        {#if g_visit_arr.length > 0}
-          <span class="text-[var(--retina-primary-600)]"
-            >{g_page_start_index}-{g_page_end_index}</span
-          >
-          / 총 <span class="text-[var(--retina-primary-600)]">{g_total}건</span>
-        {:else}
-          총 <span class="text-[var(--retina-primary-600)]">{g_total}건</span>
-        {/if}
-      </p>
+      <div class="flex items-center gap-3">
+        <p class="m-0 text-sm font-bold text-[var(--retina-text-muted)]">
+          {#if g_visit_arr.length > 0}
+            <span class="text-[var(--retina-primary-600)]"
+              >{g_page_start_index}-{g_page_end_index}</span
+            >
+            / 총 <span class="text-[var(--retina-primary-600)]">{g_total}건</span>
+          {:else}
+            총 <span class="text-[var(--retina-primary-600)]">{g_total}건</span>
+          {/if}
+        </p>
+        <button
+          type="button"
+          onclick={on_click_refresh}
+          disabled={g_is_loading}
+          aria-label="방문자 목록 새로고침"
+          class="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--retina-text-200)] bg-white px-3 text-sm font-extrabold text-[var(--retina-primary-600)] transition hover:border-[var(--retina-primary-400)] hover:bg-[var(--retina-bg-1)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[var(--retina-text-200)] disabled:hover:bg-white"
+        >
+          <RefreshCw
+            size={14}
+            strokeWidth={2.4}
+            aria-hidden="true"
+            class={g_is_loading ? 'animate-spin' : ''}
+          />
+          새로고침
+        </button>
+      </div>
     </div>
 
     <!-- 리스트 영역 -->
@@ -207,7 +248,7 @@
           <span>연락처</span>
           <span>방문일시</span>
           <span>안경원번호</span>
-          <span>안경사번호</span>
+          <span>담당 안경사</span>
           <span>상태</span>
         </div>
 
@@ -236,9 +277,9 @@
                 <span class="text-[13px] text-[var(--retina-text-500)]"
                   >#{visit_obj.opt_no ?? '-'}</span
                 >
-                <span class="text-[13px] text-[var(--retina-text-500)]"
-                  >#{visit_obj.member_no ?? '-'}</span
-                >
+                <span class="truncate text-[13px] text-[var(--retina-text-500)]">
+                  {format_member(visit_obj.member_no)}
+                </span>
                 <span>
                   <span
                     class={`inline-flex rounded-full px-3 py-1 text-[11px] font-extrabold ${local_status.class}`}

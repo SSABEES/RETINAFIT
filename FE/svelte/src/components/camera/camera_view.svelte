@@ -744,6 +744,12 @@
       console.warn('[camera_view] trigger_capture: 정면 포즈에서 얼굴이 감지되지 않음')
       return false
     }
+    // 수동 트리거에서도 셔터음을 재생한다 (auto 시퀀스와 동일 패턴).
+    // - 진행 중이던 안내음(예: face_recognition_in_progress, 동등 high priority)은 stop 으로 비워야
+    //   play_voice 가 차단되지 않는다.
+    // - 셔터음은 캡처와 같은 tick 에 발사 (await X) — "셔터음 시작 = 사진 찍힌 순간" 인지.
+    stop_voice()
+    void play_voice('camera_shutter_sound', { priority: 'high' })
     await trigger_capture_internal(g_measurements_obj)
     return true
   }
