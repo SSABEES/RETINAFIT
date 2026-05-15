@@ -660,9 +660,10 @@
     return local_be_arr.length > 0 ? local_be_arr.slice(0, 6) : []
   })
 
-  // 1순위만 추출 — 추천 모양 슬롯에 4개까지 채울 후보.
+  // priority 1~2 모두 추출 — 추천 모양 슬롯에 4개까지 채울 후보.
+  // 일부 얼굴형(예: oblong)은 priority 1 항목이 없어 priority 1 만 보면 빈 화면이 되므로 2까지 포함.
   const g_priority_one_frame_arr = $derived(
-    g_recommended_frame_arr.filter((local_obj) => local_obj.priority === 1),
+    g_recommended_frame_arr.filter((local_obj) => local_obj.priority <= 2),
   )
 
   // 렌즈 상담 답변 (BE 가 selection_arr 로 저장한다)
@@ -917,8 +918,26 @@
     }
   }
 
+  // 표시용 전화번호 포맷터 — 숫자만 추출 후 한국 전화번호 패턴에 맞춰 하이픈 삽입.
+  // 02 지역번호(서울)는 9~10자리, 그 외 휴대전화/지역번호는 10~11자리. 길이 비정상이면 원본 반환.
+  /** @param {string | null | undefined} raw_phone */
+  function format_phone_with_hyphens(raw_phone) {
+    if (!raw_phone) return ''
+    const local_digits = String(raw_phone).replace(/\D/g, '')
+    if (local_digits.length === 0) return ''
+    if (local_digits.startsWith('02')) {
+      if (local_digits.length === 9) return local_digits.replace(/(\d{2})(\d{3})(\d{4})/, '$1-$2-$3')
+      if (local_digits.length === 10) return local_digits.replace(/(\d{2})(\d{4})(\d{4})/, '$1-$2-$3')
+    }
+    if (local_digits.length === 10) return local_digits.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
+    if (local_digits.length === 11) return local_digits.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')
+    return raw_phone
+  }
+
   // 고객 정보 표시용 (없는 값은 '-' 처리)
-  const g_customer_phone = $derived($selected_customer_obj?.phone ?? '-')
+  const g_customer_phone = $derived(
+    format_phone_with_hyphens($selected_customer_obj?.phone) || '-',
+  )
   const g_customer_age_label = $derived.by(() => {
     if ($selected_customer_obj?.age) return String($selected_customer_obj.age)
     const local_birth_dt = String($selected_customer_obj?.birth_dt ?? '').trim()
@@ -1349,7 +1368,7 @@
         <section
           class="flex flex-1 flex-col rounded-[14px] border border-slate-200 bg-white shadow-sm px-[clamp(14px,3svh,28px)] pt-[clamp(6px,1.4svh,12px)] pb-[clamp(6px,3svh,40px)]"
         >
-          <div class="flex flex-wrap items-center justify-between gap-[clamp(8px,2svh,16px)]">
+          <div class="flex flex-wrap items-start justify-between gap-[clamp(8px,2svh,16px)]">
             <h2 class="m-0 font-extrabold text-zinc-900 text-[clamp(14px,3svh,28px)]">
               얼굴 측정 상세
             </h2>
@@ -1433,27 +1452,27 @@
           <h2 class="m-0 font-extrabold text-zinc-900 text-[clamp(14px,3svh,28px)]">생활 패턴</h2>
 
           {#if g_lens_selection_arr.length === 0}
-            <p class="mt-3 font-semibold text-slate-400 text-[clamp(13px,2.4svh,22px)]">
+            <p class="mt-[clamp(4px,1.4svh,12px)] font-semibold text-slate-400 text-[clamp(11px,2.1svh,19px)]">
               선택한 항목이 없습니다.
             </p>
           {:else}
-            <div class="mt-3 grid grid-cols-2 gap-[clamp(10px,2.2svh,18px)]">
+            <div class="mt-[clamp(4px,1.4svh,12px)] grid min-h-0 flex-1 grid-cols-2 content-start gap-[clamp(6px,1.8svh,18px)]">
               {#each g_lens_selection_arr as selection_obj, selection_index (selection_index)}
                 <div
-                  class="rounded-[10px] border border-slate-100 bg-slate-50 px-[clamp(12px,2.4svh,24px)] py-[clamp(10px,2.4svh,20px)]"
+                  class="rounded-[10px] border border-slate-100 bg-slate-50 px-[clamp(8px,2svh,24px)] py-[clamp(6px,1.8svh,20px)]"
                 >
-                  <p class="m-0 font-bold text-slate-500 text-[clamp(13px,2.5svh,24px)]">
+                  <p class="m-0 font-bold text-slate-500 text-[clamp(11px,2.1svh,22px)]">
                     Q{selection_index + 1}. {selection_obj.question_text}
                   </p>
-                  <div class="mt-3 flex flex-wrap gap-2">
+                  <div class="mt-[clamp(4px,1.4svh,12px)] flex flex-wrap gap-[clamp(3px,0.8svh,8px)]">
                     {#if selection_obj.label_arr.length === 0}
-                      <span class="font-semibold text-slate-400 text-[clamp(13px,2.4svh,22px)]"
+                      <span class="font-semibold text-slate-400 text-[clamp(11px,2svh,22px)]"
                         >-</span
                       >
                     {:else}
                       {#each selection_obj.label_arr as label_text, label_index (`${selection_index}-${label_index}`)}
                         <span
-                          class="inline-flex items-center rounded-md border border-[var(--retina-primary-300)] bg-white font-bold text-[var(--retina-primary-400)] px-[clamp(10px,2.2svh,20px)] py-[clamp(4px,1svh,10px)] text-[clamp(13px,2.4svh,22px)]"
+                          class="inline-flex items-center rounded-md border border-[var(--retina-primary-300)] bg-white font-bold text-[var(--retina-primary-400)] px-[clamp(6px,1.8svh,20px)] py-[clamp(2px,0.8svh,10px)] text-[clamp(11px,2svh,22px)]"
                         >
                           {label_text}
                         </span>
@@ -1482,34 +1501,14 @@
               </p>
             </div>
           {:else}
-            <div
-              class="mt-2 grid justify-center gap-[clamp(7px,1.7svh,14px)] grid-cols-[repeat(3,minmax(0,clamp(216px,33svh,372px)))]"
-            >
+            <!-- 각 피팅: 브랜드/모델 헤더 + 정면/좌측/우측 사진 3장을 같은 행에 표시. 피팅 카드 자체는 세로로 stack. -->
+            <div class="mt-2 flex flex-col gap-[clamp(7px,1.7svh,14px)]">
               {#each g_saved_fitting_arr as fitting_obj, fitting_index (fitting_index)}
-                {@const local_front_capture_obj =
-                  fitting_obj.capture_arr?.find(
-                    (local_capture_obj) => local_capture_obj?.key || local_capture_obj?.url,
-                  ) ?? fitting_obj.capture_arr?.[0]}
-                {@const local_front_src = resolve_capture_src(local_front_capture_obj)}
+                {@const local_photo_arr = (fitting_obj.capture_arr ?? []).slice(0, 3)}
                 <article
                   class="rounded-[12px] border border-slate-100 bg-slate-50 p-[clamp(8px,1.8svh,16px)]"
                 >
-                  <div
-                    class="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-slate-200 bg-white"
-                  >
-                    {#if local_front_src}
-                      <img
-                        src={local_front_src}
-                        alt={`${fitting_obj.model} 정면`}
-                        class="h-full w-full object-cover"
-                      />
-                    {:else}
-                      <div class="grid h-full w-full place-items-center text-slate-300">
-                        <UserRound size={32} strokeWidth={1.7} />
-                      </div>
-                    {/if}
-                  </div>
-                  <div class="mt-3 flex flex-col">
+                  <header class="mb-[clamp(6px,1.4svh,12px)] flex flex-col">
                     <span
                       class="font-bold uppercase tracking-wider text-slate-400 text-[clamp(11px,1.9svh,18px)]"
                     >
@@ -1520,6 +1519,35 @@
                     >
                       {fitting_obj.model || '-'}
                     </p>
+                  </header>
+                  <div
+                    class="grid justify-center gap-[clamp(6px,1.5svh,12px)] grid-cols-[repeat(3,minmax(0,clamp(160px,28svh,300px)))]"
+                  >
+                    {#each local_photo_arr as capture_obj, capture_idx (capture_idx)}
+                      {@const local_src = resolve_capture_src(capture_obj)}
+                      <div
+                        class="relative aspect-[3/4] w-full overflow-hidden rounded-[10px] border border-slate-200 bg-white"
+                      >
+                        {#if local_src}
+                          <img
+                            src={local_src}
+                            alt={`${fitting_obj.model} ${capture_obj?.label ?? ''}`}
+                            class="h-full w-full object-cover"
+                          />
+                        {:else}
+                          <div class="grid h-full w-full place-items-center text-slate-300">
+                            <UserRound size={32} strokeWidth={1.7} />
+                          </div>
+                        {/if}
+                        {#if capture_obj?.label}
+                          <span
+                            class="absolute bottom-1 left-1 rounded-sm bg-black/55 px-1 py-0.5 font-extrabold text-white text-[clamp(11px,1.8svh,16px)]"
+                          >
+                            {capture_obj.label}
+                          </span>
+                        {/if}
+                      </div>
+                    {/each}
                   </div>
                 </article>
               {/each}

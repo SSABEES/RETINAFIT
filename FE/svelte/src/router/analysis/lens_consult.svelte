@@ -37,7 +37,8 @@
 
   const g_customer_name = $derived.by(() => {
     const local_name = $selected_customer_obj?.name?.trim()
-    if (!local_name) return '고객'
+    // 비회원/게스트 방문은 이름 자리를 비워 "고객님의 생활패턴" 으로 표시.
+    if (!local_name || local_name === '비회원') return '고객'
     return local_name.endsWith('님') ? local_name : `${local_name} 고객님`
   })
 
@@ -327,7 +328,7 @@
         </p>
       </div>
 
-      <div class="mx-auto mt-[clamp(3px,1svh,16px)] w-full max-w-[820px] xl:max-w-[1120px] 2xl:max-w-[1440px]">
+      <div class="mx-auto mt-[clamp(3px,1svh,16px)] w-full max-w-[440px] xl:max-w-[600px] 2xl:max-w-[760px]">
         {#if g_options_loading}
           <div class="grid place-items-center py-[clamp(16px,5svh,48px)]">
             <span
@@ -343,11 +344,11 @@
           </p>
         {:else}
           <div
-            class="rounded-[18px] border border-slate-200 bg-white text-left shadow-[0_6px_16px_rgba(15,23,42,0.05)] px-[clamp(11px,2.6svh,34px)] py-[clamp(6px,1.5svh,16px)]"
+            class="rounded-[18px] border border-slate-200 bg-white text-left shadow-[0_6px_16px_rgba(15,23,42,0.05)] px-[clamp(11px,2.6svh,34px)] py-[clamp(4px,1svh,14px)]"
           >
             {#each g_question_arr as question_obj, question_index (question_obj.question_text)}
               <section
-                class={`text-left ${question_index === 0 ? '' : 'mt-[clamp(4px,1svh,12px)] border-t border-slate-100 pt-[clamp(4px,1svh,12px)]'}`}
+                class={`text-left ${question_index === 0 ? '' : 'mt-[clamp(3px,0.65svh,10px)] border-t border-slate-100 pt-[clamp(3px,0.65svh,10px)]'}`}
               >
                 <h2 class="m-0 text-left font-extrabold text-zinc-950 text-[clamp(12px,2.5svh,28px)]">
                   Q{question_index + 1}. {question_obj.question_text}
@@ -359,7 +360,7 @@
                   {@const local_value_index = local_selected_index < 0 ? 0 : local_selected_index}
                   {@const local_progress_pct =
                     local_max_index === 0 ? 100 : (local_value_index / local_max_index) * 100}
-                  <div class="mt-[clamp(3px,1svh,13px)] px-1">
+                  <div class="mt-[clamp(2px,0.65svh,11px)] px-1">
                     <div
                       class="relative h-[clamp(9px,2svh,20px)] rounded-full bg-[var(--retina-primary-100)]"
                     >
@@ -399,7 +400,7 @@
                   </div>
                 {:else}
                   <div
-                    class="mt-[clamp(3px,1.05svh,13px)] flex flex-wrap justify-start gap-[clamp(4px,1.2svh,16px)]"
+                    class="mt-[clamp(2px,0.7svh,11px)] flex flex-wrap justify-start gap-[clamp(2px,0.55svh,8px)]"
                   >
                     {#each question_obj.answer_arr as answer_obj (answer_obj.option_no)}
                       {@const local_active = is_selected(
@@ -407,7 +408,7 @@
                         answer_obj.option_no,
                       )}
                       <button
-                        class={`inline-flex cursor-pointer items-center rounded-md border font-bold transition min-h-[clamp(24px,5svh,56px)] px-[clamp(8px,2.6svh,32px)] py-[clamp(2px,0.6svh,8px)] text-[clamp(11px,2.6svh,28px)] ${
+                        class={`inline-flex cursor-pointer items-center rounded-md border font-bold transition min-h-[clamp(22px,4.2svh,52px)] px-[clamp(2px,0.7svh,8px)] py-[clamp(2px,0.45svh,7px)] text-[clamp(11px,2.6svh,28px)] ${
                           local_active
                             ? 'border-[var(--retina-primary-300)] bg-white text-[var(--retina-primary-300)] shadow-[0_3px_8px_rgba(249,115,22,0.18)]'
                             : 'border-slate-200 bg-white text-slate-500 hover:border-[var(--retina-primary-300)]/60 hover:text-[var(--retina-primary-300)]'

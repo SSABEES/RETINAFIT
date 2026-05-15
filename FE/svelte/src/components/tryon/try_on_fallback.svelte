@@ -92,6 +92,9 @@
   let g_init_error = $state(/** @type {string | null} */ (null))
   let g_permission_denied = $state(false)
   let g_face_detected = $state(false)
+  // 얼굴이 가이드 타원 중심부에 들어왔는지 — 가이드 stroke 색 (흰색→초록) 전환에만 사용.
+  // 판정 기준: nose tip(landmark 1) 의 정규화 좌표가 화면 가운데 영역 (x: 0.40~0.60, y: 0.30~0.65) 안.
+  let g_face_centered = $state(false)
   let g_glb_loading = $state(false)
   let g_capturing = $state(false)
 
@@ -350,6 +353,19 @@
           g_pose_temp_matrix.decompose(g_target_translation, g_target_quaternion, g_decompose_scale)
           g_face_detected = true
           g_scene_ctx.glasses_root_obj.visible = true
+          // nose tip(landmark index 1) 의 정규화 좌표로 중앙 영역 진입 여부 판정.
+          // video 는 16:9 (1280×720) 이지만 화면은 가운데 3:4 crop 만 보임 → 보이는 영역 가로 중심이
+          // 정규화 0.5 에 해당. 가이드 타원이 가로 19~80%, 세로 19~79% 정도라 그 안쪽으로 임계 잡음.
+          const local_nose_obj = result.faceLandmarks[0]?.[1]
+          if (local_nose_obj) {
+            g_face_centered =
+              local_nose_obj.x >= 0.40 &&
+              local_nose_obj.x <= 0.60 &&
+              local_nose_obj.y >= 0.30 &&
+              local_nose_obj.y <= 0.65
+          } else {
+            g_face_centered = false
+          }
           if (!g_pose_initialized) {
             g_current_translation.copy(g_target_translation)
             g_current_quaternion.copy(g_target_quaternion)
@@ -357,10 +373,12 @@
           }
         } else {
           g_face_detected = false
+          g_face_centered = false
           g_scene_ctx.glasses_root_obj.visible = false
         }
       } else {
         g_face_detected = false
+        g_face_centered = false
         g_scene_ctx.glasses_root_obj.visible = false
       }
     }
@@ -433,7 +451,7 @@
 
   // 캡처 버튼 클릭 — video + three.js 의 가운데 3:4 영역을 crop·미러해 Blob 으로 부모 전달.
   async function on_click_capture(slot_key) {
-    if (!g_face_detected || !ref_video_el || !ref_three_canvas_el) return
+    if (!g_face_centered || !ref_video_el || !ref_three_canvas_el) return
     if (g_capturing) return
     g_capturing = true
     try {
@@ -516,6 +534,29 @@
       style="transform: scaleX(-1);"
     ></canvas>
 
+    <!--
+      얼굴 가이드 타원 — camera_view.svelte 의 정면 가이드(계란형)와 동일한 베지어 모양을 SVG 로
+      옮긴 것. 사용자가 카메라 중앙에 얼굴을 맞추도록 유도한다. 얼굴 검출 시 stroke 색만 초록으로
+      바뀌어 "잘 잡혔다" 피드백을 준다. canvas/video 와 달리 scaleX(-1) 미러는 적용하지 않는다
+      (가이드 모양이 대칭이라 의미 없음 + 사용자 좌표계와 일치하도록).
+    -->
+    <svg
+      class="pointer-events-none absolute inset-0 h-full w-full"
+      viewBox="0 0 75 100"
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
+    >
+      <path
+        d="M 37.5 19.4 C 61.44 19.4 60.3 32.9 60.3 49.4 C 60.3 65.9 47.76 79.4 37.5 79.4 C 27.24 79.4 14.7 65.9 14.7 49.4 C 14.7 32.9 13.56 19.4 37.5 19.4 Z"
+        fill="none"
+        stroke={g_face_centered ? '#22c55e' : 'rgba(255,255,255,0.7)'}
+        stroke-width="0.6"
+        stroke-dasharray="2.2 1.1"
+        stroke-linecap="round"
+        style="filter: drop-shadow(0 0 1.2px rgba(0,0,0,0.55)); transition: stroke 200ms ease;"
+      />
+    </svg>
+
     {#if g_init_error}
       <div
         class="absolute inset-x-0 top-3 mx-auto w-fit rounded-md bg-red-500/90 px-3 py-1.5 text-xs font-bold text-white"
@@ -541,7 +582,7 @@
       <div
         class="absolute inset-x-0 top-3 mx-auto w-fit rounded-md bg-black/60 px-3 py-1 text-xs text-zinc-100"
       >
-        얼굴을 화면 안에 비춰주세요
+        얼굴을 가이드 안에 맞춰주세요
       </div>
     {/if}
 
@@ -553,7 +594,7 @@
       <button
         type="button"
         disabled={!selected_glasses_obj ||
-          !g_face_detected ||
+          !g_face_centered ||
           g_capturing ||
           next_slot_key === null}
         onclick={() => next_slot_key && on_click_capture(next_slot_key)}

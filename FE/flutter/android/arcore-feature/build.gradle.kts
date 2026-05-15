@@ -39,7 +39,7 @@ dependencies {
     api(project(":arcore-contract"))
 
     implementation("com.google.ar:core:1.53.0")
-    implementation("io.github.sceneview:arsceneview:4.0.1")
+    implementation("io.github.sceneview:arsceneview:4.0.8")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
