@@ -71,8 +71,9 @@
     ref_selected_member_id = member_id
   }
 
-  // 확정 — visit 에 member_no PATCH 시도 후 최종 리포트로 이동.
-  // BE 가 아직 member_no 필드 받기 전이라 실패해도 흐름 막지 않고 result 로 진행한다 (내일 BE 연결 예정).
+  // 확정 — visit 에 member_no PATCH 후 최종 리포트로 이동.
+  // BE(VisitUpdateRequest.member_no)는 이미 연결됨. 네트워크 오류 등으로 PATCH 가 실패하더라도
+  // 사용자 흐름은 막지 않고 result 로 진행한다 (리포트 화면 진입 자체가 더 중요).
   async function on_click_confirm() {
     if (!g_can_confirm) return
     g_is_submitting = true
@@ -85,7 +86,7 @@
             body: { member_no: g_selected_member_no },
           })
         } catch (patch_err) {
-          // BE 미구현/검증 실패 등 어떤 에러든 사용자 흐름 막지 않음.
+          // 네트워크/검증 오류 등 어떤 에러든 사용자 흐름 막지 않음.
           console.warn('[member_select] member_no PATCH 실패 — 흐름 계속 진행:', patch_err)
         }
       }

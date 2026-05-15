@@ -73,6 +73,17 @@
     return Number(sex) === 1 ? '여' : '남'
   }
 
+  // 담당 안경사 표시 — BE visit 응답이 member_no 만 내려주고 member_name 은 포함하지 않으므로
+  // 0 은 "셀프 진행" 으로, 그 외는 번호로 표시한다 (어드민 토큰으로 멤버 이름 조회 가능한 엔드포인트 없음).
+  /** @param {number | string | null | undefined} member_no */
+  function format_member(member_no) {
+    if (member_no === null || member_no === undefined || member_no === '') return '-'
+    const local_num = Number(member_no)
+    if (!Number.isFinite(local_num)) return '-'
+    if (local_num === 0) return '셀프 진행'
+    return `안경사 #${local_num}`
+  }
+
   /** @param {VisitObj} visit_obj */
   function get_status_label(visit_obj) {
     if (visit_obj.real_vp_dt) return { text: '실착 완료', class: 'bg-[#DCFCE7] text-[#15803D]' }
@@ -207,7 +218,7 @@
           <span>연락처</span>
           <span>방문일시</span>
           <span>안경원번호</span>
-          <span>안경사번호</span>
+          <span>담당 안경사</span>
           <span>상태</span>
         </div>
 
@@ -236,9 +247,9 @@
                 <span class="text-[13px] text-[var(--retina-text-500)]"
                   >#{visit_obj.opt_no ?? '-'}</span
                 >
-                <span class="text-[13px] text-[var(--retina-text-500)]"
-                  >#{visit_obj.member_no ?? '-'}</span
-                >
+                <span class="truncate text-[13px] text-[var(--retina-text-500)]">
+                  {format_member(visit_obj.member_no)}
+                </span>
                 <span>
                   <span
                     class={`inline-flex rounded-full px-3 py-1 text-[11px] font-extrabold ${local_status.class}`}
