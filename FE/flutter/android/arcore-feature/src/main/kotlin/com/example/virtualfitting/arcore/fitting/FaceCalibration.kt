@@ -15,12 +15,27 @@ import kotlin.math.sqrt
 val NOSE_BRIDGE_VERTEX_INDICES: IntArray = intArrayOf(6, 197, 195)
 
 /**
+ * Canonical Face Mesh 의 좌안 외측/내측 코너 정점 인덱스. 외측(33) + 내측(133) 의 중점이
+ * 좌안 동공 위치에 근사한다. ARCore 가 iris landmark 를 별도로 제공하지 않아 동공 자체
+ * vertex 는 없고, 코너 평균이 가장 안정적인 IPD 추정 방법.
+ */
+val LEFT_EYE_CORNER_VERTEX_INDICES: IntArray = intArrayOf(33, 133)
+
+/**
+ * Canonical Face Mesh 의 우안 외측/내측 코너 정점 인덱스. 외측(263) + 내측(362) 중점이
+ * 우안 동공 위치에 근사.
+ */
+val RIGHT_EYE_CORNER_VERTEX_INDICES: IntArray = intArrayOf(263, 362)
+
+/**
  * 한 프레임의 얼굴 측정값.
  * - faceWidth: 좌/우 이마 region 의 월드 공간 거리 (meter, rotation-invariant).
  * - noseTipY: 코끝 region 과 centerPose 간 Y 축 거리 (face-local approximation).
  * - noseBridgeFaceLocal{X,Y,Z}: 콧대 정점들 face-local 좌표 평균 (표정 무관 anchor 용).
  *   lock 시점의 face-local 콧대 좌표를 보존해, 표정 변화로 인한 mesh deformation
  *   (centerPose 자체가 위/아래로 끌려가고, 콧대 face-local 좌표도 미세 변동) 을 보상.
+ * - ipd: Inter-Pupillary Distance — 좌/우 동공 (눈 코너 평균) 의 face-local 거리.
+ *   rotation-invariant. 안경 폭 보정의 가장 직접적인 지표.
  */
 data class FaceMeasurement(
     val faceWidth: Float,
@@ -28,21 +43,24 @@ data class FaceMeasurement(
     val noseBridgeFaceLocalX: Float = 0f,
     val noseBridgeFaceLocalY: Float = 0f,
     val noseBridgeFaceLocalZ: Float = 0f,
+    val ipd: Float = 0f,
 )
 
 fun List<FaceMeasurement>.average(): FaceMeasurement {
-    if (isEmpty()) return FaceMeasurement(0f, 0f, 0f, 0f, 0f)
+    if (isEmpty()) return FaceMeasurement(0f, 0f, 0f, 0f, 0f, 0f)
     var w = 0f
     var y = 0f
     var bX = 0f
     var bY = 0f
     var bZ = 0f
+    var p = 0f
     for (m in this) {
         w += m.faceWidth
         y += m.noseTipY
         bX += m.noseBridgeFaceLocalX
         bY += m.noseBridgeFaceLocalY
         bZ += m.noseBridgeFaceLocalZ
+        p += m.ipd
     }
     val n = size.toFloat()
     return FaceMeasurement(
@@ -51,12 +69,14 @@ fun List<FaceMeasurement>.average(): FaceMeasurement {
         noseBridgeFaceLocalX = bX / n,
         noseBridgeFaceLocalY = bY / n,
         noseBridgeFaceLocalZ = bZ / n,
+        ipd = p / n,
     )
 }
 
 /**
  * 세 채널 (faceWidth, noseTipY, noseBridgeFaceLocalY) 의 분산을 합쳐 단일 스칼라로 반환.
- * lock 안정성 판단용.
+ * lock 안정성 판단용. ipd 는 noseBridgeFaceLocal 과 유사하게 stable 한 신체 지표라
+ * 분산 계산에는 추가 안 함 (변동 거의 없음).
  */
 fun variance(samples: List<FaceMeasurement>): Float {
     if (samples.size < 2) return Float.MAX_VALUE
@@ -161,12 +181,16 @@ fun measure(face: AugmentedFace): FaceMeasurement {
     // 콧대 정점들의 face-local (x, y, z) 평균. face.meshVertices 는 face-local 좌표.
     val bridge = computeNoseBridgeFaceLocal(face)
 
+    // 좌/우 동공 (눈 코너 평균) 의 face-local 거리. IPD - 안경 fitting 의 직접 지표.
+    val ipd = computeIPD(face)
+
     return FaceMeasurement(
         faceWidth = faceWidth,
         noseTipY = noseLocal.ty(),
         noseBridgeFaceLocalX = bridge[0],
         noseBridgeFaceLocalY = bridge[1],
         noseBridgeFaceLocalZ = bridge[2],
+        ipd = ipd,
     )
 }
 
@@ -236,3 +260,45 @@ fun computeNoseBridgeWorld(face: AugmentedFace): FloatArray {
 
 /** Y 만 필요할 때의 편의 함수. logcat 디버그 로깅에서 사용. */
 fun computeNoseBridgeWorldY(face: AugmentedFace): Float = computeNoseBridgeWorld(face)[1]
+
+/**
+ * face.meshVertices 에서 주어진 인덱스들의 face-local (x, y, z) 평균. 헬퍼.
+ * 잘못된 인덱스 (mesh limit 초과) 는 무시.
+ */
+private fun averageVertexFaceLocal(face: AugmentedFace, indices: IntArray): FloatArray {
+    val vertices = face.meshVertices
+    var sumX = 0f
+    var sumY = 0f
+    var sumZ = 0f
+    var count = 0
+    for (idx in indices) {
+        val baseIdx = idx * 3
+        if (baseIdx + 2 < vertices.limit()) {
+            sumX += vertices.get(baseIdx)
+            sumY += vertices.get(baseIdx + 1)
+            sumZ += vertices.get(baseIdx + 2)
+            count++
+        }
+    }
+    return if (count > 0) {
+        floatArrayOf(sumX / count, sumY / count, sumZ / count)
+    } else {
+        floatArrayOf(0f, 0f, 0f)
+    }
+}
+
+/**
+ * Inter-Pupillary Distance (동공 간 거리). 좌/우 눈 코너의 face-local 평균 두 점 사이의
+ * Euclidean 거리. mesh vertex 가 face-local 좌표라 rotation-invariant 이고, 신체 지표라
+ * 표정 변화에도 거의 무관.
+ *
+ * 평균 IPD: 성인 6.2~6.4cm (남), 6.0~6.2cm (여). 단위는 meter.
+ */
+fun computeIPD(face: AugmentedFace): Float {
+    val leftCenter = averageVertexFaceLocal(face, LEFT_EYE_CORNER_VERTEX_INDICES)
+    val rightCenter = averageVertexFaceLocal(face, RIGHT_EYE_CORNER_VERTEX_INDICES)
+    val dx = leftCenter[0] - rightCenter[0]
+    val dy = leftCenter[1] - rightCenter[1]
+    val dz = leftCenter[2] - rightCenter[2]
+    return sqrt(dx * dx + dy * dy + dz * dz)
+}
