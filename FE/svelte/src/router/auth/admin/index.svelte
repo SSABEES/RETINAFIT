@@ -10,6 +10,7 @@
   ]
 
   // 관리자 카드 클릭 시 해당 설정 화면으로 이동한다.
+  /** @param {string} href */
   function on_click_move_admin_page(href) {
     navigate(href)
   }

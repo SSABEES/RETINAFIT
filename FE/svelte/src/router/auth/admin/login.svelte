@@ -20,16 +20,19 @@
   })
 
   // 입력 컴포넌트의 이벤트에서 실제 값 꺼내기
+  /** @param {Event} local_event */
   function get_input_value(local_event) {
     return /** @type {HTMLInputElement} */ (local_event.currentTarget).value
   }
 
   // 아이디 입력 반영
+  /** @param {Event} local_event */
   function on_input_admin_id(local_event) {
     ref_admin_id = get_input_value(local_event)
   }
 
   // 비밀번호 입력 반영
+  /** @param {Event} local_event */
   function on_input_admin_password(local_event) {
     ref_admin_password = get_input_value(local_event)
   }

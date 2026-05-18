@@ -37,6 +37,13 @@ const SELECTED_VISIT_STORAGE_KEY = 'retinal_selected_visit_obj'
  *   real_vp_dt: string | null,
  *   update_dt: string | null,
  *   is_new?: boolean,
+ *   cust_no?: number | null,
+ *   cust_name?: string | null,
+ *   phone_no1?: string | null,
+ *   phone_no2?: string | null,
+ *   birthday?: string | null,
+ *   sex?: number | null,
+ *   test_json?: any,
  * }} VisitObj
  */
 

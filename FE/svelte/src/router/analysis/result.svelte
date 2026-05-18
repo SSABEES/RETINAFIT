@@ -325,6 +325,7 @@
   // 이미 사용자가 수동으로 set 한 값이 있으면 덮어쓰지 않는다 (수동 보정 우선).
   // storage sets 는 newest-first (real_fitting 의 g_saved_set_arr 순서) 이고
   // BE real_vp_set_arr 는 oldest-first (set_no 1, 2, 3) 이므로 역순으로 매칭한다.
+  /** @param {number} visit_no */
   function pre_fill_oh_from_real_wearing(visit_no) {
     const mirror = read_real_wearing_oh(visit_no)
     if (!mirror || !Array.isArray(mirror.sets) || mirror.sets.length === 0) return
@@ -426,7 +427,12 @@
     }
   }
 
-  /** 측정 행 클릭 — 해당 set 의 active 토글. 다른 set 의 active 는 그대로 유지. */
+  /**
+   * 측정 행 클릭 — 해당 set 의 active 토글. 다른 set 의 active 는 그대로 유지.
+   * @param {number} set_index
+   * @param {'front' | 'left' | 'right'} view
+   * @param {string} item_id
+   */
   function on_select_real_vp_item(set_index, view, item_id) {
     const local_prev = g_real_vp_active_by_set_obj[set_index] ?? null
     const local_is_active = local_prev?.view === view && local_prev?.item_id === item_id
@@ -436,7 +442,10 @@
     }
   }
 
-  /** 특정 set 의 active 해제 (MeasureCanvas oncancel 콜백). */
+  /**
+   * 특정 set 의 active 해제 (MeasureCanvas oncancel 콜백).
+   * @param {number} set_index
+   */
   function on_cancel_real_vp_for_set(set_index) {
     g_real_vp_active_by_set_obj = {
       ...g_real_vp_active_by_set_obj,
@@ -444,7 +453,11 @@
     }
   }
 
-  /** 현재 (set, view) 의 active item_id 매핑 — 다른 view 면 null. */
+  /**
+   * 현재 (set, view) 의 active item_id 매핑 — 다른 view 면 null.
+   * @param {number} set_index
+   * @param {'front' | 'left' | 'right'} view
+   */
   function get_active_real_vp_item_id(set_index, view) {
     const local_active = g_real_vp_active_by_set_obj[set_index]
     if (!local_active) return null
@@ -452,7 +465,10 @@
     return local_active.item_id
   }
 
-  /** 각도 항목용 ViewAngle — vertical_signed_angle_deg 가 좌측면일 때 부호 보정. */
+  /**
+   * 각도 항목용 ViewAngle — vertical_signed_angle_deg 가 좌측면일 때 부호 보정.
+   * @param {'front' | 'left' | 'right'} view
+   */
   function get_real_vp_angle_view_id(view) {
     if (view === 'left') return 'left_no_glasses'
     if (view === 'right') return 'right_no_glasses'
@@ -463,6 +479,7 @@
    * MeasureCanvas items_arr 합성 — 거리/각도 둘 다 처리. 측정 상세 탭의 schema 와 동일.
    * @param {number} set_index
    * @param {'front' | 'left' | 'right'} view
+   * @returns {import('@/lib/measurements/measurement_utils.js').MeasurementItem[]}
    */
   function build_real_vp_items_arr(set_index, view) {
     const local_pts_view_obj = g_real_vp_points_obj[set_index]?.[view] ?? {}
@@ -474,35 +491,41 @@
         const local_deg = local_pts
           ? vertical_signed_angle_deg(local_pts[0], local_pts[1], local_view_id)
           : null
-        return {
+        return /** @type {import('@/lib/measurements/measurement_utils.js').MeasurementItem} */ ({
           item_id: local_item_def.item_id,
           label: local_item_def.label,
           view: [local_view_id],
-          source: 'manual',
-          kind: 'angle',
+          source: /** @type {'manual'} */ ('manual'),
+          kind: /** @type {import('@/lib/measurements/template.js').MeasurementKind} */ ('angle'),
           points: local_pts,
+          value_px: null,
           value_deg_raw: local_deg,
           value_deg_corrected: local_deg,
           head_image_tilt_deg_used: null,
-        }
+        })
       }
       const local_px = local_pts ? pixel_distance(local_pts[0], local_pts[1]) : null
       const local_mm =
         local_px !== null && local_mm_per_px !== null ? local_px * local_mm_per_px : null
-      return {
+      return /** @type {import('@/lib/measurements/measurement_utils.js').MeasurementItem} */ ({
         item_id: local_item_def.item_id,
         label: local_item_def.label,
         view: [`${view}_no_glasses`],
-        source: 'manual',
-        kind: 'distance',
+        source: /** @type {'manual'} */ ('manual'),
+        kind: /** @type {import('@/lib/measurements/template.js').MeasurementKind} */ ('distance'),
         points: local_pts,
         value_px: local_px,
         value_mm: local_mm,
-      }
+      })
     })
   }
 
-  // MeasureCanvas 가 2점을 모두 찍으면 호출 — 클로저로 set_index 받아 해당 set 의 active 항목에 값 기록.
+  /**
+   * MeasureCanvas 가 2점을 모두 찍으면 호출 — 클로저로 set_index 받아 해당 set 의 active 항목에 값 기록.
+   * @param {number} set_index
+   * @param {string} _item_id
+   * @param {[import('@/lib/mediapipe/face_types.js').Point2D, import('@/lib/mediapipe/face_types.js').Point2D]} points
+   */
   function on_points_set_real_vp_for_set(set_index, _item_id, points) {
     const local_active = g_real_vp_active_by_set_obj[set_index]
     if (!local_active) return
@@ -663,7 +686,7 @@
   const LABEL_TO_TONE_CLASS_OBJ = (() => {
     /** @type {Record<string, string>} */
     const local_obj = {}
-    for (const local_tone_key of Object.keys(SKIN_TONE_FRAME_COLOR_MAP)) {
+    for (const local_tone_key of /** @type {import('@/lib/recommendations/frame_recommendations.js').SkinToneKey[]} */ (Object.keys(SKIN_TONE_FRAME_COLOR_MAP))) {
       for (const local_chip of SKIN_TONE_FRAME_COLOR_MAP[local_tone_key]) {
         local_obj[local_chip.label] = local_chip.tone_class
       }
@@ -700,7 +723,7 @@
   // priority 1~2 모두 추출 — 추천 모양 슬롯에 4개까지 채울 후보.
   // 일부 얼굴형(예: oblong)은 priority 1 항목이 없어 priority 1 만 보면 빈 화면이 되므로 2까지 포함.
   const g_priority_one_frame_arr = $derived(
-    g_recommended_frame_arr.filter((local_obj) => local_obj.priority <= 2),
+    g_recommended_frame_arr.filter((/** @type {any} */ local_obj) => local_obj.priority <= 2),
   )
 
   // 렌즈 상담 답변 (BE 가 selection_arr 로 저장한다)
@@ -833,6 +856,7 @@
       return {
         item_id: local_entry.item_id,
         label: local_entry.label,
+        kind: local_entry.kind,
         view: local_entry.view,
         source: local_entry.source,
         points: local_points,
@@ -1095,7 +1119,7 @@
 
       // visit_no 변경 없음 → sessionStorage 의 retinal_visit_no 도 그대로 둔다.
       // 식별 필드만 머지해서 selected_visit 갱신.
-      set_selected_visit({
+      set_selected_visit(/** @type {import('@/lib/stores/customer.js').VisitObj} */ ({
         ...$selected_visit_obj,
         cust_no: local_new_cust_no,
         cust_name: customer_obj.name,
@@ -1104,7 +1128,7 @@
         birthday: customer_obj.birth_dt,
         sex: local_sex_value,
         is_new: false,
-      })
+      }))
 
       ref_customer_create_modal_open = false
       // PATCH 반영 후 BE 응답 기준으로 화면 데이터 다시 로드 (visit_no 동일).
@@ -1122,6 +1146,7 @@
 
   // real_fitting.svelte 가 미리 GET 해둔 visit_obj 가 sessionStorage 에 있으면 즉시 화면에 채운다.
   // 캐시는 1회용 — 사용 직후 제거해서 다음 진입 시 항상 fresh fetch 가 일어나게 한다.
+  /** @param {number} local_visit_no */
   function try_consume_prefetched_visit(local_visit_no) {
     try {
       const local_cached_text = sessionStorage.getItem(PREFETCH_VISIT_KEY)
@@ -1755,11 +1780,11 @@
                         class="relative flex aspect-[3/4] h-full max-h-[clamp(160px,38svh,320px)] w-full max-w-[clamp(120px,28svh,240px)] overflow-hidden rounded-[10px] bg-slate-100 shadow-[0_6px_16px_rgba(15,23,42,0.06)]"
                       >
                         {#if local_current_tab_obj.url}
-                          {@const local_capture_obj = {
+                          {@const local_capture_obj = /** @type {import('@/lib/stores/capture_session.svelte.js').Capture} */ ({
                             object_url: local_current_tab_obj.url,
                             width: REAL_VP_CAPTURE_WIDTH,
                             height: REAL_VP_CAPTURE_HEIGHT,
-                          }}
+                          })}
                           {@const local_canvas_active_id = get_active_real_vp_item_id(
                             set_index,
                             local_current_view,

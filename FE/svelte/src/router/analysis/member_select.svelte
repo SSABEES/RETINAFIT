@@ -33,7 +33,8 @@
     if (ref_selected_member_id === null) return null
     const local_target = g_member_arr.find((local_m) => local_m.id === ref_selected_member_id)
     if (!local_target) return null
-    if (Number.isFinite(local_target.member_no)) return local_target.member_no
+    const local_admin_obj = /** @type {import('@/lib/stores/admin.js').AdminObj} */ (local_target)
+    if (Number.isFinite(local_admin_obj.member_no)) return local_admin_obj.member_no
     return local_target.id
   })
 
@@ -82,7 +83,7 @@
       if (Number.isFinite(local_visit_no) && g_selected_member_no !== null) {
         try {
           await update_visit({
-            visit_no: local_visit_no,
+            visit_no: /** @type {number} */ (local_visit_no),
             body: { member_no: g_selected_member_no },
           })
         } catch (patch_err) {
