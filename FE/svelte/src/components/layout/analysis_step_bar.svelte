@@ -21,11 +21,15 @@
   헤더 바로 밑 in-flow step bar. 모바일에선 라벨 숨기고 번호 원만 표시, sm 이상에서 라벨 노출.
 -->
 <footer
-  class="shrink-0 border-b border-slate-200 bg-white px-3 py-2 sm:px-6"
+  class="shrink-0 border-b border-slate-200 bg-white px-[clamp(12px,3vw,24px)] py-2"
   aria-label="얼굴 분석 진행 단계"
 >
+  <!--
+    max-w 를 xl/2xl 브레이크포인트(560→760→960px)로 점프시키면 1280·1536px 경계에서 콘텐츠
+    폭이 확 변한다 → clamp(vw) 로 560~960px 사이를 창 너비에 비례해 연속 변화.
+  -->
   <div
-    class="mx-auto flex w-full max-w-[560px] xl:max-w-[760px] 2xl:max-w-[960px] items-center justify-between gap-2 sm:gap-3"
+    class="mx-auto flex w-full max-w-[clamp(560px,55vw,960px)] items-center justify-between gap-2 sm:gap-3"
     role="list"
   >
     {#each STEP_ARR as step_obj, step_index (step_obj.num)}

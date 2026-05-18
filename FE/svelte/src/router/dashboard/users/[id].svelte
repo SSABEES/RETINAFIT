@@ -34,6 +34,10 @@
   // sessionStorage 라 탭/세션 닫히면 폐기. localStorage 가 아닌 이유: 다른 세션·기기·계정에서 본 옛 visit 을 노출하지 않기 위해.
   const VISIT_CACHE_KEY_PREFIX = 'retinal_user_detail_visits_'
 
+  // AR 피팅을 새 방문으로 바로 시작하면 그 방문엔 얼굴분석/생활패턴 데이터가 없다.
+  // 기존 고객 이력의 최신 데이터를 result.svelte 로 넘겨 빈 섹션을 채우는 sessionStorage 키.
+  const FALLBACK_VISIT_DATA_KEY = 'retinal_fallback_visit_data'
+
   // 현 id 의 캐시를 읽어 visit 배열 반환. 없거나 형태가 깨졌으면 null.
   function read_cached_visit_arr() {
     try {
@@ -233,6 +237,38 @@
     }
   }
 
+  // 방문 이력(g_visit_arr, 최신순) 에서 가장 최근 얼굴분석/생활패턴 방문 번호를 찾아
+  // 새 방문(visit_no) 용 fallback 으로 sessionStorage 에 저장한다. AR 피팅을 새 방문으로
+  // 시작하면 그 방문엔 해당 데이터가 없어, result.svelte 가 이 번호로 데이터를 GET 해 채운다.
+  /** @param {number} visit_no */
+  function store_fallback_visit_data_for(visit_no) {
+    // 얼굴분석은 test_dt, 생활패턴은 opt_recommend_json 유무로 판정 (on_click_open_visit 과 동일 규칙).
+    const local_face_visit = g_visit_arr.find((local_visit) => local_visit?.test_dt)
+    const local_lifestyle_visit = g_visit_arr.find((local_visit) => local_visit?.opt_recommend_json)
+
+    /** @type {Record<string, number>} */
+    const local_fallback_obj = { visit_no }
+    const local_face_no = Number(local_face_visit?.visit_no)
+    const local_lifestyle_no = Number(local_lifestyle_visit?.visit_no)
+    if (Number.isFinite(local_face_no) && local_face_no > 0) {
+      local_fallback_obj.face_visit_no = local_face_no
+    }
+    if (Number.isFinite(local_lifestyle_no) && local_lifestyle_no > 0) {
+      local_fallback_obj.lifestyle_visit_no = local_lifestyle_no
+    }
+
+    try {
+      // 채울 fallback 방문이 하나도 없으면 키를 만들지 않고, 남아 있던 stale 키도 정리한다.
+      if (local_fallback_obj.face_visit_no || local_fallback_obj.lifestyle_visit_no) {
+        sessionStorage.setItem(FALLBACK_VISIT_DATA_KEY, JSON.stringify(local_fallback_obj))
+      } else {
+        sessionStorage.removeItem(FALLBACK_VISIT_DATA_KEY)
+      }
+    } catch {
+      // sessionStorage 비활성/꽉참 — fallback 미적용은 치명적이지 않으니 swallow.
+    }
+  }
+
   // 단계 시작 버튼 클릭.
   // - 얼굴분석: 항상 새 방문 생성 (재분석 포함).
   // - 생활패턴/피팅: 새 방문 생성 없이 가장 최근 방문을 그대로 사용 (기존 데이터 보존).
@@ -287,6 +323,12 @@
       sessionStorage.removeItem('retinal_lens_selections')
       sessionStorage.removeItem('retinal_saved_fittings')
       sessionStorage.setItem('retinal_detail_return_path', PATH.userDetail(id))
+
+      // AR 피팅은 새 방문에 얼굴분석/생활패턴이 없다 — 기존 고객 이력 데이터를 result 로 넘긴다.
+      if (step_obj.key === 'fitting') {
+        store_fallback_visit_data_for(local_visit_no)
+      }
+
       navigate(step_obj.target_path)
     } catch (local_error) {
       push_error_toast(

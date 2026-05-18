@@ -304,8 +304,15 @@
     }
   }
 
+  // 뒤로가기 — 브라우저 히스토리를 한 칸 pop 한다.
+  // navigate(arfitting) 로 새 엔트리를 push 하면, arfitting 의 기본 뒤로가기(history.back)와
+  // 맞물려 arfitting ↔ real_fitting 이 무한 반복된다. 그래서 여기선 history 를 되돌린다.
   function on_click_back() {
     if (g_is_submitting) return
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      window.history.back()
+      return
+    }
     navigate(PATH.analysisArFitting)
   }
 
