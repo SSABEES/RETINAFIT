@@ -135,6 +135,10 @@
   // real_fitting.svelte 가 prefetch 한 visit_obj 를 즉시 사용하기 위한 sessionStorage 키.
   const PREFETCH_VISIT_KEY = 'retinal_prefetched_visit_obj'
 
+  // [id].svelte 에서 AR 피팅을 새 방문으로 시작할 때, 기존 고객의 얼굴분석/생활패턴 데이터를
+  // 넘겨받는 sessionStorage 키. 새 방문엔 그 데이터가 없어 빈 섹션을 이 값으로 채운다.
+  const FALLBACK_VISIT_DATA_KEY = 'retinal_fallback_visit_data'
+
   // 비회원(cust_no = 0) 으로 진입한 경우에만 고객정보등록 버튼을 노출한다.
   const g_is_guest_visit = $derived(Number($selected_customer_obj?.id) === 0)
 
@@ -1137,6 +1141,74 @@
     }
   }
 
+  // [id].svelte 에서 AR 피팅을 새 방문으로 시작하면 그 방문엔 얼굴분석/생활패턴 데이터가 없다.
+  // sessionStorage 로 넘겨받은 직전 방문 번호로 그 데이터를 GET 해 visit_obj 의 빈 필드만 채운다.
+  // visit_no 가 일치할 때 1회만 적용하고 키를 제거한다 (stale 키는 읽는 즉시 정리).
+  /**
+   * @param {Record<string, any> | null} visit_obj
+   * @param {number} visit_no
+   * @returns {Promise<Record<string, any> | null>}
+   */
+  async function apply_fallback_visit_data(visit_obj, visit_no) {
+    let local_raw = null
+    try {
+      local_raw = sessionStorage.getItem(FALLBACK_VISIT_DATA_KEY)
+      sessionStorage.removeItem(FALLBACK_VISIT_DATA_KEY)
+    } catch {
+      return visit_obj
+    }
+    if (!local_raw || !visit_obj) return visit_obj
+
+    let local_fallback_obj = null
+    try {
+      local_fallback_obj = JSON.parse(local_raw)
+    } catch {
+      return visit_obj
+    }
+    // 다른 방문용으로 남아 있던 stale 키면 무시 (위에서 키는 이미 제거됨).
+    if (Number(local_fallback_obj?.visit_no) !== visit_no) return visit_obj
+
+    const local_face_no = Number(local_fallback_obj.face_visit_no)
+    const local_lifestyle_no = Number(local_fallback_obj.lifestyle_visit_no)
+    const local_need_face =
+      !visit_obj.test_json && Number.isFinite(local_face_no) && local_face_no > 0
+    const local_need_lifestyle =
+      !visit_obj.opt_recommend_json && Number.isFinite(local_lifestyle_no) && local_lifestyle_no > 0
+    if (!local_need_face && !local_need_lifestyle) return visit_obj
+
+    // 얼굴분석/생활패턴 방문을 GET (같은 방문이면 한 번만). 실패해도 화면 흐름은 막지 않는다.
+    const local_same_visit = local_face_no === local_lifestyle_no
+    const [local_face_visit, local_lifestyle_visit] = await Promise.all([
+      local_need_face
+        ? get_visit({ visit_no: local_face_no }).catch(() => null)
+        : Promise.resolve(null),
+      local_need_lifestyle && !local_same_visit
+        ? get_visit({ visit_no: local_lifestyle_no }).catch(() => null)
+        : Promise.resolve(null),
+    ])
+
+    const local_merged_obj = { ...visit_obj }
+    // 얼굴분석 fallback — test_json / test_dt / main_file / test_file_arr 를 함께 채운다.
+    if (local_need_face && local_face_visit) {
+      if (local_face_visit.test_json) local_merged_obj.test_json = local_face_visit.test_json
+      if (local_face_visit.test_dt) local_merged_obj.test_dt = local_face_visit.test_dt
+      if (!local_merged_obj.main_file && local_face_visit.main_file) {
+        local_merged_obj.main_file = local_face_visit.main_file
+      }
+      const local_has_test_files =
+        Array.isArray(local_merged_obj.test_file_arr) && local_merged_obj.test_file_arr.length > 0
+      if (!local_has_test_files && Array.isArray(local_face_visit.test_file_arr)) {
+        local_merged_obj.test_file_arr = local_face_visit.test_file_arr
+      }
+    }
+    // 생활패턴 fallback — opt_recommend_json (같은 방문이면 위에서 받은 face 응답을 재사용).
+    const local_lifestyle_source = local_same_visit ? local_face_visit : local_lifestyle_visit
+    if (local_need_lifestyle && local_lifestyle_source?.opt_recommend_json) {
+      local_merged_obj.opt_recommend_json = local_lifestyle_source.opt_recommend_json
+    }
+    return local_merged_obj
+  }
+
   // 현재 visit 의 분석/리포트/피팅 데이터를 한 번에 GET 해서 화면을 채운다.
   async function load_visit_data() {
     const local_visit_no = Number($selected_visit_obj?.visit_no)
@@ -1148,7 +1220,7 @@
     // real_fitting → result 전환 시 prefetch 된 데이터가 있으면 그걸로 즉시 채워 BE GET 생략.
     const local_prefetched_obj = try_consume_prefetched_visit(local_visit_no)
     if (local_prefetched_obj) {
-      g_visit_obj = local_prefetched_obj
+      g_visit_obj = await apply_fallback_visit_data(local_prefetched_obj, local_visit_no)
       g_visit_loading = false
       return
     }
@@ -1172,6 +1244,7 @@
       if (!g_visit_obj?.test_json && local_fallback_visit?.test_json) {
         g_visit_obj = { ...g_visit_obj, test_json: local_fallback_visit.test_json }
       }
+      g_visit_obj = await apply_fallback_visit_data(g_visit_obj, local_visit_no)
     } catch (local_err) {
       push_error_toast(
         local_err instanceof Error ? local_err.message : '방문 정보를 불러오지 못했습니다.',
