@@ -401,10 +401,17 @@
             >
               추천 안경테 모양
             </h2>
-            <div class="mt-[clamp(4px,1.3svh,20px)] grid grid-cols-3 gap-[clamp(6px,1.6svh,18px)] px-2">
+            <!--
+              카드 폭(svh 기반)과 폰트(svh 기반)의 비율이 빠듯해 3글자 안경테명이 줄바꿈되던 문제 해결:
+              ① grid px 를 고정 px-2(16px) → svh 기반으로 — 카드 폭에서 안 줄어들던 상수 손해 제거.
+              ② 카드 px 를 1.8svh → 1.1svh 로 축소 — 텍스트 폭 대비 ~15% 여유 확보.
+            -->
+            <div
+              class="mt-[clamp(4px,1.3svh,20px)] grid grid-cols-3 gap-[clamp(6px,1.6svh,18px)] px-[clamp(2px,0.6svh,6px)]"
+            >
               {#each g_recommended_frame_arr as frame_obj (`${frame_obj.name}-${frame_obj.priority}`)}
                 <div
-                  class="flex items-center justify-center rounded-[6px] border border-[#F97316] bg-white text-center font-bold text-[#F97316] px-[clamp(6px,1.8svh,22px)] py-[clamp(2px,0.9svh,14px)] text-[clamp(11px,2.3svh,28px)]"
+                  class="flex items-center justify-center rounded-[6px] border border-[#F97316] bg-white text-center font-bold text-[#F97316] px-[clamp(4px,1.1svh,16px)] py-[clamp(2px,0.9svh,14px)] text-[clamp(11px,2.3svh,28px)]"
                 >
                   {frame_obj.name}
                 </div>
@@ -416,7 +423,13 @@
     </div>
 
     <BottomActionBar>
-      <div class="mx-auto grid w-full max-w-[560px] xl:max-w-[760px] 2xl:max-w-[960px] grid-cols-[2fr_3fr] gap-[clamp(8px,2svh,16px)]">
+      <!--
+        max-w 를 xl/2xl 점프(560→760→960px) 대신 clamp(vw) 로 연속 변화 — 1280·1536px 경계에서
+        버튼 폭이 급변하던 문제 해결. analysis_step_bar.svelte 와 동일 식이라 상/하단 끝선도 정렬 유지.
+      -->
+      <div
+        class="mx-auto grid w-full max-w-[clamp(560px,55vw,960px)] grid-cols-[2fr_3fr] gap-[clamp(8px,2svh,16px)]"
+      >
         <button
           type="button"
           class="cursor-pointer rounded-lg border border-slate-300 bg-white text-[var(--retina-text-500)] transition hover:border-slate-400 hover:text-[var(--retina-text-700)] h-[clamp(40px,7.5svh,80px)] text-[clamp(14px,2.8svh,26px)]"
@@ -424,9 +437,13 @@
         >
           재분석
         </button>
+        <!--
+          버튼 폭은 vw(부모 max-w clamp) 로 줄어드는데 폰트가 svh 만이면 좁아진 버튼에서 라벨이
+          넘침 → min(svh,vw) 으로 높이·폭 양쪽에 안 넘치게. svh 단독보다 커지는 일은 없음.
+        -->
         <button
           type="button"
-          class="cursor-pointer rounded-lg border-0 bg-[#F97316] tracking-tight text-[var(--retina-surface)] transition hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-60 h-[clamp(40px,7.5svh,80px)] text-[clamp(14px,3.2svh,30px)]"
+          class="cursor-pointer rounded-lg border-0 bg-[#F97316] tracking-tight text-[var(--retina-surface)] transition hover:bg-[#EA580C] disabled:cursor-not-allowed disabled:opacity-60 h-[clamp(40px,7.5svh,80px)] text-[clamp(14px,min(3.2svh,1.9vw),30px)]"
           disabled={g_is_submitting}
           onclick={on_click_continue}
         >
