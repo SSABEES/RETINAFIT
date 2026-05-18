@@ -146,8 +146,9 @@
       })
     } else if (g_oh_gate) {
       // pose 가 front 가 아닐 때 게이트 정리. untrack 으로 cleanup 의 재진입 방지.
+      const local_gate_to_stop = g_oh_gate
       untrack(() => {
-        g_oh_gate.stop()
+        local_gate_to_stop.stop()
         g_oh_gate = null
       })
       g_oh_gate_hint = ''
@@ -257,8 +258,8 @@
           if (!front_slot || !Number.isFinite(front_slot.oh_left_mm)) return null
           return {
             set_id: set.id,
-            oh_left_mm: front_slot.oh_left_mm,
-            oh_right_mm: front_slot.oh_right_mm,
+            oh_left_mm: /** @type {number} */ (front_slot.oh_left_mm),
+            oh_right_mm: /** @type {number} */ (front_slot.oh_right_mm),
             oh_source: front_slot.oh_source ?? 'pd_fallback',
             oh_points_left: front_slot.oh_points_left,
             oh_points_right: front_slot.oh_points_right,

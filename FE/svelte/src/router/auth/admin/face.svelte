@@ -10,6 +10,32 @@
     update_fitting_criteria,
   } from '@/lib/api/admin_fitting_criteria'
 
+  /**
+   * @typedef {{ key: string, en: string }} FaceShapeObj
+   */
+
+  /**
+   * @typedef {{
+   *   criteria_no: number | null,
+   *   lower_bound: number | null,
+   *   upper_bound: number | null,
+   *   out_of_range_note: string,
+   *   is_active: boolean,
+   * }} CellObj
+   */
+
+  /**
+   * @typedef {{
+   *   criteria_no: number,
+   *   criteria_label: string,
+   *   range_type: string,
+   *   lower_bound: number,
+   *   upper_bound: number,
+   *   out_of_range_note: string,
+   *   is_active: boolean,
+   * }} ExtraCriteriaObj
+   */
+
   // 각 얼굴형 카드 안에 표시되는 측정 항목 (단위 포함)
   const MEASUREMENT_ARR = [
     { key: '얼굴 너비', unit: 'mm' },
@@ -20,6 +46,11 @@
   ]
 
   // criteria_label 은 "얼굴형/측정 항목" 으로 인코딩한다.
+  /**
+   * @param {string} shape_key
+   * @param {string} measurement_key
+   * @returns {string}
+   */
   function get_criteria_key(shape_key, measurement_key) {
     return `${shape_key}/${measurement_key}`
   }
@@ -36,6 +67,10 @@
   }
 
   // 특정 얼굴형의 5개 측정 항목 셀을 매트릭스에 만들어 둔다.
+  /**
+   * @param {{ [key: string]: CellObj }} matrix_obj
+   * @param {string} shape_key
+   */
   function ensure_shape_cells(matrix_obj, shape_key) {
     for (const measurement_obj of MEASUREMENT_ARR) {
       const local_key = get_criteria_key(shape_key, measurement_obj.key)
@@ -45,13 +80,14 @@
     }
   }
 
-  let g_face_shape_arr = $state([])
-  let g_criteria_matrix_obj = $state({})
-  let g_extra_criteria_arr = $state([])
+  let g_face_shape_arr = $state(/** @type {FaceShapeObj[]} */ ([]))
+  let g_criteria_matrix_obj = $state(/** @type {{ [key: string]: CellObj }} */ ({}))
+  let g_extra_criteria_arr = $state(/** @type {ExtraCriteriaObj[]} */ ([]))
   let g_is_loading = $state(true)
   let g_saving_shape_key = $state('')
   let g_toast_message = $state('')
   let g_toast_variant = $state('success')
+  /** @type {ReturnType<typeof setTimeout> | null} */
   let g_toast_timer = null
 
   // 새 얼굴형 추가 폼 상태
@@ -59,6 +95,10 @@
   let ref_new_shape_en = $state('')
 
   // 결과를 짧게 토스트로 보여주고 자동으로 닫는다.
+  /**
+   * @param {string} message
+   * @param {string} [variant]
+   */
   function show_toast(message, variant = 'success') {
     g_toast_message = message
     g_toast_variant = variant
@@ -74,6 +114,10 @@
   }
 
   // 입력값을 안전하게 숫자로 읽어온다. 빈 문자열은 null 로 둔다.
+  /**
+   * @param {string | number | null | undefined} value
+   * @returns {number | null}
+   */
   function parse_number_or_null(value) {
     if (value === '' || value === null || value === undefined) return null
     const local_number = Number(value)
@@ -86,7 +130,9 @@
 
     try {
       const local_criteria_arr = await get_fitting_criteria_arr()
+      /** @type {{ [key: string]: CellObj }} */
       const local_matrix_obj = {}
+      /** @type {ExtraCriteriaObj[]} */
       const local_extra_arr = []
       const local_shape_key_set = new SvelteSet()
 
@@ -150,6 +196,10 @@
   }
 
   // 매트릭스 형식이 아닌 기존 데이터를 정규화한다.
+  /**
+   * @param {Record<string, any>} criteria_obj
+   * @returns {ExtraCriteriaObj}
+   */
   function normalize_extra_criteria(criteria_obj) {
     return {
       criteria_no: Number(criteria_obj.criteria_no ?? 0),
@@ -163,15 +213,18 @@
   }
 
   // 새 얼굴형 추가 폼의 입력값을 갱신한다.
+  /** @param {Event} local_event */
   function on_input_new_shape_key(local_event) {
     ref_new_shape_key = /** @type {HTMLInputElement} */ (local_event.currentTarget).value
   }
 
+  /** @param {Event} local_event */
   function on_input_new_shape_en(local_event) {
     ref_new_shape_en = /** @type {HTMLInputElement} */ (local_event.currentTarget).value
   }
 
   // 새 얼굴형을 매트릭스에 추가한다 (저장 전, 화면 상태에만 반영).
+  /** @param {Event} local_event */
   function on_submit_create_face_shape(local_event) {
     local_event.preventDefault()
 
@@ -201,6 +254,7 @@
   }
 
   // 특정 얼굴형의 5개 측정값을 저장한다 (값이 입력된 셀만 upsert).
+  /** @param {FaceShapeObj} shape_obj */
   async function on_click_save_face_shape(shape_obj) {
     if (g_saving_shape_key) return
     g_saving_shape_key = shape_obj.key
@@ -223,21 +277,21 @@
         }
 
         // 백엔드 스키마는 lower_bound/upper_bound 가 Optional[int] 이므로 정수로 보낸다.
-        const local_body_obj = {
+        const local_body_obj = /** @type {{ criteria_label: string, range_type: string, lower_bound: number | null, upper_bound: number | null, out_of_range_note: string | null, is_active: boolean }} */ ({
           criteria_label: local_key,
           range_type: 'NORMAL',
           lower_bound: local_lower !== null ? Math.round(local_lower) : null,
           upper_bound: local_upper !== null ? Math.round(local_upper) : null,
           out_of_range_note: (local_cell_obj.out_of_range_note ?? '').trim() || null,
           is_active: local_cell_obj.is_active !== false,
-        }
+        })
 
         if (local_cell_obj.criteria_no) {
           local_request_arr.push(
-            update_fitting_criteria({ criteria_no: local_cell_obj.criteria_no, ...local_body_obj }),
+            update_fitting_criteria(/** @type {any} */ ({ criteria_no: local_cell_obj.criteria_no, ...local_body_obj })),
           )
         } else {
-          local_request_arr.push(create_fitting_criteria(local_body_obj))
+          local_request_arr.push(create_fitting_criteria(/** @type {any} */ (local_body_obj)))
         }
       }
 
@@ -261,6 +315,7 @@
   }
 
   // 특정 얼굴형 카드를 제거한다 (해당 얼굴형의 모든 기준을 삭제).
+  /** @param {FaceShapeObj} shape_obj */
   async function on_click_delete_face_shape(shape_obj) {
     const local_delete_no_arr = []
     for (const measurement_obj of MEASUREMENT_ARR) {
@@ -297,6 +352,7 @@
   }
 
   // 기타 기준(매트릭스 밖의 항목)을 삭제한다.
+  /** @param {ExtraCriteriaObj} criteria_obj */
   async function on_click_delete_extra_criteria(criteria_obj) {
     try {
       await delete_fitting_criteria({ criteria_no: criteria_obj.criteria_no })

@@ -34,10 +34,38 @@
    * }} CaptureSlot
    */
 
-  let g_recommended_arr = $state([])
+  /**
+   * @typedef {{
+   *   id: number,
+   *   glasses_no: number,
+   *   brand: string,
+   *   model: string,
+   *   price: string,
+   *   frame_type: string,
+   *   frame_style: string,
+   *   material: string,
+   *   category: string,
+   *   color: string,
+   *   img_url: string,
+   *   glasses_3d_url: string,
+   * }} GlassesItem
+   */
+
+  /**
+   * @typedef {{
+   *   glasses_id: number | null,
+   *   glasses_no: number | string | null,
+   *   brand: string,
+   *   model: string,
+   *   capture_arr: Array<{ label: string, key: string }>,
+   *   file_key_arr: string[],
+   * }} SavedFitting
+   */
+
+  let g_recommended_arr = /** @type {GlassesItem[]} */ ($state([]))
   let g_loading = $state(true)
-  let g_selected_id = $state(null)
-  let g_capture_slot_arr = $state([null, null, null])
+  let g_selected_id = /** @type {number | null} */ ($state(null))
+  let g_capture_slot_arr = /** @type {(CaptureSlot | null)[]} */ ($state([null, null, null]))
   let g_flutter_bridge_ready = $state(false)
   let g_flutter_availability = $state('UNKNOWN')
   let _g_flutter_event_text = $state('')
@@ -71,7 +99,7 @@
   let g_has_any_capture = $derived(g_capture_slot_arr.some((s) => s !== null))
 
   // { glasses_id, brand, model, captures } 형태로 최대 5개 저장
-  let g_saved_fittings_arr = $state([])
+  let g_saved_fittings_arr = /** @type {SavedFitting[]} */ ($state([]))
 
   // 현재 선택한 안경이 이미 저장된 적이 있는지 (있으면 새 캡쳐로 덮어쓰는 모드)
   let g_is_selected_already_saved = $derived(
@@ -87,21 +115,27 @@
   let g_can_submit = $derived(g_saved_fittings_arr.length > 0)
 
   // 안경 id별 저장 횟수 맵 (목록 카드 배지 표시용)
-  let g_saved_count_map = $derived(
-    g_saved_fittings_arr.reduce((acc, fit) => {
-      acc[fit.glasses_id] = (acc[fit.glasses_id] ?? 0) + 1
+  let g_saved_count_map = /** @type {Record<number, number>} */ ($derived(
+    g_saved_fittings_arr.reduce((/** @type {Record<number, number>} */ acc, fit) => {
+      if (fit.glasses_id !== null) {
+        acc[fit.glasses_id] = (acc[fit.glasses_id] ?? 0) + 1
+      }
       return acc
-    }, {}),
-  )
+    }, /** @type {Record<number, number>} */ ({})),
+  ))
 
   /**
    * 메시지를 글로벌 토스트로 띄운다 (info 톤).
+   * @param {string} msg
    */
   function show_toast(msg) {
     push_toast(msg)
   }
 
   // 현재 선택된 고객의 얼굴형/피부톤 기준으로 추천 3개를 뽑는다.
+  /**
+   * @param {GlassesItem[]} glass_arr
+   */
   function get_personalized_recommended_arr(glass_arr) {
     return pick_recommended_glasses_arr(
       glass_arr,
@@ -112,8 +146,10 @@
 
   let _g_filter_modal_open = $state(false)
   let _g_filter_loading = $state(false)
-  let g_all_glasses_arr = $state([])
-  let g_filter_obj = $state({ frame_type_arr: [], material_arr: [], category_arr: [] })
+  let g_all_glasses_arr = /** @type {GlassesItem[]} */ ($state([]))
+  let g_filter_obj = /** @type {{ frame_type_arr: string[], material_arr: string[], category_arr: string[] }} */ (
+    $state({ frame_type_arr: [], material_arr: [], category_arr: [] })
+  )
 
   let g_active_filter_count = $derived(
     g_filter_obj.frame_type_arr.length +
@@ -207,6 +243,7 @@
   /**
    * 안경 선택 시 id를 저장하고 캡쳐 슬롯을 초기화
    * 이미 5개를 채웠다면 토스트 경고 후 차단
+   * @param {number} id
    */
   function on_click_select_glasses(id) {
     const local_already_saved = g_saved_fittings_arr.some(
@@ -283,7 +320,7 @@
    * @param {Blob} blob
    */
   function apply_capture_slot(slot_key, blob) {
-    const local_slot_idx = SLOT_KEY_TO_INDEX[slot_key]
+    const local_slot_idx = SLOT_KEY_TO_INDEX[/** @type {keyof typeof SLOT_KEY_TO_INDEX} */ (slot_key)]
     if (!Number.isInteger(local_slot_idx)) return
 
     const local_captured_at = Date.now()
@@ -307,6 +344,9 @@
     g_capture_slot_arr = local_capture_slot_arr
   }
 
+  /**
+   * @param {GlassesItem} glasses_obj
+   */
   function build_flutter_fitting_payload(glasses_obj) {
     const local_asset_path = get_virtual_fitting_asset_path(glasses_obj)
     const local_model_url = get_virtual_fitting_model_url(glasses_obj)
@@ -322,6 +362,9 @@
     }
   }
 
+  /**
+   * @param {GlassesItem} glasses_obj
+   */
   async function launch_flutter_fitting_for_glasses(glasses_obj) {
     const local_fitting_payload_obj = build_flutter_fitting_payload(glasses_obj)
 
@@ -332,6 +375,9 @@
     return launch_virtual_fitting(local_fitting_payload_obj)
   }
 
+  /**
+   * @param {number} idx
+   */
   function on_click_reset_slot(idx) {
     const local_capture_slot_obj = g_capture_slot_arr[idx]
 
@@ -346,6 +392,7 @@
 
   /**
    * 저장된 피팅 목록에서 특정 항목 제거
+   * @param {number} idx
    */
   function on_click_remove_saved(idx) {
     g_saved_fittings_arr = g_saved_fittings_arr.filter((_, i) => i !== idx)
@@ -374,10 +421,10 @@
     try {
       const local_visit_no = $selected_visit_obj?.visit_no
       const glasses_info = g_glasses_arr.find((g) => g.id === g_selected_id)
-      const local_glasses_no = glasses_info?.glasses_no ?? g_selected_id
+      const local_glasses_no = glasses_info?.glasses_no ?? g_selected_id ?? 0
 
       // 안경별 Presigned URL 발급 (front/left/right)
-      const local_presigned = await request_fitting_presigned_urls(local_visit_no, local_glasses_no)
+      const local_presigned = await request_fitting_presigned_urls(local_visit_no ?? 0, local_glasses_no)
 
       const local_presigned_url_arr = [
         local_presigned.front_url,
@@ -402,7 +449,7 @@
         local_filled_idx_arr.map((local_idx) =>
           fetch(local_presigned_url_arr[local_idx], {
             method: 'PUT',
-            body: g_capture_slot_arr[local_idx].file_obj,
+            body: g_capture_slot_arr[local_idx]?.file_obj,
           }).then((res) => {
             if (!res.ok) throw new Error(`S3 업로드 실패 (${res.status})`)
           }),
@@ -439,15 +486,15 @@
       g_saved_fittings_arr = local_next_saved_arr
 
       // 누적 결과를 BE 에 PATCH (vp_json.fitting_arr 와 vp_file_arr union)
-      await confirm_fitting_result(local_visit_no, {
+      await confirm_fitting_result(local_visit_no ?? 0, {
         vp_file_arr: local_next_saved_arr.flatMap((local_fit) => local_fit.file_key_arr),
         vp_json: {
-          fitting_arr: local_next_saved_arr.map((local_fit) => ({
-            glasses_no: local_fit.glasses_no,
+          fitting_arr: /** @type {any} */ (local_next_saved_arr.map((local_fit) => ({
+            glasses_no: Number(local_fit.glasses_no ?? 0),
             brand: local_fit.brand,
             model: local_fit.model,
             capture_arr: local_fit.capture_arr,
-          })),
+          }))),
         },
       })
 
@@ -460,6 +507,9 @@
   }
 
   // 가격 문자열을 천 단위 콤마 + "원" 으로 포맷한다 (예: "159000" → "159,000원").
+  /**
+   * @param {string | number | null | undefined} price_value
+   */
   function format_price_label(price_value) {
     if (price_value === null || price_value === undefined) return ''
     const local_text = String(price_value).trim()
@@ -469,6 +519,9 @@
     return `${Number(local_digits).toLocaleString('ko-KR')}원`
   }
 
+  /**
+   * @param {File} file_obj
+   */
   function _read_file_as_data_url(file_obj) {
     return new Promise((resolve, reject) => {
       const local_reader = new FileReader()
@@ -534,9 +587,11 @@
 
   /**
    * 필터 옵션 토글 (즉시 반영)
+   * @param {'frame_type_arr' | 'material_arr' | 'category_arr'} field
+   * @param {string} value
    */
   function _on_click_toggle_filter(field, value) {
-    const arr = g_filter_obj[field]
+    const arr = /** @type {string[]} */ (g_filter_obj[field])
     g_filter_obj[field] = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]
   }
 
@@ -631,7 +686,7 @@
             selected_glasses_obj={g_selected_glasses_obj}
             next_slot_key={g_next_empty_slot_key}
             oncaptured={on_fallback_captured}
-            onload_change={(local_is_loading) => {
+            onload_change={(/** @type {boolean} */ local_is_loading) => {
               g_flutter_launch_loading = local_is_loading
             }}
           />

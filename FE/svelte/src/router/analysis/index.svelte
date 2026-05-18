@@ -39,6 +39,7 @@
    * @property {FaceMeasurements | null} measurements_obj
    * @property {Record<string, [Point2D, Point2D]> | null} measurement_points_obj
    * @property {import('@mediapipe/tasks-vision').NormalizedLandmark[] | null} landmarks
+   * @property {import('@/lib/stores/capture_session.svelte.js').HeadPoseSnapshot | null} head_pose
    */
 
   // 수동 촬영 버튼 잠금 해제 지연: trigger_capture 가 no-op 으로 즉시 반환한 경우를 대비한 fallback.
@@ -67,7 +68,7 @@
     const local_customer_obj = get(selected_customer_obj)
     const local_is_guest_visit = Number(local_customer_obj?.id) === 0
 
-    navigate(local_is_guest_visit ? PATH.visitSelect : PATH.userDetail(local_customer_obj.id))
+    navigate(local_is_guest_visit ? PATH.visitSelect : PATH.userDetail(/** @type {import('@/lib/stores/customer.js').CustomerObj} */ (local_customer_obj).id))
   }
 
   // 세션에서 current_step 이 바뀌면 camera_view 를 재장전해 다음 스텝을 받아들이게 한다.
