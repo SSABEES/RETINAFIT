@@ -450,7 +450,7 @@
                 class="flex flex-col flex-1 min-h-0 w-full max-w-[clamp(480px,52vw,860px)] overflow-y-auto rounded-[20px] border border-slate-200 bg-white text-center shadow-[0_10px_28px_rgba(15,23,42,0.08)] px-[clamp(20px,5svh,64px)] pt-[clamp(16px,4.5svh,60px)] pb-[clamp(16px,4svh,48px)]"
               >
                 <p
-                  class="m-0 font-extrabold tracking-wide text-[var(--retina-primary-300)] text-[clamp(14px,2.8svh,28px)]"
+                  class="m-0 font-extrabold tracking-wide text-[var(--retina-primary-300)] text-[clamp(18px,3.6svh,38px)]"
                 >
                   Q{g_current_index + 1}
                 </p>
@@ -468,7 +468,7 @@
                     local_selected_index < 0 ? 0 : local_selected_index}
                   {@const local_progress_pct =
                     local_max_index === 0 ? 100 : (local_value_index / local_max_index) * 100}
-                  <div class="mt-[clamp(16px,4svh,44px)] px-[clamp(4px,1.5svh,16px)]">
+                  <div class="mt-[clamp(24px,6svh,72px)] px-[clamp(4px,1.5svh,16px)]">
                     <div
                       class="relative h-[clamp(10px,2.4svh,24px)] rounded-full bg-[var(--retina-primary-100)]"
                     >
@@ -493,14 +493,30 @@
                         aria-hidden="true"
                       ></span>
                     </div>
+                    <!--
+                      라벨을 각 눈금 %(index/max) 에 절대배치해 thumb(left=index/max%) 와 중앙을 맞춘다.
+                      flex justify-between 은 라벨 박스의 가장자리만 정렬해 중간 라벨이 thumb 와 어긋난다.
+                      양 끝 라벨은 컨테이너 밖으로 안 나가게 left/right edge 정렬.
+                    -->
                     <div
-                      class="mt-[clamp(6px,1.6svh,16px)] flex justify-between font-bold text-[clamp(10px,1.9svh,18px)]"
+                      class="relative mt-[clamp(6px,1.6svh,16px)] h-[clamp(16px,3svh,28px)] font-bold text-[clamp(10px,1.9svh,18px)]"
                     >
                       {#each g_current_question_obj.answer_arr as answer_obj, answer_index (answer_obj.option_no)}
+                        {@const local_label_pct =
+                          local_max_index === 0 ? 0 : (answer_index / local_max_index) * 100}
+                        {@const local_label_translate_class =
+                          answer_index === 0
+                            ? 'translate-x-0'
+                            : answer_index === local_max_index
+                              ? '-translate-x-full'
+                              : '-translate-x-1/2'}
                         <span
-                          class={answer_index === local_value_index
-                            ? 'text-[var(--retina-primary-400)]'
-                            : 'text-slate-400'}
+                          class={`absolute whitespace-nowrap ${local_label_translate_class} ${
+                            answer_index === local_value_index
+                              ? 'text-[var(--retina-primary-400)]'
+                              : 'text-slate-400'
+                          }`}
+                          style={`left: ${local_label_pct}%`}
                         >
                           {answer_obj.option_name}
                         </span>
