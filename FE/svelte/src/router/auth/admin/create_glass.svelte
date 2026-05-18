@@ -25,6 +25,7 @@
   } = $props()
 
   // S3 URL 또는 key 경로에서 파일명만 추출. 절대 URL/상대 key 모두 지원.
+  /** @param {string | null | undefined} url_value */
   function get_filename_from_url(url_value) {
     const local_text = String(url_value ?? '').trim()
     if (!local_text) return ''
@@ -225,7 +226,7 @@
           />
         </label>
 
-        {#each g_glass_dropdown_arr.filter( (dropdown_obj) => ['category', 'frame_style', 'frame_type'].includes(dropdown_obj.key), ) as dropdown_obj (dropdown_obj.key)}
+        {#each g_glass_dropdown_arr.filter( /** @param {Record<string, any>} dropdown_obj */ (dropdown_obj) => ['category', 'frame_style', 'frame_type'].includes(dropdown_obj.key), ) as dropdown_obj (dropdown_obj.key)}
           <div class="grid min-w-0 gap-2 text-sm font-extrabold text-[var(--retina-text-500)]">
             {dropdown_obj.label}
 

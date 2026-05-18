@@ -111,18 +111,29 @@
   }
 
   // 드롭다운 옵션에서 실제 저장될 value 문자열을 반환한다.
+  /**
+   * @param {string | GlassDropdownOption} option_obj
+   */
   function get_glass_dropdown_option_value(option_obj) {
     return typeof option_obj === 'string' ? option_obj : option_obj.value
   }
 
   // 드롭다운 옵션에서 사용자에게 보여줄 label 문자열을 반환한다.
+  /**
+   * @param {string | GlassDropdownOption} option_obj
+   */
   function get_glass_dropdown_option_label(option_obj) {
     return typeof option_obj === 'string' ? option_obj : option_obj.label
   }
 
   // 현재 선택된 드롭다운 값에 대응하는 label을 반환한다.
+  /**
+   * @param {GlassDropdown} dropdown_obj
+   * @param {string} selected_value
+   */
   function get_glass_dropdown_selected_label(dropdown_obj, selected_value) {
     const local_option_obj = dropdown_obj.option_arr.find(
+      /** @param {string | GlassDropdownOption} option_obj */
       (option_obj) => get_glass_dropdown_option_value(option_obj) === selected_value,
     )
 
@@ -132,6 +143,10 @@
   }
 
   // 안경 메타 키와 값을 사용자용 라벨로 변환한다.
+  /**
+   * @param {string} dropdown_key
+   * @param {string} selected_value
+   */
   function get_glass_meta_label(dropdown_key, selected_value) {
     const local_dropdown_obj = g_glass_dropdown_arr.find(
       (dropdown_obj) => dropdown_obj.key === dropdown_key,
@@ -205,14 +220,14 @@
   let ref_glass_list_loading = $state(false)
   let ref_glass_submit_loading = $state(false)
   let ref_glass_delete_loading = $state(false)
-  let ref_glass_list_arr = $state([])
+  let ref_glass_list_arr = $state(/** @type {ReturnType<typeof normalize_admin_glass_obj>[]} */ ([]))
   let ref_glass_list_category_filter = $state('all')
   let ref_glass_list_frame_style_filter = $state('all')
   let ref_glass_list_material_filter = $state('all')
-  let ref_selected_glasses_no = $state(null)
+  let ref_selected_glasses_no = $state(/** @type {string | number | null} */ (null))
   let ref_glass_editor_open = $state(false)
-  let ref_glass_editor_component = $state(null)
-  let ref_glass_editor_component_promise = $state(null)
+  let ref_glass_editor_component = $state(/** @type {import('svelte').Component | null} */ (null))
+  let ref_glass_editor_component_promise = $state(/** @type {Promise<import('svelte').Component> | null} */ (null))
   let ref_open_glass_dropdown_key = $state('')
   let ref_glass_form_obj = $state(create_glass_form())
   let ref_glass_img_file_obj = $state(/** @type {File | null} */ (null))
@@ -314,11 +329,18 @@
   }
 
   // 지정된 드롭다운의 열림/닫힘 상태를 토글한다.
+  /**
+   * @param {string} dropdown_key
+   */
   function on_click_toggle_glass_dropdown(dropdown_key) {
     ref_open_glass_dropdown_key = ref_open_glass_dropdown_key === dropdown_key ? '' : dropdown_key
   }
 
   // 드롭다운에서 선택한 값을 폼 또는 필터 상태에 반영한다.
+  /**
+   * @param {string} field_key
+   * @param {string} option_value
+   */
   function on_click_select_glass_dropdown(field_key, option_value) {
     if (field_key === 'list_category_filter') {
       ref_glass_list_category_filter = option_value
@@ -338,11 +360,14 @@
       return
     }
 
-    ref_glass_form_obj[field_key] = option_value
+    ;(/** @type {Record<string, any>} */ (ref_glass_form_obj))[field_key] = option_value
     ref_open_glass_dropdown_key = ''
   }
 
   // 대표 이미지 파일이 바뀌면 미리보기 URL과 폼 상태를 갱신한다.
+  /**
+   * @param {Event & { currentTarget: HTMLInputElement }} local_event
+   */
   function on_change_glass_img_file(local_event) {
     const local_file_obj = local_event.currentTarget.files?.[0] ?? null
     ref_glass_img_file_obj = local_file_obj
@@ -350,6 +375,9 @@
   }
 
   // 3D 모델 파일이 바뀌면 폼의 파일 객체를 갱신한다.
+  /**
+   * @param {Event & { currentTarget: HTMLInputElement }} local_event
+   */
   function on_change_glass_3d_file(local_event) {
     ref_glass_3d_file_obj = local_event.currentTarget.files?.[0] ?? null
   }
@@ -378,6 +406,9 @@
   }
 
   // 선택한 안경 정보를 폼에 채우고 편집 화면을 연다.
+  /**
+   * @param {ReturnType<typeof normalize_admin_glass_obj>} glass_obj
+   */
   function on_click_edit_glass(glass_obj) {
     ref_selected_glasses_no = glass_obj.glasses_no
     ref_glass_editor_open = true
@@ -425,6 +456,9 @@
   }
 
   // 폼 제출: 필요한 파일을 업로드한 뒤 안경 정보 등록 또는 수정 API를 호출한다.
+  /**
+   * @param {SubmitEvent} local_event
+   */
   async function on_submit_glass_form(local_event) {
     local_event.preventDefault()
 
@@ -456,11 +490,14 @@
       if (local_is_edit_mode) {
         // 수정: 새로 올린 파일만 patch 에 포함. 변경 안 된 파일은 BE 가 기존 값 유지.
         const local_patch_payload_obj = { ...local_glass_payload_obj }
-        if (!local_has_new_img_file) delete local_patch_payload_obj.glasses_img_url
-        if (!local_has_new_3d_file) delete local_patch_payload_obj.glasses_3d_url
+        // delete 연산자는 대상 속성이 optional 이어야 하므로, 삭제용 별칭만 느슨한 타입으로 캐스트한다.
+        // (local_patch_payload_obj 자체는 원래 타입을 유지해야 update_admin_glasses spread 가 통과한다.)
+        const local_deletable_patch_obj = /** @type {Record<string, any>} */ (local_patch_payload_obj)
+        if (!local_has_new_img_file) delete local_deletable_patch_obj.glasses_img_url
+        if (!local_has_new_3d_file) delete local_deletable_patch_obj.glasses_3d_url
 
         await update_admin_glasses({
-          glasses_no: ref_selected_glasses_no,
+          glasses_no: /** @type {string | number} */ (ref_selected_glasses_no),
           ...local_patch_payload_obj,
         })
         push_success_toast('안경 정보를 수정했습니다.')
@@ -567,7 +604,10 @@
                         }`}
                         type="button"
                         onclick={() =>
-                          on_click_select_glass_dropdown('list_category_filter', category_option)}
+                          on_click_select_glass_dropdown(
+                            'list_category_filter',
+                            get_glass_dropdown_option_value(category_option),
+                          )}
                       >
                         {category_option}
                       </button>
@@ -680,7 +720,10 @@
                         }`}
                         type="button"
                         onclick={() =>
-                          on_click_select_glass_dropdown('list_material_filter', material_option)}
+                          on_click_select_glass_dropdown(
+                            'list_material_filter',
+                            get_glass_dropdown_option_value(material_option),
+                          )}
                       >
                         {material_option}
                       </button>

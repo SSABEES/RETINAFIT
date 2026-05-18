@@ -9,12 +9,28 @@
   /** @type {{ id?: string }} */
   let { id = '1' } = $props()
 
+  /**
+   * 기록 관리 목록 카드 1건 — normalize_visit_arr 가 방문 응답을 이 형태로 변환한다.
+   * @typedef {{
+   *   id: number,
+   *   visit_no: number,
+   *   title: string,
+   *   product_nm: string,
+   *   created_dt: string,
+   *   status: string,
+   *   status_box_class: string,
+   *   has_final: boolean,
+   *   raw_obj: Record<string, unknown>,
+   * }} ReportVisitCard
+   */
+
   let g_customer_obj = $derived(get_customer_store_by_id(id))
-  let ref_visit_arr = $state([])
+  let ref_visit_arr = $state(/** @type {ReportVisitCard[]} */ ([]))
   let g_error_message = $state('')
   let g_pending_visit_no = $state(/** @type {number | null} */ (null))
 
   // 얼굴 분석이 완료된 방문(중간 리포트 이상)만 최신순으로 정렬한다.
+  /** @param {Record<string, any>[]} visit_arr */
   function get_report_visit_arr(visit_arr) {
     return visit_arr
       .filter((visit_obj) => visit_obj?.test_dt)
@@ -44,6 +60,7 @@
    * 방문 응답을 기록 관리 화면 카드 형태로 변환한다.
    * 최종 리포트(report_json) 유무에 따라 라벨/상태 표기가 달라진다.
    * @param {Array<Record<string, unknown>>} visit_arr
+   * @returns {ReportVisitCard[]}
    */
   function normalize_visit_arr(visit_arr) {
     return visit_arr.map((visit_obj, local_index) => {
@@ -100,6 +117,7 @@
   }
 
   // 선택한 방문의 중간/최종 리포트를 동시에 받아 세션에 저장하고 결과 화면으로 이동한다.
+  /** @param {ReportVisitCard} visit_obj */
   async function on_click_select_visit(visit_obj) {
     if (!visit_obj.visit_no || g_pending_visit_no !== null) {
       return

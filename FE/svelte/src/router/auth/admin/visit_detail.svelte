@@ -42,6 +42,7 @@
   const VISITS_CACHE_KEY = 'retinal_admin_visit_list'
 
   /** sessionStorage 의 어드민 visit 목록 캐시에서 visit_no 와 일치하는 단건을 찾는다. 없으면 null. */
+  /** @param {number | string} target_visit_no */
   function find_visit_in_admin_cache(target_visit_no) {
     const local_cached_text = sessionStorage.getItem(VISITS_CACHE_KEY)
     if (!local_cached_text) return null
@@ -51,6 +52,7 @@
       const local_target_num = Number(target_visit_no)
       return (
         local_cached_obj.visits.find(
+          /** @param {Record<string, any>} local_visit */
           (local_visit) => Number(local_visit?.visit_no) === local_target_num,
         ) ?? null
       )

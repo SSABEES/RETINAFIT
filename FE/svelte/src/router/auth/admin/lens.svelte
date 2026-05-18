@@ -9,11 +9,29 @@
     update_recommend_option,
   } from '@/lib/api/admin_recommend_options'
 
+  /**
+   * @typedef {{
+   *   option_no: number,
+   *   option_name: string,
+   *   option_category: string,
+   *   display_order: number,
+   *   is_active: boolean,
+   * }} AnswerObj
+   */
+
+  /**
+   * @typedef {{
+   *   question_text: string,
+   *   answer_arr: AnswerObj[],
+   * }} QuestionObj
+   */
+
   // 질문 = option_category, 답변 = option_name 으로 매핑해 기존 추천 옵션 API 를 재사용한다.
-  let g_question_arr = $state([])
+  let g_question_arr = $state(/** @type {QuestionObj[]} */ ([]))
   let g_is_loading = $state(true)
   let g_toast_message = $state('')
   let g_toast_variant = $state('success')
+  /** @type {ReturnType<typeof setTimeout> | null} */
   let g_toast_timer = null
 
   // 현재 네브바에서 선택된 질문 텍스트
@@ -23,7 +41,7 @@
   // 질문 추가 모달 열림 여부
   let g_is_create_question_open = $state(false)
   // 질문별 새 답변 입력값 (key = 질문 텍스트)
-  let ref_new_answer_text_obj = $state({})
+  let ref_new_answer_text_obj = $state(/** @type {{ [key: string]: string }} */ ({}))
 
   // 선택된 질문 객체 (없거나 목록에서 사라졌으면 null)
   let g_active_question_obj = $derived(
@@ -32,6 +50,10 @@
     ) ?? null,
   )
 
+  /**
+   * @param {string} message
+   * @param {string} [variant]
+   */
   function show_toast(message, variant = 'success') {
     g_toast_message = message
     g_toast_variant = variant
@@ -46,6 +68,10 @@
     }, 2200)
   }
 
+  /**
+   * @param {Record<string, any>} option_obj
+   * @returns {AnswerObj}
+   */
   function normalize_option_obj(option_obj) {
     return {
       option_no: Number(option_obj.option_no ?? 0),
@@ -58,7 +84,12 @@
 
   // 추천 옵션 목록을 질문별로 그룹핑하여 질문 카드 배열을 만든다.
   // 질문(category) 단위 순서는 각 질문에 속한 답변들의 최소 display_order 로 결정한다.
+  /**
+   * @param {AnswerObj[]} option_arr
+   * @returns {QuestionObj[]}
+   */
   function build_question_arr_from_option_arr(option_arr) {
+    /** @type {{ [key: string]: QuestionObj }} */
     const local_grouped_obj = {}
 
     for (const option_obj of option_arr) {
@@ -78,7 +109,8 @@
     const local_question_arr = Object.values(local_grouped_obj).map((question_obj) => ({
       ...question_obj,
       answer_arr: question_obj.answer_arr.sort(
-        (left_obj, right_obj) => left_obj.display_order - right_obj.display_order,
+        (/** @type {AnswerObj} */ left_obj, /** @type {AnswerObj} */ right_obj) =>
+          left_obj.display_order - right_obj.display_order,
       ),
     }))
 
@@ -131,11 +163,13 @@
     }
   }
 
+  /** @param {Event} local_event */
   function on_input_new_question_text(local_event) {
     ref_new_question_text = /** @type {HTMLInputElement} */ (local_event.currentTarget).value
   }
 
   // 새 질문을 화면 상태에 추가한다 (서버 저장은 첫 답변 등록 시 진행).
+  /** @param {Event} local_event */
   function on_submit_create_question(local_event) {
     local_event.preventDefault()
 
@@ -176,6 +210,7 @@
   let g_swipe_start_y = /** @type {number | null} */ (null)
 
   // 활성 질문을 delta(+1: 다음, -1: 이전) 만큼 이동. 양 끝에서 멈춤.
+  /** @param {number} delta */
   function shift_active_question(delta) {
     const local_current_idx = g_question_arr.findIndex(
       (local_question_obj) => local_question_obj.question_text === ref_active_question_text,
@@ -233,6 +268,10 @@
     shift_active_question(local_dx < 0 ? 1 : -1)
   }
 
+  /**
+   * @param {QuestionObj} question_obj
+   * @param {Event} local_event
+   */
   function on_input_new_answer_text(question_obj, local_event) {
     ref_new_answer_text_obj = {
       ...ref_new_answer_text_obj,
@@ -241,6 +280,10 @@
     }
   }
 
+  /**
+   * @param {QuestionObj} question_obj
+   * @param {Event} local_event
+   */
   async function on_submit_create_answer(question_obj, local_event) {
     local_event.preventDefault()
 
@@ -272,6 +315,7 @@
     }
   }
 
+  /** @param {AnswerObj} answer_obj */
   async function on_click_save_answer(answer_obj) {
     const local_answer_text = answer_obj.option_name.trim()
 
@@ -297,6 +341,7 @@
     }
   }
 
+  /** @param {AnswerObj} answer_obj */
   async function on_click_delete_answer(answer_obj) {
     try {
       await delete_recommend_option({ option_no: answer_obj.option_no })
@@ -310,6 +355,7 @@
     }
   }
 
+  /** @param {QuestionObj} question_obj */
   async function on_click_delete_question(question_obj) {
     try {
       if (question_obj.answer_arr.length > 0) {

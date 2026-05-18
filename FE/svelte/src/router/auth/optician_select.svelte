@@ -21,6 +21,7 @@
   let g_can_next_page = $derived(g_current_page_no < g_total_page_no)
 
   // 선택한 안경사를 전역 상태에 저장하고 방문 유형 선택 화면으로 이동한다.
+  /** @param {import('@/lib/stores/admin').AdminObj} optician_obj */
   function on_click_select_optician(optician_obj) {
     set_selected_admin(optician_obj)
     navigate(PATH.visitSelect)
