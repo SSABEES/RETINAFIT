@@ -1,6 +1,8 @@
 <script>
   import { onMount } from 'svelte'
+  import { fly } from 'svelte/transition'
   import { navigate } from '@maks11060/svelte5-router'
+  import { ChevronLeft, ChevronRight } from 'lucide-svelte'
   import { PATH } from '@/config/path'
   import { ensure_session_auth_tokens } from '@/lib/api/session_auth'
   import { get_recommend_option_arr } from '@/lib/api/recommend_options'
@@ -32,12 +34,28 @@
   let g_question_arr = $state(/** @type {QuestionObj[]} */ ([]))
   let g_options_loading = $state(true)
   let g_loading = $state(false)
-  // key = 질문 텍스트, value = 선택된 option_no 배열
+  // key = 질문 텍스트, value = 선택된 option_no 배열. 칩 질문은 다중 선택, 슬라이더 질문은 단일 값.
   let ref_selected_obj = $state(/** @type {Record<string, number[]>} */ ({}))
+
+  // 위저드 진행 상태 — 한 번에 질문 1개만 노출한다.
+  let g_current_index = $state(0)
+  // 질문 전환 슬라이드 방향: 1=다음(오른쪽에서 진입), -1=이전(왼쪽에서 진입).
+  let g_direction = $state(1)
+
+  const g_total_count = $derived(g_question_arr.length)
+  const g_current_question_obj = $derived(g_question_arr[g_current_index] ?? null)
+  const g_is_last_question = $derived(g_total_count > 0 && g_current_index >= g_total_count - 1)
+  const g_is_first_question = $derived(g_current_index <= 0)
+
+  // 현재 질문에 선택된 답변이 하나라도 있는지 — '다음으로' 버튼 활성화 조건.
+  const g_has_current_selection = $derived.by(() => {
+    if (!g_current_question_obj) return false
+    return (ref_selected_obj[g_current_question_obj.question_text]?.length ?? 0) > 0
+  })
 
   const g_customer_name = $derived.by(() => {
     const local_name = $selected_customer_obj?.name?.trim()
-    // 비회원/게스트 방문은 이름 자리를 비워 "고객님의 생활패턴" 으로 표시.
+    // 비회원/게스트 방문은 이름 자리를 비워 "고객의 생활패턴" 으로 표시.
     if (!local_name || local_name === '비회원') return '고객'
     return local_name.endsWith('님') ? local_name : `${local_name} 고객님`
   })
@@ -53,10 +71,10 @@
     }
   }
 
-  // 슬라이더 UI 로 표시할 마지막 질문(스마트폰·모니터·TV 시청 시간) 식별 키워드
-  const _g_slider_question_keyword_arr = ['스마트폰', '모니터', 'TV', '보는 시간']
-
-  /** @param {unknown} question_text */
+  /**
+   * 슬라이더 UI 로 표시할 질문(스마트폰·모니터·TV 시청 시간) 인지 텍스트로 판별한다.
+   * @param {unknown} question_text
+   */
   function is_slider_question_text(question_text) {
     const local_text = String(question_text ?? '')
     return (
@@ -109,6 +127,7 @@
     })
   }
 
+  // 슬라이더 질문에서 현재 선택된 답변의 인덱스를 구한다 (없으면 -1).
   /** @param {QuestionObj} question_obj */
   function get_slider_selected_index(question_obj) {
     const local_selected_arr = ref_selected_obj[question_obj.question_text] ?? []
@@ -119,23 +138,7 @@
     )
   }
 
-  /**
-   * @param {QuestionObj} question_obj
-   * @param {Event} local_event
-   */
-  function on_input_slider_answer(question_obj, local_event) {
-    const local_index = Number(/** @type {HTMLInputElement} */ (local_event.currentTarget).value)
-    const local_answer_obj = question_obj.answer_arr[local_index]
-    if (!local_answer_obj) return
-
-    ref_selected_obj = {
-      ...ref_selected_obj,
-      [question_obj.question_text]: [local_answer_obj.option_no],
-    }
-  }
-
   // 슬라이더 질문은 단일 선택 UI 라 "선택 없음" 상태가 어색하므로 첫 번째 답변을 기본 선택값으로 채운다.
-  // 칩 토글 질문은 다중 선택이라 빈 배열로 시작.
   /** @param {QuestionObj[]} question_arr */
   function init_selected_obj(question_arr) {
     /** @type {Record<string, number[]>} */
@@ -177,6 +180,7 @@
   }
 
   /**
+   * 해당 질문에서 특정 답변이 선택돼 있는지 여부.
    * @param {string} question_text
    * @param {number} option_no
    */
@@ -184,30 +188,78 @@
     return ref_selected_obj[question_text]?.includes(option_no) ?? false
   }
 
-  // 답변 칩 클릭 시 같은 값은 해제하고 없던 값은 선택 목록에 추가한다 (질문별 다중 선택).
+  // 슬라이더 질문은 단일 값 — 기존 선택을 덮어쓴다.
   /**
    * @param {string} question_text
    * @param {number} option_no
    */
-  function on_click_toggle_answer(question_text, option_no) {
-    const local_selected_arr = ref_selected_obj[question_text] ?? []
+  function set_single_answer(question_text, option_no) {
+    ref_selected_obj = { ...ref_selected_obj, [question_text]: [option_no] }
+  }
 
-    if (local_selected_arr.includes(option_no)) {
-      ref_selected_obj = {
-        ...ref_selected_obj,
-        [question_text]: local_selected_arr.filter((local_no) => local_no !== option_no),
-      }
-      return
-    }
+  // 칩 답변 다중 선택 토글 — 이미 선택돼 있으면 해제, 아니면 추가한다.
+  /**
+   * @param {string} question_text
+   * @param {number} option_no
+   */
+  function toggle_answer(question_text, option_no) {
+    const local_current_arr = ref_selected_obj[question_text] ?? []
+    const local_next_arr = local_current_arr.includes(option_no)
+      ? local_current_arr.filter((local_no) => local_no !== option_no)
+      : [...local_current_arr, option_no]
+    ref_selected_obj = { ...ref_selected_obj, [question_text]: local_next_arr }
+  }
 
-    ref_selected_obj = {
-      ...ref_selected_obj,
-      [question_text]: [...local_selected_arr, option_no],
-    }
+  // 다음 질문으로 즉시 이동한다 (정방향 슬라이드).
+  function go_to_next_question() {
+    g_direction = 1
+    g_current_index = Math.min(g_current_index + 1, g_total_count - 1)
+  }
+
+  // 칩 답변 클릭 — 다중 선택 토글만 한다. 질문 전환은 '다음으로' 버튼으로만 이뤄진다.
+  /**
+   * @param {QuestionObj} question_obj
+   * @param {number} option_no
+   */
+  function on_click_chip_answer(question_obj, option_no) {
+    if (g_loading) return
+    toggle_answer(question_obj.question_text, option_no)
+  }
+
+  // 슬라이더 드래그 중 — 값(선택 답변)을 실시간으로 갱신해 thumb/진행바가 따라오게 한다.
+  /**
+   * @param {QuestionObj} question_obj
+   * @param {Event} local_event
+   */
+  function on_input_slider_answer(question_obj, local_event) {
+    const local_index = Number(/** @type {HTMLInputElement} */ (local_event.currentTarget).value)
+    const local_answer_obj = question_obj.answer_arr[local_index]
+    if (!local_answer_obj) return
+    set_single_answer(question_obj.question_text, local_answer_obj.option_no)
+  }
+
+  // 이전 질문으로 — 역방향으로 슬라이드한다.
+  function on_click_prev_question() {
+    if (g_is_first_question) return
+    g_direction = -1
+    g_current_index -= 1
+  }
+
+  // 다음으로 — 선택한 답변을 그대로 두고 다음 질문으로 이동한다.
+  function on_click_next_question() {
+    if (g_loading || g_is_last_question) return
+    go_to_next_question()
+  }
+
+  // 현재 질문을 답변 없이 건너뛰고 다음 질문으로 이동한다.
+  function on_click_skip_question() {
+    if (g_loading || g_is_last_question) return
+    go_to_next_question()
   }
 
   let g_is_from_detail = $state(false)
 
+  // 헤더 뒤로가기 — 페이지 단위 이동 (위저드 내 '이전' 버튼과는 별개).
   function on_click_back() {
     const local_return_path = sessionStorage.getItem('retinal_detail_return_path')
     if (local_return_path) {
@@ -295,6 +347,9 @@
 
         g_question_arr = local_question_arr
         init_selected_obj(local_question_arr)
+        // 위저드는 항상 첫 질문부터 시작.
+        g_current_index = 0
+        g_direction = 1
       })
       .catch((local_err) => {
         push_error_toast(local_err.message ?? '옵션을 불러오지 못했습니다.')
@@ -311,58 +366,111 @@
   fit_viewport={true}
   onback={on_click_back}
 >
-  <section
-    class="flex min-h-0 flex-1 flex-col justify-center overflow-clip [overflow-clip-margin:9999px]"
-  >
-    <div
-      class="flex min-h-0 flex-1 flex-col overflow-y-auto px-[clamp(12px,3svh,40px)] mt-[clamp(3px,1svh,16px)]"
-    >
-      <div class="text-center">
-        <h1
-          class="m-0 font-extrabold tracking-[-0.02em] text-zinc-950 text-[clamp(14px,3.1svh,34px)]"
-        >
-          {g_customer_name}의 생활패턴
-        </h1>
-        <p class="m-0 font-semibold text-slate-500 text-[clamp(10px,2svh,20px)]">
-          고객님이 안경을 착용하는 평소의 생활 환경을 알려주세요. (중복 선택 가능)
-        </p>
-      </div>
+  <section class="flex min-h-0 flex-1 flex-col">
+    <!-- 헤더: 제목 + 안내 -->
+    <div class="shrink-0 text-center px-[clamp(12px,3svh,40px)] pt-[clamp(6px,1.6svh,20px)]">
+      <h1
+        class="m-0 font-extrabold tracking-[-0.02em] text-zinc-950 text-[clamp(14px,3.1svh,34px)]"
+      >
+        {g_customer_name}의 생활패턴
+      </h1>
+      <p class="m-0 font-semibold text-slate-500 text-[clamp(10px,2svh,20px)]">
+        안경을 착용하는 평소 생활 환경을 알려주세요. 해당하는 답을 모두 고른 뒤 '다음으로'를 눌러주세요.
+      </p>
+    </div>
 
-      <div class="mx-auto mt-[clamp(3px,1svh,16px)] w-full max-w-[440px] xl:max-w-[600px] 2xl:max-w-[760px]">
-        {#if g_options_loading}
-          <div class="grid place-items-center py-[clamp(16px,5svh,48px)]">
+    {#if !g_options_loading && g_total_count > 0}
+      <!-- 진행도 바: 이전 버튼 + 점 인디케이터 + 진행 카운트 -->
+      <div
+        class="shrink-0 mx-auto flex w-full max-w-[clamp(480px,52vw,860px)] items-center gap-3 px-[clamp(12px,3svh,40px)] mt-[clamp(4px,1.4svh,18px)]"
+      >
+        <div class="flex flex-1 justify-start">
+          <button
+            type="button"
+            class="inline-flex cursor-pointer items-center gap-0.5 rounded-md border-0 bg-transparent font-bold text-slate-500 transition hover:text-[var(--retina-primary-300)] disabled:cursor-default disabled:opacity-0 text-[clamp(11px,2svh,18px)]"
+            disabled={g_is_first_question}
+            onclick={on_click_prev_question}
+          >
+            <ChevronLeft class="h-[1.15em] w-[1.15em]" />
+            이전
+          </button>
+        </div>
+
+        <div class="flex items-center gap-[clamp(3px,0.8svh,7px)]" aria-hidden="true">
+          {#each g_question_arr as _question_obj, dot_index (dot_index)}
             <span
-              class="h-8 w-8 animate-spin rounded-full border-[3px] border-[var(--retina-primary-300)] border-t-transparent"
-              aria-label="옵션 로딩 중"
+              class={`rounded-full transition-all duration-300 h-[clamp(5px,1svh,10px)] ${
+                dot_index === g_current_index
+                  ? 'w-[clamp(16px,3svh,30px)] bg-[var(--retina-primary-300)]'
+                  : dot_index < g_current_index
+                    ? 'w-[clamp(5px,1svh,10px)] bg-[var(--retina-primary-300)]'
+                    : 'w-[clamp(5px,1svh,10px)] bg-slate-300'
+              }`}
             ></span>
-          </div>
-        {:else if g_question_arr.length === 0}
+          {/each}
+        </div>
+
+        <div class="flex flex-1 justify-end">
+          <span class="font-extrabold tabular-nums text-slate-400 text-[clamp(11px,2svh,18px)]">
+            {g_current_index + 1} / {g_total_count}
+          </span>
+        </div>
+      </div>
+    {/if}
+
+    <!--
+      질문 뷰포트: 한 질문씩만 노출. {#key} 로 질문이 바뀔 때마다 슬라이드+페이드(fly) 전환.
+      두 질문이 전환 중 겹쳐 슬라이드하도록 absolute inset-0 배치, overflow-hidden 으로 좌우 클립.
+    -->
+    <div class="relative flex min-h-0 flex-1 flex-col overflow-hidden" aria-live="polite">
+      {#if g_options_loading}
+        <div class="grid flex-1 place-items-center">
+          <span
+            class="h-8 w-8 animate-spin rounded-full border-[3px] border-[var(--retina-primary-300)] border-t-transparent"
+            aria-label="옵션 로딩 중"
+          ></span>
+        </div>
+      {:else if g_total_count === 0}
+        <div class="grid flex-1 place-items-center px-6">
           <p
-            class="mx-auto max-w-[640px] rounded-xl bg-slate-50 px-5 text-center text-xs font-bold text-slate-500"
+            class="rounded-xl bg-slate-50 px-5 py-4 text-center text-sm font-bold text-slate-500"
           >
             등록된 질문이 없습니다.
           </p>
-        {:else}
+        </div>
+      {:else}
+        {#key g_current_index}
           <div
-            class="rounded-[18px] border border-slate-200 bg-white text-left shadow-[0_6px_16px_rgba(15,23,42,0.05)] px-[clamp(11px,2.6svh,34px)] py-[clamp(4px,1svh,14px)]"
+            class="absolute inset-0 flex flex-col items-center overflow-hidden px-[clamp(12px,3svh,40px)] py-[clamp(6px,1.6svh,18px)]"
+            in:fly={{ x: g_direction * 64, duration: 300 }}
+            out:fly={{ x: g_direction * -64, duration: 240 }}
           >
-            {#each g_question_arr as question_obj, question_index (question_obj.question_text)}
-              <section
-                class={`text-left ${question_index === 0 ? '' : 'mt-[clamp(3px,0.65svh,10px)] border-t border-slate-100 pt-[clamp(3px,0.65svh,10px)]'}`}
+            {#if g_current_question_obj}
+              <div
+                class="flex flex-col flex-1 min-h-0 w-full max-w-[clamp(480px,52vw,860px)] overflow-y-auto rounded-[20px] border border-slate-200 bg-white text-center shadow-[0_10px_28px_rgba(15,23,42,0.08)] px-[clamp(20px,5svh,64px)] pt-[clamp(16px,4.5svh,60px)] pb-[clamp(16px,4svh,48px)]"
               >
-                <h2 class="m-0 text-left font-extrabold text-zinc-950 text-[clamp(12px,2.5svh,28px)]">
-                  Q{question_index + 1}. {question_obj.question_text}
+                <p
+                  class="m-0 font-extrabold tracking-wide text-[var(--retina-primary-300)] text-[clamp(18px,3.6svh,38px)]"
+                >
+                  Q{g_current_index + 1}
+                </p>
+                <h2
+                  class="m-0 mt-[clamp(6px,1.6svh,20px)] font-extrabold leading-snug text-zinc-950 text-[clamp(18px,3.8svh,44px)]"
+                >
+                  {g_current_question_obj.question_text}
                 </h2>
 
-                {#if question_obj.is_slider && question_obj.answer_arr.length > 0}
-                  {@const local_max_index = question_obj.answer_arr.length - 1}
-                  {@const local_selected_index = get_slider_selected_index(question_obj)}
-                  {@const local_value_index = local_selected_index < 0 ? 0 : local_selected_index}
+                {#if g_current_question_obj.is_slider && g_current_question_obj.answer_arr.length > 0}
+                  {@const local_max_index = g_current_question_obj.answer_arr.length - 1}
+                  {@const local_selected_index =
+                    get_slider_selected_index(g_current_question_obj)}
+                  {@const local_value_index =
+                    local_selected_index < 0 ? 0 : local_selected_index}
                   {@const local_progress_pct =
                     local_max_index === 0 ? 100 : (local_value_index / local_max_index) * 100}
-                  <div class="mt-[clamp(2px,0.65svh,11px)] px-1">
+                  <div class="mt-[clamp(24px,6svh,72px)] px-[clamp(4px,1.5svh,16px)]">
                     <div
-                      class="relative h-[clamp(9px,2svh,20px)] rounded-full bg-[var(--retina-primary-100)]"
+                      class="relative h-[clamp(10px,2.4svh,24px)] rounded-full bg-[var(--retina-primary-100)]"
                     >
                       <div
                         class="absolute top-0 left-0 h-full rounded-full bg-[var(--retina-primary-300)] transition-[width] duration-150"
@@ -375,23 +483,40 @@
                         max={local_max_index}
                         step="1"
                         value={local_value_index}
-                        aria-label={question_obj.question_text}
-                        oninput={(local_event) => on_input_slider_answer(question_obj, local_event)}
+                        aria-label={g_current_question_obj.question_text}
+                        oninput={(local_event) =>
+                          on_input_slider_answer(g_current_question_obj, local_event)}
                       />
                       <span
-                        class="pointer-events-none absolute top-1/2 h-[clamp(15px,3.3svh,30px)] w-[clamp(15px,3.3svh,30px)] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-white shadow-[0_2px_6px_rgba(249,115,22,0.45)] transition"
+                        class="pointer-events-none absolute top-1/2 h-[clamp(18px,4svh,38px)] w-[clamp(18px,4svh,38px)] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[var(--retina-primary-300)] shadow-[0_2px_8px_rgba(249,115,22,0.5)] transition"
                         style={`left: ${local_progress_pct}%`}
                         aria-hidden="true"
                       ></span>
                     </div>
+                    <!--
+                      라벨을 각 눈금 %(index/max) 에 절대배치해 thumb(left=index/max%) 와 중앙을 맞춘다.
+                      flex justify-between 은 라벨 박스의 가장자리만 정렬해 중간 라벨이 thumb 와 어긋난다.
+                      양 끝 라벨은 컨테이너 밖으로 안 나가게 left/right edge 정렬.
+                    -->
                     <div
-                      class="mt-[clamp(2px,0.85svh,10px)] flex justify-between font-bold text-slate-500 text-[clamp(9px,1.75svh,16px)]"
+                      class="relative mt-[clamp(6px,1.6svh,16px)] h-[clamp(16px,3svh,28px)] font-bold text-[clamp(10px,1.9svh,18px)]"
                     >
-                      {#each question_obj.answer_arr as answer_obj, answer_index (answer_obj.option_no)}
+                      {#each g_current_question_obj.answer_arr as answer_obj, answer_index (answer_obj.option_no)}
+                        {@const local_label_pct =
+                          local_max_index === 0 ? 0 : (answer_index / local_max_index) * 100}
+                        {@const local_label_translate_class =
+                          answer_index === 0
+                            ? 'translate-x-0'
+                            : answer_index === local_max_index
+                              ? '-translate-x-full'
+                              : '-translate-x-1/2'}
                         <span
-                          class={answer_index === local_selected_index
-                            ? 'text-[var(--retina-primary-300)]'
-                            : 'text-slate-500'}
+                          class={`absolute whitespace-nowrap ${local_label_translate_class} ${
+                            answer_index === local_value_index
+                              ? 'text-[var(--retina-primary-400)]'
+                              : 'text-slate-400'
+                          }`}
+                          style={`left: ${local_label_pct}%`}
                         >
                           {answer_obj.option_name}
                         </span>
@@ -400,54 +525,86 @@
                   </div>
                 {:else}
                   <div
-                    class="mt-[clamp(2px,0.7svh,11px)] flex flex-wrap justify-start gap-[clamp(2px,0.55svh,8px)]"
+                    class="mt-[clamp(12px,3svh,36px)] flex flex-wrap justify-center gap-[clamp(8px,1.8svh,18px)]"
                   >
-                    {#each question_obj.answer_arr as answer_obj (answer_obj.option_no)}
+                    {#each g_current_question_obj.answer_arr as answer_obj (answer_obj.option_no)}
                       {@const local_active = is_selected(
-                        question_obj.question_text,
+                        g_current_question_obj.question_text,
                         answer_obj.option_no,
                       )}
                       <button
-                        class={`inline-flex cursor-pointer items-center rounded-md border font-bold transition min-h-[clamp(22px,4.2svh,52px)] px-[clamp(2px,0.7svh,8px)] py-[clamp(2px,0.45svh,7px)] text-[clamp(11px,2.6svh,28px)] ${
+                        class={`cursor-pointer rounded-xl border-2 font-bold transition min-h-[clamp(48px,8.5svh,88px)] px-[clamp(18px,4svh,42px)] py-[clamp(8px,1.8svh,18px)] text-[clamp(14px,3svh,32px)] ${
                           local_active
-                            ? 'border-[var(--retina-primary-300)] bg-white text-[var(--retina-primary-300)] shadow-[0_3px_8px_rgba(249,115,22,0.18)]'
-                            : 'border-slate-200 bg-white text-slate-500 hover:border-[var(--retina-primary-300)]/60 hover:text-[var(--retina-primary-300)]'
+                            ? 'border-[var(--retina-primary-300)] bg-[var(--retina-primary-100)] text-[var(--retina-primary-400)] shadow-[0_4px_12px_rgba(249,115,22,0.22)] scale-[1.03]'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-[var(--retina-primary-300)]/60 hover:text-[var(--retina-primary-300)]'
                         }`}
                         type="button"
                         aria-pressed={local_active}
                         onclick={() =>
-                          on_click_toggle_answer(question_obj.question_text, answer_obj.option_no)}
+                          on_click_chip_answer(g_current_question_obj, answer_obj.option_no)}
                       >
                         {answer_obj.option_name}
                       </button>
                     {/each}
                   </div>
                 {/if}
-              </section>
-            {/each}
+
+                <!-- 건너뛰기 / 다음으로 — 질문 카드 하단에 배치. 마지막 질문은 하단 제출 버튼으로 마무리한다. -->
+                {#if !g_is_last_question}
+                  <div
+                    class="mt-auto flex w-full items-center justify-center gap-[clamp(8px,2svh,20px)] pt-[clamp(12px,3svh,32px)]"
+                  >
+                    <button
+                      type="button"
+                      class="inline-flex cursor-pointer items-center rounded-lg border-0 bg-transparent font-bold text-slate-400 transition hover:text-[var(--retina-primary-300)] px-[clamp(12px,3svh,28px)] py-[clamp(8px,1.8svh,18px)] text-[clamp(12px,2.8svh,26px)]"
+                      onclick={on_click_skip_question}
+                    >
+                      건너뛰기
+                    </button>
+                    <button
+                      type="button"
+                      class="inline-flex cursor-pointer items-center gap-1 rounded-lg border-0 bg-[var(--retina-primary-300)] font-bold text-[var(--retina-surface)] transition hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-40 px-[clamp(18px,4svh,42px)] py-[clamp(8px,1.8svh,18px)] text-[clamp(12px,2.8svh,26px)]"
+                      disabled={!g_has_current_selection}
+                      onclick={on_click_next_question}
+                    >
+                      다음으로
+                      <ChevronRight class="h-[1.15em] w-[1.15em]" />
+                    </button>
+                  </div>
+                {/if}
+              </div>
+            {/if}
           </div>
-        {/if}
-      </div>
+        {/key}
+      {/if}
     </div>
 
     <BottomActionBar padding_class="px-[clamp(8px,2svh,16px)] py-[clamp(3px,0.95svh,11px)]">
-      <div class="mx-auto w-full max-w-[400px] xl:max-w-[600px] 2xl:max-w-[760px]">
-        <button
-          class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[var(--retina-primary-300)] tracking-tight text-[var(--retina-surface)] transition hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-60 h-[clamp(40px,7.5svh,80px)] px-[clamp(12px,3svh,36px)] text-[clamp(14px,3.2svh,30px)]"
-          type="button"
-          disabled={g_loading}
-          onclick={on_click_submit}
-        >
-          {#if g_loading}
-            <span
-              class="h-5 w-5 animate-spin rounded-full border-[2.5px] border-white border-t-transparent"
-              aria-hidden="true"
-            ></span>
-            <span>저장 중...</span>
-          {:else}
-            <span>{g_is_from_detail ? '생활패턴 저장' : 'AR 피팅하기'}</span>
-          {/if}
-        </button>
+      <!--
+        하단 영역은 고정 높이 행 — 마지막 질문은 제출 버튼이 채우고, 그 외 질문은 비워둔다
+        (질문 이동 버튼은 질문 카드 하단에 있다). 행 높이를 고정해 하단 바 높이 점프를 막는다.
+      -->
+      <div
+        class="mx-auto flex h-[clamp(40px,7.5svh,80px)] w-full max-w-[clamp(480px,52vw,860px)] items-center justify-center"
+      >
+        {#if g_is_last_question}
+          <button
+            class="inline-flex h-full w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[var(--retina-primary-300)] tracking-tight text-[var(--retina-surface)] transition hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-60 px-[clamp(12px,3svh,36px)] text-[clamp(14px,3.2svh,30px)]"
+            type="button"
+            disabled={g_loading}
+            onclick={on_click_submit}
+          >
+            {#if g_loading}
+              <span
+                class="h-5 w-5 animate-spin rounded-full border-[2.5px] border-white border-t-transparent"
+                aria-hidden="true"
+              ></span>
+              <span>저장 중...</span>
+            {:else}
+              <span>{g_is_from_detail ? '생활패턴 저장' : 'AR 피팅하기'}</span>
+            {/if}
+          </button>
+        {/if}
       </div>
     </BottomActionBar>
   </section>
