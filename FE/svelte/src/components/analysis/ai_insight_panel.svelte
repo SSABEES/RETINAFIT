@@ -713,109 +713,8 @@
       </div>
     </div>
 
-    <!-- 4) 좌우 대칭 / PD 상세 — divide-x 로 컬럼 분리. -->
+    <!-- 4) OH 상세 / PD 상세 — divide-x 로 컬럼 분리. (OH 상세를 좌우 대칭과 자리 교체) -->
     <div class="grid grid-cols-2 divide-x divide-slate-100">
-      <div class="px-6 py-4">
-        <header class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2">
-            <Scale
-              size={15}
-              strokeWidth={2.2}
-              class="text-[var(--retina-primary-600)]"
-              aria-hidden="true"
-            />
-            <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">좌우 대칭 분석</h3>
-          </div>
-          {#if g_asymmetry_range}
-            <span
-              class={`text-[10px] font-extrabold ${g_asymmetry_range.is_in_normal ? 'text-emerald-600' : 'text-amber-600'}`}
-            >
-              {g_asymmetry_range.is_in_normal ? '매우 양호' : '비대칭 주의'}
-            </span>
-          {/if}
-        </header>
-
-        <div class="mt-3 pl-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span class="text-[28px] font-extrabold text-[var(--retina-primary-600)]"
-            >{g_asymmetry_label}</span
-          >
-          <span class="text-[12px] font-bold text-slate-400">/ 100</span>
-          <span class="ml-1 text-[12px] font-semibold text-slate-500">{g_asymmetry_hint}</span>
-        </div>
-
-        <div class="mt-3 pl-3">{@render range_gauge(g_asymmetry_range)}</div>
-
-        {#if g_asymmetry_fitting_tip}
-          <div
-            class="mt-4 ml-3 flex items-start gap-2 rounded-lg bg-[var(--retina-bg-1)] px-3 py-2.5"
-          >
-            <Glasses
-              size={14}
-              strokeWidth={2.2}
-              class="mt-0.5 shrink-0 text-[var(--retina-primary-600)]"
-              aria-hidden="true"
-            />
-            <p class="m-0 text-[12px] font-semibold leading-snug text-[var(--retina-primary-600)]">
-              {g_asymmetry_fitting_tip}
-            </p>
-          </div>
-        {/if}
-      </div>
-
-      <div class="px-6 py-4">
-        <header class="flex items-center gap-2">
-          <Eye
-            size={15}
-            strokeWidth={2.2}
-            class="text-[var(--retina-primary-600)]"
-            aria-hidden="true"
-          />
-          <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">PD 상세 정보</h3>
-        </header>
-
-        <div class="mt-3 pl-3 flex flex-col gap-3">
-          <div>
-            <div class="flex items-baseline justify-between gap-2">
-              <span class="text-[11px] font-bold text-slate-500">좌측 PD</span>
-              <span class="text-[14px] font-extrabold text-zinc-900">{g_left_pd_label}</span>
-            </div>
-            <div class="mt-1.5">{@render range_gauge(g_left_pd_range)}</div>
-          </div>
-          <div>
-            <div class="flex items-baseline justify-between gap-2">
-              <span class="text-[11px] font-bold text-slate-500">우측 PD</span>
-              <span class="text-[14px] font-extrabold text-zinc-900">{g_right_pd_label}</span>
-            </div>
-            <div class="mt-1.5">{@render range_gauge(g_right_pd_range)}</div>
-          </div>
-          <div class="border-t border-slate-100 pt-3">
-            <div class="flex items-baseline justify-between gap-2">
-              <span class="text-[11px] font-bold text-slate-500">좌우 차이</span>
-              <span class="flex items-baseline gap-1.5">
-                <span class="text-[14px] font-extrabold text-[var(--retina-primary-600)]"
-                  >{g_pd_diff_label}</span
-                >
-                {#if g_pd_diff_range}
-                  <span
-                    class={`text-[10px] font-extrabold ${g_pd_diff_range.is_in_normal ? 'text-emerald-600' : 'text-amber-600'}`}
-                  >
-                    {g_pd_diff_range.is_in_normal ? '적정' : '차이 있음'}
-                  </span>
-                {/if}
-              </span>
-            </div>
-            <div class="mt-1.5">{@render range_gauge(g_pd_diff_range)}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!--
-      5) OH 상세 정보 — Optical Height (렌즈 하단 → 동공 중심 수직거리).
-      result.svelte 가 실착용 세트에서 산출한 oh_obj 를 넘기면 좌측 OH / 우측 OH / 좌우 차이를
-      PD 상세와 동일 패턴(라벨 + 값 + range_gauge)으로 노출하고, 없으면 측정 예정 placeholder.
-    -->
-    <div class="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100">
       <div class="px-6 py-4">
         <header class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2">
@@ -891,6 +790,106 @@
               <span class="text-[11px] font-bold text-slate-500">좌우 차이</span>
               <span class="text-[14px] font-extrabold text-slate-300">-</span>
             </div>
+          </div>
+        {/if}
+      </div>
+
+      <div class="px-6 py-4">
+        <header class="flex items-center gap-2">
+          <Eye
+            size={15}
+            strokeWidth={2.2}
+            class="text-[var(--retina-primary-600)]"
+            aria-hidden="true"
+          />
+          <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">PD 상세 정보</h3>
+        </header>
+
+        <div class="mt-3 pl-3 flex flex-col gap-3">
+          <div>
+            <div class="flex items-baseline justify-between gap-2">
+              <span class="text-[11px] font-bold text-slate-500">좌측 PD</span>
+              <span class="text-[14px] font-extrabold text-zinc-900">{g_left_pd_label}</span>
+            </div>
+            <div class="mt-1.5">{@render range_gauge(g_left_pd_range)}</div>
+          </div>
+          <div>
+            <div class="flex items-baseline justify-between gap-2">
+              <span class="text-[11px] font-bold text-slate-500">우측 PD</span>
+              <span class="text-[14px] font-extrabold text-zinc-900">{g_right_pd_label}</span>
+            </div>
+            <div class="mt-1.5">{@render range_gauge(g_right_pd_range)}</div>
+          </div>
+          <div class="border-t border-slate-100 pt-3">
+            <div class="flex items-baseline justify-between gap-2">
+              <span class="text-[11px] font-bold text-slate-500">좌우 차이</span>
+              <span class="flex items-baseline gap-1.5">
+                <span class="text-[14px] font-extrabold text-[var(--retina-primary-600)]"
+                  >{g_pd_diff_label}</span
+                >
+                {#if g_pd_diff_range}
+                  <span
+                    class={`text-[10px] font-extrabold ${g_pd_diff_range.is_in_normal ? 'text-emerald-600' : 'text-amber-600'}`}
+                  >
+                    {g_pd_diff_range.is_in_normal ? '적정' : '차이 있음'}
+                  </span>
+                {/if}
+              </span>
+            </div>
+            <div class="mt-1.5">{@render range_gauge(g_pd_diff_range)}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!--
+      5) 좌우 대칭 분석 / OH 분석 안내 — divide-x 로 컬럼 분리.
+      OH 상세 정보(수치)는 위 4) 행으로 자리를 옮겼고, 이 행에는 좌우 대칭 분석과 OH 분석 안내가 남는다.
+    -->
+    <div class="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100">
+      <div class="px-6 py-4">
+        <header class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <Scale
+              size={15}
+              strokeWidth={2.2}
+              class="text-[var(--retina-primary-600)]"
+              aria-hidden="true"
+            />
+            <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">좌우 대칭 분석</h3>
+          </div>
+          {#if g_asymmetry_range}
+            <span
+              class={`text-[10px] font-extrabold ${g_asymmetry_range.is_in_normal ? 'text-emerald-600' : 'text-amber-600'}`}
+            >
+              {g_asymmetry_range.is_in_normal ? '매우 양호' : '비대칭 주의'}
+            </span>
+          {/if}
+        </header>
+
+        <div class="mt-3 pl-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span class="text-[28px] font-extrabold text-[var(--retina-primary-600)]"
+            >{g_asymmetry_label}</span
+          >
+          <span class="text-[12px] font-bold text-slate-400">/ 100</span>
+          <span class="ml-1 text-[12px] font-semibold text-slate-500">{g_asymmetry_hint}</span>
+        </div>
+
+        <div class="mt-3 pl-3">{@render range_gauge(g_asymmetry_range)}</div>
+
+        {#if g_asymmetry_fitting_tip}
+          <div
+            class="mt-4 ml-3 flex items-start gap-2 rounded-lg bg-[var(--retina-bg-1)] px-3 py-2.5"
+          >
+            <Glasses
+              size={14}
+              strokeWidth={2.2}
+              class="mt-0.5 shrink-0 text-[var(--retina-primary-600)]"
+              aria-hidden="true"
+            />
+            <p class="m-0 text-[12px] font-semibold leading-snug text-[var(--retina-primary-600)]">
+              {g_asymmetry_fitting_tip}
+            </p>
           </div>
         {/if}
       </div>
