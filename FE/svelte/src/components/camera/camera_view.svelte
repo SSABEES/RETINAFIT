@@ -513,6 +513,19 @@
       return
     }
 
+    // 진행 중인 안내 음성(측면 단계의 face_recognition_in_progress 등)이 끝까지 재생되도록 먼저 기다린다.
+    // 측면은 자세 안정화가 빨라 음성 도중에 캡처가 발사되면 안내가 잘리는 문제가 있었다.
+    // 재생 중인 음성이 없으면 wait_for_voice() 는 즉시 resolve 하므로 정면 등 다른 흐름엔 지연 없음.
+    await wait_for_voice()
+    if (
+      my_token !== g_capture_sequence_token ||
+      !active ||
+      !g_is_auto_capture ||
+      g_already_dispatched
+    ) {
+      return
+    }
+
     // 정면/측면 공통 시퀀스 — "셔터음 시작 = 캡처 시점" 이 되도록 셔터음과 캡처를 동시에 발사한다.
     // 이전엔 셔터음을 await 끝까지 → 그 후 캡처 였는데, 인지상 "찰칵 소리 다 끝나고 찍히는" 느낌이라 부자연스러움.
     // 직전 face_recognition_in_progress (priority high) 가 아직 재생 중이면 동등 priority 의 셔터음이

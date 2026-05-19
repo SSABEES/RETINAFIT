@@ -13,7 +13,12 @@
   // CameraView 가 마지막 캡처 시점에 face_recognition_complete 음성을 재생하는데,
   // voice_guide 가 모듈 싱글톤이라 사용자가 음성 종료 전에 result 로 navigate 하면
   // 다음 화면 위에서 그 음성이 계속 재생된다. 언마운트 시점에 명시적으로 stop.
-  import { silence as silence_voice, unsilence as unsilence_voice } from '@/lib/audio/voice_guide.js'
+  import {
+    silence as silence_voice,
+    unsilence as unsilence_voice,
+    play as play_voice,
+    wait_for_active as wait_for_voice,
+  } from '@/lib/audio/voice_guide.js'
 
   // result.svelte 가 첫 mount 에 즉시 화면을 채우도록 prefetch 한 visit_obj 를 잠시 보관할 sessionStorage 키.
   const PREFETCH_VISIT_KEY = 'retinal_prefetched_visit_obj'
@@ -199,6 +204,21 @@
       local_next_arr[local_idx].oh_points_right = g_pending_oh.oh_points_right
       g_pending_oh = null
     }
+
+    // 인식 완료 안내 음성 — index.svelte 의 얼굴 측정 on_capture 와 동일 패턴.
+    // 진행 중인 셔터음(camera_shutter_sound, 동일 high priority)이 끝나길 wait_for_voice 로 먼저 기다린 뒤 재생.
+    // 슬롯 커밋 직전에 await: 슬롯이 채워지면 g_current_pose 가 바뀌며 CameraView.reset() → stop_voice()
+    // 가 호출되므로, 안내가 끝까지 들리도록 여기서 끝까지 재생한 뒤 슬롯을 전진시킨다.
+    const local_pose_type = POSE_BY_SLOT[local_idx]
+    const local_complete_key =
+      local_pose_type === 'front'
+        ? 'front_side_capture_complete'
+        : local_pose_type === 'left_profile'
+          ? 'left_side_capture_complete'
+          : 'right_side_capture_complete'
+    await wait_for_voice()
+    await play_voice(local_complete_key, { priority: 'high' })
+
     g_capture_slot_arr = local_next_arr
   }
 
