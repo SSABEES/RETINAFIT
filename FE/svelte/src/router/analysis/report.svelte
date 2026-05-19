@@ -132,6 +132,37 @@
     get_frame_styles_for_face_shape(g_face_shape_key).slice(0, 6),
   )
 
+  // 추천 컬러 칩 hover → 안경 미리보기 popover 상태.
+  // 칩이 속한 article/section 에 overflow-hidden 이 걸려있어 absolute popover 는 잘리므로
+  // fixed positioning 으로 viewport 기준 좌표(getBoundingClientRect)에 띄운다.
+  let g_hovered_color_index = $state(-1)
+  let g_color_popover_pos_obj = $state({ x: 0, y: 0 })
+  const g_hovered_color_obj = $derived(
+    g_hovered_color_index >= 0 ? (g_recommended_color_arr[g_hovered_color_index] ?? null) : null,
+  )
+
+  // 컬러 칩 위에 마우스 진입 시 칩의 화면 좌표를 잡아 popover 가 칩 상단 중앙 위에 뜨도록 한다.
+  // preview_src 가 없는 칩(NEUTRAL — '모든 색상 가능' / '고객 선호 반영')은 hover 발동 안 함.
+  /**
+   * @param {PointerEvent} pointer_event
+   * @param {number} color_index
+   */
+  function on_pointer_enter_color_chip(pointer_event, color_index) {
+    const local_chip_obj = g_recommended_color_arr[color_index]
+    if (!local_chip_obj?.preview_src) return
+    const ref_chip_el = /** @type {HTMLElement} */ (pointer_event.currentTarget)
+    const local_rect = ref_chip_el.getBoundingClientRect()
+    g_color_popover_pos_obj = {
+      x: local_rect.left + local_rect.width / 2,
+      y: local_rect.top,
+    }
+    g_hovered_color_index = color_index
+  }
+
+  function on_pointer_leave_color_chip() {
+    g_hovered_color_index = -1
+  }
+
   const g_photo_src = $derived(
     g_session.captures_obj.front_no_glasses?.object_url ??
       g_session.captures_obj.front_glasses?.object_url ??
@@ -377,8 +408,16 @@
               {#each Array.from({ length: 4 }) as _, color_index (color_index)}
                 {@const local_color_obj = g_recommended_color_arr[color_index]}
                 {#if local_color_obj}
+                  <!--
+                    role="img" + aria-label — 칩은 의미상 컬러 견본 이미지이며, hover preview 는 보조적
+                    시각 정보. svelte a11y_no_static_element_interactions 규칙(div+pointer 핸들러)도 해소.
+                  -->
                   <div
-                    class={`flex min-h-0 items-center justify-center rounded-[10px] border border-black/5 text-center shadow-sm px-[clamp(6px,1.8svh,22px)] py-[clamp(2px,0.9svh,14px)] ${local_color_obj.tone_class}`}
+                    role="img"
+                    aria-label={`${local_color_obj.label} 컬러${local_color_obj.preview_src ? ' (호버 시 안경 미리보기)' : ''}`}
+                    class={`flex min-h-0 items-center justify-center rounded-[10px] border border-black/5 text-center shadow-sm px-[clamp(6px,1.8svh,22px)] py-[clamp(2px,0.9svh,14px)] ${local_color_obj.tone_class} ${local_color_obj.preview_src ? 'cursor-help' : ''}`}
+                    onpointerenter={(e) => on_pointer_enter_color_chip(e, color_index)}
+                    onpointerleave={on_pointer_leave_color_chip}
                   >
                     <p
                       class={`m-0 font-normal text-[clamp(10px,2svh,26px)] ${get_chip_text_class(local_color_obj)}`}
@@ -458,4 +497,31 @@
   </section>
 
   <LoadingOverlay open={g_is_submitting} label="분석 결과 저장 중..." />
+
+  <!--
+    추천 컬러 칩 hover popover — 칩이 속한 article/section 의 overflow-hidden 을 회피하기 위해
+    fixed positioning 으로 viewport 좌표에 띄운다. translate -50%/-100% 로 칩 상단 중앙에 앵커링,
+    8px 갭으로 칩과 살짝 떨어뜨려 시각적 분리. pointer-events-none 으로 칩의 leave 이벤트 방해 X.
+  -->
+  {#if g_hovered_color_obj?.preview_src}
+    <div
+      class="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full"
+      style="left: {g_color_popover_pos_obj.x}px; top: {g_color_popover_pos_obj.y - 8}px;"
+    >
+      <div
+        class="overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] w-[clamp(160px,28svh,320px)] p-[clamp(6px,1.2svh,14px)]"
+      >
+        <img
+          class="block h-auto w-full rounded-[8px] object-contain bg-slate-50 max-h-[clamp(110px,22svh,260px)]"
+          src={g_hovered_color_obj.preview_src}
+          alt={`${g_hovered_color_obj.label} 안경 미리보기`}
+        />
+        <p
+          class="m-0 mt-[clamp(4px,0.8svh,10px)] text-center font-semibold text-slate-700 text-[clamp(11px,1.7svh,18px)]"
+        >
+          {g_hovered_color_obj.label}
+        </p>
+      </div>
+    </div>
+  {/if}
 </AnalysisPageLayout>
