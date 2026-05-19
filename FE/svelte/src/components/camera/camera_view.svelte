@@ -336,9 +336,11 @@
     const local_last_yaw = profile_pose.last_yaw
     const local_session_ready = profile_pose.session_ready
 
+    // capture_mode 무관하게 자세 안내 음성(head_center / face_recognition_in_progress)을 재생한다.
+    // manual 모드(real_fitting 정면 — OH 게이트가 캡처 트리거)에서도 index.svelte(자동 캡처)와
+    // 동일한 상세 음성 안내가 들리도록 g_is_auto_capture 가드를 두지 않는다.
     if (
       !active ||
-      !g_is_auto_capture ||
       g_already_dispatched ||
       g_stability_audio_stage !== 'idle'
     ) {

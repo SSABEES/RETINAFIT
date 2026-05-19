@@ -130,9 +130,11 @@
   let g_wear_glasses_interval = null
 
   // OH 게이트가 안경 림을 못 찾는(oh_compute_failed) 동안 안경 착용 안내 음성을 2초 간격으로 반복.
+  // 첫 안내는 즉시 1회 재생 — setInterval 만 쓰면 2초 뒤에야 첫 음성이 나와 안내가 늦게 느껴진다.
   // 이미 동작 중이면 새 인터벌을 만들지 않는다 (중복 가드).
   function start_wear_glasses_prompt() {
     if (g_wear_glasses_interval !== null) return
+    void play_voice('please_wear_glasses', { priority: 'low' })
     g_wear_glasses_interval = setInterval(() => {
       void play_voice('please_wear_glasses', { priority: 'low' })
     }, 2000)
@@ -151,6 +153,13 @@
     if (_pose === 'front') {
       g_pending_oh = null
       g_oh_overlay = null
+      // 정면 촬영 시작 안내 음성 — 얼굴 분석 촬영 흐름처럼 정면 단계 진입 시 1회 재생.
+      // wait_for_voice 로 한 박자 양보: onMount 의 unsilence 가 먼저 적용되고(첫 진입 봉인 해제),
+      // 진행 중인 안내 음성이 있으면 끝난 뒤 재생되도록.
+      void (async () => {
+        await wait_for_voice()
+        void play_voice('start_face_recognition', { priority: 'high' })
+      })()
       g_oh_gate = start_oh_capture_gate({
         on_pass: (result) => {
           stop_wear_glasses_prompt()
