@@ -27,6 +27,7 @@
  *   | 'head_center'
  *   | 'head_right'
  *   | 'head_left'
+ *   | 'please_wear_glasses'
  * )} VoiceGuideKey */
 
 const REPEAT_DEBOUNCE_MS = 1200

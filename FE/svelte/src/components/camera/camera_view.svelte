@@ -79,6 +79,7 @@
    *   oncapture_error?: ((err: unknown) => void) | undefined,
    *   onlandmarks?: ((d: LandmarkDetectionResult) => void) | undefined,
    *   oh_overlay?: OhOverlay | null,
+   *   simple_guide_color?: boolean,
    * }}
    */
   let {
@@ -91,6 +92,9 @@
     oncapture_error = undefined,
     onlandmarks = undefined,
     oh_overlay = null,
+    // true 면 상태와 무관하게 가이드를 항상 흰색으로 고정한다 (얼굴이 영역 안에 들어와도 초록으로 안 바뀜).
+    // false(기본) 면 대기 회색·이탈 빨강·자세 조정 노랑·안정 초록의 상세 피드백.
+    simple_guide_color = false,
   } = $props()
 
   // FRAME_SKIP: 60fps / 5 = 12Hz 추론 (성능과 반응성의 타협점)
@@ -198,7 +202,10 @@
   // 가이드 타원 색상을 pose_target 과 상태에 따라 결정한다.
   // 정면/측면 동일한 색 의미 (회색=대기, 노랑=자세 잡는 중, 초록=안정 도달).
   // 정면은 추가로 빨강(=얼굴 일부가 frame 밖) 상태가 있다.
+  // simple_guide_color 가 켜져 있으면 상태와 무관하게 항상 흰색 — 얼굴이 영역 안에 들어와도 초록으로 바뀌지 않는다.
   const g_guide_color = $derived.by(() => {
+    if (simple_guide_color) return 'rgba(255,255,255,0.9)'
+
     if (pose_target !== 'front') {
       // 대기 — 모델 미준비 또는 첫 yaw 추론 전
       if (!profile_pose.session_ready || profile_pose.last_yaw === null) {
@@ -233,7 +240,7 @@
 
     // 정면 — 기존 로직 그대로 (측면 분기는 위에서 이미 return 했으므로 여기서 pose_target='front' 로 narrowing 됨).
     if (!g_face_detected) return '얼굴을 가이드 안에 맞춰주세요'
-    if (!g_complete_obj.is_complete) return '얼굴 전체가 화면에 나오도록 해주세요'
+    if (!g_complete_obj.is_complete) return '얼굴 전체가 가이드 안에 들어오게 해주세요'
     if (!g_frontal_obj) return '정면을 바라봐 주세요'
     if (g_frontal_obj.is_frontal) {
       // 정면 영역 진입 후엔 게이지가 진행률을 보여주므로 하단 hint 는 노출 X.
@@ -245,9 +252,7 @@
     if (g_frontal_obj.reason === 'pitch') {
       return g_frontal_obj.pitch > 0 ? '턱을 올려주세요' : '턱을 내려주세요'
     }
-    if (g_frontal_obj.reason === 'roll') {
-      return g_frontal_obj.roll > 0 ? '오른쪽으로 기울었어요' : '왼쪽으로 기울었어요'
-    }
+    // roll(머리 기울임) 안내는 노출하지 않는다 — 기존 '기울었어요' 문구 제거. 일반 문구로 폴백.
     return '정면을 바라봐 주세요'
   })
 
@@ -499,6 +504,19 @@
   async function run_auto_capture_sequence() {
     const my_token = ++g_capture_sequence_token
 
+    if (
+      my_token !== g_capture_sequence_token ||
+      !active ||
+      !g_is_auto_capture ||
+      g_already_dispatched
+    ) {
+      return
+    }
+
+    // 진행 중인 안내 음성(측면 단계의 face_recognition_in_progress 등)이 끝까지 재생되도록 먼저 기다린다.
+    // 측면은 자세 안정화가 빨라 음성 도중에 캡처가 발사되면 안내가 잘리는 문제가 있었다.
+    // 재생 중인 음성이 없으면 wait_for_voice() 는 즉시 resolve 하므로 정면 등 다른 흐름엔 지연 없음.
+    await wait_for_voice()
     if (
       my_token !== g_capture_sequence_token ||
       !active ||
@@ -1189,7 +1207,8 @@
       </div>
     {/if}
 
-    {#if show_overlay && active && pose_target === 'front' && g_face_detected && g_frontal_obj && !g_frontal_obj.is_frontal}
+    <!-- 가운데 방향 안내 — yaw/pitch 화살표만 표시. roll(회전) 안내는 하단 hint 텍스트로만 노출. -->
+    {#if show_overlay && active && pose_target === 'front' && g_face_detected && g_frontal_obj && !g_frontal_obj.is_frontal && g_frontal_obj.reason !== 'roll'}
       <div
         class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse text-[7rem] leading-none text-orange-400 drop-shadow-[0_2px_16px_rgba(0,0,0,0.65)]"
         aria-hidden="true"
@@ -1198,8 +1217,6 @@
           {g_frontal_obj.yaw > 0 ? '→' : '←'}
         {:else if g_frontal_obj.reason === 'pitch'}
           {g_frontal_obj.pitch > 0 ? '↑' : '↓'}
-        {:else if g_frontal_obj.reason === 'roll'}
-          {g_frontal_obj.roll > 0 ? '↺' : '↻'}
         {/if}
       </div>
     {/if}

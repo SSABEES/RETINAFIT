@@ -13,7 +13,12 @@
   // CameraView 가 마지막 캡처 시점에 face_recognition_complete 음성을 재생하는데,
   // voice_guide 가 모듈 싱글톤이라 사용자가 음성 종료 전에 result 로 navigate 하면
   // 다음 화면 위에서 그 음성이 계속 재생된다. 언마운트 시점에 명시적으로 stop.
-  import { silence as silence_voice, unsilence as unsilence_voice } from '@/lib/audio/voice_guide.js'
+  import {
+    silence as silence_voice,
+    unsilence as unsilence_voice,
+    play as play_voice,
+    wait_for_active as wait_for_voice,
+  } from '@/lib/audio/voice_guide.js'
 
   // result.svelte 가 첫 mount 에 즉시 화면을 채우도록 prefetch 한 visit_obj 를 잠시 보관할 sessionStorage 키.
   const PREFETCH_VISIT_KEY = 'retinal_prefetched_visit_obj'
@@ -77,9 +82,6 @@
   /** @type {{ oh_left_mm: number, oh_right_mm: number, oh_source: 'aruco' | 'pd_fallback', oh_points_left: OhMeasurePoints, oh_points_right: OhMeasurePoints } | null} */
   let g_pending_oh = $state(null)
 
-  // 게이트 진행 상태 메시지 — 화면 상단에 표시.
-  let g_oh_gate_hint = $state('')
-
   // OH 게이트가 매 측정 사이클마다 발사하는 ROI + 림 위치 — CameraView 가 캔버스에 수평선으로 그림.
   /** @type {import('@/lib/measurements/oh_capture_gate.js').OhOverlayState | null} */
   let g_oh_overlay = $state(null)
@@ -100,6 +102,7 @@
   onDestroy(() => {
     // 진행 중이던 CameraView 음성을 차단 — result 화면에서 이전 페이지 음성이 이어 들리는 현상 방지.
     silence_voice()
+    stop_wear_glasses_prompt()
     for (const local_slot of g_capture_slot_arr) {
       if (local_slot?.object_url) URL.revokeObjectURL(local_slot.object_url)
     }
@@ -122,23 +125,48 @@
   /** @type {{ handle_landmarks: (d: any) => void, stop: () => void } | null} */
   let g_oh_gate = $state(null)
 
+  // 정면 촬영 중 안경 미착용(OH 림 미검출) 상태 동안 2초마다 재생할 "안경 착용" 안내 인터벌 핸들.
+  /** @type {ReturnType<typeof setInterval> | null} */
+  let g_wear_glasses_interval = null
+
+  // OH 게이트가 안경 림을 못 찾는(oh_compute_failed) 동안 안경 착용 안내 음성을 2초 간격으로 반복.
+  // 이미 동작 중이면 새 인터벌을 만들지 않는다 (중복 가드).
+  function start_wear_glasses_prompt() {
+    if (g_wear_glasses_interval !== null) return
+    g_wear_glasses_interval = setInterval(() => {
+      void play_voice('please_wear_glasses', { priority: 'low' })
+    }, 2000)
+  }
+
+  // 안경이 인식되거나 정면 단계를 벗어나면 반복 안내를 멈춘다.
+  function stop_wear_glasses_prompt() {
+    if (g_wear_glasses_interval === null) return
+    clearInterval(g_wear_glasses_interval)
+    g_wear_glasses_interval = null
+  }
+
   // 정면 슬롯 진입 시 OH 게이트 활성, 빠질 때 정리. 슬롯 전환 시 마다 fresh gate.
   $effect(() => {
     const _pose = g_current_pose
     if (_pose === 'front') {
       g_pending_oh = null
       g_oh_overlay = null
-      g_oh_gate_hint = '정면을 바라봐 주세요'
       g_oh_gate = start_oh_capture_gate({
         on_pass: (result) => {
+          stop_wear_glasses_prompt()
           g_pending_oh = result
-          g_oh_gate_hint = '측정 완료'
           if (ref_this_camera) {
             void ref_this_camera.trigger_capture()
           }
         },
         on_status: (status) => {
-          g_oh_gate_hint = status.hint
+          // OH 림 검출 실패(oh_compute_failed) = 안경 미착용 신호 — 착용 안내 음성을 2초 간격 반복.
+          // 림이 잡히면(다른 reason) 즉시 음성 중지 = "착용할 때까지" 반복.
+          if (status.reason === 'oh_compute_failed') {
+            start_wear_glasses_prompt()
+          } else {
+            stop_wear_glasses_prompt()
+          }
         },
         on_overlay_update: (overlay) => {
           g_oh_overlay = overlay
@@ -146,15 +174,16 @@
       })
     } else if (g_oh_gate) {
       // pose 가 front 가 아닐 때 게이트 정리. untrack 으로 cleanup 의 재진입 방지.
+      stop_wear_glasses_prompt()
       const local_gate_to_stop = g_oh_gate
       untrack(() => {
         local_gate_to_stop.stop()
         g_oh_gate = null
       })
-      g_oh_gate_hint = ''
     }
     return () => {
       // cleanup 시 g_oh_gate 변경이 effect 재진입 일으키지 않도록 untrack
+      stop_wear_glasses_prompt()
       untrack(() => {
         if (g_oh_gate) {
           g_oh_gate.stop()
@@ -199,6 +228,21 @@
       local_next_arr[local_idx].oh_points_right = g_pending_oh.oh_points_right
       g_pending_oh = null
     }
+
+    // 인식 완료 안내 음성 — index.svelte 의 얼굴 측정 on_capture 와 동일 패턴.
+    // 진행 중인 셔터음(camera_shutter_sound, 동일 high priority)이 끝나길 wait_for_voice 로 먼저 기다린 뒤 재생.
+    // 슬롯 커밋 직전에 await: 슬롯이 채워지면 g_current_pose 가 바뀌며 CameraView.reset() → stop_voice()
+    // 가 호출되므로, 안내가 끝까지 들리도록 여기서 끝까지 재생한 뒤 슬롯을 전진시킨다.
+    const local_pose_type = POSE_BY_SLOT[local_idx]
+    const local_complete_key =
+      local_pose_type === 'front'
+        ? 'front_side_capture_complete'
+        : local_pose_type === 'left_profile'
+          ? 'left_side_capture_complete'
+          : 'right_side_capture_complete'
+    await wait_for_voice()
+    await play_voice(local_complete_key, { priority: 'high' })
+
     g_capture_slot_arr = local_next_arr
   }
 
@@ -449,13 +493,8 @@
           oncapture_error={on_capture_error}
           onlandmarks={g_oh_gate?.handle_landmarks ?? undefined}
           oh_overlay={g_oh_overlay}
+          simple_guide_color={true}
         />
-
-        {#if g_current_pose === 'front' && g_oh_gate_hint && !g_pending_oh}
-          <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20 rounded-full bg-black/70 text-white text-sm px-4 py-2">
-            {g_oh_gate_hint}
-          </div>
-        {/if}
 
         {#if g_is_set_complete}
           <!-- 3장 모두 채워지면 자동 모드 정지. 사용자가 [세트 저장] 또는 슬롯 X 로 분기. -->
