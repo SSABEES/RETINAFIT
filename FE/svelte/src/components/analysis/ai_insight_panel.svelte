@@ -18,6 +18,14 @@
     get_chip_text_class,
     SKIN_TONE_FRAME_COLOR_MAP,
   } from '@/lib/recommendations/frame_recommendations.js'
+  import { OH_DIFF_THRESHOLD_MM } from '@/lib/measurements/thresholds.js'
+
+  /**
+   * @typedef {object} OhInsightObj
+   * @property {number} set_no                                         OH 값을 가져온 실착용 세트 번호 (1-base)
+   * @property {number | null} oh_left_mm                              좌측 OH (mm). 미측정이면 null
+   * @property {number | null} oh_right_mm                             우측 OH (mm). 미측정이면 null
+   */
 
   /**
    * @typedef {object} AiInsightPanelProps
@@ -25,6 +33,7 @@
    * @property {boolean} [is_loading]                                  fetch 중 여부 (true 면 로딩 안내만 노출)
    * @property {string} [empty_loading_text]                           로딩 안내 문구
    * @property {string} [empty_no_visit_text]                          visit_obj 가 null 일 때 안내 문구
+   * @property {OhInsightObj | null} [oh_obj]                          실착용 OH 측정 요약 (없으면 OH 섹션은 측정 예정 placeholder)
    */
 
   /**
@@ -46,6 +55,7 @@
     is_loading = false,
     empty_loading_text = '리포트 불러오는 중...',
     empty_no_visit_text = '방문 데이터를 찾을 수 없습니다.',
+    oh_obj = null,
   } = $props()
 
   const FACE_SHAPE_LABEL_OBJ = {
@@ -152,6 +162,17 @@
     }
     return local_obj
   })()
+  // 라벨 → preview_src lookup — BE 응답에서 떨어진 hover 미리보기 이미지 경로를 라벨로 복구.
+  const LABEL_TO_PREVIEW_SRC_OBJ = (() => {
+    /** @type {Record<string, string | null>} */
+    const local_obj = {}
+    for (const local_chip_arr of Object.values(SKIN_TONE_FRAME_COLOR_MAP)) {
+      for (const local_chip of local_chip_arr) {
+        local_obj[local_chip.label] = local_chip.preview_src ?? null
+      }
+    }
+    return local_obj
+  })()
 
   const g_recommended_color_arr = $derived.by(() => {
     const local_be_arr = Array.isArray(g_test_json?.skin_tone_recommendations)
@@ -166,9 +187,39 @@
           label: local_label,
           tone_class:
             local_chip.tone_class ?? LABEL_TO_TONE_CLASS_OBJ[local_label] ?? 'bg-slate-300',
+          preview_src: LABEL_TO_PREVIEW_SRC_OBJ[local_label] ?? null,
         }
       })
   })
+
+  // 추천 컬러 칩 hover → 안경 미리보기 popover 상태.
+  // 부모 panel 의 overflow 제약을 회피하기 위해 fixed positioning 으로 viewport 좌표에 띄운다.
+  let g_hovered_color_index = $state(-1)
+  let g_color_popover_pos_obj = $state({ x: 0, y: 0 })
+  const g_hovered_color_obj = $derived(
+    g_hovered_color_index >= 0 ? (g_recommended_color_arr[g_hovered_color_index] ?? null) : null,
+  )
+
+  // preview_src 가 없는 칩(NEUTRAL — '모든 색상 가능' / '고객 선호 반영')은 hover 발동 안 함.
+  /**
+   * @param {PointerEvent} pointer_event
+   * @param {number} color_index
+   */
+  function on_pointer_enter_color_chip(pointer_event, color_index) {
+    const local_chip_obj = g_recommended_color_arr[color_index]
+    if (!local_chip_obj?.preview_src) return
+    const ref_chip_el = /** @type {HTMLElement} */ (pointer_event.currentTarget)
+    const local_rect = ref_chip_el.getBoundingClientRect()
+    g_color_popover_pos_obj = {
+      x: local_rect.left + local_rect.width / 2,
+      y: local_rect.top,
+    }
+    g_hovered_color_index = color_index
+  }
+
+  function on_pointer_leave_color_chip() {
+    g_hovered_color_index = -1
+  }
 
   const g_recommended_frame_arr = $derived.by(() => {
     const local_be_arr = Array.isArray(g_test_json?.face_shape_recommendations)
@@ -311,6 +362,24 @@
       unit: '',
       decimal: 0,
     },
+    // OH(Optical Height) — 렌즈 하단 → 동공 중심 수직거리. 프레임 크기 의존이라 범위가 넓음.
+    oh: {
+      visible_min: 10,
+      visible_max: 40,
+      normal_min: 18,
+      normal_max: 32,
+      unit: 'mm',
+      decimal: 0,
+    },
+    // OH 좌우 차 — normal_max 는 thresholds.js 의 OH_DIFF_THRESHOLD_MM 와 동일 기준.
+    oh_diff: {
+      visible_min: 0,
+      visible_max: 5,
+      normal_min: 0,
+      normal_max: OH_DIFF_THRESHOLD_MM,
+      unit: 'mm',
+      decimal: 0,
+    },
   }
 
   /**
@@ -384,6 +453,35 @@
   )
   const g_asymmetry_range = $derived(
     compute_range_position(g_test_json?.asymmetry_score, MEASUREMENT_RANGE_OBJ.asymmetry),
+  )
+
+  // ── OH 상세 — result.svelte 가 실착용 세트에서 산출해 넘긴 oh_obj 를 수치/게이지로 환산 ──
+  // oh_left_mm / oh_right_mm 는 미측정 시 null 이라 typeof 로 number 만 인정 (Number(null) 은 0).
+  const g_has_oh_left = $derived(
+    typeof oh_obj?.oh_left_mm === 'number' && Number.isFinite(oh_obj.oh_left_mm),
+  )
+  const g_has_oh_right = $derived(
+    typeof oh_obj?.oh_right_mm === 'number' && Number.isFinite(oh_obj.oh_right_mm),
+  )
+  const g_has_oh = $derived(g_has_oh_left || g_has_oh_right)
+
+  const g_oh_left_label = $derived(g_has_oh_left ? format_mm_label(oh_obj?.oh_left_mm) : '-')
+  const g_oh_right_label = $derived(g_has_oh_right ? format_mm_label(oh_obj?.oh_right_mm) : '-')
+  const g_oh_left_range = $derived(
+    g_has_oh_left ? compute_range_position(oh_obj?.oh_left_mm, MEASUREMENT_RANGE_OBJ.oh) : null,
+  )
+  const g_oh_right_range = $derived(
+    g_has_oh_right ? compute_range_position(oh_obj?.oh_right_mm, MEASUREMENT_RANGE_OBJ.oh) : null,
+  )
+
+  // 좌우 차이 — 양쪽 다 측정됐을 때만 산출.
+  const g_oh_diff_value = $derived.by(() => {
+    if (!g_has_oh_left || !g_has_oh_right) return null
+    return Math.abs(Number(oh_obj?.oh_left_mm) - Number(oh_obj?.oh_right_mm))
+  })
+  const g_oh_diff_label = $derived(g_oh_diff_value === null ? '-' : format_mm_label(g_oh_diff_value))
+  const g_oh_diff_range = $derived(
+    compute_range_position(g_oh_diff_value, MEASUREMENT_RANGE_OBJ.oh_diff),
   )
 </script>
 
@@ -609,8 +707,16 @@
               {#each Array.from({ length: 4 }) as _, local_color_index (local_color_index)}
                 {@const local_color_obj = g_recommended_color_arr[local_color_index]}
                 {#if local_color_obj}
+                  <!--
+                    role="img" + aria-label — 칩은 컬러 견본 이미지이며 hover preview 는 보조 정보.
+                    a11y_no_static_element_interactions(div+pointer 핸들러) 규칙도 해소.
+                  -->
                   <div
-                    class={`flex items-center justify-center rounded-[10px] border border-black/5 px-2 text-center ${local_color_obj.gradient_class ?? local_color_obj.tone_class}`}
+                    role="img"
+                    aria-label={`${local_color_obj.label} 컬러${local_color_obj.preview_src ? ' (호버 시 안경 미리보기)' : ''}`}
+                    class={`flex items-center justify-center rounded-[10px] border border-black/5 px-2 text-center ${local_color_obj.gradient_class ?? local_color_obj.tone_class} ${local_color_obj.preview_src ? 'cursor-help' : ''}`}
+                    onpointerenter={(e) => on_pointer_enter_color_chip(e, local_color_index)}
+                    onpointerleave={on_pointer_leave_color_chip}
                   >
                     <span class={`text-[14px] font-black ${get_chip_text_class(local_color_obj)}`}>
                       {local_color_obj.label}
@@ -645,51 +751,83 @@
       </div>
     </div>
 
-    <!-- 4) 좌우 대칭 / PD 상세 — divide-x 로 컬럼 분리. -->
+    <!-- 4) OH 상세 / PD 상세 — divide-x 로 컬럼 분리. (OH 상세를 좌우 대칭과 자리 교체) -->
     <div class="grid grid-cols-2 divide-x divide-slate-100">
       <div class="px-6 py-4">
         <header class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2">
-            <Scale
+            <Ruler
               size={15}
               strokeWidth={2.2}
               class="text-[var(--retina-primary-600)]"
               aria-hidden="true"
             />
-            <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">좌우 대칭 분석</h3>
+            <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">OH 상세 정보</h3>
           </div>
-          {#if g_asymmetry_range}
-            <span
-              class={`text-[10px] font-extrabold ${g_asymmetry_range.is_in_normal ? 'text-emerald-600' : 'text-amber-600'}`}
+          {#if g_has_oh}
+            <span class="text-[10px] font-extrabold text-emerald-600"
+              >실착용 세트 {oh_obj?.set_no}</span
             >
-              {g_asymmetry_range.is_in_normal ? '매우 양호' : '비대칭 주의'}
-            </span>
+          {:else}
+            <span class="text-[10px] font-extrabold text-slate-400">측정 예정</span>
           {/if}
         </header>
 
-        <div class="mt-3 pl-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span class="text-[28px] font-extrabold text-[var(--retina-primary-600)]"
-            >{g_asymmetry_label}</span
-          >
-          <span class="text-[12px] font-bold text-slate-400">/ 100</span>
-          <span class="ml-1 text-[12px] font-semibold text-slate-500">{g_asymmetry_hint}</span>
-        </div>
-
-        <div class="mt-3 pl-3">{@render range_gauge(g_asymmetry_range)}</div>
-
-        {#if g_asymmetry_fitting_tip}
-          <div
-            class="mt-4 ml-3 flex items-start gap-2 rounded-lg bg-[var(--retina-bg-1)] px-3 py-2.5"
-          >
-            <Glasses
-              size={14}
-              strokeWidth={2.2}
-              class="mt-0.5 shrink-0 text-[var(--retina-primary-600)]"
-              aria-hidden="true"
-            />
-            <p class="m-0 text-[12px] font-semibold leading-snug text-[var(--retina-primary-600)]">
-              {g_asymmetry_fitting_tip}
-            </p>
+        {#if g_has_oh}
+          <div class="mt-3 pl-3 flex flex-col gap-3">
+            <div>
+              <div class="flex items-baseline justify-between gap-2">
+                <span class="text-[11px] font-bold text-slate-500">좌측 OH</span>
+                <span class="text-[14px] font-extrabold text-zinc-900">{g_oh_left_label}</span>
+              </div>
+              {#if g_oh_left_range}
+                <div class="mt-1.5">{@render range_gauge(g_oh_left_range)}</div>
+              {/if}
+            </div>
+            <div>
+              <div class="flex items-baseline justify-between gap-2">
+                <span class="text-[11px] font-bold text-slate-500">우측 OH</span>
+                <span class="text-[14px] font-extrabold text-zinc-900">{g_oh_right_label}</span>
+              </div>
+              {#if g_oh_right_range}
+                <div class="mt-1.5">{@render range_gauge(g_oh_right_range)}</div>
+              {/if}
+            </div>
+            <div class="border-t border-slate-100 pt-3">
+              <div class="flex items-baseline justify-between gap-2">
+                <span class="text-[11px] font-bold text-slate-500">좌우 차이</span>
+                <span class="flex items-baseline gap-1.5">
+                  <span class="text-[14px] font-extrabold text-[var(--retina-primary-600)]"
+                    >{g_oh_diff_label}</span
+                  >
+                  {#if g_oh_diff_range}
+                    <span
+                      class={`text-[10px] font-extrabold ${g_oh_diff_range.is_in_normal ? 'text-emerald-600' : 'text-amber-600'}`}
+                    >
+                      {g_oh_diff_range.is_in_normal ? '적정' : '차이 있음'}
+                    </span>
+                  {/if}
+                </span>
+              </div>
+              {#if g_oh_diff_range}
+                <div class="mt-1.5">{@render range_gauge(g_oh_diff_range)}</div>
+              {/if}
+            </div>
+          </div>
+        {:else}
+          <div class="mt-3 pl-3 flex flex-col gap-3">
+            <div class="flex items-baseline justify-between gap-2">
+              <span class="text-[11px] font-bold text-slate-500">좌측 OH</span>
+              <span class="text-[14px] font-extrabold text-slate-300">-</span>
+            </div>
+            <div class="flex items-baseline justify-between gap-2">
+              <span class="text-[11px] font-bold text-slate-500">우측 OH</span>
+              <span class="text-[14px] font-extrabold text-slate-300">-</span>
+            </div>
+            <div class="border-t border-slate-100 pt-3 flex items-baseline justify-between gap-2">
+              <span class="text-[11px] font-bold text-slate-500">좌우 차이</span>
+              <span class="text-[14px] font-extrabold text-slate-300">-</span>
+            </div>
           </div>
         {/if}
       </div>
@@ -742,68 +880,79 @@
       </div>
     </div>
 
-    <!--
-      5) OH 상세 정보 — Optical Height (렌즈 하단 → 동공 중심 수직거리). 추후 측정값 들어올
-      자리를 미리 예약해 두는 placeholder 섹션. 데이터 연결 시 좌측 OH / 우측 OH / 좌우 차이를
-      PD 상세와 동일 패턴(라벨 + 값 + range_gauge)으로 채우면 된다.
-    -->
-    <div class="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100">
-      <div class="px-6 py-4">
-        <header class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2">
-            <Ruler
-              size={15}
-              strokeWidth={2.2}
-              class="text-[var(--retina-primary-600)]"
-              aria-hidden="true"
-            />
-            <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">OH 상세 정보</h3>
-          </div>
-          <span class="text-[10px] font-extrabold text-slate-400">측정 예정</span>
-        </header>
-
-        <div class="mt-3 pl-3 flex flex-col gap-3">
-          <div>
-            <div class="flex items-baseline justify-between gap-2">
-              <span class="text-[11px] font-bold text-slate-500">좌측 OH</span>
-              <span class="text-[14px] font-extrabold text-slate-300">-</span>
-            </div>
-          </div>
-          <div>
-            <div class="flex items-baseline justify-between gap-2">
-              <span class="text-[11px] font-bold text-slate-500">우측 OH</span>
-              <span class="text-[14px] font-extrabold text-slate-300">-</span>
-            </div>
-          </div>
-          <div class="border-t border-slate-100 pt-3">
-            <div class="flex items-baseline justify-between gap-2">
-              <span class="text-[11px] font-bold text-slate-500">좌우 차이</span>
-              <span class="text-[14px] font-extrabold text-slate-300">-</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="px-6 py-4">
-        <!-- 우측은 OH 보조 영역 — 추후 등급/안내 멘트 등이 들어갈 자리. -->
-        <header class="flex items-center gap-2">
-          <Sparkles
+    <!-- 5) 좌우 대칭 분석 — 단독 행 (OH 분석 안내 칸 제거). -->
+    <div class="border-t border-slate-100 px-6 py-4">
+      <header class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <Scale
             size={15}
             strokeWidth={2.2}
             class="text-[var(--retina-primary-600)]"
             aria-hidden="true"
           />
-          <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">OH 분석 안내</h3>
-        </header>
-        <div
-          class="mt-3 ml-3 flex h-[120px] items-center justify-center rounded-lg bg-slate-50 px-3 text-center"
+          <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">좌우 대칭 분석</h3>
+        </div>
+        {#if g_asymmetry_range}
+          <span
+            class={`text-[10px] font-extrabold ${g_asymmetry_range.is_in_normal ? 'text-emerald-600' : 'text-amber-600'}`}
+          >
+            {g_asymmetry_range.is_in_normal ? '매우 양호' : '비대칭 주의'}
+          </span>
+        {/if}
+      </header>
+
+      <div class="mt-3 pl-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span class="text-[28px] font-extrabold text-[var(--retina-primary-600)]"
+          >{g_asymmetry_label}</span
         >
-          <p class="m-0 text-[12px] font-semibold leading-relaxed text-slate-400">
-            OH(Optical Height) 측정값이 준비되면<br />
-            이 영역에 분석 결과가 표시됩니다.
+        <span class="text-[12px] font-bold text-slate-400">/ 100</span>
+        <span class="ml-1 text-[12px] font-semibold text-slate-500">{g_asymmetry_hint}</span>
+      </div>
+
+      <div class="mt-3 pl-3">{@render range_gauge(g_asymmetry_range)}</div>
+
+      {#if g_asymmetry_fitting_tip}
+        <div
+          class="mt-4 ml-3 flex items-start gap-2 rounded-lg bg-[var(--retina-bg-1)] px-3 py-2.5"
+        >
+          <Glasses
+            size={14}
+            strokeWidth={2.2}
+            class="mt-0.5 shrink-0 text-[var(--retina-primary-600)]"
+            aria-hidden="true"
+          />
+          <p class="m-0 text-[12px] font-semibold leading-snug text-[var(--retina-primary-600)]">
+            {g_asymmetry_fitting_tip}
           </p>
         </div>
-      </div>
+      {/if}
     </div>
   </section>
+
+  <!--
+    추천 컬러 칩 hover popover — 부모 panel 의 overflow 제약 회피를 위해 fixed positioning.
+    translate -50%/-100% 로 칩 상단 중앙에 앵커링, 8px 갭으로 시각적 분리.
+    pointer-events-none 으로 칩의 leave 이벤트 방해 X.
+  -->
+  {#if g_hovered_color_obj?.preview_src}
+    <div
+      class="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full"
+      style="left: {g_color_popover_pos_obj.x}px; top: {g_color_popover_pos_obj.y - 8}px;"
+    >
+      <div
+        class="overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] w-[clamp(160px,28svh,320px)] p-[clamp(6px,1.2svh,14px)]"
+      >
+        <img
+          class="block h-auto w-full rounded-[8px] object-contain bg-slate-50 max-h-[clamp(110px,22svh,260px)]"
+          src={g_hovered_color_obj.preview_src}
+          alt={`${g_hovered_color_obj.label} 안경 미리보기`}
+        />
+        <p
+          class="m-0 mt-[clamp(4px,0.8svh,10px)] text-center font-semibold text-slate-700 text-[clamp(11px,1.7svh,18px)]"
+        >
+          {g_hovered_color_obj.label}
+        </p>
+      </div>
+    </div>
+  {/if}
 {/if}

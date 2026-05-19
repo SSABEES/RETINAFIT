@@ -633,6 +633,30 @@
     }
   }
 
+  // AI 인사이트 OH 섹션에 넘길 요약 — 실착용 세트 중 OH(좌/우) 가 하나라도 채워진
+  // 가장 최근 세트의 값을 고른다. g_real_vp_value_obj 는 BE 시드 + 미러 prefill +
+  // 사용자 수동 측정이 합쳐진 화면 표시값이라, 실착용 사진 탭 수치와 인사이트 수치가 일치한다.
+  const g_oh_insight_obj = $derived.by(() => {
+    for (let local_idx = g_real_vp_set_arr.length - 1; local_idx >= 0; local_idx--) {
+      const local_front_obj = g_real_vp_value_obj[local_idx]?.front ?? {}
+      // 표시값은 문자열이고 빈칸은 '' — Number('') 가 0 이 되므로 빈 문자열을 먼저 걸러낸다.
+      const local_left_str = String(local_front_obj.oh_left ?? '').trim()
+      const local_right_str = String(local_front_obj.oh_right ?? '').trim()
+      const local_left = Number(local_left_str)
+      const local_right = Number(local_right_str)
+      const local_has_left = local_left_str !== '' && Number.isFinite(local_left)
+      const local_has_right = local_right_str !== '' && Number.isFinite(local_right)
+      if (local_has_left || local_has_right) {
+        return {
+          set_no: local_idx + 1,
+          oh_left_mm: local_has_left ? local_left : null,
+          oh_right_mm: local_has_right ? local_right : null,
+        }
+      }
+    }
+    return null
+  })
+
   /** @param {unknown} face_shape_value */
   function normalize_face_shape_key(face_shape_value) {
     const local_value = String(face_shape_value ?? '')
@@ -1918,7 +1942,12 @@
         </section>
       {:else if g_active_tab === 'insight'}
         <!-- AI 분석 인사이트 — 공유 컴포넌트로 추출 (visit_detail.svelte 와 동일 사용). -->
-        <AiInsightPanel visit_obj={g_visit_obj} is_loading={g_visit_loading} />
+        <!-- oh_obj: 실착용 세트에서 산출한 OH 수치를 넘겨 인사이트 하단 OH 섹션을 채운다. -->
+        <AiInsightPanel
+          visit_obj={g_visit_obj}
+          is_loading={g_visit_loading}
+          oh_obj={g_oh_insight_obj}
+        />
 
         <p class="m-0 px-1 text-center text-[12px] font-medium leading-relaxed text-slate-400">
           본 리포트는 AI 기반 얼굴 분석 결과를 토대로 자동 생성되었으며, 참고용 추천 자료입니다.

@@ -11,10 +11,11 @@
  * @typedef {'oval' | 'round' | 'heart' | 'square' | 'oblong'} FaceShapeKey
  *
  * @typedef {object} FrameColorChip
- * @property {string} label           // 칩에 표시할 컬러 명 (예: '골드')
- * @property {string} tone_class      // Tailwind/임의값 단색 배경 (작은 dot/preview 용도)
- * @property {string} gradient_class  // 칸 전체를 채우는 선형 그라데이션 (밝은 톤 → 진한 톤)
- * @property {string} text_class      // 그라데이션 위 라벨 색 (어두운 끝쪽 기준 가독성)
+ * @property {string} label                // 칩에 표시할 컬러 명 (예: '골드')
+ * @property {string} tone_class           // Tailwind/임의값 단색 배경 (작은 dot/preview 용도)
+ * @property {string} gradient_class       // 칸 전체를 채우는 선형 그라데이션 (밝은 톤 → 진한 톤)
+ * @property {string} text_class           // 그라데이션 위 라벨 색 (어두운 끝쪽 기준 가독성)
+ * @property {string | null} preview_src   // 호버 시 띄울 해당 컬러 안경 미리보기 이미지 URL (없으면 호버 미발동)
  *
  * @typedef {object} FrameStyleEntry
  * @property {string} name                  // 프레임 형태명 (예: '라운드')
@@ -39,24 +40,28 @@ export const SKIN_TONE_FRAME_COLOR_MAP = {
       tone_class: 'bg-[#D4A63F]',
       gradient_class: 'bg-gradient-to-b from-[#D4A040] to-[#7A5A1A]',
       text_class: 'text-white',
+      preview_src: '/glasses_color/gold.png',
     },
     {
       label: '브라운',
       tone_class: 'bg-[#8B5E3C]',
       gradient_class: 'bg-gradient-to-b from-[#A07050] to-[#4A2E18]',
       text_class: 'text-white',
+      preview_src: '/glasses_color/brown.png',
     },
     {
       label: '버건디',
       tone_class: 'bg-[#7A1E3A]',
       gradient_class: 'bg-gradient-to-b from-[#922640] to-[#3E0E1C]',
       text_class: 'text-white',
+      preview_src: '/glasses_color/burgundy.png',
     },
     {
       label: '토트이즈',
       tone_class: 'bg-[#B86B2C]',
       gradient_class: 'bg-gradient-to-b from-[#C07A38] to-[#5E3410]',
       text_class: 'text-white',
+      preview_src: '/glasses_color/tortoise.png',
     },
   ],
   COOL: [
@@ -65,24 +70,28 @@ export const SKIN_TONE_FRAME_COLOR_MAP = {
       tone_class: 'bg-[#A7B0BC]',
       gradient_class: 'bg-gradient-to-b from-[#C4CDD8] to-[#6E7A8A]',
       text_class: 'text-white',
+      preview_src: '/glasses_color/silver.png',
     },
     {
       label: '블랙',
       tone_class: 'bg-[#111827]',
       gradient_class: 'bg-gradient-to-b from-[#2D3748] to-[#060C14]',
       text_class: 'text-white',
+      preview_src: '/glasses_color/black.png',
     },
     {
       label: '블루',
       tone_class: 'bg-[#4A6CF7]',
       gradient_class: 'bg-gradient-to-b from-[#6B87FF] to-[#2340C4]',
       text_class: 'text-white',
+      preview_src: '/glasses_color/blue.png',
     },
     {
       label: '보라',
       tone_class: 'bg-[#8B5CF6]',
       gradient_class: 'bg-gradient-to-b from-[#A67BFF] to-[#5B2EC4]',
       text_class: 'text-white',
+      preview_src: '/glasses_color/purple.png',
     },
   ],
   NEUTRAL: [
@@ -91,12 +100,14 @@ export const SKIN_TONE_FRAME_COLOR_MAP = {
       tone_class: 'bg-[#64748B]',
       gradient_class: 'bg-gradient-to-b from-[#7E8FA8] to-[#38455A]',
       text_class: 'text-white',
+      preview_src: null,
     },
     {
       label: '고객 선호 반영',
       tone_class: 'bg-[#9A1BFF]',
       gradient_class: 'bg-gradient-to-b from-[#A840F8] to-[#4A0080]',
       text_class: 'text-white',
+      preview_src: null,
     },
   ],
 }
