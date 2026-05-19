@@ -2,6 +2,8 @@ import boto3
 from botocore.exceptions import ClientError
 from botocore.signers import CloudFrontSigner
 import uuid
+import time
+import asyncio
 from datetime import datetime, timezone, timedelta
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -24,6 +26,9 @@ if settings.CLOUDFRONT_DOMAIN and settings.CLOUDFRONT_KEY_ID and settings.CLOUDF
             private_key = serialization.load_pem_private_key(f.read(), password=None)
         return private_key.sign(message, padding.PKCS1v15(), hashes.SHA1())
     _cf_signer = CloudFrontSigner(settings.CLOUDFRONT_KEY_ID, _rsa_signer)
+
+# ─── 메모리 캐시 ──────────────────────────────────────────────
+_url_cache: dict[str, tuple[str, float]] = {}
 
 def get_s3_client():
     """S3 클라이언트 반환 (싱글톤)"""
@@ -82,24 +87,36 @@ def get_presigned_download_url(object_key: str, expires_in: int = 3600) -> str:
     - CloudFront 설정 있으면 CloudFront Signed URL
     - 없으면 S3 Presigned URL
     """
-    if _cf_signer:  # ← 추가
+    # 캐시 확인  ← 추가
+    now = time.time()
+    if object_key in _url_cache:
+        url, expire = _url_cache[object_key]
+        if now < expire:
+            return url
+
+    # URL 생성
+    if _cf_signer:
         expire_date = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
-        return _cf_signer.generate_presigned_url(
+        url = _cf_signer.generate_presigned_url(
             f"{settings.CLOUDFRONT_DOMAIN}/{object_key}",
             date_less_than=expire_date,
         )
+    else:
+        s3_client = get_s3_client()
+        try:
+            url = s3_client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": settings.S3_BUCKET_NAME, "Key": object_key},
+                ExpiresIn=expires_in,
+            )
+        except ClientError as e:
+            raise Exception(f"조회용 Presigned URL 발급 실패: {str(e)}")
 
-    # 기존 S3 Presigned URL
-    s3_client = get_s3_client()
-    try:
-        url = s3_client.generate_presigned_url(
-            "get_object",
-            Params={
-                "Bucket": settings.S3_BUCKET_NAME,
-                "Key": object_key,
-            },
-            ExpiresIn=expires_in,
-        )
-        return url
-    except ClientError as e:
-        raise Exception(f"조회용 Presigned URL 발급 실패: {str(e)}")
+    # 캐시 저장 (5분)
+    _url_cache[object_key] = (url, now + 300)
+    return url
+
+async def get_presigned_download_urls_parallel(keys: list[str]) -> list[str]:
+    """병렬로 Presigned URL 발급"""  # ← 추가
+    tasks = [asyncio.to_thread(get_presigned_download_url, k) for k in keys]
+    return await asyncio.gather(*tasks)

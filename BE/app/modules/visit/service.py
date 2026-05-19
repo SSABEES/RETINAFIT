@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.http_client import http_client
-from app.common.s3_utils import get_presigned_download_url
+from app.common.s3_utils import get_presigned_download_url, get_presigned_download_urls_parallel
 from app.common.exceptions import ExternalAPIException, NotFoundException
 from app.common.error_codes import ErrorCode
 from app.modules.visit import repository
@@ -18,14 +18,14 @@ from app.modules.visit.schemas import (
     VisitUpdateRequest,
 )
 
-def _convert_visit_urls(visit: VisitResponse) -> VisitResponse:
-    """visit 이미지 key → 조회용 Presigned URL 변환"""
+async def _convert_visit_urls(visit: VisitResponse) -> VisitResponse:
+    """visit 이미지 key → 조회용 Presigned URL 변환 (병렬 처리)"""
     if visit.main_file:
         visit.main_file = get_presigned_download_url(visit.main_file)
     if visit.test_file_arr:
-        visit.test_file_arr = [get_presigned_download_url(k) for k in visit.test_file_arr]
+        visit.test_file_arr = await get_presigned_download_urls_parallel(visit.test_file_arr)
     if visit.vp_file_arr:
-        visit.vp_file_arr = [get_presigned_download_url(k) for k in visit.vp_file_arr]
+        visit.vp_file_arr = await get_presigned_download_urls_parallel(visit.vp_file_arr)
 
     if visit.real_vp_json and "sets" in visit.real_vp_json:
         for s in visit.real_vp_json["sets"]:
@@ -178,7 +178,7 @@ async def get_visit_history(
     visits = await repository.get_visits_by_cust(db, cust_no)
     return VisitHistoryResponse(
         cust_no=cust_no,
-        visits=[_convert_visit_urls(VisitResponse.model_validate(v)) for v in visits],
+        visits=[await _convert_visit_urls(VisitResponse.model_validate(v)) for v in visits],
     )
 
 
@@ -202,7 +202,7 @@ async def get_visit(
             await repository.update_report_json(db, visit_no, report_json)  # 같은 세션으로 저장
             visit = await repository.get_visit(db, visit_no)
 
-    return _convert_visit_urls(VisitResponse.model_validate(visit))
+    return await _convert_visit_urls(VisitResponse.model_validate(visit))
 
 
 async def update_visit(
@@ -220,12 +220,12 @@ async def update_visit(
             message="방문 정보를 찾을 수 없습니다.",
         )
 
-    return _convert_visit_urls(VisitResponse.model_validate(visit))
+    return await _convert_visit_urls(VisitResponse.model_validate(visit))
 
 async def get_all_visits(db: AsyncSession) -> dict:
     """전체 방문 조회 (관리자용)"""
     visits = await repository.get_all_visits(db)
     return {
         "total": len(visits),
-        "visits": [_convert_visit_urls(VisitResponse.model_validate(v)) for v in visits],
+        "visits": [await _convert_visit_urls(VisitResponse.model_validate(v)) for v in visits],
     }
