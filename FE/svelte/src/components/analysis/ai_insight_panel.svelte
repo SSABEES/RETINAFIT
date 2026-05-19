@@ -442,17 +442,6 @@
   const g_oh_diff_range = $derived(
     compute_range_position(g_oh_diff_value, MEASUREMENT_RANGE_OBJ.oh_diff),
   )
-
-  // OH 좌우 차이 등급별 안내 멘트 — OH 분석 안내 칸에 노출.
-  const g_oh_analysis_text = $derived.by(() => {
-    if (g_oh_diff_value === null) {
-      return '좌측·우측 OH 중 한쪽만 측정되어 일부 수치만 표시됩니다. 나머지 한쪽을 측정하면 좌우 차이까지 분석돼요.'
-    }
-    if (g_oh_diff_value <= OH_DIFF_THRESHOLD_MM) {
-      return `좌우 OH 차이가 ${g_oh_diff_value.toFixed(1)}mm 로 표준 범위입니다. 좌우 동일 높이로 가공하셔도 좋아요.`
-    }
-    return `좌우 OH 차이가 ${g_oh_diff_value.toFixed(1)}mm 입니다. 좌우 동공 높이 차이를 반영해 렌즈 높이를 개별 가공하시길 권장드려요.`
-  })
 </script>
 
 {#snippet range_gauge(/** @type {RangePositionObj | null} */ range_obj)}
@@ -842,94 +831,52 @@
       </div>
     </div>
 
-    <!--
-      5) 좌우 대칭 분석 / OH 분석 안내 — divide-x 로 컬럼 분리.
-      OH 상세 정보(수치)는 위 4) 행으로 자리를 옮겼고, 이 행에는 좌우 대칭 분석과 OH 분석 안내가 남는다.
-    -->
-    <div class="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100">
-      <div class="px-6 py-4">
-        <header class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2">
-            <Scale
-              size={15}
-              strokeWidth={2.2}
-              class="text-[var(--retina-primary-600)]"
-              aria-hidden="true"
-            />
-            <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">좌우 대칭 분석</h3>
-          </div>
-          {#if g_asymmetry_range}
-            <span
-              class={`text-[10px] font-extrabold ${g_asymmetry_range.is_in_normal ? 'text-emerald-600' : 'text-amber-600'}`}
-            >
-              {g_asymmetry_range.is_in_normal ? '매우 양호' : '비대칭 주의'}
-            </span>
-          {/if}
-        </header>
-
-        <div class="mt-3 pl-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span class="text-[28px] font-extrabold text-[var(--retina-primary-600)]"
-            >{g_asymmetry_label}</span
-          >
-          <span class="text-[12px] font-bold text-slate-400">/ 100</span>
-          <span class="ml-1 text-[12px] font-semibold text-slate-500">{g_asymmetry_hint}</span>
-        </div>
-
-        <div class="mt-3 pl-3">{@render range_gauge(g_asymmetry_range)}</div>
-
-        {#if g_asymmetry_fitting_tip}
-          <div
-            class="mt-4 ml-3 flex items-start gap-2 rounded-lg bg-[var(--retina-bg-1)] px-3 py-2.5"
-          >
-            <Glasses
-              size={14}
-              strokeWidth={2.2}
-              class="mt-0.5 shrink-0 text-[var(--retina-primary-600)]"
-              aria-hidden="true"
-            />
-            <p class="m-0 text-[12px] font-semibold leading-snug text-[var(--retina-primary-600)]">
-              {g_asymmetry_fitting_tip}
-            </p>
-          </div>
-        {/if}
-      </div>
-
-      <div class="px-6 py-4">
-        <!-- 우측은 OH 보조 영역 — OH 가 있으면 좌우 차이 안내 멘트, 없으면 안내 placeholder. -->
-        <header class="flex items-center gap-2">
-          <Sparkles
+    <!-- 5) 좌우 대칭 분석 — 단독 행 (OH 분석 안내 칸 제거). -->
+    <div class="border-t border-slate-100 px-6 py-4">
+      <header class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <Scale
             size={15}
             strokeWidth={2.2}
             class="text-[var(--retina-primary-600)]"
             aria-hidden="true"
           />
-          <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">OH 분석 안내</h3>
-        </header>
-        {#if g_has_oh}
-          <div
-            class="mt-3 ml-3 flex items-start gap-2 rounded-lg bg-[var(--retina-bg-1)] px-3 py-3"
+          <h3 class="m-0 text-[16px] font-extrabold text-zinc-900">좌우 대칭 분석</h3>
+        </div>
+        {#if g_asymmetry_range}
+          <span
+            class={`text-[10px] font-extrabold ${g_asymmetry_range.is_in_normal ? 'text-emerald-600' : 'text-amber-600'}`}
           >
-            <Glasses
-              size={14}
-              strokeWidth={2.2}
-              class="mt-0.5 shrink-0 text-[var(--retina-primary-600)]"
-              aria-hidden="true"
-            />
-            <p class="m-0 text-[12px] font-semibold leading-relaxed text-[var(--retina-primary-600)]">
-              {g_oh_analysis_text}
-            </p>
-          </div>
-        {:else}
-          <div
-            class="mt-3 ml-3 flex h-[120px] items-center justify-center rounded-lg bg-slate-50 px-3 text-center"
-          >
-            <p class="m-0 text-[12px] font-semibold leading-relaxed text-slate-400">
-              OH(Optical Height) 측정값이 준비되면<br />
-              이 영역에 분석 결과가 표시됩니다.
-            </p>
-          </div>
+            {g_asymmetry_range.is_in_normal ? '매우 양호' : '비대칭 주의'}
+          </span>
         {/if}
+      </header>
+
+      <div class="mt-3 pl-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span class="text-[28px] font-extrabold text-[var(--retina-primary-600)]"
+          >{g_asymmetry_label}</span
+        >
+        <span class="text-[12px] font-bold text-slate-400">/ 100</span>
+        <span class="ml-1 text-[12px] font-semibold text-slate-500">{g_asymmetry_hint}</span>
       </div>
+
+      <div class="mt-3 pl-3">{@render range_gauge(g_asymmetry_range)}</div>
+
+      {#if g_asymmetry_fitting_tip}
+        <div
+          class="mt-4 ml-3 flex items-start gap-2 rounded-lg bg-[var(--retina-bg-1)] px-3 py-2.5"
+        >
+          <Glasses
+            size={14}
+            strokeWidth={2.2}
+            class="mt-0.5 shrink-0 text-[var(--retina-primary-600)]"
+            aria-hidden="true"
+          />
+          <p class="m-0 text-[12px] font-semibold leading-snug text-[var(--retina-primary-600)]">
+            {g_asymmetry_fitting_tip}
+          </p>
+        </div>
+      {/if}
     </div>
   </section>
 {/if}
