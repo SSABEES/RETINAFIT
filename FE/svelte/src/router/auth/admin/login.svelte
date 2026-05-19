@@ -88,6 +88,7 @@
           label="아이디"
           value={ref_admin_id}
           placeholder="관리자 아이디를 입력해주세요"
+          maxlength={30}
           disabled={g_is_loading}
           required
           oninput={on_input_admin_id}
@@ -98,6 +99,7 @@
           label="비밀번호"
           value={ref_admin_password}
           placeholder="비밀번호를 입력해주세요"
+          maxlength={30}
           disabled={g_is_loading}
           required
           oninput={on_input_admin_password}
