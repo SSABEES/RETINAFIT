@@ -449,6 +449,7 @@
           oncapture_error={on_capture_error}
           onlandmarks={g_oh_gate?.handle_landmarks ?? undefined}
           oh_overlay={g_oh_overlay}
+          simple_guide_color={true}
         />
 
         {#if g_current_pose === 'front' && g_oh_gate_hint && !g_pending_oh}
