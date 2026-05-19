@@ -81,6 +81,9 @@
   const HEAD_OCC_YAW_GATE_ENABLED = true
   const HEAD_OCC_YAW_HIDE_START = 15
   const HEAD_OCC_YAW_HIDE_END = 45
+  // 얼굴 가이드 타원 표시 여부 — 요청에 따라 임시 비활성화. 나중에 다시 노출하려면 true 로 되돌린다.
+  // g_face_centered 판정/캡처 게이트 로직은 그대로 살아있어, 플래그만 켜면 즉시 복원된다.
+  const SHOW_FACE_GUIDE = false
 
   /** @type {HTMLVideoElement | null} */
   let ref_video_el = $state(null)
@@ -546,23 +549,26 @@
       옮긴 것. 사용자가 카메라 중앙에 얼굴을 맞추도록 유도한다. 얼굴 검출 시 stroke 색만 초록으로
       바뀌어 "잘 잡혔다" 피드백을 준다. canvas/video 와 달리 scaleX(-1) 미러는 적용하지 않는다
       (가이드 모양이 대칭이라 의미 없음 + 사용자 좌표계와 일치하도록).
+      SHOW_FACE_GUIDE 플래그로 임시 비활성화 중 — 플래그만 true 로 되돌리면 다시 노출된다.
     -->
-    <svg
-      class="pointer-events-none absolute inset-0 h-full w-full"
-      viewBox="0 0 75 100"
-      preserveAspectRatio="xMidYMid meet"
-      aria-hidden="true"
-    >
-      <path
-        d="M 37.5 19.4 C 61.44 19.4 60.3 32.9 60.3 49.4 C 60.3 65.9 47.76 79.4 37.5 79.4 C 27.24 79.4 14.7 65.9 14.7 49.4 C 14.7 32.9 13.56 19.4 37.5 19.4 Z"
-        fill="none"
-        stroke={g_face_centered ? '#22c55e' : 'rgba(255,255,255,0.7)'}
-        stroke-width="0.6"
-        stroke-dasharray="2.2 1.1"
-        stroke-linecap="round"
-        style="filter: drop-shadow(0 0 1.2px rgba(0,0,0,0.55)); transition: stroke 200ms ease;"
-      />
-    </svg>
+    {#if SHOW_FACE_GUIDE}
+      <svg
+        class="pointer-events-none absolute inset-0 h-full w-full"
+        viewBox="0 0 75 100"
+        preserveAspectRatio="xMidYMid meet"
+        aria-hidden="true"
+      >
+        <path
+          d="M 37.5 19.4 C 61.44 19.4 60.3 32.9 60.3 49.4 C 60.3 65.9 47.76 79.4 37.5 79.4 C 27.24 79.4 14.7 65.9 14.7 49.4 C 14.7 32.9 13.56 19.4 37.5 19.4 Z"
+          fill="none"
+          stroke={g_face_centered ? '#22c55e' : 'rgba(255,255,255,0.7)'}
+          stroke-width="0.6"
+          stroke-dasharray="2.2 1.1"
+          stroke-linecap="round"
+          style="filter: drop-shadow(0 0 1.2px rgba(0,0,0,0.55)); transition: stroke 200ms ease;"
+        />
+      </svg>
+    {/if}
 
     {#if g_init_error}
       <div

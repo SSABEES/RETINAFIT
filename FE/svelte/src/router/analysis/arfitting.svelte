@@ -72,9 +72,14 @@
   let g_flutter_launch_loading = $state(false)
   // AR 사용 가능 여부 확인이 끝났는지. 마운트 직후 'UNKNOWN' 상태에서 미지원 문구가 깜빡이는 것을 방지.
   let g_ar_check_done = $state(false)
+  // JS 기반 AR 피팅 강제 — true 면 기기/환경(태블릿·웹 등) 무관하게 항상 Three.js 폴백을 쓰고
+  // 네이티브 AR(Flutter) 카메라는 비활성화한다. 나중에 네이티브 AR 을 다시 쓰려면 false 로 되돌린다.
+  const FORCE_JS_AR_FITTING = true
   // AR 미지원 — 브리지 연결 실패 또는 디바이스 미지원. 확인 완료 후에만 true 가 되어 placeholder 문구로 안내.
+  // FORCE_JS_AR_FITTING 가 켜져 있으면 확인 결과와 무관하게 항상 미지원(=폴백) 으로 취급한다.
   let g_ar_unavailable = $derived(
-    g_ar_check_done && (!g_flutter_bridge_ready || g_flutter_availability !== 'SUPPORTED'),
+    FORCE_JS_AR_FITTING ||
+      (g_ar_check_done && (!g_flutter_bridge_ready || g_flutter_availability !== 'SUPPORTED')),
   )
   // native AR 이 정확히 이 placeholder 영역에 매칭되도록 ref 로 측정해 좌표를 전달한다.
   /** @type {HTMLDivElement | null} */
