@@ -162,6 +162,17 @@
     }
     return local_obj
   })()
+  // 라벨 → preview_src lookup — BE 응답에서 떨어진 hover 미리보기 이미지 경로를 라벨로 복구.
+  const LABEL_TO_PREVIEW_SRC_OBJ = (() => {
+    /** @type {Record<string, string | null>} */
+    const local_obj = {}
+    for (const local_chip_arr of Object.values(SKIN_TONE_FRAME_COLOR_MAP)) {
+      for (const local_chip of local_chip_arr) {
+        local_obj[local_chip.label] = local_chip.preview_src ?? null
+      }
+    }
+    return local_obj
+  })()
 
   const g_recommended_color_arr = $derived.by(() => {
     const local_be_arr = Array.isArray(g_test_json?.skin_tone_recommendations)
@@ -176,9 +187,39 @@
           label: local_label,
           tone_class:
             local_chip.tone_class ?? LABEL_TO_TONE_CLASS_OBJ[local_label] ?? 'bg-slate-300',
+          preview_src: LABEL_TO_PREVIEW_SRC_OBJ[local_label] ?? null,
         }
       })
   })
+
+  // 추천 컬러 칩 hover → 안경 미리보기 popover 상태.
+  // 부모 panel 의 overflow 제약을 회피하기 위해 fixed positioning 으로 viewport 좌표에 띄운다.
+  let g_hovered_color_index = $state(-1)
+  let g_color_popover_pos_obj = $state({ x: 0, y: 0 })
+  const g_hovered_color_obj = $derived(
+    g_hovered_color_index >= 0 ? (g_recommended_color_arr[g_hovered_color_index] ?? null) : null,
+  )
+
+  // preview_src 가 없는 칩(NEUTRAL — '모든 색상 가능' / '고객 선호 반영')은 hover 발동 안 함.
+  /**
+   * @param {PointerEvent} pointer_event
+   * @param {number} color_index
+   */
+  function on_pointer_enter_color_chip(pointer_event, color_index) {
+    const local_chip_obj = g_recommended_color_arr[color_index]
+    if (!local_chip_obj?.preview_src) return
+    const ref_chip_el = /** @type {HTMLElement} */ (pointer_event.currentTarget)
+    const local_rect = ref_chip_el.getBoundingClientRect()
+    g_color_popover_pos_obj = {
+      x: local_rect.left + local_rect.width / 2,
+      y: local_rect.top,
+    }
+    g_hovered_color_index = color_index
+  }
+
+  function on_pointer_leave_color_chip() {
+    g_hovered_color_index = -1
+  }
 
   const g_recommended_frame_arr = $derived.by(() => {
     const local_be_arr = Array.isArray(g_test_json?.face_shape_recommendations)
@@ -666,8 +707,16 @@
               {#each Array.from({ length: 4 }) as _, local_color_index (local_color_index)}
                 {@const local_color_obj = g_recommended_color_arr[local_color_index]}
                 {#if local_color_obj}
+                  <!--
+                    role="img" + aria-label — 칩은 컬러 견본 이미지이며 hover preview 는 보조 정보.
+                    a11y_no_static_element_interactions(div+pointer 핸들러) 규칙도 해소.
+                  -->
                   <div
-                    class={`flex items-center justify-center rounded-[10px] border border-black/5 px-2 text-center ${local_color_obj.gradient_class ?? local_color_obj.tone_class}`}
+                    role="img"
+                    aria-label={`${local_color_obj.label} 컬러${local_color_obj.preview_src ? ' (호버 시 안경 미리보기)' : ''}`}
+                    class={`flex items-center justify-center rounded-[10px] border border-black/5 px-2 text-center ${local_color_obj.gradient_class ?? local_color_obj.tone_class} ${local_color_obj.preview_src ? 'cursor-help' : ''}`}
+                    onpointerenter={(e) => on_pointer_enter_color_chip(e, local_color_index)}
+                    onpointerleave={on_pointer_leave_color_chip}
                   >
                     <span class={`text-[14px] font-black ${get_chip_text_class(local_color_obj)}`}>
                       {local_color_obj.label}
@@ -879,4 +928,31 @@
       {/if}
     </div>
   </section>
+
+  <!--
+    추천 컬러 칩 hover popover — 부모 panel 의 overflow 제약 회피를 위해 fixed positioning.
+    translate -50%/-100% 로 칩 상단 중앙에 앵커링, 8px 갭으로 시각적 분리.
+    pointer-events-none 으로 칩의 leave 이벤트 방해 X.
+  -->
+  {#if g_hovered_color_obj?.preview_src}
+    <div
+      class="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full"
+      style="left: {g_color_popover_pos_obj.x}px; top: {g_color_popover_pos_obj.y - 8}px;"
+    >
+      <div
+        class="overflow-hidden rounded-[12px] border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.18)] w-[clamp(160px,28svh,320px)] p-[clamp(6px,1.2svh,14px)]"
+      >
+        <img
+          class="block h-auto w-full rounded-[8px] object-contain bg-slate-50 max-h-[clamp(110px,22svh,260px)]"
+          src={g_hovered_color_obj.preview_src}
+          alt={`${g_hovered_color_obj.label} 안경 미리보기`}
+        />
+        <p
+          class="m-0 mt-[clamp(4px,0.8svh,10px)] text-center font-semibold text-slate-700 text-[clamp(11px,1.7svh,18px)]"
+        >
+          {g_hovered_color_obj.label}
+        </p>
+      </div>
+    </div>
+  {/if}
 {/if}
