@@ -33,6 +33,10 @@
 const REPEAT_DEBOUNCE_MS = 1200
 const ONCE_KEYS = new Set(['start_capture', 'capture_complete'])
 
+// 44바이트 무음 WAV — iOS Safari 의 첫 사용자 제스처 안에서 한 번 재생해 audio 채널을 unlock.
+const SILENT_AUDIO_DATA_URI =
+  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+
 /** @type {HTMLAudioElement | null} */
 let g_active_audio = null
 /** @type {'low' | 'high' | null} */
@@ -50,6 +54,12 @@ const g_played_once_set = new Set()
 // camera_view 의 rAF 루프와 effect 들이 stop() 호출 직후 마이크로태스크 안에서 새 play_voice 를 또 시작해
 // 이전 화면 음성이 result 화면으로 따라오는 race 를 막기 위함. reset_session() 가 해제한다.
 let g_is_silenced = false
+
+// iOS Safari 의 첫 사용자 제스처에서 한 번이라도 audio.play() 가 성공해 audio 채널이 unlock 됐는지.
+// install_audio_unlock() 이 false → true 로 단방향 전이시키며, 그 이후엔 어떤 컨텍스트에서 new Audio()
+// 를 만들어 play() 해도 iOS 가 차단하지 않는다. 이 플래그 자체는 play() 의 동작을 바꾸지 않으며,
+// 디버깅/추후 가시화용 상태 — 실제 unlock 효과는 첫 user-gesture 안의 silent play() 가 발생시킨다.
+let g_is_unlocked = false
 
 // 활성 audio 핸들을 정리. ended/pause 콜백이 동일 audio 에 한해 안전하게 호출되도록 분리.
 function clear_active() {
@@ -159,6 +169,31 @@ export function silence() {
 // 이전 페이지가 silence() 로 봉인해둔 상태라도, 이 페이지에서는 CameraView 음성이 정상 작동해야 하므로.
 export function unsilence() {
   g_is_silenced = false
+}
+
+// 앱 mount 시 한 번 호출 — document 의 첫 pointerdown 을 가로채 무음 WAV 한 번 재생해
+// iOS Safari 의 audio 채널을 unlock 한다. 카메라 페이지 진입 전에 사용자는 반드시 어떤 버튼이든
+// 한 번은 탭하므로 추가 UI 없이 그 첫 탭을 unlock 트리거로 활용. unlock 이 한 번 성공하면 같은
+// document 안에서 새 Audio() 인스턴스도 user gesture 밖에서 자유롭게 재생 가능해진다.
+// 첫 탭에서 실패하면 다음 탭에서 재시도 (네트워크 지연 등 일시적 실패 대비).
+export function install_audio_unlock() {
+  if (typeof window === 'undefined' || g_is_unlocked) return
+  const handler = () => {
+    if (g_is_unlocked) return
+    const audio = new Audio(SILENT_AUDIO_DATA_URI)
+    void audio
+      .play()
+      .then(() => {
+        audio.pause()
+        audio.currentTime = 0
+        g_is_unlocked = true
+      })
+      .catch(() => {
+        // 첫 탭에서 unlock 실패 — 다음 탭에서 재시도.
+        window.addEventListener('pointerdown', handler, { once: true, capture: true })
+      })
+  }
+  window.addEventListener('pointerdown', handler, { once: true, capture: true })
 }
 
 // 새 촬영 세션 시작 시 호출 — 1회성 키 플래그와 디바운스 상태를 초기화한다.

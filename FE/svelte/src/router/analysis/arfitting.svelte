@@ -66,6 +66,8 @@
   let g_loading = $state(true)
   let g_selected_id = /** @type {number | null} */ ($state(null))
   let g_capture_slot_arr = /** @type {(CaptureSlot | null)[]} */ ($state([null, null, null]))
+  // 얼굴 가이드 타원 (계란형 SVG) 노출 토글. true = 표시 / false = 숨김. TryOnFallback 에 prop 으로 전달.
+  let g_is_face_guide_visible = $state(true)
   let g_flutter_bridge_ready = $state(false)
   let g_flutter_availability = $state('UNKNOWN')
   let _g_flutter_event_text = $state('')
@@ -690,6 +692,7 @@
           <TryOnFallback
             selected_glasses_obj={g_selected_glasses_obj}
             next_slot_key={g_next_empty_slot_key}
+            is_face_guide_visible={g_is_face_guide_visible}
             oncaptured={on_fallback_captured}
             onload_change={(/** @type {boolean} */ local_is_loading) => {
               g_flutter_launch_loading = local_is_loading
@@ -748,6 +751,34 @@
       class="app-bg-edge-extend-right relative flex w-[300px] xl:w-[360px] 2xl:w-[420px] flex-col border-l border-slate-200 bg-white transition-[z-index]"
       class:z-50={g_highlight_aside}
     >
+      <!-- 얼굴 가이드 표시 토글 — index.svelte 의 가이드 토글과 동일 스타일. -->
+      <section class="shrink-0 border-b border-slate-200 px-4 py-2.5">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-[11px] font-extrabold text-[var(--retina-text-800)]">얼굴 가이드 표시</p>
+          <button
+            type="button"
+            class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors duration-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
+            class:bg-[var(--retina-primary-300)]={g_is_face_guide_visible}
+            class:border-[var(--retina-primary-300)]={g_is_face_guide_visible}
+            class:bg-[var(--retina-text-300)]={!g_is_face_guide_visible}
+            class:border-[var(--retina-text-300)]={!g_is_face_guide_visible}
+            aria-pressed={g_is_face_guide_visible}
+            aria-label="얼굴 가이드 표시 전환"
+            onclick={() => {
+              g_is_face_guide_visible = !g_is_face_guide_visible
+            }}
+          >
+            <span
+              class="absolute left-[1px] top-[1px] h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200"
+              class:translate-x-4={g_is_face_guide_visible}
+            ></span>
+            <span class="sr-only">
+              {g_is_face_guide_visible ? '얼굴 가이드 켜짐' : '얼굴 가이드 꺼짐'}
+            </span>
+          </button>
+        </div>
+      </section>
+
       <!-- 캡쳐 슬롯 -->
       <div
         class="px-4 pt-3 pb-2 transition-all"

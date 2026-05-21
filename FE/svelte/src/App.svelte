@@ -9,6 +9,7 @@
   import { ensure_blaze_face_cache_warm } from '@/lib/mediapipe/blaze_face_cache'
   import { BLAZE_FACE_MODEL_URL } from '@/lib/mediapipe/face_detector'
   import { warming_state, start_warming } from '@/lib/model_warming.svelte.js'
+  import { install_audio_unlock } from '@/lib/audio/voice_guide.js'
 
   let url = ''
 
@@ -44,6 +45,10 @@
   }
 
   onMount(() => {
+    // iOS Safari audio unlock — 첫 사용자 탭(어디든) 에서 무음 WAV 한 번 재생해 audio 채널을 해제.
+    // 이후 카메라 페이지의 $effect 자동 재생 음성도 차단 없이 흐름. UI 변경 없음.
+    install_audio_unlock()
+
     // 앱 진입 즉시 워밍 백그라운드로 시작. cache miss 일 때만 splash 가 자동으로 떠 progress 노출,
     // 그 외 (cache hit, 컴파일, 검출기 init) 는 모두 화면 표시 없이 진행되므로 일반적으론 splash
     // 자체가 안 뜬다.

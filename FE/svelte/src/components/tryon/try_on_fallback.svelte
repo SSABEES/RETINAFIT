@@ -44,6 +44,9 @@
     oncaptured = () => {},
     /** @type {(is_loading: boolean) => void} */
     onload_change = () => {},
+    // 얼굴 가이드 타원 표시 여부 — 부모(arfitting) 의 토글로 제어. g_face_centered 판정/캡처 게이트
+    // 로직은 prop 과 무관하게 항상 동작하며, 이 prop 은 SVG 오버레이 노출만 토글한다.
+    is_face_guide_visible = true,
   } = $props()
 
   // test 페이지 슬라이더 default 그대로 const 화. 향후 사용자 노출 필요해지면 $state 로 풀면 됨.
@@ -81,10 +84,6 @@
   const HEAD_OCC_YAW_GATE_ENABLED = true
   const HEAD_OCC_YAW_HIDE_START = 15
   const HEAD_OCC_YAW_HIDE_END = 45
-  // 얼굴 가이드 타원 표시 여부 — 요청에 따라 임시 비활성화. 나중에 다시 노출하려면 true 로 되돌린다.
-  // g_face_centered 판정/캡처 게이트 로직은 그대로 살아있어, 플래그만 켜면 즉시 복원된다.
-  const SHOW_FACE_GUIDE = false
-
   /** @type {HTMLVideoElement | null} */
   let ref_video_el = $state(null)
   // 백드롭 video — 부모 영역(가로형) 의 양옆까지 카메라 시야로 채워 letterbox 를 없애는 시각적 fill 용.
@@ -549,9 +548,9 @@
       옮긴 것. 사용자가 카메라 중앙에 얼굴을 맞추도록 유도한다. 얼굴 검출 시 stroke 색만 초록으로
       바뀌어 "잘 잡혔다" 피드백을 준다. canvas/video 와 달리 scaleX(-1) 미러는 적용하지 않는다
       (가이드 모양이 대칭이라 의미 없음 + 사용자 좌표계와 일치하도록).
-      SHOW_FACE_GUIDE 플래그로 임시 비활성화 중 — 플래그만 true 로 되돌리면 다시 노출된다.
+      is_face_guide_visible prop 으로 부모(arfitting 의 토글) 가 제어 — false 면 SVG 자체를 dom 에서 제거.
     -->
-    {#if SHOW_FACE_GUIDE}
+    {#if is_face_guide_visible}
       <svg
         class="pointer-events-none absolute inset-0 h-full w-full"
         viewBox="0 0 75 100"
