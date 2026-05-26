@@ -1,0 +1,1126 @@
+<script>
+  import { onMount } from 'svelte'
+  import { navigate } from '@maks11060/svelte5-router'
+  import { fade, fly } from 'svelte/transition'
+  import { Glasses, CheckCheck, X, ChevronRight, RefreshCw, Save, FileText } from 'lucide-svelte'
+  import Header from '@/components/layout/header.svelte'
+  import { PATH } from '@/config/path'
+  import {
+    load_normalized_glasses,
+    request_fitting_presigned_urls,
+    confirm_fitting_result,
+  } from '@/lib/api/glasses'
+  import {
+    add_virtual_fitting_event_listener,
+    check_virtual_fitting_availability,
+    get_virtual_fitting_asset_path,
+    get_virtual_fitting_model_url,
+    is_flutter_bridge_ready,
+    launch_virtual_fitting,
+    wait_for_flutter_bridge,
+  } from '@/lib/flutter'
+  import { selected_customer_obj, selected_visit_obj } from '@/lib/stores/customer'
+  import { push_error_toast, push_toast } from '@/lib/stores/toast'
+  import { pick_recommended_glasses_arr } from '@/lib/recommendations/frame_recommendations'
+  import LoadingOverlay from '@/components/loading/loading_overlay.svelte'
+  import AnalysisPageLayout from '@/components/layout/analysis_page_layout.svelte'
+  import TryOnFallback from '@/components/tryon/try_on_fallback.svelte'
+
+  /**
+   * @typedef {{
+   *   file_obj: File,
+   *   object_url: string,
+   *   captured_at: number,
+   * }} CaptureSlot
+   */
+
+  /**
+   * @typedef {{
+   *   id: number,
+   *   glasses_no: number,
+   *   brand: string,
+   *   model: string,
+   *   price: string,
+   *   frame_type: string,
+   *   frame_style: string,
+   *   material: string,
+   *   category: string,
+   *   color: string,
+   *   img_url: string,
+   *   glasses_3d_url: string,
+   * }} GlassesItem
+   */
+
+  /**
+   * @typedef {{
+   *   glasses_id: number | null,
+   *   glasses_no: number | string | null,
+   *   brand: string,
+   *   model: string,
+   *   capture_arr: Array<{ label: string, key: string }>,
+   *   file_key_arr: string[],
+   * }} SavedFitting
+   */
+
+  let g_recommended_arr = /** @type {GlassesItem[]} */ ($state([]))
+  let g_loading = $state(true)
+  let g_selected_id = /** @type {number | null} */ ($state(null))
+  let g_capture_slot_arr = /** @type {(CaptureSlot | null)[]} */ ($state([null, null, null]))
+  // 얼굴 가이드 타원 (계란형 SVG) 노출 토글. true = 표시 / false = 숨김. TryOnFallback 에 prop 으로 전달.
+  let g_is_face_guide_visible = $state(true)
+  let g_flutter_bridge_ready = $state(false)
+  let g_flutter_availability = $state('UNKNOWN')
+  let _g_flutter_event_text = $state('')
+  let g_flutter_launch_loading = $state(false)
+  // AR 사용 가능 여부 확인이 끝났는지. 마운트 직후 'UNKNOWN' 상태에서 미지원 문구가 깜빡이는 것을 방지.
+  let g_ar_check_done = $state(false)
+  // JS 기반 AR 피팅 강제 — true 면 기기/환경(태블릿·웹 등) 무관하게 항상 Three.js 폴백을 쓰고
+  // 네이티브 AR(Flutter) 카메라는 비활성화한다. 나중에 네이티브 AR 을 다시 쓰려면 false 로 되돌린다.
+  const FORCE_JS_AR_FITTING = true
+  // AR 미지원 — 브리지 연결 실패 또는 디바이스 미지원. 확인 완료 후에만 true 가 되어 placeholder 문구로 안내.
+  // FORCE_JS_AR_FITTING 가 켜져 있으면 확인 결과와 무관하게 항상 미지원(=폴백) 으로 취급한다.
+  let g_ar_unavailable = $derived(
+    FORCE_JS_AR_FITTING ||
+      (g_ar_check_done && (!g_flutter_bridge_ready || g_flutter_availability !== 'SUPPORTED')),
+  )
+  // native AR 이 정확히 이 placeholder 영역에 매칭되도록 ref 로 측정해 좌표를 전달한다.
+  /** @type {HTMLDivElement | null} */
+  let ref_camera_section_el = $state(null)
+
+  const SLOT_LABEL_ARR = ['1번', '2번', '3번']
+  const SLOT_ICON_ARR = ['/icons/face_center.png', '/icons/face_center.png', '/icons/face_center.png']
+  // 슬롯 인덱스 ↔ 키 양방향 매핑. native 가 emit 하는 slot 키 처리 + fallback 의 셔터 버튼이 다음 채울
+  // 슬롯 키를 결정할 때 사용. 두 곳이 같은 순서를 공유해야 1번→2번→3번 진행이 일관된다.
+  const SLOT_KEY_BY_INDEX_ARR = /** @type {const} */ (['front', 'left', 'right'])
+  const SLOT_KEY_TO_INDEX = { front: 0, left: 1, right: 2 }
+  const MAX_FITTINGS = 5
+
+  // 가장 앞에 있는 빈 슬롯의 키. fallback 의 단일 셔터 버튼이 이 키로 capture 를 emit 한다.
+  // 모두 채워졌으면 null — fallback 셔터 버튼이 자동 비활성화.
+  let g_next_empty_slot_key = $derived.by(() => {
+    const local_empty_idx = g_capture_slot_arr.findIndex((local_slot_obj) => local_slot_obj === null)
+    return local_empty_idx >= 0 ? SLOT_KEY_BY_INDEX_ARR[local_empty_idx] : null
+  })
+
+  // 1장 이상 촬영했으면 저장 가능. (예전엔 3장 모두 필요했지만 정책 완화)
+  let g_has_any_capture = $derived(g_capture_slot_arr.some((s) => s !== null))
+
+  // { glasses_id, brand, model, captures } 형태로 최대 5개 저장
+  let g_saved_fittings_arr = /** @type {SavedFitting[]} */ ($state([]))
+
+  // 현재 선택한 안경이 이미 저장된 적이 있는지 (있으면 새 캡쳐로 덮어쓰는 모드)
+  let g_is_selected_already_saved = $derived(
+    g_selected_id !== null &&
+      g_saved_fittings_arr.some((local_obj) => local_obj.glasses_id === g_selected_id),
+  )
+
+  let g_can_save = $derived(
+    g_has_any_capture &&
+      (g_saved_fittings_arr.length < MAX_FITTINGS || g_is_selected_already_saved),
+  )
+  // fallback 환경에서도 정상 캡처/저장이 가능해졌으므로 ar_unavailable 우회 제거.
+  let g_can_submit = $derived(g_saved_fittings_arr.length > 0)
+
+  // 안경 id별 저장 횟수 맵 (목록 카드 배지 표시용)
+  let g_saved_count_map = /** @type {Record<number, number>} */ ($derived(
+    g_saved_fittings_arr.reduce((/** @type {Record<number, number>} */ acc, fit) => {
+      if (fit.glasses_id !== null) {
+        acc[fit.glasses_id] = (acc[fit.glasses_id] ?? 0) + 1
+      }
+      return acc
+    }, /** @type {Record<number, number>} */ ({})),
+  ))
+
+  /**
+   * 메시지를 글로벌 토스트로 띄운다 (info 톤).
+   * @param {string} msg
+   */
+  function show_toast(msg) {
+    push_toast(msg)
+  }
+
+  // 현재 선택된 고객의 얼굴형/피부톤 기준으로 추천 3개를 뽑는다.
+  /**
+   * @param {GlassesItem[]} glass_arr
+   */
+  function get_personalized_recommended_arr(glass_arr) {
+    return pick_recommended_glasses_arr(
+      glass_arr,
+      $selected_customer_obj?.face_shape,
+      $selected_customer_obj?.skin_tone,
+    )
+  }
+
+  let _g_filter_modal_open = $state(false)
+  let _g_filter_loading = $state(false)
+  let g_all_glasses_arr = /** @type {GlassesItem[]} */ ($state([]))
+  let g_filter_obj = /** @type {{ frame_type_arr: string[], material_arr: string[], category_arr: string[] }} */ (
+    $state({ frame_type_arr: [], material_arr: [], category_arr: [] })
+  )
+
+  let g_active_filter_count = $derived(
+    g_filter_obj.frame_type_arr.length +
+      g_filter_obj.material_arr.length +
+      g_filter_obj.category_arr.length,
+  )
+
+  let g_glasses_arr = $derived.by(() => {
+    if (g_active_filter_count === 0 || g_all_glasses_arr.length === 0) return g_recommended_arr
+    let result = [...g_all_glasses_arr]
+    if (g_filter_obj.frame_type_arr.length > 0)
+      result = result.filter((g) => g_filter_obj.frame_type_arr.includes(g.frame_style))
+    if (g_filter_obj.material_arr.length > 0)
+      result = result.filter((g) => g_filter_obj.material_arr.includes(g.material))
+    if (g_filter_obj.category_arr.length > 0)
+      result = result.filter((g) => g_filter_obj.category_arr.includes(g.category))
+    return result
+  })
+  let g_selected_glasses_obj = $derived(
+    g_glasses_arr.find((local_glasses_obj) => local_glasses_obj.id === g_selected_id) ?? null,
+  )
+  let g_selected_asset_path = $derived(
+    g_selected_glasses_obj ? get_virtual_fitting_asset_path(g_selected_glasses_obj) : '',
+  )
+  let g_selected_model_url = $derived(
+    g_selected_glasses_obj ? get_virtual_fitting_model_url(g_selected_glasses_obj) : '',
+  )
+  let _g_can_launch_flutter_fitting = $derived(
+    g_flutter_bridge_ready &&
+      g_flutter_availability === 'SUPPORTED' &&
+      Boolean(g_selected_glasses_obj) &&
+      (Boolean(g_selected_asset_path) || Boolean(g_selected_model_url)) &&
+      !g_flutter_launch_loading,
+  )
+
+  onMount(() => {
+    g_flutter_bridge_ready = is_flutter_bridge_ready()
+
+    void wait_for_flutter_bridge().then((local_bridge_ready) => {
+      g_flutter_bridge_ready = local_bridge_ready
+
+      if (!local_bridge_ready) {
+        g_ar_check_done = true
+        return
+      }
+
+      check_virtual_fitting_availability()
+        .then((local_status_text) => {
+          g_flutter_availability = local_status_text
+        })
+        .catch(() => {
+          g_flutter_availability = 'UNKNOWN'
+        })
+        .finally(() => {
+          g_ar_check_done = true
+        })
+    })
+
+    const local_remove_flutter_listener = add_virtual_fitting_event_listener((local_event_obj) => {
+      const local_event_name = String(local_event_obj?.event ?? 'unknown')
+      const local_data_obj = local_event_obj?.data ?? {}
+      const local_data_text = JSON.stringify(local_data_obj)
+
+      _g_flutter_event_text = `${local_event_name}: ${local_data_text}`
+
+      // native AR 가 캡처한 이미지를 슬롯에 채운다.
+      if (local_event_name === 'captured') {
+        on_flutter_captured(local_data_obj)
+      }
+    })
+
+    load_normalized_glasses()
+      .then((local_normalized_glass_arr) => {
+        g_all_glasses_arr = local_normalized_glass_arr
+        g_recommended_arr = get_personalized_recommended_arr(local_normalized_glass_arr)
+      })
+      .catch(() => {
+        g_all_glasses_arr = []
+        g_recommended_arr = []
+        g_selected_id = null
+      })
+      .finally(() => {
+        g_loading = false
+      })
+
+    return () => {
+      local_remove_flutter_listener()
+    }
+  })
+
+  /**
+   * 안경 선택 시 id를 저장하고 캡쳐 슬롯을 초기화
+   * 이미 5개를 채웠다면 토스트 경고 후 차단
+   * @param {number} id
+   */
+  function on_click_select_glasses(id) {
+    const local_already_saved = g_saved_fittings_arr.some(
+      (local_obj) => local_obj.glasses_id === id,
+    )
+    // 5개를 다 채웠더라도 이미 저장된 안경을 재선택해 사진을 갱신하는 것은 허용한다.
+    if (g_saved_fittings_arr.length >= MAX_FITTINGS && !local_already_saved) {
+      show_toast(
+        `피팅은 최대 ${MAX_FITTINGS}개까지만 저장할 수 있습니다. 저장된 피팅을 취소한 뒤 다시 시도하세요.`,
+      )
+      return
+    }
+    // 다른 안경으로 변경할 때만 캡쳐 슬롯 리셋.
+    if (id !== g_selected_id) {
+      clear_capture_slot_arr()
+      g_selected_id = id
+    }
+
+    // 안경 선택과 동시에 native AR 화면을 띄운다 (Android only). fallback 환경에선 별도 launch
+    // 없이 <TryOnFallback> 의 $effect 가 selected_glasses_obj prop 변경으로 알아서 swap 한다.
+    const local_glasses_obj =
+      g_glasses_arr.find((local_item_obj) => local_item_obj.id === id) ?? null
+    if (local_glasses_obj && !g_ar_unavailable) {
+      g_flutter_launch_loading = true
+      void launch_flutter_fitting_for_glasses(local_glasses_obj)
+        .catch((local_err) => {
+          const local_err_text =
+            local_err instanceof Error ? local_err.message : 'AR 피팅 실행에 실패했습니다.'
+          show_toast(local_err_text)
+        })
+        .finally(() => {
+          g_flutter_launch_loading = false
+        })
+    }
+  }
+
+  /**
+   * Flutter native AR 의 captured 이벤트 페이로드를 처리한다.
+   * 형식: { slot, image_base64 }. base64 → Blob 디코딩 후 공통 슬롯 채움 함수로 위임.
+   * @param {{ slot?: string, image_base64?: string }} data_obj
+   */
+  function on_flutter_captured(data_obj) {
+    const local_base64_text = String(data_obj?.image_base64 ?? '')
+    if (!local_base64_text) return
+    let local_blob
+    try {
+      const local_binary_text = atob(local_base64_text)
+      const local_byte_arr = new Uint8Array(local_binary_text.length)
+      for (let i = 0; i < local_binary_text.length; i++) {
+        local_byte_arr[i] = local_binary_text.charCodeAt(i)
+      }
+      local_blob = new Blob([local_byte_arr], { type: 'image/jpeg' })
+    } catch {
+      show_toast('캡처 이미지 디코딩에 실패했습니다.')
+      return
+    }
+    apply_capture_slot(String(data_obj?.slot ?? ''), local_blob)
+  }
+
+  /**
+   * Three.js fallback 컴포넌트(try_on_fallback.svelte) 의 oncaptured 콜백 시그니처에 맞춘 어댑터.
+   * 형식: (slot_key, blob). 공통 슬롯 채움 함수로 바로 위임.
+   * @param {'front' | 'left' | 'right'} slot_key
+   * @param {Blob} blob
+   */
+  function on_fallback_captured(slot_key, blob) {
+    apply_capture_slot(slot_key, blob)
+  }
+
+  /**
+   * 두 경로 공통의 슬롯 갱신 로직 — Blob 을 File 로 감싸고 object_url 발급, 이전 슬롯 url revoke.
+   * Flutter / Fallback 호출 분기에서 호출되며 두 경로 모두 동일하게 동작해야 한다.
+   * @param {string} slot_key
+   * @param {Blob} blob
+   */
+  function apply_capture_slot(slot_key, blob) {
+    const local_slot_idx = SLOT_KEY_TO_INDEX[/** @type {keyof typeof SLOT_KEY_TO_INDEX} */ (slot_key)]
+    if (!Number.isInteger(local_slot_idx)) return
+
+    const local_captured_at = Date.now()
+    const local_file_obj = new File(
+      [blob],
+      `arfitting_${String(local_slot_idx + 1)}_${String(local_captured_at)}.jpg`,
+      { type: 'image/jpeg' },
+    )
+    const local_object_url = URL.createObjectURL(blob)
+
+    const local_capture_slot_arr = [...g_capture_slot_arr]
+    const local_prev_slot_obj = local_capture_slot_arr[local_slot_idx]
+    if (local_prev_slot_obj?.object_url) {
+      URL.revokeObjectURL(local_prev_slot_obj.object_url)
+    }
+    local_capture_slot_arr[local_slot_idx] = {
+      file_obj: local_file_obj,
+      object_url: local_object_url,
+      captured_at: local_captured_at,
+    }
+    g_capture_slot_arr = local_capture_slot_arr
+  }
+
+  /**
+   * @param {GlassesItem} glasses_obj
+   */
+  function build_flutter_fitting_payload(glasses_obj) {
+    const local_asset_path = get_virtual_fitting_asset_path(glasses_obj)
+    const local_model_url = get_virtual_fitting_model_url(glasses_obj)
+    const local_product_id = glasses_obj?.glasses_no ?? glasses_obj?.id ?? ''
+
+    // native AR 은 fullscreen 으로 동작. window 좌표는 보내지 않는다.
+    return {
+      product_id: String(local_product_id),
+      product_name: String(glasses_obj?.model ?? 'unknown'),
+      asset_path: local_asset_path,
+      model_url: local_model_url,
+      cache_key: `glasses-${String(local_product_id)}`,
+    }
+  }
+
+  /**
+   * @param {GlassesItem} glasses_obj
+   */
+  async function launch_flutter_fitting_for_glasses(glasses_obj) {
+    const local_fitting_payload_obj = build_flutter_fitting_payload(glasses_obj)
+
+    if (!local_fitting_payload_obj.asset_path && !local_fitting_payload_obj.model_url) {
+      throw new Error('선택한 안경의 3D 파일 경로를 찾지 못했습니다.')
+    }
+
+    return launch_virtual_fitting(local_fitting_payload_obj)
+  }
+
+  /**
+   * @param {number} idx
+   */
+  function on_click_reset_slot(idx) {
+    const local_capture_slot_obj = g_capture_slot_arr[idx]
+
+    if (local_capture_slot_obj?.object_url) {
+      URL.revokeObjectURL(local_capture_slot_obj.object_url)
+    }
+
+    const local_capture_slot_arr = [...g_capture_slot_arr]
+    local_capture_slot_arr[idx] = null
+    g_capture_slot_arr = local_capture_slot_arr
+  }
+
+  /**
+   * 저장된 피팅 목록에서 특정 항목 제거
+   * @param {number} idx
+   */
+  function on_click_remove_saved(idx) {
+    g_saved_fittings_arr = g_saved_fittings_arr.filter((_, i) => i !== idx)
+  }
+
+  function clear_capture_slot_arr() {
+    for (const local_capture_slot_obj of g_capture_slot_arr) {
+      if (local_capture_slot_obj?.object_url) {
+        URL.revokeObjectURL(local_capture_slot_obj.object_url)
+      }
+    }
+
+    g_capture_slot_arr = [null, null, null]
+  }
+
+  let g_submit_loading = $state(false)
+
+  /**
+   * 3장 캡쳐된 현재 피팅을 API로 저장.
+   * 1) Presigned URL 발급 → 2) S3 PUT → 3) g_saved_fittings_arr 갱신 →
+   * 4) 누적 fitting_arr 와 vp_file_arr 를 visit 에 PATCH (sessionStorage 미사용)
+   */
+  async function on_click_save_fitting() {
+    if (!g_can_save || g_submit_loading) return
+    g_submit_loading = true
+    try {
+      const local_visit_no = $selected_visit_obj?.visit_no
+      const glasses_info = g_glasses_arr.find((g) => g.id === g_selected_id)
+      const local_glasses_no = glasses_info?.glasses_no ?? g_selected_id ?? 0
+
+      // 안경별 Presigned URL 발급 (front/left/right)
+      const local_presigned = await request_fitting_presigned_urls(local_visit_no ?? 0, local_glasses_no)
+
+      const local_presigned_url_arr = [
+        local_presigned.front_url,
+        local_presigned.left_url,
+        local_presigned.right_url,
+      ]
+      const local_key_arr = [
+        local_presigned.front_key,
+        local_presigned.left_key,
+        local_presigned.right_key,
+      ]
+
+      // 실제 촬영된 슬롯만 S3 에 PUT (캡쳐 시점에 이미 좌우 반전된 파일이 슬롯에 있음).
+      // 미촬영 슬롯은 업로드 스킵 + 빈 url / 빈 key 로 남겨둔다.
+      const local_filled_idx_arr = g_capture_slot_arr
+        .map((local_slot_obj, local_idx) =>
+          local_slot_obj?.file_obj instanceof File ? local_idx : -1,
+        )
+        .filter((local_idx) => local_idx >= 0)
+
+      await Promise.all(
+        local_filled_idx_arr.map((local_idx) =>
+          fetch(local_presigned_url_arr[local_idx], {
+            method: 'PUT',
+            body: g_capture_slot_arr[local_idx]?.file_obj,
+          }).then((res) => {
+            if (!res.ok) throw new Error(`S3 업로드 실패 (${res.status})`)
+          }),
+        ),
+      )
+
+      // 업로드된 슬롯의 S3 object key 만 저장. 빈 슬롯은 빈 string.
+      // result.svelte 의 resolve_capture_src 가 이 key 로 BE 응답의 vp_file_arr presigned URL 을 매칭해 src 를 만든다.
+      // (이전: split('?')[0] 로 서명 떼어낸 raw S3 URL 을 저장 → 권한 없어 403, 사진 안 보임.)
+      const local_filled_key_arr = local_filled_idx_arr.map((local_idx) => local_key_arr[local_idx])
+
+      // 로컬 누적 목록 갱신 (같은 안경이면 새 캡쳐로 덮어쓰기, 아니면 append)
+      const local_new_fitting_obj = {
+        glasses_id: g_selected_id,
+        glasses_no: local_glasses_no,
+        brand: glasses_info?.brand ?? '',
+        model: glasses_info?.model ?? '',
+        capture_arr: SLOT_LABEL_ARR.map((local_label, local_idx) => ({
+          label: local_label,
+          key: local_filled_idx_arr.includes(local_idx) ? local_key_arr[local_idx] : '',
+        })),
+        file_key_arr: local_filled_key_arr,
+      }
+      const local_existing_idx = g_saved_fittings_arr.findIndex(
+        (local_obj) => local_obj.glasses_id === g_selected_id,
+      )
+      let local_next_saved_arr
+      if (local_existing_idx >= 0) {
+        local_next_saved_arr = [...g_saved_fittings_arr]
+        local_next_saved_arr[local_existing_idx] = local_new_fitting_obj
+      } else {
+        local_next_saved_arr = [...g_saved_fittings_arr, local_new_fitting_obj]
+      }
+      g_saved_fittings_arr = local_next_saved_arr
+
+      // 누적 결과를 BE 에 PATCH (vp_json.fitting_arr 와 vp_file_arr union)
+      await confirm_fitting_result(local_visit_no ?? 0, {
+        vp_file_arr: local_next_saved_arr.flatMap((local_fit) => local_fit.file_key_arr),
+        vp_json: {
+          fitting_arr: /** @type {any} */ (local_next_saved_arr.map((local_fit) => ({
+            glasses_no: Number(local_fit.glasses_no ?? 0),
+            brand: local_fit.brand,
+            model: local_fit.model,
+            capture_arr: local_fit.capture_arr,
+          }))),
+        },
+      })
+
+      clear_capture_slot_arr()
+    } catch (local_err) {
+      push_error_toast(local_err instanceof Error ? local_err.message : '저장에 실패했습니다.')
+    } finally {
+      g_submit_loading = false
+    }
+  }
+
+  // 가격 문자열을 천 단위 콤마 + "원" 으로 포맷한다 (예: "159000" → "159,000원").
+  /**
+   * @param {string | number | null | undefined} price_value
+   */
+  function format_price_label(price_value) {
+    if (price_value === null || price_value === undefined) return ''
+    const local_text = String(price_value).trim()
+    if (!local_text) return ''
+    const local_digits = local_text.replace(/[^0-9]/g, '')
+    if (!local_digits) return local_text
+    return `${Number(local_digits).toLocaleString('ko-KR')}원`
+  }
+
+  /**
+   * @param {File} file_obj
+   */
+  function _read_file_as_data_url(file_obj) {
+    return new Promise((resolve, reject) => {
+      const local_reader = new FileReader()
+      local_reader.onload = () => resolve(String(local_reader.result ?? ''))
+      local_reader.onerror = () => reject(local_reader.error ?? new Error('파일 읽기 실패'))
+      local_reader.readAsDataURL(file_obj)
+    })
+  }
+
+  /**
+   * 저장된 피팅이 1개 이상이면 리포트 페이지로 이동
+   */
+  function on_click_submit_report() {
+    if (!g_can_submit) return
+    // AR 피팅 → 실제 안경 피팅 단계로 진행. 최종 리포트는 그 다음에서 이동.
+    navigate(PATH.analysisRealFitting)
+  }
+
+  /**
+   * 선택한 안경의 native asset 경로를 확인하고 Flutter AR 피팅 화면 열기
+   */
+  async function _on_click_launch_flutter_fitting() {
+    if (!g_flutter_bridge_ready) {
+      show_toast('Flutter 브리지가 연결되지 않았습니다.')
+      return
+    }
+
+    if (g_flutter_availability !== 'SUPPORTED') {
+      show_toast(`네이티브 AR 사용 불가 상태입니다. (${g_flutter_availability})`)
+      return
+    }
+
+    if (!g_selected_glasses_obj) {
+      show_toast('선택한 안경의 native asset 경로를 찾지 못했습니다.')
+      return
+    }
+
+    g_flutter_launch_loading = true
+
+    try {
+      const local_request_id = await launch_flutter_fitting_for_glasses(g_selected_glasses_obj)
+
+      _g_flutter_event_text = `launch_requested: ${local_request_id}`
+      show_toast('Flutter AR 피팅을 실행했습니다.')
+    } catch (local_error) {
+      const local_error_text =
+        local_error instanceof Error ? local_error.message : 'Flutter AR 피팅 실행에 실패했습니다.'
+
+      _g_flutter_event_text = `launch_error: ${local_error_text}`
+      show_toast(local_error_text)
+    } finally {
+      g_flutter_launch_loading = false
+    }
+  }
+
+  /**
+   * 프레임 변경 버튼: 이미 불러온 안경 목록에서 추천 슬롯만 다시 추첨
+   * (API 재호출은 하지 않음 — 페이지 진입 시 한 번만 호출)
+   */
+  function on_click_refresh_glasses() {
+    g_recommended_arr = get_personalized_recommended_arr(g_all_glasses_arr)
+  }
+
+  /**
+   * 필터 옵션 토글 (즉시 반영)
+   * @param {'frame_type_arr' | 'material_arr' | 'category_arr'} field
+   * @param {string} value
+   */
+  function _on_click_toggle_filter(field, value) {
+    const arr = /** @type {string[]} */ (g_filter_obj[field])
+    g_filter_obj[field] = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]
+  }
+
+  /**
+   * 필터 전체 초기화
+   */
+  function on_click_reset_filter() {
+    g_filter_obj = { frame_type_arr: [], material_arr: [], category_arr: [] }
+  }
+
+  let g_guide_step = $state(0)
+
+  const GUIDE_STEP_ARR = [
+    null,
+    {
+      title: '착용할 안경을 선택해 주세요',
+      desc: '오른쪽 목록에서 원하는 안경을 선택해 주세요.\n선택하면 즉시 AR 피팅 화면이 열립니다.',
+      hint: '오른쪽 안경 목록을 확인해 주세요.',
+      card_style: 'right: 340px; top: 50%; transform: translateY(-50%)',
+    },
+    {
+      title: '마음에 드는 프레임이 없다면?',
+      desc: '오른쪽 상단의 프레임 변경 버튼을 누르면\n추천 안경 3개가 새로운 조합으로 바뀝니다.\n원하는 안경을 찾을 때까지 반복해서 눌러보세요.',
+      hint: '오른쪽 목록 상단의 새로고침 아이콘을 눌러 주세요.',
+      card_style: 'right: 340px; top: 50%; transform: translateY(-50%)',
+    },
+    {
+      title: '셔터 버튼으로 3장을 촬영해 주세요',
+      desc: '안경을 선택하면 카메라 영역에 가운데 셔터 버튼이 활성화됩니다.\n버튼을 누를 때마다 1번 → 2번 → 3번 슬롯이 순서대로 채워집니다.\n3장을 모두 찍으면 셔터 버튼이 자동으로 비활성화됩니다.',
+      hint: '카메라 영역 하단 가운데 셔터 버튼을 눌러 주세요.',
+      card_style: 'right: 340px; top: 50%; transform: translateY(-50%); width: 600px',
+    },
+    {
+      title: '촬영 상태를 확인해 주세요',
+      desc: '3개의 슬롯이 모두 채워졌는지 확인해 주세요.\nX 버튼으로 다시 촬영할 수 있습니다.\n다른 안경을 선택하면 현재 촬영 중인 사진은 초기화됩니다.',
+      hint: '오른쪽 상단 슬롯을 확인해 주세요.',
+      card_style: 'right: 340px; top: 50%; transform: translateY(-50%)',
+    },
+    {
+      title: '피팅 결과를 저장해요',
+      desc: '1장 이상 촬영하면 [피팅 결과 저장] 버튼이 활성화됩니다.\n저장 후 다른 안경도 최대 5개까지 시도할 수 있습니다.',
+      hint: '오른쪽 하단 왼쪽 버튼을 눌러 주세요.',
+      card_style: 'right: 340px; top: 50%; transform: translateY(-50%)',
+    },
+    {
+      title: '최종 리포트를 확인해 주세요',
+      desc: '피팅 결과가 1개 이상 저장되면 \n [실제 착용 분석하기] 버튼이 활성화됩니다.\n저장한 안경들을 한 번에 AI가 분석합니다.',
+      hint: '오른쪽 하단 오른쪽 버튼을 눌러 주세요.',
+      card_style: 'right: 340px; top: 50%; transform: translateY(-50%)',
+    },
+  ]
+
+  let g_guide_info = $derived(GUIDE_STEP_ARR[g_guide_step])
+
+  function on_click_guide_open() {
+    g_guide_step = 1
+  }
+  function on_click_guide_close() {
+    g_guide_step = 0
+  }
+  function on_click_guide_next() {
+    if (g_guide_step < 6) g_guide_step++
+    else g_guide_step = 0
+  }
+  function on_click_guide_prev() {
+    if (g_guide_step > 1) g_guide_step--
+  }
+
+  let g_highlight_camera = $derived(g_guide_step === 3)
+  let g_highlight_aside = $derived([1, 2, 4, 5, 6].includes(g_guide_step))
+</script>
+
+<AnalysisPageLayout current_step={3} bg_class="bg-white text-zinc-900">
+  <div
+    class="flex min-h-0 flex-1 overflow-clip [overflow-clip-margin:9999px] bg-[var(--retina-text-100)]"
+  >
+    <!-- 좌측: 카메라 -->
+    <section
+      class="relative flex min-h-0 flex-1 flex-col transition-[z-index]"
+      class:z-50={g_highlight_camera}
+    >
+      <div
+        bind:this={ref_camera_section_el}
+        class="app-bg-edge-extend-left arfitting-camera-fill relative min-h-0 flex-1 overflow-hidden bg-zinc-950 shadow-inner transition-all"
+        class:ring-2={g_highlight_camera}
+        class:ring-[var(--retina-primary-300)]={g_highlight_camera}
+        class:ring-inset={g_highlight_camera}
+      >
+        <!-- native AR 이 화면을 takeover 하므로 이 영역은 안내 placeholder 만 표시한다. -->
+        {#if g_ar_unavailable}
+          <TryOnFallback
+            selected_glasses_obj={g_selected_glasses_obj}
+            next_slot_key={g_next_empty_slot_key}
+            is_face_guide_visible={g_is_face_guide_visible}
+            oncaptured={on_fallback_captured}
+            onload_change={(/** @type {boolean} */ local_is_loading) => {
+              g_flutter_launch_loading = local_is_loading
+            }}
+          />
+        {:else}
+          <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
+            <Glasses size={64} class="mb-4 text-white/40" />
+
+            {#if !g_ar_check_done}
+              <!-- AR 가용 여부 확인 중 — 첫 진입의 검은 화면에 안경 아이콘만 떠있는 빈 구간을 채우는 안내 문구. -->
+              <p
+                class="mt-6 inline-flex items-center gap-4 text-[26px] font-extrabold leading-relaxed text-white/90"
+              >
+                <span
+                  class="h-10 w-10 animate-spin rounded-full border-[4px] border-white/60 border-t-transparent"
+                  aria-hidden="true"
+                ></span>
+                카메라 로딩중입니다...
+              </p>
+            {:else if g_selected_id !== null}
+              <p class="mt-5 text-[18px] font-extrabold leading-relaxed text-white/90">
+                {#if g_flutter_launch_loading}
+                  안경 데이터를 불러오는 중...
+                {:else}
+                  AR 화면에서 1번 → 2번 → 3번 순서로 촬영해주세요
+                {/if}
+              </p>
+            {/if}
+          </div>
+        {/if}
+
+        <!--
+          가이드 버튼 — fallback 카메라 위에서도 가려지지 않도록 if/else 바깥 우측 상단에 absolute 배치.
+          fallback 의 안내 문구(상단 중앙) 와 겹치지 않게 right-4 / top-4 로 띄움.
+        -->
+        <button
+          type="button"
+          onclick={on_click_guide_open}
+          aria-label="AR 피팅 사용 가이드 열기"
+          class="absolute right-4 top-4 z-20 inline-flex cursor-pointer items-center gap-2 rounded-full border-2 border-[var(--retina-primary-300)] bg-black/40 px-4 py-2 text-[13px] font-extrabold text-white shadow-[0_6px_16px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:bg-[var(--retina-primary-300)] hover:text-white"
+        >
+          <span
+            class="grid h-5 w-5 place-items-center rounded-full bg-[var(--retina-primary-300)] text-[11px] font-black text-white"
+            aria-hidden="true"
+          >
+            ?
+          </span>
+          AR 피팅이 처음이신가요?
+        </button>
+      </div>
+    </section>
+
+    <!-- 우측: 캡쳐 상태 + 추천 안경 + 액션 버튼 -->
+    <aside
+      class="app-bg-edge-extend-right relative flex w-[300px] xl:w-[360px] 2xl:w-[420px] flex-col border-l border-slate-200 bg-white transition-[z-index]"
+      class:z-50={g_highlight_aside}
+    >
+      <!-- 얼굴 가이드 표시 토글 — index.svelte 의 가이드 토글과 동일 스타일. -->
+      <section class="shrink-0 border-b border-slate-200 px-4 py-2.5">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-[11px] font-extrabold text-[var(--retina-text-800)]">얼굴 가이드 표시</p>
+          <button
+            type="button"
+            class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors duration-200 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--retina-primary-600)]/40"
+            class:bg-[var(--retina-primary-300)]={g_is_face_guide_visible}
+            class:border-[var(--retina-primary-300)]={g_is_face_guide_visible}
+            class:bg-[var(--retina-text-300)]={!g_is_face_guide_visible}
+            class:border-[var(--retina-text-300)]={!g_is_face_guide_visible}
+            aria-pressed={g_is_face_guide_visible}
+            aria-label="얼굴 가이드 표시 전환"
+            onclick={() => {
+              g_is_face_guide_visible = !g_is_face_guide_visible
+            }}
+          >
+            <span
+              class="absolute left-[1px] top-[1px] h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200"
+              class:translate-x-4={g_is_face_guide_visible}
+            ></span>
+            <span class="sr-only">
+              {g_is_face_guide_visible ? '얼굴 가이드 켜짐' : '얼굴 가이드 꺼짐'}
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <!-- 캡쳐 슬롯 -->
+      <div
+        class="px-4 pt-3 pb-2 transition-all"
+        class:ring-2={g_guide_step === 4}
+        class:ring-[var(--retina-primary-300)]={g_guide_step === 4}
+        class:ring-inset={g_guide_step === 4}
+      >
+        <div class="mb-2 flex items-center justify-between">
+          <h2 class="text-[11px] font-extrabold tracking-wide text-[#374151]">촬영 기록</h2>
+        </div>
+        <div class="grid grid-cols-3 gap-2 pr-1">
+          {#each g_capture_slot_arr as slot, idx (idx)}
+            <div class="group relative flex flex-col items-center gap-1">
+              <div
+                class={`relative flex aspect-[3/4] w-full items-center justify-center rounded-none border transition-all ${
+                  slot
+                    ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)]'
+                    : 'border-[#F1F3F5] bg-[#F1F3F5]'
+                }`}
+              >
+                {#if slot}
+                  <img
+                    src={slot.object_url}
+                    alt={SLOT_LABEL_ARR[idx]}
+                    class="h-full w-full object-contain"
+                  />
+                  <button
+                    type="button"
+                    onclick={() => on_click_reset_slot(idx)}
+                    aria-label="다시 촬영"
+                    class="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-slate-400 shadow-md hover:text-red-500"
+                  >
+                    <X size={11} />
+                  </button>
+                {:else}
+                  <img
+                    src={SLOT_ICON_ARR[idx]}
+                    alt={`${SLOT_LABEL_ARR[idx]} 안내`}
+                    class="h-[18px] w-[18px] object-contain opacity-70"
+                  />
+                {/if}
+              </div>
+              <span
+                class={`text-[10px] font-bold ${slot ? 'text-[var(--retina-primary-300)]' : 'text-slate-400'}`}
+                >{SLOT_LABEL_ARR[idx]}</span
+              >
+            </div>
+          {/each}
+        </div>
+      </div>
+
+      <hr class="mx-4 my-1 border-slate-200" />
+
+      <!-- 추천 안경 목록 -->
+      <div
+        class="flex min-h-0 flex-1 flex-col px-4 py-4 transition-all"
+        class:ring-2={g_guide_step === 1 || g_guide_step === 2}
+        class:ring-[var(--retina-primary-300)]={g_guide_step === 1 || g_guide_step === 2}
+        class:ring-inset={g_guide_step === 1 || g_guide_step === 2}
+      >
+        <div class="mb-2 flex items-center justify-between pr-1">
+          <h2 class="text-[13px] font-extrabold text-zinc-900">추천 안경</h2>
+          <button
+            type="button"
+            onclick={on_click_refresh_glasses}
+            aria-label="프레임 변경"
+            class="relative flex items-center cursor-pointer border-0 bg-transparent p-0 transition-opacity hover:opacity-80"
+          >
+            <img src="/icons/Sum.png" alt="프레임 변경" class="h-7 w-auto" />
+            {#if g_active_filter_count > 0}
+              <span
+                class="absolute -top-1 right-0 flex h-3 w-3 items-center justify-center rounded-full bg-[var(--retina-primary-300)] text-[8px] font-black text-white"
+              >
+                {g_active_filter_count}
+              </span>
+            {/if}
+          </button>
+        </div>
+
+        <div class="min-h-0 flex-1 overflow-y-auto pr-1 custom-scrollbar">
+          {#if g_loading}
+            <div class="flex justify-center py-10">
+              <span
+                class="h-8 w-8 animate-spin rounded-full border-[3px] border-[var(--retina-primary-200)] border-t-transparent"
+              ></span>
+            </div>
+          {:else if g_glasses_arr.length === 0}
+            <div class="flex flex-col items-center gap-2 py-10 text-center">
+              <Glasses size={28} class="text-slate-200" />
+              <p class="text-[12px] font-bold text-slate-400">조건에 맞는 안경이 없습니다</p>
+              <button
+                type="button"
+                onclick={on_click_reset_filter}
+                class="text-[11px] font-bold text-[var(--retina-primary-300)] underline underline-offset-2"
+              >
+                필터 초기화
+              </button>
+            </div>
+          {:else}
+            <div class="flex flex-col gap-2 pb-2">
+              {#each g_glasses_arr as item (item.id)}
+                {@const active = item.id === g_selected_id}
+                {@const saved_count = g_saved_count_map[item.id] ?? 0}
+                <button
+                  type="button"
+                  onclick={() => on_click_select_glasses(item.id)}
+                  aria-label={item.model}
+                  class={`group relative flex items-center gap-2 rounded-sm border p-1.5 text-left transition-all ${
+                    active
+                      ? 'border-[var(--retina-primary-300)] bg-[var(--retina-bg-1)] shadow-sm'
+                      : 'border-slate-200 bg-white hover:border-[var(--retina-primary-100)]'
+                  }`}
+                >
+                  <div
+                    class="flex h-[44px] w-[58px] shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 p-0.5"
+                  >
+                    <img src={item.img_url} alt={item.model} class="h-full w-full object-contain" />
+                  </div>
+                  <div class="flex flex-1 flex-col overflow-hidden">
+                    {#if active}
+                      <span class="mb-0.5 inline-flex items-center gap-1 self-start">
+                        <img
+                          src="/icons/CheckActive.png"
+                          alt=""
+                          class="h-2.5 w-2.5 shrink-0"
+                          aria-hidden="true"
+                        />
+                        <img src="/icons/fitting.png" alt="피팅중" class="h-2 w-auto" />
+                      </span>
+                    {/if}
+                    <p class="truncate text-[14px] xl:text-[16px] 2xl:text-[18px] font-extrabold text-zinc-900">{item.model}</p>
+                    <span class="truncate text-[10px] font-semibold text-slate-400"
+                      >{item.brand}</span
+                    >
+                    <div class="mt-0.5 flex items-center justify-between gap-1.5">
+                      <span class="text-[11px] font-extrabold text-[var(--retina-primary-300)]"
+                        >{format_price_label(item.price)}</span
+                      >
+                      {#if !active && saved_count > 0}
+                        <span
+                          class="rounded bg-[var(--retina-bg-1)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--retina-primary-300)]"
+                        >
+                          저장됨
+                        </span>
+                      {/if}
+                    </div>
+                  </div>
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      </div>
+
+      <!-- 저장된 피팅 목록 + 액션 버튼 -->
+      <div
+        class="border-t border-slate-100 bg-white px-4 py-3 transition-all"
+        class:ring-2={g_guide_step === 5 || g_guide_step === 6}
+        class:ring-[var(--retina-primary-300)]={g_guide_step === 5 || g_guide_step === 6}
+        class:ring-inset={g_guide_step === 5 || g_guide_step === 6}
+      >
+        {#if g_saved_fittings_arr.length > 0}
+          <div class="mb-2">
+            <div class="mb-1 flex items-center justify-between">
+              <span class="text-[10px] font-extrabold tracking-wide text-slate-500">
+                저장된 피팅 ({g_saved_fittings_arr.length}/{MAX_FITTINGS})
+              </span>
+              {#if g_saved_fittings_arr.length >= MAX_FITTINGS}
+                <span class="text-[10px] font-bold text-amber-500">최대</span>
+              {/if}
+            </div>
+            <div class="flex gap-1 overflow-x-auto pb-0.5 custom-scrollbar">
+              {#each g_saved_fittings_arr as fit, idx (idx)}
+                <div
+                  class="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--retina-bg-1)] px-2 py-1"
+                  in:fly={{ y: 6, duration: 200 }}
+                >
+                  <CheckCheck size={9} class="shrink-0 text-[var(--retina-primary-300)]" />
+                  <span
+                    class="max-w-[60px] truncate text-[10px] font-bold text-[var(--retina-primary-300)]"
+                    >{fit.model}</span
+                  >
+                  <button
+                    type="button"
+                    onclick={() => on_click_remove_saved(idx)}
+                    aria-label="피팅 제거"
+                    class="ml-0.5 shrink-0 text-slate-400 transition-colors hover:text-red-400"
+                  >
+                    <X size={9} />
+                  </button>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        <p class="mb-1.5 text-center text-[10px] font-semibold text-slate-500">
+          1장 이상 촬영하면 피팅 결과를 저장할 수 있어요.
+        </p>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={(!g_can_save || g_submit_loading) && g_guide_step !== 5}
+            onclick={on_click_save_fitting}
+            aria-label="피팅 결과 저장"
+            class="block aspect-[31/13] w-full cursor-pointer overflow-hidden rounded-lg border-0 bg-transparent p-0 transition-all disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
+          >
+            {#if g_submit_loading}
+              <span
+                class="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-[var(--retina-primary-300)] bg-white text-[12px] font-extrabold text-[var(--retina-primary-300)]"
+              >
+                <span
+                  class="h-3 w-3 animate-spin rounded-full border-2 border-[var(--retina-primary-300)] border-t-transparent"
+                ></span>
+                <span>저장 중</span>
+              </span>
+            {:else}
+              <img src="/icons/BtnSave.png" alt="피팅 결과 저장" class="h-full w-full" />
+            {/if}
+          </button>
+
+          <button
+            type="button"
+            disabled={!g_can_submit && g_guide_step !== 6}
+            onclick={on_click_submit_report}
+            aria-label="실제 착용 분석하기"
+            class="flex aspect-[31/13] w-full cursor-pointer items-center justify-center rounded-lg border-0 bg-[var(--retina-primary-300)] px-2 xl:px-3 2xl:px-4 text-[13px] xl:text-[17px] 2xl:text-[21px] font-extrabold leading-tight text-white shadow-sm transition-all hover:bg-[var(--retina-primary-400)] disabled:cursor-not-allowed disabled:opacity-30 disabled:grayscale"
+          >
+            실제 착용 분석하기
+          </button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <LoadingOverlay open={g_flutter_launch_loading} label="안경 데이터를 불러오는 중..." />
+  <LoadingOverlay open={g_submit_loading} label="피팅 결과 저장 중..." />
+</AnalysisPageLayout>
+
+<!-- 가이드 오버레이 -->
+{#if g_guide_step > 0}
+  <div
+    class="fixed z-40 bg-black/60 backdrop-blur-[2px]"
+    style="top: 0; bottom: 0; left: calc(-1 * var(--app-frame-edge-extend, 0px)); right: calc(-1 * var(--app-frame-edge-extend, 0px));"
+    role="presentation"
+    onclick={on_click_guide_close}
+    in:fade={{ duration: 250 }}
+    out:fade={{ duration: 200 }}
+  ></div>
+
+  {#if g_guide_info}
+    <div
+      class="fixed z-50 w-[520px] rounded-3xl bg-white p-8 shadow-2xl"
+      style={g_guide_info.card_style}
+      in:fly={{ y: 8, duration: 300 }}
+      out:fade={{ duration: 150 }}
+    >
+      <div class="mb-6 flex gap-2">
+        {#each [1, 2, 3, 4, 5, 6] as step_num (step_num)}
+          <div
+            class="h-2 flex-1 rounded-full transition-colors duration-300 {g_guide_step >=
+            step_num
+              ? 'bg-[var(--retina-primary-200)]'
+              : 'bg-slate-100'}"
+          ></div>
+        {/each}
+      </div>
+      <p
+        class="mb-2 text-sm font-black uppercase tracking-widest text-[var(--retina-primary-300)]"
+      >
+        Step {g_guide_step} / 6
+      </p>
+      <h3 class="mb-4 text-2xl font-black leading-snug text-zinc-900">{g_guide_info.title}</h3>
+      <p class="whitespace-pre-line text-base leading-relaxed text-slate-500">{g_guide_info.desc}</p>
+
+      {#if g_guide_step === 3}
+        <!--
+          step3 미리보기 — 실제 카메라 영역에 둘러진 주황 ring 과 동일한 톤의 border 를 mock 영역에
+          입혀 사용자가 "지금 카메라 영역을 봐야 한다" 를 시각적으로 매칭.
+          내부에는 새 단일 셔터 버튼(외곽 white ring + 내부 primary 원) 모양을 그대로 작게 재현.
+        -->
+        <div
+          class="mt-5 overflow-hidden rounded-2xl border-2 border-[var(--retina-primary-300)] bg-zinc-900 px-5 py-6"
+        >
+          <p class="mb-4 text-center text-sm font-semibold text-white/60">카메라 하단 셔터</p>
+          <div class="flex items-center justify-center">
+            <div
+              class="grid h-[84px] w-[84px] place-items-center rounded-full border-[4px] border-white shadow-[0_6px_18px_rgba(0,0,0,0.4)]"
+            >
+              <span class="block h-[64px] w-[64px] rounded-full bg-[var(--retina-primary-300)]"></span>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      <div
+        class="mt-5 flex items-center justify-between gap-2 rounded-2xl bg-[var(--retina-bg-1)] px-5 py-4"
+      >
+        <span class="text-sm font-bold text-[var(--retina-primary-300)]">{g_guide_info.hint}</span>
+        <ChevronRight size={16} class="shrink-0 text-[var(--retina-primary-300)]" />
+      </div>
+      <div class="mt-6 flex items-center justify-between">
+        <button
+          type="button"
+          onclick={on_click_guide_close}
+          class="text-sm font-bold text-slate-400 transition-colors hover:text-slate-600"
+        >
+          건너뛰기
+        </button>
+        <div class="flex gap-2.5">
+          {#if g_guide_step > 1}
+            <button
+              type="button"
+              onclick={on_click_guide_prev}
+              class="rounded-xl border border-slate-200 px-5 py-2.5 text-base font-bold text-slate-600 transition-colors hover:bg-slate-50"
+            >
+              이전
+            </button>
+          {/if}
+          <button
+            type="button"
+            onclick={on_click_guide_next}
+            class="rounded-xl bg-[var(--retina-primary-300)] px-6 py-2.5 text-base font-bold text-white transition-colors hover:bg-[var(--retina-primary-400)]"
+          >
+            {g_guide_step < 6 ? '다음' : '시작하기'}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+{/if}
+
+<style>
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 10px;
+  }
+</style>

@@ -1,0 +1,914 @@
+package com.example.virtualfitting.arcore.rendering
+
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.graphics.Bitmap
+import android.os.Handler
+import android.os.Looper
+import android.util.Base64
+import android.util.Log
+import android.view.PixelCopy
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import java.io.ByteArrayOutputStream
+import com.example.virtualfitting.arcore.assets.AssetException
+import com.example.virtualfitting.arcore.assets.DefaultAssetResolver
+import com.example.virtualfitting.arcore.assets.ResolvedAsset
+import com.example.virtualfitting.arcore.contract.ErrorCode
+import com.example.virtualfitting.arcore.contract.VirtualFittingEvent
+import com.example.virtualfitting.arcore.contract.VirtualFittingRequest
+import com.example.virtualfitting.arcore.fitting.FaceCalibration
+import com.example.virtualfitting.arcore.fitting.PositionSmoother
+import com.example.virtualfitting.arcore.fitting.RotationSmoother
+import com.example.virtualfitting.arcore.fitting.computeNoseBridgeFaceLocal
+import com.example.virtualfitting.arcore.fitting.computeNoseBridgeFaceLocalY
+import com.example.virtualfitting.arcore.fitting.computeNoseBridgeWorld
+import com.example.virtualfitting.arcore.fitting.computeNoseBridgeWorldY
+import com.example.virtualfitting.arcore.fitting.measure
+import com.example.virtualfitting.arcore.fitting.withCalibration
+import com.example.virtualfitting.arcore.fitting.toPreset
+import com.example.virtualfitting.arcore.ui.StatusOverlay
+import com.google.android.filament.RenderableManager
+import com.google.ar.core.AugmentedFace
+import com.google.ar.core.Config
+import com.google.ar.core.Pose
+import com.google.ar.core.Session
+import com.google.ar.core.TrackingState
+import io.github.sceneview.SurfaceType
+import io.github.sceneview.ar.ARSceneView
+import io.github.sceneview.ar.arcore.transform
+import io.github.sceneview.ar.node.AugmentedFaceNode as AugmentedFaceNodeImpl
+import io.github.sceneview.ar.rememberARCameraNode
+import io.github.sceneview.ar.rememberARCameraStream
+import dev.romainguy.kotlin.math.rotation
+import dev.romainguy.kotlin.math.translation
+import io.github.sceneview.math.Position
+import io.github.sceneview.math.Scale
+import io.github.sceneview.math.Transform
+import io.github.sceneview.math.toQuaternion
+import io.github.sceneview.node.ModelNode as ModelNodeImpl
+import io.github.sceneview.rememberEngine
+import io.github.sceneview.rememberMaterialLoader
+import io.github.sceneview.rememberModelInstance
+import io.github.sceneview.rememberModelLoader
+
+private const val TAG = "FaceFittingScreen"
+
+/**
+ * 정면 영역의 너비 (degrees, 양수). |yaw| 가 이 값 이하면 두 다리 모두 hide,
+ * 이상이면 카메라를 향한 한쪽 다리만 show.
+ *
+ * 양수 yaw = 착용자가 자기 왼쪽으로 고개 돌림 → 카메라엔 우측 얼굴이 더 보임 →
+ * `temple_right` show, `temple_left` hide. 정면(|yaw| ≤ 임계값) 에선 두 다리 모두
+ * 머리 뒤에 가려져야 자연스러우므로 hide.
+ */
+private const val TEMPLE_HIDE_YAW_DEG = 10f
+
+/**
+ * [ROTATION_SMOOTHING] 회전 jitter 스무딩 토글.
+ * false 로 두면 회전을 raw 그대로 적용 (이전 동작과 완전 동일).
+ * 위치(translation) 는 어떤 경우에도 필터링하지 않는다 — 평행 이동 lag 방지.
+ *
+ * 원복 방법: 이 상수를 false 로 바꾸면 즉시 비활성. 모든 관련 코드는 `[ROTATION_SMOOTHING]`
+ * 마커로 표시돼 있어 grep 으로 일괄 제거 가능.
+ */
+private const val ROTATION_SMOOTHING_ENABLED: Boolean = true
+
+/**
+ * [POSITION_SMOOTHING] 위치 jitter 스무딩 토글.
+ *
+ * 현재 false: 적응형 One Euro Filter 도 빠른 회전 시 안경이 얼굴에서 살짝 분리되어
+ * "둥둥 떠있는 느낌" 을 만들어내는 부작용 발견 (2026-05-11 사용자 피드백).
+ * 회전 필터만으로 lever-arm 증폭 떨림을 잡으면 충분히 안정적임이 확인됨.
+ *
+ * true 로 두면 PositionSmoother (One Euro, BETA=10) 적용 — 정지 시 떨림 잡히지만 움직임 시
+ * 미끌림 발생.
+ */
+private const val POSITION_SMOOTHING_ENABLED: Boolean = false
+
+/**
+ * [NOSE_BRIDGE_ANCHOR] 안경 위치를 콧대 정점들의 world 좌표 기준으로 anchor (회전 보정 포함).
+ *
+ * 동기: ARCore Augmented Faces 의 centerPose 가 mesh deformation (광대/입 표정 변화) 시
+ * 같이 이동해 안경 좌표가 흔들림. NOSE_TIP region pose 도 부분적으로 영향 받음 (실측 확인됨).
+ * 콧대 정점 (인덱스 6, 197, 195) 은 코뼈라서 표정에 거의 무관 — 그들의 world 좌표를
+ * anchor 로 쓰면 표정 변화 시에도 안경이 얼굴에 착 달라붙어 유지된다.
+ *
+ * 공식 (회전 보정):
+ *   glassesWorld = bridgeWorld + face.rotation * (calibrated.localPosition - locked.bridgeFaceLocal)
+ *
+ * locked.bridgeFaceLocal 을 쓰는 이유: 표정 변화 시 face.centerPose 가 위로 끌려가면서
+ * mesh 의 face-local 좌표도 미세 변동 (~0.3mm). lock 시점 값을 기준으로 삼아야 그 변동까지
+ * 상쇄돼 안경이 완전히 stable 해진다. current frame 값을 쓰면 rawPos 와 수학적으로 같아져 anchor 효과가 사라짐.
+ *
+ * Simple Y-only 공식 (이전 시도) 은 회전 시 ~3mm 어긋남. 회전 행렬을 명시적으로 적용해야 정확.
+ */
+private const val NOSE_BRIDGE_ANCHOR_ENABLED: Boolean = true
+
+/**
+ * [NOSE_BRIDGE_ANCHOR] 콧대 정점 위치 매 프레임 logcat 출력 토글. 실측 검증용.
+ * 활성화 시 매 프레임 (1초에 30~60회) 로그가 찍히므로 성능 영향 약간 있음. 검증 후 끄기.
+ */
+private const val NOSE_BRIDGE_DEBUG_LOG: Boolean = true
+
+/**
+ * Calibration UI 가 표시되는 총 시간. 일찍 lock 되어도 이 시간이 다 차야
+ * isCalibrated=true 가 되어 오버레이가 사라짐.
+ *
+ * 동기: lock 이 0.5~1.5초만에 발생하면 진행률 바가 짧게 보여 사용자가 정면 응시할 시간이
+ * 부족하다고 느낌. UI 표시 시간을 충분히 확보해 사용자가 자세 잡을 여유를 줌. 그 동안
+ * lock 이 안정적으로 확정되고, fallback timeout (FaceCalibration.TIMEOUT_MS = 2.5초) 도
+ * 이 시간 안에 발생하므로 어차피 lock 보장됨.
+ */
+private const val CALIBRATION_PROGRESS_DURATION_MS: Long = 2500L
+
+/**
+ * 사용자가 "정면 주시 중" 버튼을 눌렀을 때, 즉시 lock 하지 않고 짧은 buffer 동안 측정 더 받음.
+ * 이유: 화면 터치 동작 자체가 ~0.5초 자세를 흐트림. buffer 동안 자세 다시 잡힌 샘플들이
+ * 평균에 묻혀 더 정확한 기준점이 잡힘.
+ */
+private const val USER_CONFIRM_BUFFER_MS: Long = 500L
+
+// [HEAD_OCCLUDER 시도 이력 — 2026-05-14 폐기]
+// Augmented Faces 의 canonical mesh 는 얼굴 앞면만 덮어서 귀/관자놀이/머리 옆 영역에
+// temple 끝부분이 그대로 보임. 이를 ellipsoid occluder 로 가리려고 시도했으나:
+//   1. SphereNode/MeshNode 를 scene root 에 두면 face_mesh_occluder material 의 depth 가
+//      camera stream 보다 close 이라 camera stream depth test fail → face 영역 black.
+//   2. AugmentedFaceNode 의 centerNode/content lambda 로 trackable subtree 에 attach 하려
+//      해도 manual setParent 는 Composable 관리 충돌로 렌더 안 됨, content lambda nesting 은
+//      NodeScope.attach 호출 안 됨 (parent=null 유지).
+//   3. AugmentedFaceNode 의 meshNode 만 특수 path 로 attach — 외부 API 로 접근 불가.
+// 결론: sceneview 4.0.8 외부 API 만으로는 occluder 추가 불가. 향후 sceneview fork 또는
+// 자체 filamat 컴파일 시 재시도 가능.
+
+/**
+ * 전면 카메라 + Augmented Faces + GLB 안경 렌더링의 핵심 Composable.
+ *
+ * 구현 노트: `AugmentedFaceNode` + 부모 연결 패턴이 현재 Sceneview 4.0.1 에서 동작하지 않아,
+ * ModelNode 를 scene root 에 두고 onSessionUpdated 에서 매 프레임 worldTransform 을 직접
+ * 세팅한다. 얼굴이 트래킹되지 않으면 `isVisible = false` 로 숨긴다.
+ */
+@Composable
+fun FaceFittingScreen(
+    request: VirtualFittingRequest,
+    emit: (VirtualFittingEvent) -> Unit,
+    onClose: () -> Unit,
+) {
+    val requestId = request.session.requestId
+    val preset = remember(request.fitting) { request.fitting.toPreset() }
+
+    val context = LocalContext.current
+    // RemoteModel 은 HTTP 다운로드가 필요하므로 IO 디스패처에서 resolve.
+    // 메인 스레드에서 직접 호출하면 NetworkOnMainThreadException 으로 터진다.
+    val resolution by produceState<Result<ResolvedAsset>?>(
+        initialValue = null,
+        request.asset,
+        context,
+    ) {
+        value = withContext(Dispatchers.IO) {
+            DefaultAssetResolver(context).resolve(request.asset)
+        }
+    }
+
+    if (resolution == null) {
+        // 모델 로딩 중에는 별도 안내 오버레이 없이 빈 화면을 잠깐 보여준다.
+        return
+    }
+
+    val resolved = resolution!!.getOrNull()
+
+    if (resolved == null) {
+        val error = resolution!!.exceptionOrNull()
+        val code = (error as? AssetException)?.code ?: ErrorCode.ASSET_URL_INVALID
+        emit(
+            VirtualFittingEvent.Error(
+                requestId = requestId,
+                code = code,
+                message = error?.message,
+            )
+        )
+        onClose()
+        return
+    }
+
+    val localAssetPath = (resolved as ResolvedAsset.LocalAssetPath).path
+
+    val engine = rememberEngine()
+    val modelLoader = rememberModelLoader(engine)
+    val materialLoader = rememberMaterialLoader(engine)
+    val cameraStream = rememberARCameraStream(materialLoader)
+    // sceneview 4.0.1 의 rememberModelInstance 는 asset 상대경로만 지원 (file:// / 절대경로 미지원).
+    // 따라서 RemoteModel 로 다운로드된 파일 (file://...) 의 경우엔 직접 ByteBuffer 로 읽어서
+    // modelLoader.createModelInstance(buffer) 에 넘긴다. asset 경로면 기존 경로 그대로 사용.
+    val modelInstance: io.github.sceneview.model.ModelInstance? by androidx.compose.runtime.produceState<io.github.sceneview.model.ModelInstance?>(
+        initialValue = null,
+        key1 = modelLoader,
+        key2 = localAssetPath,
+    ) {
+        // 바이트 읽기는 IO, Filament createModelInstance 는 Main 에서.
+        // (Filament Engine 이 채택한 스레드에서만 createModelInstance 호출 가능 — 안 그러면
+        // "This thread has not been adopted" panic → SIGABRT.)
+        value = runCatching {
+            val bytes = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                when {
+                    localAssetPath.startsWith("file://") -> {
+                        java.io.File(localAssetPath.removePrefix("file://")).readBytes()
+                    }
+                    localAssetPath.startsWith("/") -> {
+                        java.io.File(localAssetPath).readBytes()
+                    }
+                    else -> {
+                        // asset 상대경로
+                        context.assets.open(localAssetPath).use { it.readBytes() }
+                    }
+                }
+            }
+            modelLoader.createModelInstance(java.nio.ByteBuffer.wrap(bytes))
+        }.onFailure {
+            Log.e(TAG, "Failed to load model from $localAssetPath", it)
+        }.getOrNull()
+    }
+    val arCameraNode = rememberARCameraNode(engine)
+
+    // arsceneview AAR 이 번들한 depth-only unlit 재질. 얼굴 메쉬를 이 재질로 그리면 색은 쓰지
+    // 않고 depth 만 써서, 뒤쪽(얼굴 뒤) 에 있는 안경 다리 픽셀이 depth test 에 걸려 사라진다.
+    val faceOccluderInstance = remember(materialLoader) {
+        val material = materialLoader.createMaterial("materials/face_mesh_occluder.filamat")
+        materialLoader.createInstance(material)
+    }
+
+    // 스케일을 덮어쓰지 않기 위해 translation + rotation 만 담는다.
+    // 스케일은 ModelNode 의 scaleToUnits 가 세팅한 값이 유지된다.
+    val localOffset = remember(preset) {
+        translation(preset.localPosition) * rotation(preset.localRotation.toQuaternion())
+    }
+
+    // 분리된 GLB(`front` / `temple_left` / `temple_right`) 의 노드 entity 를 이름으로 조회.
+    // 단일 mesh GLB 면 leftEntity/rightEntity 가 0 으로 잡혀서 selective hide 를 건너뛴다.
+    val templeEntities = remember(modelInstance) {
+        val mi = modelInstance
+        if (mi == null) {
+            TempleEntities.EMPTY
+        } else {
+            TempleEntities(
+                left = mi.asset.getFirstEntityByName("temple_left"),
+                right = mi.asset.getFirstEntityByName("temple_right"),
+            )
+        }
+    }
+
+    var glassesNode by remember { mutableStateOf<ModelNodeImpl?>(null) }
+    // scaleToUnits 로 초기 계산된 scale 을 첫 프레임에 캡처. 이후 이를 baseline 으로 얼굴
+    // 폭에 맞춰 multiplier 를 곱한다.
+    var baseScale by remember { mutableStateOf<Scale?>(null) }
+    val calibration = remember { FaceCalibration() }
+    // [ROTATION_SMOOTHING] 회전 jitter 적응형 LPF. Compose 생명주기 동안 유지.
+    val rotationSmoother = remember { RotationSmoother() }
+    // [POSITION_SMOOTHING] 위치 jitter 적응형 LPF.
+    val positionSmoother = remember { PositionSmoother() }
+    var appliedPostLock by remember { mutableStateOf(false) }
+    // Calibration UI 상태. 첫 트래킹 시점에 시작, locked 되면 종료.
+    var calibrationStartMs by remember { mutableStateOf(0L) }
+    var calibrationProgress by remember { mutableStateOf(0f) }
+    var isCalibrated by remember { mutableStateOf(false) }
+    // 사용자가 "정면 주시 중" 버튼을 누른 시각. 0L 이면 미클릭 (자동 타이머 흐름).
+    var userConfirmedAtMs by remember { mutableStateOf(0L) }
+    // 디버그: 현재 yaw 와 temple 가시성을 status overlay 에 표시.
+    var debugYawDeg by remember { mutableStateOf(0f) }
+    var debugLeftVisible by remember { mutableStateOf(true) }
+    var debugRightVisible by remember { mutableStateOf(true) }
+    // AugmentedFaceNode 참조 — 첫 트래킹 프레임에 생성되는 meshNode 에 priority(0) 을 걸어
+    // 안경보다 먼저 렌더되도록 하기 위해 필요하다.
+    var faceNodeImpl by remember { mutableStateOf<AugmentedFaceNodeImpl?>(null) }
+    var occluderPrioritized by remember { mutableStateOf(false) }
+    // 한 번 detect 된 face 를 latch. detectedFaces.firstOrNull() 을 Composable 의 key 로 쓰면
+    // tracking flicker (TRACKING ↔ empty) 발생 시 AugmentedFaceNode 가 매번 재생성되며
+    // Filament entity 가 6씩 leak 됨 (2026-05-14 logcat 에서 700ms 에 +18 entity 관찰).
+    // 한 번 잡힌 face 레퍼런스를 유지하면 wrapper 의 onUpdated 가 매 프레임 같은 객체에
+    // 새 데이터를 채워주므로 안전. ARCore Augmented Face trackable 은 동일 face 에 대해
+    // 같은 객체를 재사용한다.
+    var latchedFace by remember { mutableStateOf<AugmentedFace?>(null) }
+    var detectedFaces by remember { mutableStateOf<List<AugmentedFace>>(emptyList()) }
+    var statusMessage by remember { mutableStateOf("Initializing ARCore...") }
+    var trackingReported by remember { mutableStateOf(false) }
+    var startedReported by remember { mutableStateOf(false) }
+    // 캡처 직전에 true 로 바꿔서 status overlay / 캡처 버튼이 결과 이미지에 찍히지 않게 한다.
+    var hide_overlay_during_capture by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        ARSceneView(
+            modifier = Modifier.fillMaxSize(),
+            surfaceType = SurfaceType.TextureSurface,
+            engine = engine,
+            modelLoader = modelLoader,
+            materialLoader = materialLoader,
+            cameraStream = cameraStream,
+            cameraNode = arCameraNode,
+            planeRenderer = false,
+            sessionFeatures = setOf(Session.Feature.FRONT_CAMERA),
+            sessionConfiguration = { _, config ->
+                config.augmentedFaceMode = Config.AugmentedFaceMode.MESH3D
+                config.planeFindingMode = Config.PlaneFindingMode.DISABLED
+                config.lightEstimationMode = Config.LightEstimationMode.DISABLED
+            },
+            onSessionCreated = {
+                // [depth-probe] (2026-05-14 확인 완료) front camera + Augmented Faces 세션에선
+                // AUTOMATIC=false, RAW_DEPTH_ONLY=false. ARCore Depth API 사용 불가.
+                if (!startedReported) {
+                    startedReported = true
+                    emit(VirtualFittingEvent.Started(requestId))
+                }
+                statusMessage = if (modelInstance == null) {
+                    "ARCore ready. Loading GLB..."
+                } else {
+                    "ARCore ready. Point the front camera at a face."
+                }
+            },
+            onSessionFailed = { exception ->
+                Log.e(TAG, "Failed to start AR session", exception)
+                statusMessage = "AR session failed: ${exception.message ?: "unknown error"}"
+                emit(
+                    VirtualFittingEvent.Error(
+                        requestId = requestId,
+                        code = ErrorCode.SESSION_CREATE_FAILED,
+                        message = exception.message,
+                    )
+                )
+            },
+            onSessionUpdated = { session, frame ->
+                val tracking = session.getAllTrackables(AugmentedFace::class.java)
+                    .filter { it.trackingState == TrackingState.TRACKING }
+                if (tracking != detectedFaces) detectedFaces = tracking
+
+                // 처음 잡힌 face 를 latch — 이후 tracking flicker 가 발생해도 같은 face 객체로
+                // Composable 이 유지돼 AugmentedFaceNode 재생성/entity leak 방지.
+                if (latchedFace == null) {
+                    tracking.firstOrNull()?.let { latchedFace = it }
+                }
+
+                // Face mesh 는 첫 TRACKING 프레임에만 생성된다. 생성된 시점에 priority(0) 으로
+                // 세팅해서 다른 opaque (안경 default=4) 보다 먼저 렌더되도록 강제한다. 이게
+                // 없으면 Filament 기본 near-to-far 정렬에서 가까운 안경이 먼저 그려지고
+                // depth buffer 는 이미 안경 값으로 덮여 있어서 occluder 가 효과가 없다.
+                if (!occluderPrioritized) {
+                    faceNodeImpl?.meshNode?.let { mesh ->
+                        mesh.setPriority(0)
+                        occluderPrioritized = true
+                        Log.d(TAG, "Occluder priority(0) applied to face mesh: entity=${mesh.entity}")
+                    }
+                }
+
+                val face = tracking.firstOrNull()
+                val node = glassesNode
+                if (face != null && node != null) {
+                    if (baseScale == null) baseScale = node.scale
+                    val nowMs = System.currentTimeMillis()
+                    if (calibrationStartMs == 0L) calibrationStartMs = nowMs
+
+                    // 매 프레임 측정 — lock 전엔 누적, lock 후엔 no-op.
+                    val m = measure(face)
+                    calibration.submit(m, nowMs = nowMs)
+
+                    // Calibration 진행률은 시간 기반으로 부드럽게 0→100%. 자동 흐름엔 3초
+                    // 타이머가 progress 1.0 도달 시점에 lock 보장. 사용자가 "정면 주시 중"
+                    // 버튼을 누르면 buffer 진행률이 자동 progress 를 추월해 빠르게 100% 로.
+                    val elapsedMs = nowMs - calibrationStartMs
+                    val timeProgress = (elapsedMs.toFloat() / CALIBRATION_PROGRESS_DURATION_MS)
+                        .coerceIn(0f, 1f)
+                    val confirmProgress = if (userConfirmedAtMs != 0L) {
+                        ((nowMs - userConfirmedAtMs).toFloat() / USER_CONFIRM_BUFFER_MS)
+                            .coerceIn(0f, 1f)
+                    } else {
+                        0f
+                    }
+                    calibrationProgress = maxOf(timeProgress, confirmProgress)
+
+                    // lock 시점에 한 번 calibrated preset 적용. 이후엔 ModelNode 의
+                    // scale/position 이 그 값을 유지하므로 매 프레임 재적용 불필요.
+                    val locked = calibration.locked
+                    val confirmedExpired = userConfirmedAtMs != 0L &&
+                        (nowMs - userConfirmedAtMs) >= USER_CONFIRM_BUFFER_MS
+                    val autoExpired = elapsedMs >= CALIBRATION_PROGRESS_DURATION_MS
+                    if (!isCalibrated && (confirmedExpired || autoExpired)) {
+                        // 분산 기반 / fallback timeout 으로 아직 lock 안 됐으면 누적 평균으로 강제.
+                        if (calibration.locked == null) calibration.forceLock()
+                        isCalibrated = true
+                    }
+                    val activeOffset = if (locked != null) {
+                        if (!appliedPostLock) {
+                            val calibrated = preset.withCalibration(locked)
+                            baseScale?.let { base ->
+                                node.scale = base * (calibrated.scaleToUnits / preset.scaleToUnits)
+                            }
+                            // [NOSE_BRIDGE_FIT] REFERENCE 측정용. lock 시점 한 번. 본인 얼굴
+                            // calibration 후 이 줄의 Y/Z 를 FittingPose.REFERENCE_NOSE_BRIDGE_* 로 옮김.
+                            Log.d(
+                                TAG,
+                                "[fit-ref] locked bridgeFaceLocal X=%.5f Y=%.5f Z=%.5f | noseTipY=%.5f faceWidth=%.5f ipd=%.5f"
+                                    .format(
+                                        locked.noseBridgeFaceLocalX,
+                                        locked.noseBridgeFaceLocalY,
+                                        locked.noseBridgeFaceLocalZ,
+                                        locked.noseTipY,
+                                        locked.faceWidth,
+                                        locked.ipd,
+                                    ),
+                            )
+                            // [TEMPLE_DEBUG] GLB 의 temple_left/right entity 매칭 여부 확인용.
+                            // hasTemples=false 면 entity 이름 매칭 실패 (GLB 의 노드 이름이 다름).
+                            Log.d(
+                                TAG,
+                                "[temple-debug] hasTemples=${templeEntities.hasTemples} left=${templeEntities.left} right=${templeEntities.right}",
+                            )
+                            appliedPostLock = true
+                        }
+                        translation(preset.withCalibration(locked).localPosition) *
+                            rotation(preset.localRotation.toQuaternion())
+                    } else {
+                        localOffset
+                    }
+
+                    val composed = face.centerPose.transform * activeOffset
+                    val rawPos = composed.position
+
+                    // [NOSE_BRIDGE_ANCHOR] 검증용 logcat 출력. 콧대 face-local Y/Z 가 매 프레임
+                    // 거의 일정해야 표정 무관 가정이 성립.
+                    if (NOSE_BRIDGE_DEBUG_LOG && isCalibrated) {
+                        val bridgeLocal = computeNoseBridgeFaceLocal(face)
+                        val bridgeWorldY = computeNoseBridgeWorldY(face)
+                        Log.d(
+                            TAG,
+                            "noseBridge localY=%.5f localZ=%.5f worldY=%.5f | centerPose worldY=%.5f"
+                                .format(bridgeLocal[1], bridgeLocal[2], bridgeWorldY, face.centerPose.ty()),
+                        )
+                    }
+
+                    // [NOSE_BRIDGE_ANCHOR] 회전 보정된 정밀 anchor 공식.
+                    //   glassesWorld = bridgeWorld + face.rotation * (calibrated.localPosition - locked.bridgeFaceLocal)
+                    // - bridgeWorld: 매 프레임 콧대 정점 world 좌표 평균 (표정에 stable).
+                    // - locked.bridgeFaceLocal: calibration 시점 콧대 face-local 좌표 (표정 변동 상쇄용).
+                    // - face.centerPose.rotateVector: face rotation 만 적용해 face-local offset → world.
+                    val anchoredPos = if (NOSE_BRIDGE_ANCHOR_ENABLED && locked != null && isCalibrated) {
+                        val bridgeWorld = computeNoseBridgeWorld(face)
+                        val calibratedLocal = preset.withCalibration(locked).localPosition
+                        val offsetLocal = floatArrayOf(
+                            calibratedLocal.x - locked.noseBridgeFaceLocalX,
+                            calibratedLocal.y - locked.noseBridgeFaceLocalY,
+                            calibratedLocal.z - locked.noseBridgeFaceLocalZ,
+                        )
+                        val rotatedOffset = floatArrayOf(0f, 0f, 0f)
+                        face.centerPose.rotateVector(offsetLocal, 0, rotatedOffset, 0)
+                        Position(
+                            bridgeWorld[0] + rotatedOffset[0],
+                            bridgeWorld[1] + rotatedOffset[1],
+                            bridgeWorld[2] + rotatedOffset[2],
+                        )
+                    } else {
+                        rawPos
+                    }
+                    // [POSITION_SMOOTHING] 적응형 One Euro Filter. beta=3.0 으로 평행 이동
+                    // 시엔 cutoff 자동 상승해 raw 추종 (lag 없음), 정지 시엔 minCutoff=1Hz 로
+                    // 떨림 잡음. 이전 고정 알파 LPF (lag 발생) 와 다른 패턴.
+                    node.position = if (POSITION_SMOOTHING_ENABLED) {
+                        positionSmoother.filter(anchoredPos, frame.timestamp)
+                    } else {
+                        anchoredPos
+                    }
+                    val rawQuat = composed.toQuaternion()
+                    // [ROTATION_SMOOTHING] 회전만 적응형 LPF. 정지 시 lever-arm 증폭 떨림 제거,
+                    // 빠른 head turn 시엔 cutoff 자동 상승으로 raw 추종.
+                    node.quaternion = if (ROTATION_SMOOTHING_ENABLED) {
+                        rotationSmoother.filter(rawQuat, frame.timestamp)
+                    } else {
+                        rawQuat
+                    }
+                    // Calibration 끝나기 전엔 안경 숨김 — 사용자가 정면 응시하는 동안 어색한
+                    // 위치 추정이 노출되지 않도록.
+                    node.isVisible = isCalibrated
+
+                    // 분리된 GLB 인 경우, yaw 에 따라 반대편 temple 을 숨김.
+                    if (templeEntities.hasTemples && isCalibrated) {
+                        val yawDeg = computeYawDegrees(face.centerPose)
+                        val rm = engine.renderableManager
+                        // |yaw| ≤ 임계값: 정면 영역 → 두 다리 모두 hide.
+                        // yaw > +임계값: 머리가 좌측으로 돌아 우측 얼굴이 카메라를 향함 → 우 다리만 show.
+                        // yaw < -임계값: 머리가 우측으로 돌아 좌측 얼굴이 카메라를 향함 → 좌 다리만 show.
+                        val leftVisible = yawDeg < -TEMPLE_HIDE_YAW_DEG
+                        val rightVisible = yawDeg > TEMPLE_HIDE_YAW_DEG
+                        setEntityVisible(rm, templeEntities.left, leftVisible)
+                        setEntityVisible(rm, templeEntities.right, rightVisible)
+                        debugYawDeg = yawDeg
+                        debugLeftVisible = leftVisible
+                        debugRightVisible = rightVisible
+                    }
+                } else {
+                    node?.isVisible = false
+                    // [ROTATION_SMOOTHING] 트래킹 lost 시 필터 state 초기화.
+                    // 안 하면 재트래킹 시 옛 회전으로 "스르륵" 미끄러져 들어오는 아티팩트 발생.
+                    if (ROTATION_SMOOTHING_ENABLED) rotationSmoother.reset()
+                    // [POSITION_SMOOTHING] 위치 필터도 동일 이유로 reset.
+                    if (POSITION_SMOOTHING_ENABLED) positionSmoother.reset()
+                }
+
+                when {
+                    modelInstance == null -> {
+                        statusMessage = "Loading GLB into renderer..."
+                    }
+                    tracking.isEmpty() -> {
+                        if (trackingReported) {
+                            trackingReported = false
+                            emit(VirtualFittingEvent.TrackingLost(requestId))
+                        }
+                        statusMessage = "Point the front camera at a face."
+                    }
+                    else -> {
+                        if (!trackingReported) {
+                            trackingReported = true
+                            emit(VirtualFittingEvent.TrackingActive(requestId))
+                        }
+                        statusMessage = if (templeEntities.hasTemples) {
+                            "yaw=%+.1f° L=%s R=%s".format(
+                                debugYawDeg,
+                                if (debugLeftVisible) "ON" else "off",
+                                if (debugRightVisible) "ON" else "off",
+                            )
+                        } else {
+                            "GLB attached to ${tracking.size} face(s)."
+                        }
+                    }
+                }
+            }
+        ) {
+            // AugmentedFaceNode 제거: 얼굴 mesh occluder 가 dispose 시 MaterialInstance 와
+            // Renderable 의 destroy 순서 race 로 Filament Precondition Panic → SIGABRT 발생.
+            // 대신 GLB 노드 (`temple_left` / `temple_right`) 의 yaw-based visibility 토글로
+            // 안경 다리 가림 처리. 단일 mesh GLB 의 경우 머리 뒤 temple 이 비치는 시각적
+            // 단점이 있으나, 3-part split GLB (스펙 권장) 에서는 이미 충분히 자연스러움.
+
+            // 안경 다리 occlusion 시도 이력 (2026-05-08):
+            // 1. AugmentedFaceNode + face_mesh_occluder.filamat → mesh 렌더 자체 안 됨 + dispose race crash
+            // 2. visible 머티리얼로 바꿔봐도 face mesh 안 그려짐 → wrapper 가 mesh 데이터 누락 의심
+            // 3. SphereNode + visible 머티리얼 → 화면에 sphere 안 그려짐 (logcat 에러 없이 silent fail)
+            // 결론: SceneView 4.0.1 의 보조 mesh 렌더 경로가 우리 설정에서 작동 안 함.
+            // 다른 경로 (3-part split GLB) 도 GLB 가 photogrammetry 단일 mesh 라 부적합.
+            // 정면에서 안경 다리 보이는 것은 알려진 한계로 수용. 후속 작업 후보:
+            //  - GLB 를 모델링/CAD 로 재제작해서 3-part split 가능하게
+            //  - SceneView 버전 업그레이드 후 재시도
+
+            val instance = modelInstance
+            if (instance != null) {
+                ModelNode(
+                    modelInstance = instance,
+                    autoAnimate = false,
+                    scaleToUnits = preset.scaleToUnits,
+                    centerOrigin = Position(x = 0f, y = 0f, z = 0f),
+                    isVisible = false,
+                    apply = {
+                        glassesNode = this
+                        isTouchable = false
+                        isEditable = false
+                        isShadowCaster = false
+                        isShadowReceiver = false
+                        setCulling(false)
+                    }
+                )
+            }
+
+            // [FACE_OCCLUDER] SceneView 4.0.8 재시도.
+            // ARSceneScope.AugmentedFaceNode Composable wrapper 사용 (raw 생성자는 scene
+            // attach 안 되고 update 도 안 돼서 meshNode 가 생성되지 않음). wrapper 가 내부적으로
+            // sceneNodeManager.addNode + per-frame update(session, frame) 호출하므로 meshNode
+            // 가 lazy 생성된다. priority(0) 은 onSessionUpdated 에서 meshNode != null 일 때 적용.
+            // dispose race 는 4.0.2 의 fix 로 SIGABRT 까진 안 가야 함 (4.0.1 한계 해제).
+            //
+            // detectedFaces.firstOrNull() 직접 쓰지 않고 latchedFace 사용 — flicker 시 wrapper
+            // 가 재생성되며 Filament entity 가 6씩 leak 되는 문제 회피.
+            latchedFace?.let { face ->
+                AugmentedFaceNode(
+                    augmentedFace = face,
+                    meshMaterialInstance = faceOccluderInstance,
+                    apply = {
+                        // `this` 는 생성된 AugmentedFaceNode 인스턴스 (extension lambda receiver).
+                        faceNodeImpl = this
+                        occluderPrioritized = false
+                        Log.d(TAG, "[face-occluder] AugmentedFaceNode created")
+                    },
+                )
+            }
+        }
+
+        CaptureControls(
+            requestId = requestId,
+            emit = emit,
+            onAllCaptured = onClose,
+            on_set_overlay_hidden = { hidden -> hide_overlay_during_capture = hidden },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 24.dp, start = 16.dp, end = 16.dp)
+                .alpha(if (hide_overlay_during_capture) 0f else 1f),
+        )
+
+        // Calibration overlay 는 fade in/out 으로 부드럽게 전환. 사라지는 동안 안경이
+        // 점차 드러나는 효과 — 안경 노드 자체의 alpha 조정은 Filament material 단에서
+        // 복잡해서, 검은 반투명 overlay 의 alpha 만 보간하는 방식으로 시각적 fade-in 모방.
+        AnimatedVisibility(
+            visible = !isCalibrated,
+            enter = fadeIn(animationSpec = tween(durationMillis = 200)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 500)),
+        ) {
+            CalibrationOverlay(
+                progress = calibrationProgress,
+                confirmed = userConfirmedAtMs != 0L,
+                onConfirm = { userConfirmedAtMs = System.currentTimeMillis() },
+            )
+        }
+
+    }
+}
+
+/**
+ * 풀스크린 calibration 안내 오버레이. AR 진입 직후 사용자가 정면을 응시하는 동안 표시.
+ * `FaceCalibration` 이 locked 되면 isCalibrated=true 가 되어 부모 측에서 unmount 됨.
+ *
+ * 하이브리드 흐름:
+ *  - 자동 3초 타이머 → 자동 lock
+ *  - 또는 "정면 주시 중" 버튼 → 짧은 buffer 후 즉시 lock (자동 흐름 추월)
+ */
+@Composable
+private fun CalibrationOverlay(
+    progress: Float,
+    confirmed: Boolean,
+    onConfirm: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.55f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "정면을 응시해주세요",
+                color = Color.White,
+                fontSize = 22.sp,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "안경 위치를 맞추는 중입니다",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 14.sp,
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Box(
+                modifier = Modifier
+                    .width(240.dp)
+                    .height(8.dp)
+                    .background(
+                        Color.White.copy(alpha = 0.25f),
+                        RoundedCornerShape(4.dp),
+                    ),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .background(
+                            Color(0xFFF97316),
+                            RoundedCornerShape(4.dp),
+                        ),
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = { if (!confirmed) onConfirm() },
+                enabled = !confirmed,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFF97316),
+                    disabledContainerColor = Color(0xFF6B7280),
+                ),
+            ) {
+                Text(
+                    text = if (confirmed) "측정 중..." else "정면 주시 중",
+                    color = Color.White,
+                )
+            }
+        }
+    }
+}
+
+private val CAPTURE_SLOT_ARR = listOf(
+    "front" to "1번",
+    "left" to "2번",
+    "right" to "3번",
+)
+
+/**
+ * 하단 캡처 컨트롤러. 정면/좌/우 3장을 native 에서 직접 PixelCopy 로 캡처해
+ * VirtualFittingEvent.Captured 로 전송하고, 3장이 모두 끝나면 자동으로 닫힌다.
+ */
+@Composable
+private fun CaptureControls(
+    requestId: String,
+    emit: (com.example.virtualfitting.arcore.contract.VirtualFittingEvent) -> Unit,
+    onAllCaptured: () -> Unit,
+    on_set_overlay_hidden: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
+    val coroutine_scope = rememberCoroutineScope()
+
+    var captured_slot_set by remember { mutableStateOf(setOf<String>()) }
+    var capture_in_progress by remember { mutableStateOf(false) }
+
+    // 모든 슬롯이 채워지면 짧게 대기 후 Activity 종료. 마지막 emit 이 dispatcher 에 도달할
+    // 시간을 주기 위해 약간의 delay 를 둔다.
+    LaunchedEffect(captured_slot_set.size) {
+        if (captured_slot_set.size >= CAPTURE_SLOT_ARR.size) {
+            delay(400)
+            onAllCaptured()
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color(0xCC1F1F1F), RoundedCornerShape(16.dp))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = if (captured_slot_set.size >= CAPTURE_SLOT_ARR.size) {
+                "촬영 완료. 잠시 후 닫힙니다..."
+            } else {
+                "1번 → 2번 → 3번 순서로 촬영해주세요"
+            },
+            color = Color.White,
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            CAPTURE_SLOT_ARR.forEach { (slot_key, slot_label) ->
+                val captured = slot_key in captured_slot_set
+                Button(
+                    onClick = onClick@{
+                        if (capture_in_progress || captured || activity == null) return@onClick
+                        capture_in_progress = true
+                        // overlay/캡처 버튼을 잠깐 alpha 0 으로 만들고, recomposition 이 화면에
+                        // 반영된 다음 PixelCopy 를 호출해 결과 이미지에 UI 가 찍히지 않게 한다.
+                        coroutine_scope.launch {
+                            on_set_overlay_hidden(true)
+                            // 두 프레임 정도 (~120ms) 대기. compose draw 가 반영되도록.
+                            delay(120)
+                            captureWindowToBase64(activity) { base64 ->
+                                on_set_overlay_hidden(false)
+                                capture_in_progress = false
+                                if (base64 != null) {
+                                    emit(
+                                        com.example.virtualfitting.arcore.contract.VirtualFittingEvent.Captured(
+                                            requestId = requestId,
+                                            slot = slot_key,
+                                            imageBase64 = base64,
+                                        )
+                                    )
+                                    captured_slot_set = captured_slot_set + slot_key
+                                }
+                            }
+                        }
+                    },
+                    enabled = !captured && !capture_in_progress,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (captured) Color(0xFF4CAF50) else Color(0xFFF97316),
+                        disabledContainerColor = Color(0xFF4CAF50),
+                    ),
+                ) {
+                    Text(if (captured) "$slot_label ✓" else slot_label)
+                }
+            }
+        }
+    }
+}
+
+/** Compose 내부에서 받는 Context 가 ContextWrapper 일 수 있어 Activity 까지 언랩한다. */
+private fun Context.findActivity(): Activity? {
+    var ctx: Context = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
+
+/**
+ * Activity 의 Window 전체를 PixelCopy 로 비트맵에 복사하고 JPEG base64 로 인코딩한다.
+ * ARCore + Filament 가 hardware accelerated 로 그리므로 View.draw 로는 픽셀이 안 잡힌다.
+ */
+private fun captureWindowToBase64(activity: Activity, callback: (String?) -> Unit) {
+    val window = activity.window
+    val decor_view = window.decorView
+    val width = decor_view.width
+    val height = decor_view.height
+    if (width <= 0 || height <= 0) {
+        Log.w("FaceFittingScreen", "captureWindowToBase64: invalid view size $width x $height")
+        callback(null)
+        return
+    }
+
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val handler = Handler(Looper.getMainLooper())
+    try {
+        PixelCopy.request(window, bitmap, { result ->
+            try {
+                if (result == PixelCopy.SUCCESS) {
+                    val baos = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 85, baos)
+                    val base64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+                    callback(base64)
+                } else {
+                    Log.w("FaceFittingScreen", "PixelCopy failed: $result")
+                    callback(null)
+                }
+            } finally {
+                bitmap.recycle()
+            }
+        }, handler)
+    } catch (t: Throwable) {
+        Log.e("FaceFittingScreen", "PixelCopy.request threw", t)
+        bitmap.recycle()
+        callback(null)
+    }
+}
+
+/** 분리 GLB 의 좌/우 temple entity. 0 = 해당 이름의 노드 없음. */
+private data class TempleEntities(val left: Int, val right: Int) {
+    val hasTemples: Boolean get() = left != 0 && right != 0
+
+    companion object {
+        val EMPTY = TempleEntities(left = 0, right = 0)
+    }
+}
+
+/**
+ * face.centerPose 의 quaternion 에서 yaw (Y축 회전, degrees) 추출.
+ * 양수 = 착용자 왼쪽으로 고개 돌림. 음수 = 오른쪽.
+ */
+private fun computeYawDegrees(pose: Pose): Float {
+    val qx = pose.qx()
+    val qy = pose.qy()
+    val qz = pose.qz()
+    val qw = pose.qw()
+    val sinY = 2f * (qw * qy + qz * qx)
+    val cosY = 1f - 2f * (qx * qx + qy * qy)
+    return (kotlin.math.atan2(sinY, cosY) * 180f / kotlin.math.PI.toFloat())
+}
+
+/** Filament entity 의 layer mask 로 가시성 토글. entity == 0 이면 no-op. */
+private fun setEntityVisible(rm: RenderableManager, entity: Int, visible: Boolean) {
+    if (entity == 0) return
+    val instance = rm.getInstance(entity)
+    if (instance == 0) return
+    rm.setLayerMask(instance, 0xff, if (visible) 0xff else 0x00)
+}

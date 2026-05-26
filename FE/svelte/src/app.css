@@ -1,0 +1,222 @@
+@import 'tailwindcss';
+
+/*
+  Pretendard Variable — public/font/Pretendard-1.3.9/web/variable/ 에 번들된 가변 폰트.
+  하나의 woff2 로 weight 45~920 전부 커버 (font-weight 무엇이든 같은 파일 재사용).
+  font-display: swap → 폰트 다운로드 동안 시스템 폰트로 즉시 렌더, 도착 후 교체.
+*/
+@font-face {
+  font-family: 'Pretendard Variable';
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url('/font/PretendardVariable.woff2') format('woff2-variations');
+}
+
+:root {
+  --retina-primary-50: #fff3eb;
+  --retina-primary-100: #ffd8c2;
+  --retina-primary-200: #ffb48f;
+  --retina-primary-300: #f98a4a;
+  --retina-primary-400: #ea6a0f;
+  --retina-primary-500: #c8570c;
+  --retina-primary-600: #9e4309;
+  --retina-primary-700: #6e2e05;
+  --retina-accent: #ffaf86;
+  --retina-text-100: #f1f3f5;
+  --retina-text-200: #e5e7eb;
+  --retina-text-300: #d1d5db;
+  --retina-text-400: #9ca3af;
+  --retina-text-500: #6b7280;
+  --retina-text-600: #374151;
+  --retina-text-700: #111827;
+  --retina-text-800: #131928;
+  --retina-surface: #ffffff;
+  --retina-page: #d9dde2;
+  --retina-soft-purple: #f7cdb6;
+  --retina-text: #131928;
+  --retina-text-secondary: #445064;
+  --retina-text-muted: #787f8d;
+  --retina-border: #bcc2cc;
+  --retina-success-700: #2e7d32;
+  --retina-success-soft: #e8f5e9;
+  --retina-measure-auto: #1f7a3a;
+  --retina-measure-manual: #f56b00;
+  --retina-bg-1: #fafafb;
+  --retina-bg-2: #bcc2cc;
+  /*
+    반응형 브레이크포인트 (Tailwind v4 기본값과 동기화).
+    모바일 우선 — 기본 스타일은 mobile, sm 이상부터 점진적으로 확장.
+      sm:  >=640px   소형 태블릿/대형 모바일
+      md:  >=768px   태블릿
+      lg:  >=1024px  데스크탑 (기존 1024 베이스 동등)
+      xl:  >=1280px  와이드 데스크탑
+      2xl: >=1536px  대형 모니터
+  */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1536px;
+
+  /* 헤더 높이 — 모바일에서 짧게, 태블릿/데스크탑에서 길게 */
+  --app-header-h: 52px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --app-header-h: 56px;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#app::-webkit-scrollbar,
+.app-frame::-webkit-scrollbar,
+.app-frame-content::-webkit-scrollbar,
+.app-frame-page::-webkit-scrollbar,
+.app-page-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+  background: transparent;
+}
+
+html {
+  font-family:
+    'Pretendard Variable',
+    Pretendard,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  color: var(--retina-text);
+  background: var(--retina-bg-1);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* 가로 스크롤 차단 — 모바일 viewport 에서 의도치 않은 가로 overflow 방지. */
+  overflow-x: hidden;
+  min-height: 100svh;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100svh;
+  margin: 0;
+  background: var(--retina-bg-1);
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#app {
+  min-height: 100svh;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.app-root {
+  min-height: 100svh;
+  width: 100%;
+  background: var(--retina-bg-1);
+}
+
+@layer base {
+  /*
+    네이티브 폼 요소가 OS 기본 폰트가 아니라 페이지 폰트를 따르게 한다.
+    @layer base 안에 두는 이유: Tailwind utilities (@layer utilities) 보다 낮은 우선순위라
+    `text-3xl` 같은 utility 로 자유롭게 덮어쓸 수 있다. unlayered 면 utility 가 다 무시된다.
+  */
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.auth-action-link,
+.auth-action-link a {
+  color: var(--retina-accent) !important;
+  font-weight: 800;
+  text-decoration-line: underline !important;
+  text-decoration-color: var(--retina-accent) !important;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  transition:
+    color 150ms ease,
+    text-decoration-color 150ms ease;
+}
+
+.auth-action-link:hover,
+.auth-action-link:hover a {
+  color: #ffffff !important;
+  text-decoration-color: #ffffff !important;
+}
+
+.auth-action-link:focus-within {
+  border-radius: 4px;
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 4px;
+}
+
+/*
+  ---------------------------------------------------------------------------
+  레거시 frame 클래스 — 모두 no-op 또는 자연 flow 로 변환.
+
+  기존엔 1024×768 고정 캔버스를 transform:scale 로 viewport 에 맞게 축소했지만,
+  모바일까지 지원하기 위해 미디어 쿼리 기반 자연 flow 로 전환.
+  기존 페이지가 이 클래스들을 사용 중이라 식별자는 유지하되 효과는 없거나 단순화.
+  ---------------------------------------------------------------------------
+*/
+
+/* 페이지 루트 — fixed 헤더가 가리지 않게 헤더 높이만큼 상단 패딩만 예약. */
+.app-frame-page {
+  width: 100%;
+  min-height: 100svh;
+  padding-top: var(--app-header-h, 52px);
+}
+
+/* 분석 페이지처럼 헤더 + step bar 가 동시에 떠있는 경우 step bar 가 있는 자식 컴포넌트가
+   자체적으로 위치 잡으므로 별도 처리 불필요. */
+
+/* fixed 헤더는 이제 viewport 기준으로 직접 left:0/right:0 — 별도 offset 없음. */
+.app-edge-extend {
+  left: 0;
+  right: 0;
+}
+
+/* in-flow 배경 확장 utility 들은 scale 이 사라져 항상 0 offset → no-op. */
+.app-bg-edge-extend,
+.app-bg-edge-extend-left,
+.app-bg-edge-extend-right,
+.app-bg-edge-extend-bottom {
+  margin: 0;
+}
+
+.app-page-scroll {
+  min-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}

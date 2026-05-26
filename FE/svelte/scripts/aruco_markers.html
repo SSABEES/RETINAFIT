@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>ArUco markers — ID 0, 1 (ARUCO_MIP_36h12, 30mm)</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 20mm;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, 'Helvetica Neue', sans-serif;
+        padding: 20mm;
+      }
+      .marker {
+        display: flex;
+        align-items: center;
+        gap: 8mm;
+        margin-bottom: 15mm;
+        page-break-inside: avoid;
+      }
+      .svg-wrap {
+        width: 37.5mm;
+        height: 37.5mm;
+      }
+      .svg-wrap svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .label {
+        font-size: 10pt;
+        color: #444;
+      }
+      .note {
+        font-size: 9pt;
+        color: #888;
+        margin-top: 20mm;
+        max-width: 120mm;
+        line-height: 1.5;
+      }
+      @media print {
+        .note {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="marker">
+      <div class="svg-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">
+          <rect x="0" y="0" width="10" height="10" fill="white" />
+          <rect x="1" y="1" width="8" height="8" fill="black" />
+          <rect x="2" y="2" width="1" height="1" fill="white" />
+          <rect x="3" y="2" width="1" height="1" fill="white" />
+          <rect x="5" y="2" width="1" height="1" fill="white" />
+          <rect x="2" y="3" width="1" height="1" fill="white" />
+          <rect x="4" y="3" width="1" height="1" fill="white" />
+          <rect x="6" y="3" width="1" height="1" fill="white" />
+          <rect x="7" y="3" width="1" height="1" fill="white" />
+          <rect x="3" y="4" width="1" height="1" fill="white" />
+          <rect x="4" y="4" width="1" height="1" fill="white" />
+          <rect x="2" y="5" width="1" height="1" fill="white" />
+          <rect x="3" y="5" width="1" height="1" fill="white" />
+          <rect x="4" y="5" width="1" height="1" fill="white" />
+          <rect x="6" y="5" width="1" height="1" fill="white" />
+          <rect x="6" y="6" width="1" height="1" fill="white" />
+          <rect x="3" y="7" width="1" height="1" fill="white" />
+          <rect x="4" y="7" width="1" height="1" fill="white" />
+          <rect x="5" y="7" width="1" height="1" fill="white" />
+          <rect x="7" y="7" width="1" height="1" fill="white" />
+        </svg>
+      </div>
+      <div class="label">ID 0 · 30mm · ARUCO_MIP_36h12</div>
+    </div>
+
+    <div class="marker">
+      <div class="svg-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">
+          <rect x="0" y="0" width="10" height="10" fill="white" />
+          <rect x="1" y="1" width="8" height="8" fill="black" />
+          <rect x="3" y="2" width="1" height="1" fill="white" />
+          <rect x="4" y="2" width="1" height="1" fill="white" />
+          <rect x="5" y="4" width="1" height="1" fill="white" />
+          <rect x="3" y="5" width="1" height="1" fill="white" />
+          <rect x="6" y="5" width="1" height="1" fill="white" />
+          <rect x="7" y="5" width="1" height="1" fill="white" />
+          <rect x="3" y="6" width="1" height="1" fill="white" />
+          <rect x="6" y="6" width="1" height="1" fill="white" />
+          <rect x="7" y="6" width="1" height="1" fill="white" />
+          <rect x="2" y="7" width="1" height="1" fill="white" />
+          <rect x="5" y="7" width="1" height="1" fill="white" />
+          <rect x="7" y="7" width="1" height="1" fill="white" />
+        </svg>
+      </div>
+      <div class="label">ID 1 · 30mm · ARUCO_MIP_36h12</div>
+    </div>
+
+    <div class="note">
+      인쇄 시 "실제 크기(100%)" 옵션을 사용하세요. 인쇄 후 caliper 로 검정 marker 본체가 정확히 30mm
+      × 30mm 인지 확인하고, ±0.3mm 초과 시 프린터 스케일을 보정하세요. 무광 라벨지 권장 (광택 라벨은
+      specular highlight 로 검출 실패).
+    </div>
+  </body>
+</html>

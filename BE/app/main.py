@@ -1,0 +1,92 @@
+import time
+import boto3
+import logging
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+
+from app.core.config import settings
+from app.core.database import AsyncSessionLocal
+from app.common.handlers import register_exception_handlers
+from app.api.router import api_router
+
+# ─── 로깅 설정 ────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.DEBUG if settings.DEBUG else logging.WARNING,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+
+# ─── 앱 시작 시간 ─────────────────────────────────────────────
+_start_time = time.time()
+
+# ─── 앱 생성 ──────────────────────────────────────────────────
+app = FastAPI(
+    title="S14 Backend API",
+    version="0.1.0",
+    # 배포 환경에서는 docs 비활성화
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
+)
+
+# ─── CORS ─────────────────────────────────────────────────────
+# FE(Svelte)에서 BE로 요청할 때 브라우저가 막는 것 방지
+# 개발 중에는 전체 허용, 배포 시 FE 주소로 좁혀야 함 -> .env.local 파일에서 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if settings.DEBUG else settings.ALLOWED_ORIGINS,
+    allow_credentials=True,                 # 쿠키, Authorization 헤더 포함 요청 허용
+    allow_methods=["*"],                    # GET, POST, PUT, DELETE 등 모든 HTTP 메서드 허용
+    allow_headers=["*"],                    # 요청에 포함할 수 있는 헤더 제한 없음
+)
+
+# ─── 예외 핸들러 등록 ─────────────────────────────────────────
+register_exception_handlers(app)
+
+# ─── 라우터 등록 ──────────────────────────────────────────────
+app.include_router(api_router, prefix="/api/v1")
+
+# ─── 헬스체크 ─────────────────────────────────────────────────
+@app.get("/health", tags=["health"])
+async def health_check():
+    # 1. 서버 상태
+    uptime_seconds = int(time.time() - _start_time)
+
+    # 2. DB 연결 체크
+    db_status = "ok"
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+
+    # 3. S3 연결 체크
+    s3_status = "ok"
+    try:
+        s3_client = boto3.client(
+            "s3",
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=settings.AWS_REGION,
+        )
+        s3_client.head_bucket(Bucket=settings.S3_BUCKET_NAME)
+    except ClientError as e:
+        s3_status = f"error: {str(e)}"
+    except Exception as e:
+        s3_status = f"error: {str(e)}"
+
+    # 4. CloudFront 설정 체크
+    cloudfront_status = {
+        "enabled": bool(settings.CLOUDFRONT_DOMAIN),
+        "domain": settings.CLOUDFRONT_DOMAIN or None,
+    }
+
+    return {
+        "status": "ok",
+        "env": settings.APP_ENV,
+        "uptime_seconds": uptime_seconds,
+        "checks": {
+            "database": db_status,
+            "s3": s3_status,
+            "cloudfront": cloudfront_status,
+        }
+    }

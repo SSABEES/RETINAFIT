@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      배포 환경에서 index.html 자체가 캐싱되어 옛 빌드의 해시된 자산을 계속 참조하는 문제 방지.
+      정석은 서버 측 Cache-Control 헤더로 처리하지만, 그 설정을 못 만지는 환경에서의 fallback.
+      자산(JS/CSS)은 빌드 해시가 들어가 있어 별도 캐싱 무관.
+    -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>RetinaFit</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
